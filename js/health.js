@@ -1,0 +1,167 @@
+/* Health: the injury room and the availability of the players, and the training load.
+   An unavailability (injury, illness, absence, suspension) has a start, a planned return and a note; it is kept on the player
+   (shared with the club). The convocation of a match and the call of a session show who is not available that day.
+   After a session, each player's effort (RPE, 1 to 10) × its length gives the load; a player whose last 7 days are much
+   heavier than his usual weeks is flagged (risk of injury). */
+const Health = (() => {
+  const { esc, $, $$, toast, modal, confirmBox } = UI;
+  const S = () => Store.state;
+  const KINDS = { injury: ['🚑', 'Blessure'], ill: ['🤒', 'Malade'], away: ['✈️', 'Absent'], susp: ['🟥', 'Suspendu'] };
+  const PARTS = ['Cheville', 'Genou', 'Ischios', 'Quadriceps', 'Adducteurs', 'Mollet', 'Pied', 'Hanche', 'Dos', 'Épaule', 'Poignet / main', 'Tête (commotion)', 'Autre'];
+  const AWAY = ['Vacances', 'Examens', 'Raison familiale', 'Voyage scolaire', 'Autre'];
+  const RPE = ['', 'Très facile', 'Facile', 'Modéré', 'Un peu dur', 'Dur', 'Dur +', 'Très dur', 'Très dur +', 'Épuisant', 'Maximal'];
+  const today = () => UI.today();
+  const addDays = (d, n) => { const x = new Date(d + 'T12:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  const days = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
+  const fmt = d => UI.fmtDate(d, { day: 'numeric', month: 'short' });
+
+  /* ---------- availability ---------- */
+  // the unavailability running on a day (the return date is the first day he is back)
+  const on = (p, date = today()) => (p && p.unavail || []).find(u => u.from <= date && (!u.to || date < u.to)) || null;
+  const label = u => `${KINDS[u.kind][0]} ${KINDS[u.kind][1]}${u.part ? ' · ' + u.part : u.reason ? ' · ' + u.reason : ''}${u.to ? ' · retour le ' + fmt(u.to) : ' · retour à confirmer'}`;
+  // the small sign before a name (convocation, call of a session)
+  const flag = (p, date) => { const u = on(p, date); return u ? `<span class="hl-flag" title="${esc(label(u))}" aria-label="${esc(label(u))}">${KINDS[u.kind][0]}</span>` : ''; };
+
+  function dialog(p, done, u) {
+    const e = Object.assign({ kind: 'injury', from: today(), to: '', part: '', reason: '', note: '' }, u || {});
+    const body = () => `<div class="chips">${Object.entries(KINDS).map(([k, [ic, l]]) => `<button class="chip ${e.kind === k ? 'on' : ''}" data-kind="${k}">${ic} ${l}</button>`).join('')}</div>
+      ${e.kind === 'injury' ? `<div class="lbl">Où ?</div><div class="chips hl-parts">${PARTS.map(x => `<button class="chip ${e.part === x ? 'on' : ''}" data-part="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
+      ${e.kind === 'away' ? `<div class="lbl">Pourquoi ?</div><div class="chips">${AWAY.map(x => `<button class="chip ${e.reason === x ? 'on' : ''}" data-reason="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
+      <div class="row2"><label class="fld"><span>Depuis le</span><input type="date" id="hlFrom" value="${esc(e.from)}"></label>
+        <label class="fld"><span>${e.kind === 'susp' ? 'Rejoue le' : 'Retour prévu le'}</span><input type="date" id="hlTo" value="${esc(e.to)}"></label></div>
+      ${e.kind !== 'away' ? `<div class="chips hl-quick">${[[7, '1 semaine'], [14, '2 semaines'], [21, '3 semaines'], [42, '6 semaines']].map(([n, l]) => `<button class="chip" data-plus="${n}">+ ${l}</button>`).join('')}</div>` : ''}
+      <label class="fld"><span>Note (soins, kiné, certificat…)</span><input id="hlNote" value="${esc(e.note)}" maxlength="140"></label>`;
+    const close = modal({ title: `${u ? 'Modifier' : 'Indisponible'} · ${Store.fullName(p)}`, noFocus: true, body: `<div id="hlBody">${body()}</div>`,
+      onOpen: r => {
+        const keep = () => { e.from = $('#hlFrom', r).value || e.from; e.to = $('#hlTo', r).value; e.note = $('#hlNote', r).value; };
+        r.querySelector('#hlBody').onclick = ev => {
+          const b = ev.target.closest('button'); if (!b) return; keep();
+          if (b.dataset.kind) e.kind = b.dataset.kind; if (b.dataset.part) e.part = b.dataset.part; if (b.dataset.reason) e.reason = b.dataset.reason;
+          if (b.dataset.plus) e.to = addDays(e.from || today(), +b.dataset.plus);
+          r.querySelector('#hlBody').innerHTML = body();
+        };
+      },
+      actions: [...(u ? [{ label: 'Supprimer', kind: 'danger', onClick: () => { p.unavail = (p.unavail || []).filter(x => x.id !== u.id); Store.upsert('players', p); done && done(); } }] : []),
+        { label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
+          e.from = $('#hlFrom', r).value || today(); e.to = $('#hlTo', r).value; e.note = $('#hlNote', r).value.trim();
+          if (e.to && e.to <= e.from) { toast('Le retour doit être après le début', 'err'); return false; }
+          if (e.kind !== 'injury') e.part = ''; if (e.kind !== 'away') e.reason = '';
+          const list = p.unavail = (p.unavail || []).filter(x => x.id !== e.id);
+          list.push(Object.assign(e, { id: e.id || Store.uid(), by: (Auth.current() || {}).id || null })); list.sort((a, b) => b.from.localeCompare(a.from));
+          Store.upsert('players', p); toast(u ? 'Modifié' : `${Store.shortName(p)} : ${KINDS[e.kind][1].toLowerCase()}`); done && done();
+        } }] });
+    void close;
+  }
+  const back = (p, u, done) => { u.to = today(); Store.upsert('players', p); toast(`${Store.shortName(p)} est de retour 💪`); done && done(); };
+
+  // the section on the player's card
+  function playerCard(p) {
+    const cur = on(p), next = (p.unavail || []).filter(u => u.from > today()), past = (p.unavail || []).filter(u => u !== cur && !next.includes(u)).slice(0, 6);
+    const injDays = (p.unavail || []).filter(u => u.kind === 'injury').reduce((a, u) => a + Math.max(0, days(u.from, u.to && u.to < today() ? u.to : today())), 0);
+    return `<section class="card hl-card ${cur ? 'out' : ''}"><div class="row-head"><h2>🚑 Disponibilité</h2><button class="btn soft" data-hl="add">${I.plus}<span>Indisponible</span></button></div>
+      ${cur ? `<div class="hl-now"><b>${esc(label(cur))}</b>${cur.note ? `<span class="muted small">${esc(cur.note)}</span>` : ''}<div class="chips"><button class="btn primary" data-hl="back" data-u="${cur.id}">💪 De retour</button><button class="btn soft" data-hl="edit" data-u="${cur.id}">${I.edit}<span>Modifier</span></button></div></div>`
+        : '<p class="hl-ok">✅ Disponible</p>'}
+      ${next.map(u => `<p class="hl-line">🗓️ À venir : ${esc(label(u))} (dès le ${esc(fmt(u.from))}) <button class="linkish" data-hl="edit" data-u="${u.id}">modifier</button></p>`).join('')}
+      ${past.length ? `<details><summary class="muted small">Historique (${past.length})${injDays ? ` · ${injDays} jours blessé cette saison` : ''}</summary>${past.map(u => `<p class="hl-line">${esc(label(u))} · du ${esc(fmt(u.from))} <button class="linkish" data-hl="edit" data-u="${u.id}">modifier</button></p>`).join('')}</details>` : ''}</section>`;
+  }
+  function click(e, p, done) {
+    const b = e.target.closest('[data-hl]'); if (!b) return false;
+    const u = (p.unavail || []).find(x => x.id === b.dataset.u);
+    if (b.dataset.hl === 'add') dialog(p, done);
+    if (b.dataset.hl === 'edit' && u) dialog(p, done, u);
+    if (b.dataset.hl === 'back' && u) back(p, u, done);
+    return true;
+  }
+
+  /* ---------- training load (RPE × minutes) ---------- */
+  const trMinutes = t => (t.exercises || []).reduce((a, e) => a + (+e.duration || 0), 0) || 90;
+  function loadOf(pid, from, to) {
+    return S().trainings.filter(t => !t.model && t.date >= from && t.date <= to && t.rpe && t.rpe[pid]).reduce((a, t) => a + t.rpe[pid] * trMinutes(t), 0)
+      + S().matches.filter(m => m.played && m.date >= from && m.date <= to && m.rpe && m.rpe[pid]).reduce((a, m) => a + m.rpe[pid] * ((m.minutes || {})[pid] || m.duration || 90), 0);
+  }
+  // last 7 days compared with the average week of the 4 weeks before
+  function risk(pid) {
+    const t = today(), acute = loadOf(pid, addDays(t, -6), t), chronic = loadOf(pid, addDays(t, -34), addDays(t, -7)) / 4;
+    return { acute, chronic: Math.round(chronic), ratio: chronic ? acute / chronic : null, high: chronic > 0 && acute > 1.3 * chronic && acute > 600 };
+  }
+  // the effort of a session or a match, for each player present
+  function rpeBox(ev, ids, kind) {
+    const r = ev.rpe || {}, vals = ids.map(id => r[id]).filter(Boolean), avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const mins = kind === 'match' ? (ev.duration || 90) : trMinutes(ev);
+    return `<section class="card hl-rpe"><div class="row-head"><h2>💪 Effort ressenti (RPE)</h2>${avg ? `<b class="hl-avg">${avg.toFixed(1).replace('.', ',')} / 10</b>` : ''}</div>
+      <p class="muted small">Après ${kind === 'match' ? 'le match' : 'la séance'}, chaque joueur dit de 1 (très facile) à 10 (maximal) si c'était dur. Charge = effort × ${mins} min. Ça sert à repérer ceux qui en font trop.</p>
+      ${ids.length ? `<div class="hl-rpe-list">${ids.map(id => { const p = Store.get('players', id); if (!p) return ''; const v = r[id] || 0;
+        return `<div class="hl-rpe-row"><span>${esc(Store.shortName(p))}</span><span class="hl-scale">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button class="${n === v ? 'on' : ''} r${n}" data-rpe="${id}" data-v="${n}" title="${RPE[n]}">${n}</button>`).join('')}</span></div>`; }).join('')}</div>
+        <div class="chips"><button class="btn soft" data-rpeall="5">Tous à 5</button><button class="btn soft" data-rpeall="7">Tous à 7</button><button class="btn soft" data-rpeall="0">Effacer</button></div>`
+        : `<p class="muted">${kind === 'match' ? 'Coche les convoqués' : 'Fais l\'appel'} pour noter l'effort.</p>`}</section>`;
+  }
+  function rpeClick(e, ev, ids, save) {
+    const b = e.target.closest('[data-rpe], [data-rpeall]'); if (!b) return false;
+    ev.rpe = ev.rpe || {};
+    if (b.dataset.rpe) { const v = +b.dataset.v; if (ev.rpe[b.dataset.rpe] === v) delete ev.rpe[b.dataset.rpe]; else ev.rpe[b.dataset.rpe] = v; }
+    else { const v = +b.dataset.rpeall; ids.forEach(id => { if (v) ev.rpe[id] = v; else delete ev.rpe[id]; }); }
+    save(); return true;
+  }
+
+  /* ---------- the injury room page ---------- */
+  function page(root) {
+    const t = today(), ps = S().players.filter(Auth.seesPerson);
+    const now = ps.map(p => [p, on(p, t)]).filter(([, u]) => u).sort((a, b) => (a[1].to || '9999').localeCompare(b[1].to || '9999'));
+    const soon = ps.flatMap(p => (p.unavail || []).filter(u => u.from > t && u.from <= addDays(t, 21)).map(u => [p, u])).sort((a, b) => a[1].from.localeCompare(b[1].from));
+    const teamsOf = p => (p.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', ');
+    const load = ps.map(p => [p, risk(p.id)]).filter(([, r]) => r.acute || r.chronic).sort((a, b) => (b[1].ratio || 0) - (a[1].ratio || 0));
+    root.innerHTML = `<header class="page-head"><div><h1>🚑 Infirmerie</h1><p class="sub">Blessés, malades, absents, suspendus · charge d'entraînement</p></div>
+      <div class="head-actions"><a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a><button class="btn primary" data-hl="new">${I.plus}<span>Déclarer un joueur</span></button></div></header>
+      <div class="hl-sum">${Object.entries(KINDS).map(([k, [ic, l]]) => `<span>${ic} <b>${now.filter(([, u]) => u.kind === k).length}</b> ${l.toLowerCase()}${now.filter(([, u]) => u.kind === k).length > 1 ? 's' : ''}</span>`).join('')}</div>
+      <h2 class="section">Indisponibles aujourd'hui (${now.length})</h2>
+      <div class="list">${now.map(([p, u]) => `<div class="list-item hl-item k-${u.kind}"><a class="li-main" href="#/joueur/${p.id}"><b>${KINDS[u.kind][0]} ${esc(Store.fullName(p))}</b><span class="muted">${esc(teamsOf(p))} · ${esc(label(u).replace(/^\S+ /, ''))}${u.to ? ` · ${days(t, u.to)} j` : ''}${u.note ? ' · ' + esc(u.note) : ''}</span></a>
+        <button class="btn soft" data-hlback="${p.id}|${u.id}">💪 De retour</button></div>`).join('') || '<p class="muted">Personne : tout le monde est disponible. 💪</p>'}</div>
+      ${soon.length ? `<h2 class="section">Absences à venir</h2><div class="list">${soon.map(([p, u]) => `<a class="list-item" href="#/joueur/${p.id}"><span class="li-main"><b>${KINDS[u.kind][0]} ${esc(Store.fullName(p))}</b><span class="muted">dès le ${esc(fmt(u.from))} · ${esc(label(u).replace(/^\S+ /, ''))}</span></span></a>`).join('')}</div>` : ''}
+      ${wellnessSection()}
+      <h2 class="section">Charge d'entraînement (7 derniers jours)</h2>
+      <p class="muted small">Charge = effort ressenti (RPE) × minutes, noté après les séances et les matchs. ⚠️ = 7 derniers jours bien plus lourds que ses semaines habituelles : à surveiller, risque de blessure.</p>
+      ${load.length ? `<div class="hl-load">${load.map(([p, r]) => `<a href="#/joueur/${p.id}" class="${r.high ? 'high' : ''}"><span>${r.high ? '⚠️ ' : ''}${esc(Store.fullName(p))}</span><b>${r.acute}</b><i>habituel ${r.chronic || '–'}</i></a>`).join('')}</div>`
+        : '<p class="muted">Pas encore d\'effort noté : sur la page d\'une séance, section « Effort ressenti ».</p>'}`;
+    const redraw = () => page(root);
+    root.onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.hlback) { const [pid, uid] = b.dataset.hlback.split('|'), p = Store.get('players', pid), u = p && (p.unavail || []).find(x => x.id === uid); if (u) back(p, u, redraw); return; }
+      if (b.dataset.hl === 'new') {
+        const list = ps.slice().sort(Store.byName);
+        const close = modal({ title: 'Quel joueur ?', noFocus: true, body: `<input id="hlQ" class="hl-q" placeholder="Rechercher un nom" autocomplete="off"><div class="list hl-pick">${list.map(p => `<button class="list-item" data-pick="${p.id}"><span class="li-main"><b>${esc(Store.fullName(p))}</b><span class="muted">${esc(teamsOf(p))}</span></span></button>`).join('')}</div>`,
+          onOpen: r => { $('#hlQ', r).oninput = ev => { const q = ev.target.value.toLowerCase(); $$('[data-pick]', r).forEach(x => { x.hidden = !x.textContent.toLowerCase().includes(q); }); };
+            $$('[data-pick]', r).forEach(x => x.onclick = () => { close(); setTimeout(() => dialog(Store.get('players', x.dataset.pick), redraw), 60); }); } });
+      }
+    };
+  }
+  const count = () => S().players.filter(Auth.seesPerson).filter(p => on(p)).length;
+
+  /* ---------- well-being: mood, mental, sleep, legs, soreness (1 to 10), filled in by the player on his page ---------- */
+  const WB = [['mood', '🙂', 'Ressenti'], ['mental', '🧠', 'Mental'], ['sleep', '😴', 'Sommeil'], ['legs', '🦵', 'Jambes'], ['sore', '💪', 'Courbatures']];
+  const wbAvg = w => { const v = WB.map(([k]) => +w[k]).filter(x => x > 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  // a player to call: a very low score in the last 3 days (pain, bad mood), or a fall compared with his usual level
+  function toCall(p) {
+    const l = (p.wellness || []).filter(w => w.day >= addDays(today(), -3)).sort((a, b) => a.day.localeCompare(b.day)); if (!l.length) return null;
+    const last = l[l.length - 1], low = WB.filter(([k]) => +last[k] > 0 && +last[k] <= 4).map(([, , lab]) => lab);
+    return low.length ? { last, why: low.join(', ') } : null;
+  }
+  function wellnessCard(p) {
+    const l = (p.wellness || []).slice().sort((a, b) => a.day.localeCompare(b.day)).slice(-14); if (!l.length) return '';
+    const last = l[l.length - 1];
+    return `<section class="card"><h2>💚 Bien-être</h2><p class="muted small">Dernier questionnaire : ${esc(fmt(last.day))}${last.note ? ` · « ${esc(last.note)} »` : ''}</p>
+      <div class="wb-last">${WB.map(([k, ic, lab]) => `<span class="${+last[k] <= 4 ? 'low' : +last[k] >= 8 ? 'high' : ''}">${ic}<b>${last[k] || '–'}</b><i>${lab}</i></span>`).join('')}</div>
+      <div class="wb-spark" title="Moyenne des 14 derniers questionnaires">${l.map(w => { const a = wbAvg(w) || 0; return `<i style="height:${a * 10}%" class="${a <= 4 ? 'low' : a >= 8 ? 'high' : ''}" title="${esc(fmt(w.day))} : ${a.toFixed(1)}"></i>`; }).join('')}</div></section>`;
+  }
+  function wellnessSection() {
+    const ps = S().players.filter(Auth.seesPerson), t = today();
+    const calls = ps.map(p => [p, toCall(p)]).filter(([, c]) => c);
+    const todayN = ps.filter(p => (p.wellness || []).some(w => w.day === t)).length, with7 = ps.filter(p => (p.wellness || []).some(w => w.day >= addDays(t, -6)));
+    if (!with7.length && !calls.length) return `<h2 class="section">💚 Bien-être</h2><p class="muted small">Les joueurs remplissent un petit questionnaire (ressenti, mental, sommeil, jambes, courbatures) sur leur page. Les réponses apparaissent ici.</p>`;
+    return `<h2 class="section">💚 Bien-être (7 jours) · ${todayN} réponse${todayN > 1 ? 's' : ''} aujourd'hui</h2>
+      ${calls.length ? `<div class="wb-call">📞 <b>${calls.length} joueur${calls.length > 1 ? 's' : ''} à appeler</b> : ${calls.map(([p, c]) => `<a href="#/joueur/${p.id}">${esc(Store.shortName(p))}</a> <i>(${esc(c.why)})</i>`).join(' · ')}</div>` : ''}
+      <div class="hl-load">${with7.map(p => { const l = (p.wellness || []).filter(w => w.day >= addDays(t, -6)), a = l.reduce((s, w) => s + (wbAvg(w) || 0), 0) / l.length;
+        return `<a href="#/joueur/${p.id}" class="${a <= 4.5 ? 'high' : ''}"><span>${esc(Store.fullName(p))}</span><b>${a.toFixed(1).replace('.', ',')}</b><i>${l.length} réponse${l.length > 1 ? 's' : ''} · moyenne sur 10</i></a>`; }).join('')}</div>`;
+  }
+
+  return { on, flag, label, dialog, playerCard, click, rpeBox, rpeClick, risk, page, count, KINDS, WB, wellnessCard, wellnessSection, toCall };
+})();

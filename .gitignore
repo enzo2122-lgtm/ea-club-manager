@@ -1,0 +1,5 @@
+# Données des licenciés (mineurs) et sauvegardes du club : jamais sur GitHub
+*.raincy.json
+*Effectif*
+Sauvegarde-*
+*.txt
