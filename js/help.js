@@ -2,7 +2,7 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.1';
+  const VERSION = '1.2';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */

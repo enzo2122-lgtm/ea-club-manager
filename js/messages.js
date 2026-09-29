@@ -18,7 +18,7 @@ const Messages = (() => {
   const isMineDm = ch => ch.startsWith('dm:') && me() && ch.split(':').includes(me().id);
   function visible(ch) {
     if (ch === 'general') return true;
-    if (ch.startsWith('team:')) return true; // every coach can talk in every category
+    if (ch.startsWith('team:')) return !!Store.get('teams', ch.slice(5)); // every coach can talk in every category (a deleted category: nowhere to read it)
     return isMineDm(ch);
   }
   // In the messaging everybody is « Coach » + first name (« Coach Karim »); « Giova (Christian) » shows as « Coach Giova »
@@ -78,7 +78,8 @@ const Messages = (() => {
     if (busy || !Cloud.ready() || !me()) return false;
     busy = true;
     try {
-      const fresh = await Cloud.messages(last);
+      let fresh = await Cloud.messages(last);
+      for (let more = fresh, n = 0; more && more.length >= 500 && n < 20; n++) { more = await Cloud.messages(more[more.length - 1].created_at); if (more && more.length) fresh = fresh.concat(more); }
       if (fresh && fresh.length) {
         const ids = new Set(msgs.map(m => m.id));
         fresh.forEach(m => { if (!ids.has(m.id)) msgs.push(m); });
