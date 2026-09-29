@@ -111,6 +111,18 @@ const Auth = (() => {
     const salt = newSalt(); A().recovery = { salt, hash: await derive(code, salt) }; Store.save();
     return code;
   }
+  function askPassword(text, okLabel = 'Confirmer') {
+    return new Promise(res => {
+      let done = false; const end = v => { if (!done) { done = true; res(v); } };
+      modal({ title: '🔒 Ton mot de passe', body: `<p>${esc(text)}</p><label class="fld"><span>Mot de passe de ${esc(user ? Store.fullName(user) : '')}</span><input id="askPw" type="password" autocomplete="current-password"></label>`,
+        onOpen: (r, close) => { const i = $('#askPw', r); setTimeout(() => i.focus(), 60); i.onkeydown = e => { if (e.key === 'Enter') r.querySelector('.sheet-foot .danger').click(); }; },
+        actions: [{ label: 'Annuler', onClick: () => end(false) }, { label: okLabel, kind: 'danger', onClick: (close, r) => {
+          const pw = $('#askPw', r).value; if (!pw) { toast('Écris ton mot de passe', 'err'); return false; }
+          check(user && user.id, pw).then(ok => { if (ok) { close(); end(true); } else { toast('Mot de passe incorrect', 'err'); $('#askPw', r).select(); } });
+          return false; } }] });
+      const root = document.getElementById('modal'), watch = setInterval(() => { if (root.hidden) { clearInterval(watch); end(false); } }, 300);
+    });
+  }
   async function checkRecovery(code) {
     const r = A().recovery; if (!r) return false;
     return (await derive(code.trim().toUpperCase(), r.salt)) === r.hash;
@@ -535,5 +547,5 @@ const Auth = (() => {
     if (serverMode() && isAdmin()) Cloud.accountSet({ staff_id: staffId, delete: true }).catch(() => {});
   }
 
-  return { gate, current, isAdmin, realAdmin, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
+  return { askPassword, gate, current, isAdmin, realAdmin, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
 })();

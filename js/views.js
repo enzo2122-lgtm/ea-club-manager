@@ -830,7 +830,8 @@ const Views = (() => {
       if (b.dataset.act === 'import') return importFile();
       if (b.dataset.act === 'backups') return President.backupDialog();
       if (b.dataset.act === 'noExamples' && await confirmBox('Supprimer toutes les données d\'exemple ?')) { Store.removeExamples(); toast('Exemples supprimés'); return settings(root); }
-      if (b.dataset.act === 'reset' && await confirmBox('Effacer toutes les équipes, schémas, entraînements et matchs de cet appareil ?', 'Tout effacer')) { Store.reset(); toast('Données effacées'); Auth.logout(); }
+      if (b.dataset.act === 'reset' && await confirmBox('Effacer toutes les équipes, schémas, entraînements et matchs de cet appareil ?', 'Tout effacer')
+        && await Auth.askPassword('Pour éviter une erreur, confirme avec ton mot de passe : toutes les données de cet appareil seront effacées.', 'Tout effacer')) { Store.reset(); toast('Données effacées'); Auth.logout(); }
     };
   }
 
