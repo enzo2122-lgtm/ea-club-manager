@@ -261,6 +261,61 @@ const Library = (() => {
       } }] });
   }
 
+  /* ---------- add files to the club's schemas: every coach sees them (the picture travels with the schema) ---------- */
+  async function toSchemas(recs) {
+    recs = (recs || []).filter(Boolean);
+    const vid = recs.find(r => r.kind === 'video');
+    const pages = [];
+    recs.forEach(r => {
+      if (r.kind === 'pdf') r.pages.forEach((p, i) => pages.push({ blob: p.blob, w: p.w, h: p.h, name: `${cleanName(r.name)}${r.pages.length > 1 ? ' · page ' + (i + 1) : ''}` }));
+      if (r.kind === 'image') pages.push({ blob: r.blob, w: r.w, h: r.h, name: cleanName(r.name), image: true });
+    });
+    if (!pages.length) {
+      if (vid) { toast('Vidéo : mets-la sur pause au bon moment puis « Dessiner sur cette image »'); return open(vid.id); }
+      return toast('Seuls les PDF, les images et les vidéos peuvent devenir des schémas', 'err');
+    }
+    const urls = pages.map(p => URL.createObjectURL(p.blob));
+    const close = modal({ title: 'Ajouter aux schémas du club', noFocus: true, body: `
+      <p class="tip">Chaque page ou image devient un schéma, sur lequel on peut dessiner des joueurs et des flèches. Il est envoyé au serveur du club : tous les coachs le retrouvent dans « Schémas ».</p>
+      <label class="fld"><span>Pour</span><select id="tsTeam"><option value="">Tout le club (toutes les catégories)</option>${Auth.teams().map(t => `<option value="${t.id}">${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
+      ${pages.length > 1 ? `<div class="chips"><button type="button" class="btn soft" data-tsall="1">${I.check}<span>Tout cocher</span></button><button type="button" class="btn soft" data-tsall="0">${I.x}<span>Tout décocher</span></button></div>` : ''}
+      <div class="pdf-pages">${pages.map((p, i) => `<figure><img alt="" src="${urls[i]}"><figcaption><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-ts="${i}" checked> <span>${esc(p.name)}</span></label></figcaption></figure>`).join('')}</div>
+      ${vid ? '<p class="muted small">Les vidéos ne deviennent pas des schémas entières : ouvre la vidéo, mets-la sur pause et touche « Dessiner sur cette image ».</p>' : ''}`,
+      onOpen: r => $$('[data-tsall]', r).forEach(b => b.onclick = () => $$('[data-ts]', r).forEach(x => x.checked = b.dataset.tsall === '1')),
+      actions: [{ label: 'Annuler' }, { label: 'Ajouter aux schémas', kind: 'primary', icon: I.board, onClick: (c, r) => {
+        const pick = $$('[data-ts]', r).filter(x => x.checked).map(x => pages[+x.dataset.ts]), teamId = $('#tsTeam', r).value || null;
+        if (!pick.length) { toast('Coche au moins une page', 'err'); return false; }
+        (async () => {
+          const b = busy('Création des schémas…');
+          try {
+            for (const p of pick) {
+              let { blob, w, h } = p;
+              if (p.image || !w || !h) { const img = await Media.loadImage(URL.createObjectURL(blob)); ({ blob, w, h } = await canvasBlob(img, img.naturalWidth, img.naturalHeight)); }
+              await drawOn(blob, w, h, p.name, teamId);
+            }
+            if (typeof Cloud !== 'undefined' && Cloud.ready()) await Sync.run().catch(() => {});
+            toast(`${pick.length} schéma${pick.length > 1 ? 's' : ''} ajouté${pick.length > 1 ? 's' : ''} : visible${pick.length > 1 ? 's' : ''} par ${teamId ? 'les coachs de la catégorie' : 'tous les coachs'}`);
+            location.hash = '#/schemas';
+          } catch (e) { toast(e.message || 'Création impossible', 'err'); } finally { b.done(); }
+        })();
+      } }] });
+    const mo = new MutationObserver(() => { if (document.getElementById('modal').hidden) { urls.forEach(u => URL.revokeObjectURL(u)); mo.disconnect(); } });
+    mo.observe(document.getElementById('modal'), { attributes: true });
+    return close;
+  }
+  // « Schémas » → « Depuis un fichier »: import (or take from the library) then choose the pages
+  function schemasFromFiles() {
+    modal({ title: 'Schémas depuis un fichier', body: '<p class="muted small">PDF, image, capture d\'écran ou vidéo (on en garde une image). Le schéma est partagé avec les coachs du club.</p>',
+      actions: [{ label: 'Annuler' },
+        { label: 'Depuis la bibliothèque', icon: I.layers, onClick: () => { setTimeout(async () => {
+          const items = (await Media.list('lib')).filter(m => m.kind !== 'link').reverse();
+          const close = modal({ title: 'Choisir dans la bibliothèque', noFocus: true,
+            body: items.length ? `<div class="lib-grid small">${items.map(card).join('')}</div>` : '<p class="muted">La bibliothèque est vide.</p>',
+            onOpen: r => $$('[data-doc]', r).forEach(x => x.onclick = async () => { close(); const rec = await Media.get(x.dataset.doc); setTimeout(() => toSchemas([rec]), 60); }) });
+        }, 60); } },
+        { label: 'Importer un fichier', kind: 'primary', icon: I.upload, onClick: () => { setTimeout(() => pickFiles(async ids => toSchemas(await Promise.all(ids.map(id => Media.get(id))))), 60); } }] });
+  }
+
   /* ---------- attach to a training or a match ---------- */
   function attach(rec) {
     // every training and match (not only the last 40): by category, the coming ones first (soonest first), then the past ones
@@ -302,7 +357,7 @@ const Library = (() => {
         : `Pour dessiner dessus ou en faire une séance, télécharge le fichier sur l'appareil depuis ${esc(rec.host || 'le site')}, puis importe-le avec « Fichiers ».`}</p>`;
     if (rec.kind === 'image') body += `<div class="viewer"><img alt="" src="${url(rec.blob)}"></div>`;
     if (rec.kind === 'video') body += `<div class="viewer"><video id="docVideo" src="${url(rec.blob)}" controls playsinline></video></div>
-      <p class="tip">« Analyser le match » : marque les actions pendant la lecture et prépare un briefing vidéo. Ou mets la vidéo sur pause au bon moment, puis touche « Dessiner sur cette image » pour analyser l'action avec les flèches et les joueurs.</p>`;
+      <p class="tip">« Analyser le match » : marque les actions pendant la lecture et prépare un briefing vidéo. Ou mets la vidéo sur pause au bon moment, puis touche « Dessiner sur cette image » pour analyser l'action avec les flèches et les joueurs : l'image devient un schéma du club, que tous les coachs retrouvent dans « Schémas ».</p>`;
     if (rec.kind === 'pdf') body += `<p class="muted small">${rec.pages.length} page${rec.pages.length > 1 ? 's' : ''}</p><div class="pdf-pages">${rec.pages.map((p, i) => `
       <figure><img alt="Page ${i + 1}" src="${url(p.blob)}"><figcaption><span>Page ${i + 1}</span><button class="btn soft" data-page="${i}">${I.edit}<span>Dessiner dessus</span></button><button class="btn soft" data-clean="${i}">${I.board}<span>Mettre au propre</span></button></figcaption></figure>`).join('')}</div>`;
     const actions = [];
@@ -316,6 +371,7 @@ const Library = (() => {
     if (rec.kind === 'pdf') actions.push({ label: 'Créer une séance', kind: 'primary', icon: I.training, onClick: () => { setTimeout(() => toTraining(rec), 60); } });
     if (rec.kind === 'image') actions.push({ label: 'Mettre au propre', icon: I.board, onClick: () => { (async () => { const img = await Media.loadImage(URL.createObjectURL(rec.blob)); const cb = await canvasBlob(img, img.naturalWidth, img.naturalHeight); setTimeout(() => cleanCopy(cb.blob, cb.w, cb.h, rec.name), 60); })(); } });
     if (rec.kind === 'pdf' || rec.kind === 'image') {
+      actions.push({ label: 'Ajouter aux schémas du club', icon: I.board, onClick: () => { setTimeout(() => toSchemas([rec]), 60); } });
       actions.push({ label: 'Imprimer', icon: I.pdf, onClick: () => { printRec(rec); return false; } });
       actions.push({ label: 'Envoyer dans la messagerie', icon: I.chat, onClick: () => { setTimeout(() => sendToChat(rec), 60); } });
     }
@@ -350,7 +406,8 @@ const Library = (() => {
         <li>${I.pdf}<span><b>PDF</b> (séance, exercice, fiche) : l'appli le lit page par page, en fait une séance ou te laisse dessiner sur une page.</span></li>
         <li>${I.image}<span><b>Image ou capture d'écran</b> : dessine dessus comme sur le tableau tactique.</span></li>
         <li>${I.share}<span><b>OneDrive, Google Drive, Dropbox</b> : « Importer » → « Fichiers », ou colle un lien de partage.</span></li>
-        <li>${I.layers}<span>Joins n'importe quel fichier à un entraînement ou un match : il apparaît sur sa page et dans son PDF.</span></li></ul></section>
+        <li>${I.layers}<span>Joins n'importe quel fichier à un entraînement, une séance type ou un match : il apparaît sur sa page et dans son PDF.</span></li>
+        <li>${I.board}<span><b>Schémas du club</b> : « Ajouter aux schémas du club » transforme un PDF ou une image en schémas partagés avec tous les coachs.</span></li></ul></section>
       ${Analyse.libraryCard()}
       <div class="chips filter">${[['', 'Tout'], ['video', 'Vidéos'], ['pdf', 'PDF'], ['image', 'Images'], ['link', 'Liens']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
       <div class="lib-grid" id="libGrid"><p class="muted">Chargement…</p></div>`;
@@ -442,5 +499,5 @@ const Library = (() => {
     return out;
   }
 
-  return { pdfjs, drawOnFrame: drawOn, page, open, pickFiles, importFiles, docsPlaceholder, mountDocs, withBackgrounds, withBackground, saveBackground, restoreBackgrounds, docImages };
+  return { toSchemas, schemasFromFiles, pdfjs, drawOnFrame: drawOn, page, open, pickFiles, importFiles, docsPlaceholder, mountDocs, withBackgrounds, withBackground, saveBackground, restoreBackgrounds, docImages };
 })();

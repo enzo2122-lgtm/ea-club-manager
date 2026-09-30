@@ -270,7 +270,7 @@ const Views = (() => {
   function schemas(root) {
     const filt = S().ui.schemaFilter || '';
     const list = S().schemas.filter(s => Auth.sees(s.teamId) && (!filt || s.field.format === filt)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    root.innerHTML = `${header('Schémas', 'Exercices et tactiques animés', `<a class="btn" href="#/bibliotheque">${I.video}<span>Bibliothèque</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="board">${I.edit}<span>Tableau blanc</span></button><button class="btn" data-act="models">${I.layers}<span>Modèles</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau schéma</span></button>`)}
+    root.innerHTML = `${header('Schémas', 'Exercices et tactiques animés', `<a class="btn" href="#/bibliotheque">${I.video}<span>Bibliothèque</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="fromFile">${I.pdf}<span>Depuis un fichier (PDF, image, vidéo)</span></button><button class="btn" data-act="board">${I.edit}<span>Tableau blanc</span></button><button class="btn" data-act="models">${I.layers}<span>Modèles</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau schéma</span></button>`)}
       <div class="chips filter">${[['', 'Tous'], ['11', 'Foot à 11'], ['8', 'Foot à 8'], ['5', 'Foot à 5'], ['zone', 'Zones libres']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
       ${list.length ? `<div class="grid">${list.map(s => `<article class="card schema-card">
           <a href="#/schema/${s.id}" class="thumb"><img alt="" src="${UI.thumb(s)}"></a>
@@ -284,6 +284,7 @@ const Views = (() => {
       if (b.dataset.act === 'models') return pickTemplate();
       if (b.dataset.act === 'board') return whiteboard();
       if (b.dataset.act === 'import') return importFile();
+      if (b.dataset.act === 'fromFile') return Library.schemasFromFiles();
       if (b.dataset.dup) { const s = JSON.parse(JSON.stringify(Store.get('schemas', b.dataset.dup))); s.id = Store.uid(); s.name += ' (copie)'; Store.upsert('schemas', s); return schemas(root); }
       if (b.dataset.del) { const s = Store.get('schemas', b.dataset.del); if (await confirmBox(`Supprimer « ${s.name} » ?`)) { Store.remove('schemas', s.id); schemas(root); } }
     };
