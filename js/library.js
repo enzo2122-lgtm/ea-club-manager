@@ -292,6 +292,57 @@ const Library = (() => {
   }
   const fmtOfTeam = id => ((Store.get('teams', id) || {}).format) || '11';
 
+  /* ---------- reading the drawing of an exercise ---------- */
+  // free, on the phone: the coloured marks of the drawing are counted (players' bibs, orange cones) on a small copy of the picture
+  const HUES = ['rouge', 'orange', 'jaune', 'bleu', 'violet', 'rose'];
+  async function colorScan(blob) {
+    const img = await Media.loadImage(URL.createObjectURL(blob)), W = 320, H = Math.max(1, Math.round(img.naturalHeight * W / img.naturalWidth));
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.drawImage(img, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data, lab = new Int8Array(W * H).fill(-1);
+    for (let i = 0; i < W * H; i++) {
+      const r = d[i * 4], gr = d[i * 4 + 1], b = d[i * 4 + 2], mx = Math.max(r, gr, b), mn = Math.min(r, gr, b);
+      if (mx < 90 || (mx - mn) / mx < .45) continue;
+      let h = mx === mn ? 0 : mx === r ? 60 * (((gr - b) / (mx - mn)) % 6) : mx === gr ? 60 * ((b - r) / (mx - mn) + 2) : 60 * ((r - gr) / (mx - mn) + 4); if (h < 0) h += 360;
+      lab[i] = h < 15 || h >= 345 ? 0 : h < 40 ? 1 : h < 65 ? 2 : h >= 190 && h < 250 ? 3 : h >= 250 && h < 290 ? 4 : h >= 290 ? 5 : -1; // the green of the pitch is left out
+    }
+    const n = {}, seen = new Uint8Array(W * H), max = W * H / 150;
+    for (let i = 0; i < W * H; i++) {
+      if (lab[i] < 0 || seen[i]) continue;
+      const k = lab[i], st = [i]; let area = 0; seen[i] = 1;
+      while (st.length) { const p = st.pop(); area++; const x = p % W;
+        for (const q of [p - W, p + W, x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1]) if (q >= 0 && q < W * H && !seen[q] && lab[q] === k) { seen[q] = 1; st.push(q); } }
+      if (area >= 5 && area <= max) n[HUES[k]] = (n[HUES[k]] || 0) + 1;
+    }
+    return n;
+  }
+  function colorHint(n) {
+    const F = { rouge: ['rouge', 'rouges'], jaune: ['jaune', 'jaunes'], bleu: ['bleue', 'bleues'], violet: ['violette', 'violettes'], rose: ['rose', 'roses'] };
+    const bibs = Object.keys(F).filter(k => n[k] >= 2 && n[k] <= 16).sort((a, b) => n[b] - n[a]), plots = n.orange >= 2 ? n.orange : 0;
+    const materiel = [bibs.length && 'Chasubles : ' + bibs.map(k => `${n[k]} ${F[k][1]}`).join(', '), plots && `Plots : ${plots} (orange)`].filter(Boolean).join(' · ');
+    return { materiel: materiel ? materiel + ' (repéré sur le dessin, à vérifier)' : '', title: bibs.length >= 2 && n[bibs[0]] <= 11 ? `Opposition ${n[bibs[0]]} contre ${n[bibs[1]]}` : '' };
+  }
+  // on demand: the AI of the club server (Edge Function « exercice-ia ») looks at the drawing and writes the exercise
+  const AI_ERR = { CLE_IA: 'L\'IA n\'est pas encore activée sur le serveur du club : le responsable du club doit l’activer.',
+    SESSION: 'Ta connexion a expiré : reconnecte-toi.', LIMITE: 'Limite du jour atteinte (60 analyses par dirigeant) : réessaie demain.', IA: 'L\'IA n\'a pas réussi à lire cette image.', IMAGE: 'Image trop grande ou illisible.' };
+  async function aiRead(p, fmt) {
+    const c = Cloud.cfg(), t = Cloud.token && Cloud.token();
+    if (!c || !t) throw new Error('Connecte-toi au serveur du club pour utiliser l\'IA.');
+    const img = await Media.loadImage(URL.createObjectURL(p.blob)), image = Media.drawScaled(img, img.naturalWidth, img.naturalHeight, 1400).toDataURL('image/jpeg', .85);
+    const headers = { apikey: c.key, 'Content-Type': 'application/json' }; if (!String(c.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + c.key;
+    let r; try { r = await fetch(c.url.replace(/\/+$/, '') + '/functions/v1/exercice-ia', { method: 'POST', headers, body: JSON.stringify({ k: t, image, text: p.text || '', fmt }) }); }
+    catch (e) { throw new Error('Pas de connexion internet.'); }
+    const o = await r.json().catch(() => ({}));
+    if (!r.ok || !o.ex) throw new Error(AI_ERR[o.error] || (r.status === 404 ? 'L\'IA n\'est pas encore installée sur le serveur du club.' : 'Analyse impossible pour le moment.'));
+    const e = o.ex, s = x => String(x || '').trim(), list = x => (Array.isArray(x) ? x : s(x) ? [x] : []).map(s).filter(Boolean);
+    const sz = (s(e.espace).match(/(\d{1,3})\s*[x×]\s*(\d{1,3})/) || []);
+    return { title: s(e.titre).slice(0, 90), duration: Math.min(120, Math.max(1, +e.duree || 15)), theme: s(e.theme),
+      org: [s(e.objectif) && 'Objectif : ' + s(e.objectif), s(e.joueurs) && 'Joueurs : ' + s(e.joueurs), s(e.organisation), s(e.deroulement) && 'Déroulement : ' + s(e.deroulement),
+        s(e.rotations) && 'Rotations : ' + s(e.rotations), list(e.variantes).length && 'Variantes :\n' + list(e.variantes).map(v => '+ ' + v).join('\n')].filter(Boolean).join('\n\n').slice(0, 2500),
+      consignes: list(e.consignes).join('\n').slice(0, 1200),
+      materiel: [!/^(aucun|non|néant|-)?e?s?$/i.test(s(e.chasubles)) && 'Chasubles : ' + s(e.chasubles), !/^(aucun|non|néant|-)?e?s?$/i.test(s(e.plots)) && 'Plots : ' + s(e.plots), s(e.autre_materiel)].filter(Boolean).join(' · ').slice(0, 300),
+      size: sz[1] ? sz[1] + 'x' + sz[2] : '' };
+  }
+
   /* ---------- a file read and turned into exercises, everywhere: « Exercices du club » (by theme and category), a séance type of the club,
      the schemas (the page is the drawing background, shared with every coach), and a training if chosen ---------- */
   async function toExercises(recs, opts = {}) {
@@ -317,6 +368,7 @@ const Library = (() => {
         }
         p.ex = parseExercise(p.text, p.name) || { title: p.name, duration: 15, org: '', consignes: '', materiel: '', size: '' };
         p.ex.theme = themeGuess(p.ex);
+        try { const hint = colorHint(await colorScan(p.blob)); if (!p.ex.materiel && hint.materiel) p.ex.materiel = hint.materiel; if (hint.title && (!p.text.trim() || p.ex.title === p.name)) p.ex.title = hint.title; } catch (e) {}
       }
     } finally { task.done(); }
     const urls = pages.map(p => URL.createObjectURL(p.blob));
@@ -331,17 +383,30 @@ const Library = (() => {
       ${pages.some(p => p.ocrFail) ? '<p class="muted small">⚠️ Certaines pages n\'ont pas pu être lues (il faut internet la première fois) : complète le texte à la main.</p>' : ''}
       ${vid ? '<p class="muted small">Les vidéos ne sont pas lues : ouvre la vidéo, mets-la sur pause et touche « Dessiner sur cette image ».</p>' : ''}
       ${pages.length > 1 ? `<div class="chips"><button type="button" class="btn soft" data-xall="1">${I.check}<span>Tout cocher</span></button><button type="button" class="btn soft" data-xall="0">${I.x}<span>Tout décocher</span></button></div>` : ''}
+      <div class="chips"><button type="button" class="btn" data-xaiall>✨<span>${pages.length > 1 ? 'Analyser avec l\'IA les pages cochées' : 'Analyser avec l\'IA'}</span></button></div>
+      <p class="muted small">L'IA regarde le dessin et écrit le titre, l'organisation, le déroulement, les rotations, les consignes et le matériel (plots, chasubles). Sans IA, l'appli lit le texte et compte les couleurs du dessin.</p>
       <div class="list">${pages.map((p, i) => `<section class="card" style="padding:10px;margin:8px 0">
         <div style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" data-xi="${i}" ${p.ex.org || p.ex.consignes || p.image || pages.length === 1 ? 'checked' : ''} aria-label="Garder" style="margin-top:12px;width:20px;height:20px">
           <img alt="" src="${urls[i]}" style="width:84px;max-height:110px;object-fit:contain;border-radius:6px;background:#fff">
           <div style="flex:1;min-width:0"><label class="fld"><span>Titre</span><input data-xt="${i}" value="${esc(p.ex.title)}" maxlength="90"></label>
             <div class="row2"><label class="fld"><span>Durée (min)</span><input type="number" data-xd="${i}" value="${p.ex.duration}" min="1" max="120"></label>
             <label class="fld"><span>Thème</span><select data-xth="${i}"><option value="">Divers</option>${themes.map(([k, l]) => `<option value="${k}" ${k === p.ex.theme ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div></div></div>
-        <details><summary class="muted small">Texte lu : organisation, consignes, matériel</summary>
+        <div class="chips"><button type="button" class="btn soft" data-xai="${i}">✨<span>Analyser cette page avec l'IA</span></button></div>
+        <details data-xdet="${i}"><summary class="muted small">Texte lu : organisation, consignes, matériel</summary>
           <label class="fld"><span>Organisation</span><textarea data-xo="${i}" rows="4">${esc(p.ex.org)}</textarea></label>
           <label class="fld"><span>Consignes (une par ligne)</span><textarea data-xc="${i}" rows="3">${esc(p.ex.consignes)}</textarea></label>
           <div class="row2"><label class="fld"><span>Matériel</span><input data-xm="${i}" value="${esc(p.ex.materiel)}"></label><label class="fld"><span>Espace (ex. 30x20)</span><input data-xs="${i}" value="${esc(p.ex.size)}"></label></div></details></section>`).join('')}</div>`,
-      onOpen: r => { $$('[data-xall]', r).forEach(b => b.onclick = () => $$('[data-xi]', r).forEach(x => x.checked = b.dataset.xall === '1')); $('#xTr', r).onchange = e => { $('#xNew', r).hidden = e.target.value !== 'new'; }; },
+      onOpen: r => { $$('[data-xall]', r).forEach(b => b.onclick = () => $$('[data-xi]', r).forEach(x => x.checked = b.dataset.xall === '1'));
+        // the AI fills the fields of a page (the coach checks and corrects before creating)
+        const fill = (i, ex) => { const set = (a, v) => { const el = r.querySelector(`[data-${a}="${i}"]`); if (el && v !== undefined && v !== '') el.value = v; };
+          set('xt', ex.title); set('xd', ex.duration); set('xo', ex.org); set('xc', ex.consignes); set('xm', ex.materiel); set('xs', ex.size);
+          if (ex.theme && Exos.THEMES.some(t => t[0] === ex.theme)) set('xth', ex.theme); const det = r.querySelector(`[data-xdet="${i}"]`); if (det) det.open = true; };
+        const run = async ids => { const b = busy('L\'IA lit ' + (ids.length > 1 ? ids.length + ' pages' : 'la page') + '…'); let ok = 0;
+          try { for (let j = 0; j < ids.length; j++) { b.progress(j / ids.length); fill(ids[j], await aiRead(pages[ids[j]], $('#xTeam', r).value ? fmtOfTeam($('#xTeam', r).value) : '')); ok++; } }
+          catch (e) { toast(e.message, 'err'); } finally { b.done(); }
+          if (ok) toast(`${ok} page${ok > 1 ? 's' : ''} analysée${ok > 1 ? 's' : ''} : vérifie puis « Créer les exercices »`); };
+        $$('[data-xai]', r).forEach(b => b.onclick = () => run([+b.dataset.xai]));
+        $$('[data-xaiall]', r).forEach(b => b.onclick = () => { const ids = $$('[data-xi]', r).filter(x => x.checked).map(x => +x.dataset.xi); if (!ids.length) return toast('Coche au moins une page', 'err'); run(ids); }); $('#xTr', r).onchange = e => { $('#xNew', r).hidden = e.target.value !== 'new'; }; },
       actions: [{ label: 'Annuler' }, { label: 'Créer les exercices', kind: 'primary', icon: I.check, onClick: (c, r) => {
         const v = (a, i) => { const el = r.querySelector(`[data-${a}="${i}"]`); return el ? el.value.trim() : ''; };
         const pick = $$('[data-xi]', r).filter(x => x.checked).map(x => +x.dataset.xi);
@@ -575,5 +640,5 @@ const Library = (() => {
     return out;
   }
 
-  return { toExercises, parseExercise, toSchemas, schemasFromFiles, pdfjs, drawOnFrame: drawOn, page, open, pickFiles, importFiles, docsPlaceholder, mountDocs, withBackgrounds, withBackground, saveBackground, restoreBackgrounds, docImages };
+  return { colorScan, colorHint, aiRead, toExercises, parseExercise, toSchemas, schemasFromFiles, pdfjs, drawOnFrame: drawOn, page, open, pickFiles, importFiles, docsPlaceholder, mountDocs, withBackgrounds, withBackground, saveBackground, restoreBackgrounds, docImages };
 })();
