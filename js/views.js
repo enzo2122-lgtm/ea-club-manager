@@ -370,9 +370,9 @@ const Views = (() => {
     modal({ title: how === 'use' ? `Utiliser « ${tr.title} »` : 'Dupliquer la séance', body: `
       <label class="fld"><span>Pour la catégorie</span><select id="cpTeam"><option value="">Aucune</option>${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
       <div class="row2"><label class="fld"><span>Date</span><input type="date" id="cpDate" value="${today()}"></label><label class="fld"><span>Heure</span><input type="time" id="cpTime" value="${esc(tr.time || '18:00')}"></label></div>
-      <p class="muted small">Les exercices, consignes et schémas sont copiés. Les présences et les notes repartent à zéro.</p>`,
+      <p class="muted small">Les exercices, consignes et schémas${how === 'use' ? ' et documents' : ''} sont copiés. Les présences et les notes repartent à zéro.</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Créer la séance', kind: 'primary', onClick: (c, r) => {
-        const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); delete n.model; delete n.ratings; delete n.docIds;
+        const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); delete n.model; delete n.ratings; if (how !== 'use') delete n.docIds;
         Object.assign(n, { teamId: $('#cpTeam', r).value || null, date: $('#cpDate', r).value || today(), time: $('#cpTime', r).value, presents: [], staffIds: [] });
         if (how !== 'use') n.title = tr.title + (n.teamId === tr.teamId ? ' (copie)' : '');
         n.exercises.forEach(x => x.id = Store.uid()); Store.upsert('trainings', n); toast('Séance créée'); location.hash = '#/entrainement/' + n.id;
@@ -429,7 +429,9 @@ const Views = (() => {
         <h2 class="section">Exercices</h2>
         <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
         <button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button>
+        <div id="docsBox">${Library.docsPlaceholder()}</div>
         <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer la séance type</span></button></div>`;
+      Library.mountDocs($('#docsBox', root), tr, save);
     };
     const presChip = (p, teamId) => `${Health.flag(p, tr.date)}<span>${chipLabel(p)}</span>${People.pctBadge(People.attendance(p, teamId))}`;
     const rateTr = () => { const box = $('#rateBox', root); if (box) box.innerHTML = Ratings.section(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)), 'training'); rpeTr(); };
