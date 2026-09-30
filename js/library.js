@@ -249,9 +249,11 @@ const Library = (() => {
                 exercises.push(Object.assign({ id: Store.uid(), schemaId: sc.id }, ex));
                 continue;
               }
-              const exTitle = (lines[0] || `Page ${i + 1}`).slice(0, 70);
-              const sc = await drawOn(pg.blob, pg.w, pg.h, `${title} · page ${i + 1}`, teamId);
-              exercises.push({ id: Store.uid(), title: exTitle, duration: dur, org: lines.slice(1).join('\n').slice(0, 900), consignes: '', materiel: '', schemaId: sc.id });
+              // the same reading as « Lire et créer les exercices »: title, length, organisation, consignes, matériel
+              const ex = parseExercise(pg.text, (lines[0] || `Page ${i + 1}`).slice(0, 70)) || { title: `Page ${i + 1}`, org: '', consignes: '', materiel: '' };
+              if (!/\d{1,3}\s*(?:min|mn|minutes|['’′])/i.test(pg.text || '')) ex.duration = dur;
+              const sc = await drawOn(pg.blob, pg.w, pg.h, `${ex.title} · page ${i + 1}`, teamId);
+              exercises.push(Object.assign({ id: Store.uid(), theme: themeGuess(ex) || null, schemaId: sc.id }, ex));
             }
             const tr = Store.upsert('trainings', { id: Store.uid(), title, date, time: '', teamId, goal: '', exercises, presents: [], docIds: [rec.id] });
             toast(`Séance créée : ${exercises.length} exercice${exercises.length > 1 ? 's' : ''}`);
@@ -261,51 +263,119 @@ const Library = (() => {
       } }] });
   }
 
-  /* ---------- add files to the club's schemas: every coach sees them (the picture travels with the schema) ---------- */
-  async function toSchemas(recs) {
+  /* ---------- read an exercise sheet (one page): title, length, organisation, consignes, matériel ---------- */
+  const LBL = [['title', /^(titre|nom de l'exercice|intitul[ée])\s*[:\-–]\s*/i], ['goal', /^(objectifs?|but de l'exercice|th[èe]me)\s*[:\-–]?\s*/i],
+    ['org', /^(organisation|org\.|mise en place|dispositif|description|d[ée]roulement|fonctionnement|r[èe]gles?)\s*[:\-–]?\s*/i],
+    ['consignes', /^(consignes?|crit[èe]res? de r[ée]ussite|points? cl[ée]s|coaching|comportements? attendus?|conseils?)\s*[:\-–]?\s*/i],
+    ['evo', /^(variantes?|[ée]volutions?|progressions?|r[ée]gressions?)\s*[:\-–]?\s*/i], ['materiel', /^(mat[ée]riel)\s*[:\-–]?\s*/i],
+    ['duration', /^(dur[ée]e|temps)\s*[:\-–]?\s*/i], ['size', /^(espace|dimensions?|surface|terrain)\s*[:\-–]\s*/i], ['players', /^(effectifs?|nombre de joueurs|joueurs)\s*[:\-–]\s*/i]];
+  function parseExercise(text, fallback) {
+    const t = String(text || '').replace(/\r/g, '').replace(/[ \t]+/g, ' ').trim();
+    if (t.replace(/\s/g, '').length < 12) return null;
+    if (/ASSISTCOACHAI|ASSIST COACH/i.test(t)) { const a = Importer.parseAssistPage(t); if (a) return Object.assign({ size: (t.match(/(\d{1,3})\s*[x×]\s*(\d{1,3})\s*m\b/i) || []).slice(1, 3).join('x') }, a); }
+    const sec = { intro: [] }; let cur = 'intro';
+    // a line with only the length (« 12' », « 15 min »), a page number or « Exercice 3 » is not text of the exercise
+    const LONE = /^(?:\d{1,3}\s*(?:min|mn|minutes|['’′])|(?:page|p\.)?\s*\d+(?:\s*\/\s*\d+)?|(?:exercice|atelier|jeu|s[ée]quence|situation|fiche|partie)\s*(?:n°|no|#)?\s*\d*)$/i;
+    t.split('\n').map(l => l.trim()).filter(l => l && !LONE.test(l)).forEach(l => {
+      const hit = LBL.find(([, re]) => re.test(l));
+      if (hit) { cur = hit[0]; sec[cur] = sec[cur] || []; const rest = l.replace(hit[1], '').trim(); if (rest) sec[cur].push(rest); }
+      else (sec[cur] = sec[cur] || []).push(l);
+    });
+    const txt = k => (sec[k] || []).join('\n').trim(), bullets = k => (sec[k] || []).map(l => l.replace(/^(?:[•\-–*·>✓✔➢➤→]+|\d+[.)])\s*/, '').trim()).filter(Boolean);
+    const intro = sec.intro;
+    const title = (txt('title') || intro.find(l => l.length >= 3 && l.length <= 90 && /[a-zà-ÿ]/i.test(l)) || fallback || 'Exercice').replace(/\s+/g, ' ').slice(0, 90);
+    const dm = (txt('duration') + ' ' + t).match(/(\d{1,3})\s*(?:min|mn|minutes|['’′])/i), duration = dm ? Math.min(120, Math.max(3, +dm[1])) : 15;
+    const sm = (txt('size') + ' ' + t).match(/(\d{1,3})\s*(?:m\s*)?[x×]\s*(\d{1,3})\s*m\b/i);
+    const org = [txt('goal') && 'Objectif : ' + txt('goal').replace(/\n/g, ' '), txt('players') && 'Joueurs : ' + txt('players').replace(/\n/g, ' '),
+      txt('org') || intro.filter(l => l !== title).join('\n'), (sec.evo || []).length ? 'Évolutions :\n' + bullets('evo').map(e => '+ ' + e).join('\n') : ''].filter(Boolean).join('\n\n');
+    return { title, duration, org: org.slice(0, 1800), consignes: bullets('consignes').join('\n').slice(0, 900), materiel: txt('materiel').replace(/\n/g, ', ').slice(0, 200), size: sm ? sm[1] + 'x' + sm[2] : '' };
+  }
+  const fmtOfTeam = id => ((Store.get('teams', id) || {}).format) || '11';
+
+  /* ---------- a file read and turned into exercises, everywhere: « Exercices du club » (by theme and category), a séance type of the club,
+     the schemas (the page is the drawing background, shared with every coach), and a training if chosen ---------- */
+  async function toExercises(recs) {
     recs = (recs || []).filter(Boolean);
     const vid = recs.find(r => r.kind === 'video');
     const pages = [];
     recs.forEach(r => {
-      if (r.kind === 'pdf') r.pages.forEach((p, i) => pages.push({ blob: p.blob, w: p.w, h: p.h, name: `${cleanName(r.name)}${r.pages.length > 1 ? ' · page ' + (i + 1) : ''}` }));
-      if (r.kind === 'image') pages.push({ blob: r.blob, w: r.w, h: r.h, name: cleanName(r.name), image: true });
+      if (r.kind === 'pdf') r.pages.forEach((p, i) => pages.push({ rec: r, blob: p.blob, w: p.w, h: p.h, text: p.text || '', name: `${cleanName(r.name)}${r.pages.length > 1 ? ' · page ' + (i + 1) : ''}` }));
+      if (r.kind === 'image') pages.push({ rec: r, blob: r.blob, w: r.w, h: r.h, text: '', name: cleanName(r.name), image: true });
     });
     if (!pages.length) {
       if (vid) { toast('Vidéo : mets-la sur pause au bon moment puis « Dessiner sur cette image »'); return open(vid.id); }
-      return toast('Seuls les PDF, les images et les vidéos peuvent devenir des schémas', 'err');
+      return toast('Seuls les PDF et les images (photo, capture d\'écran) peuvent être lus', 'err');
     }
+    // read: the text of the PDF, or the picture read letter by letter (photo, capture, scanned PDF)
+    const task = busy('Lecture du fichier…');
+    try {
+      for (let i = 0; i < pages.length; i++) {
+        const p = pages[i];
+        if (p.text.replace(/\s/g, '').length < 20) {
+          task.progress(i / pages.length);
+          try { p.text = await Imports.ocrText(p.blob); } catch (e) { p.ocrFail = true; }
+        }
+        p.ex = parseExercise(p.text, p.name) || { title: p.name, duration: 15, org: '', consignes: '', materiel: '', size: '' };
+        p.ex.theme = themeGuess(p.ex);
+      }
+    } finally { task.done(); }
     const urls = pages.map(p => URL.createObjectURL(p.blob));
-    const close = modal({ title: 'Ajouter aux schémas du club', noFocus: true, body: `
-      <p class="tip">Chaque page ou image devient un schéma, sur lequel on peut dessiner des joueurs et des flèches. Il est envoyé au serveur du club : tous les coachs le retrouvent dans « Schémas ».</p>
-      <label class="fld"><span>Pour</span><select id="tsTeam"><option value="">Tout le club (toutes les catégories)</option>${Auth.teams().map(t => `<option value="${t.id}">${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
-      ${pages.length > 1 ? `<div class="chips"><button type="button" class="btn soft" data-tsall="1">${I.check}<span>Tout cocher</span></button><button type="button" class="btn soft" data-tsall="0">${I.x}<span>Tout décocher</span></button></div>` : ''}
-      <div class="pdf-pages">${pages.map((p, i) => `<figure><img alt="" src="${urls[i]}"><figcaption><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-ts="${i}" checked> <span>${esc(p.name)}</span></label></figcaption></figure>`).join('')}</div>
-      ${vid ? '<p class="muted small">Les vidéos ne deviennent pas des schémas entières : ouvre la vidéo, mets-la sur pause et touche « Dessiner sur cette image ».</p>' : ''}`,
-      onOpen: r => $$('[data-tsall]', r).forEach(b => b.onclick = () => $$('[data-ts]', r).forEach(x => x.checked = b.dataset.tsall === '1')),
-      actions: [{ label: 'Annuler' }, { label: 'Ajouter aux schémas', kind: 'primary', icon: I.board, onClick: (c, r) => {
-        const pick = $$('[data-ts]', r).filter(x => x.checked).map(x => pages[+x.dataset.ts]), teamId = $('#tsTeam', r).value || null;
+    const today = UI.today(), trs = S().trainings.filter(x => !x.model && Auth.sees(x.teamId) && (x.date || '') >= today).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const themes = Exos.THEMES, name = cleanName(recs[0].name) + (recs.length > 1 ? ' (+' + (recs.length - 1) + ')' : '');
+    modal({ title: '📚 Créer les exercices', noFocus: true, body: `
+      <p class="tip">Chaque page devient un exercice : il va dans <b>Exercices du club</b> (par thème et par catégorie), dans une <b>séance type du club</b> et dans les <b>Schémas</b> (la page sert de fond pour dessiner). Tout est partagé avec les coachs. Vérifie ce que l'appli a lu, corrige si besoin.</p>
+      <label class="fld"><span>Nom de la séance type</span><input id="xName" value="${esc(name)}" maxlength="90"></label>
+      <div class="row2"><label class="fld"><span>Pour</span><select id="xTeam"><option value="">Tout le club (toutes les catégories)</option>${Auth.teams().map(t => `<option value="${t.id}">${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
+      <label class="fld"><span>Ajouter aussi à un entraînement</span><select id="xTr"><option value="">Non</option>${trs.map(t => `<option value="${t.id}">${esc(UI.fmtDate(t.date))} · ${esc(t.title || 'Entraînement')} · ${esc((Store.get('teams', t.teamId) || {}).name || '')}</option>`).join('')}</select></label></div>
+      ${pages.some(p => p.ocrFail) ? '<p class="muted small">⚠️ Certaines pages n\'ont pas pu être lues (il faut internet la première fois) : complète le texte à la main.</p>' : ''}
+      ${vid ? '<p class="muted small">Les vidéos ne sont pas lues : ouvre la vidéo, mets-la sur pause et touche « Dessiner sur cette image ».</p>' : ''}
+      ${pages.length > 1 ? `<div class="chips"><button type="button" class="btn soft" data-xall="1">${I.check}<span>Tout cocher</span></button><button type="button" class="btn soft" data-xall="0">${I.x}<span>Tout décocher</span></button></div>` : ''}
+      <div class="list">${pages.map((p, i) => `<section class="card" style="padding:10px;margin:8px 0">
+        <div style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" data-xi="${i}" ${p.ex.org || p.ex.consignes || p.image || pages.length === 1 ? 'checked' : ''} aria-label="Garder" style="margin-top:12px;width:20px;height:20px">
+          <img alt="" src="${urls[i]}" style="width:84px;max-height:110px;object-fit:contain;border-radius:6px;background:#fff">
+          <div style="flex:1;min-width:0"><label class="fld"><span>Titre</span><input data-xt="${i}" value="${esc(p.ex.title)}" maxlength="90"></label>
+            <div class="row2"><label class="fld"><span>Durée (min)</span><input type="number" data-xd="${i}" value="${p.ex.duration}" min="1" max="120"></label>
+            <label class="fld"><span>Thème</span><select data-xth="${i}"><option value="">Divers</option>${themes.map(([k, l]) => `<option value="${k}" ${k === p.ex.theme ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div></div></div>
+        <details><summary class="muted small">Texte lu : organisation, consignes, matériel</summary>
+          <label class="fld"><span>Organisation</span><textarea data-xo="${i}" rows="4">${esc(p.ex.org)}</textarea></label>
+          <label class="fld"><span>Consignes (une par ligne)</span><textarea data-xc="${i}" rows="3">${esc(p.ex.consignes)}</textarea></label>
+          <div class="row2"><label class="fld"><span>Matériel</span><input data-xm="${i}" value="${esc(p.ex.materiel)}"></label><label class="fld"><span>Espace (ex. 30x20)</span><input data-xs="${i}" value="${esc(p.ex.size)}"></label></div></details></section>`).join('')}</div>`,
+      onOpen: r => $$('[data-xall]', r).forEach(b => b.onclick = () => $$('[data-xi]', r).forEach(x => x.checked = b.dataset.xall === '1')),
+      actions: [{ label: 'Annuler' }, { label: 'Créer les exercices', kind: 'primary', icon: I.check, onClick: (c, r) => {
+        const v = (a, i) => { const el = r.querySelector(`[data-${a}="${i}"]`); return el ? el.value.trim() : ''; };
+        const pick = $$('[data-xi]', r).filter(x => x.checked).map(x => +x.dataset.xi);
         if (!pick.length) { toast('Coche au moins une page', 'err'); return false; }
+        const teamId = $('#xTeam', r).value || null, trId = $('#xTr', r).value, title = $('#xName', r).value.trim() || name;
+        const formats = teamId ? [fmtOfTeam(teamId)] : ['5', '8', '11'];
         (async () => {
-          const b = busy('Création des schémas…');
+          const b = busy('Création des exercices…');
           try {
-            for (const p of pick) {
-              let { blob, w, h } = p;
+            const exs = [];
+            for (const i of pick) {
+              const p = pages[i]; let { blob, w, h } = p;
               if (p.image || !w || !h) { const img = await Media.loadImage(URL.createObjectURL(blob)); ({ blob, w, h } = await canvasBlob(img, img.naturalWidth, img.naturalHeight)); }
-              await drawOn(blob, w, h, p.name, teamId);
+              const ex = { id: Store.uid(), theme: v('xth', i) || null, title: v('xt', i) || p.name, duration: Math.max(1, +v('xd', i) || 15), org: v('xo', i), consignes: v('xc', i), materiel: v('xm', i), size: v('xs', i).replace(/\s|m/gi, '').replace('×', 'x'), formats };
+              const sc = await drawOn(blob, w, h, ex.title, teamId);
+              sc.notes = [ex.org, ex.consignes].filter(Boolean).join('\n'); Store.upsert('schemas', sc);
+              exs.push(Object.assign(ex, { schemaId: sc.id }));
             }
+            const docIds = recs.map(x => x.id);
+            const model = Store.upsert('trainings', { id: Store.uid(), model: true, title, date: UI.today(), time: '', teamId: null, goal: `Exercices lus dans « ${recs.map(x => cleanName(x.name)).join(', ')} »`, exercises: exs, presents: [], docIds });
+            if (trId) { const t = Store.get('trainings', trId); t.exercises = [...(t.exercises || []), ...exs.map(e => Object.assign({}, e, { id: Store.uid() }))]; t.docIds = [...new Set([...(t.docIds || []), ...docIds])]; Store.upsert('trainings', t); }
             if (typeof Cloud !== 'undefined' && Cloud.ready()) await Sync.run().catch(() => {});
-            toast(`${pick.length} schéma${pick.length > 1 ? 's' : ''} ajouté${pick.length > 1 ? 's' : ''} : visible${pick.length > 1 ? 's' : ''} par ${teamId ? 'les coachs de la catégorie' : 'tous les coachs'}`);
-            location.hash = '#/schemas';
+            toast(`${exs.length} exercice${exs.length > 1 ? 's' : ''} créé${exs.length > 1 ? 's' : ''} : Exercices du club, séance type${trId ? ', entraînement' : ''} et Schémas`);
+            location.hash = '#/entrainement/' + (trId || model.id);
           } catch (e) { toast(e.message || 'Création impossible', 'err'); } finally { b.done(); }
         })();
       } }] });
     const mo = new MutationObserver(() => { if (document.getElementById('modal').hidden) { urls.forEach(u => URL.revokeObjectURL(u)); mo.disconnect(); } });
     mo.observe(document.getElementById('modal'), { attributes: true });
-    return close;
   }
+  const themeGuess = ex => { const all = Exos.themeOf ? Exos.themeOf(ex) : []; return all[0] || ''; };
+  const toSchemas = toExercises;
   // « Schémas » → « Depuis un fichier »: import (or take from the library) then choose the pages
   function schemasFromFiles() {
-    modal({ title: 'Schémas depuis un fichier', body: '<p class="muted small">PDF, image, capture d\'écran ou vidéo (on en garde une image). Le schéma est partagé avec les coachs du club.</p>',
+    modal({ title: 'Exercices depuis un fichier', body: '<p class="muted small">PDF, photo ou capture d\'écran d\'une fiche d\'exercice : l\'appli la lit et crée l\'exercice (Exercices du club, séance type du club, Schémas), partagé avec les coachs. Une vidéo : on en garde une image.</p>',
       actions: [{ label: 'Annuler' },
         { label: 'Depuis la bibliothèque', icon: I.layers, onClick: () => { setTimeout(async () => {
           const items = (await Media.list('lib')).filter(m => m.kind !== 'link').reverse();
@@ -371,7 +441,7 @@ const Library = (() => {
     if (rec.kind === 'pdf') actions.push({ label: 'Créer une séance', kind: 'primary', icon: I.training, onClick: () => { setTimeout(() => toTraining(rec), 60); } });
     if (rec.kind === 'image') actions.push({ label: 'Mettre au propre', icon: I.board, onClick: () => { (async () => { const img = await Media.loadImage(URL.createObjectURL(rec.blob)); const cb = await canvasBlob(img, img.naturalWidth, img.naturalHeight); setTimeout(() => cleanCopy(cb.blob, cb.w, cb.h, rec.name), 60); })(); } });
     if (rec.kind === 'pdf' || rec.kind === 'image') {
-      actions.push({ label: 'Ajouter aux schémas du club', icon: I.board, onClick: () => { setTimeout(() => toSchemas([rec]), 60); } });
+      actions.push({ label: 'Lire et créer les exercices', kind: rec.kind === 'image' ? '' : 'primary', icon: I.training, onClick: () => { setTimeout(() => toExercises([rec]), 60); } });
       actions.push({ label: 'Imprimer', icon: I.pdf, onClick: () => { printRec(rec); return false; } });
       actions.push({ label: 'Envoyer dans la messagerie', icon: I.chat, onClick: () => { setTimeout(() => sendToChat(rec), 60); } });
     }
@@ -407,7 +477,7 @@ const Library = (() => {
         <li>${I.image}<span><b>Image ou capture d'écran</b> : dessine dessus comme sur le tableau tactique.</span></li>
         <li>${I.share}<span><b>OneDrive, Google Drive, Dropbox</b> : « Importer » → « Fichiers », ou colle un lien de partage.</span></li>
         <li>${I.layers}<span>Joins n'importe quel fichier à un entraînement, une séance type ou un match : il apparaît sur sa page et dans son PDF.</span></li>
-        <li>${I.board}<span><b>Schémas du club</b> : « Ajouter aux schémas du club » transforme un PDF ou une image en schémas partagés avec tous les coachs.</span></li></ul></section>
+        <li>${I.board}<span><b>Fiches d'exercices</b> : « Lire et créer les exercices » lit un PDF, une photo ou une capture et crée les exercices partout (Exercices du club, séance type, Schémas), partagés avec tous les coachs.</span></li></ul></section>
       ${Analyse.libraryCard()}
       <div class="chips filter">${[['', 'Tout'], ['video', 'Vidéos'], ['pdf', 'PDF'], ['image', 'Images'], ['link', 'Liens']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
       <div class="lib-grid" id="libGrid"><p class="muted">Chargement…</p></div>`;
@@ -499,5 +569,5 @@ const Library = (() => {
     return out;
   }
 
-  return { toSchemas, schemasFromFiles, pdfjs, drawOnFrame: drawOn, page, open, pickFiles, importFiles, docsPlaceholder, mountDocs, withBackgrounds, withBackground, saveBackground, restoreBackgrounds, docImages };
+  return { toExercises, parseExercise, toSchemas, schemasFromFiles, pdfjs, drawOnFrame: drawOn, page, open, pickFiles, importFiles, docsPlaceholder, mountDocs, withBackgrounds, withBackground, saveBackground, restoreBackgrounds, docImages };
 })();

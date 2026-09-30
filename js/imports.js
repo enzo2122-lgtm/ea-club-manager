@@ -307,5 +307,6 @@ const Imports = (() => {
         const opts = { teamId: '' };
       } });
   }
-  return { open, read, guess, record, textToRows, wordsToRows, date, splitName };
+  async function ocrText(blob, progress) { return wordsToRows(await ocr(await prepImage(blob), progress)).map(r => r.join(' ')).join(String.fromCharCode(10)); }
+  return { ocrText, open, read, guess, record, textToRows, wordsToRows, date, splitName };
 })();

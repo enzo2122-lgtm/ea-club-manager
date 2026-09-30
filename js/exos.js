@@ -91,7 +91,7 @@ const Exos = (() => {
       if (!e.title || !e.title.trim()) return;
       const k = norm(e.title), cur = seen.get(k);
       const item = { id: t.id + ':' + e.id, theme: e.theme || null, title: e.title, duration: +e.duration || 15, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null,
-        from: t, formats: [fmtOf(t.teamId)], club: true };
+        from: t, formats: e.formats && e.formats.length ? e.formats : [fmtOf(t.teamId)], size: e.size || '', club: true };
       if (!cur || (!cur.schemaId && item.schemaId) || (cur.from.date || '') < (t.date || '')) seen.set(k, cur ? Object.assign(item, { formats: [...new Set([...cur.formats, ...item.formats])] }) : item);
     }));
     const club = [...seen.values()];
@@ -105,7 +105,7 @@ const Exos = (() => {
     const list = all().filter(e => (!st.theme || themeOf(e).includes(st.theme)) && (!st.fmt || e.formats.includes(st.fmt)) && (!st.q || norm(`${e.title} ${e.org} ${e.consignes}`).includes(norm(st.q))));
     const clubN = all().filter(e => e.club).length;
     root.innerHTML = `<header class="page-head"><div><h1>📚 Exercices du club</h1><p class="sub">${clubN} exercice${clubN > 1 ? 's' : ''} des coachs du club + ${BASE.length} exercices de base</p></div>
-      <div class="head-actions"><a class="btn" href="#/entrainements">${I.back}<span>Séances</span></a><button class="btn primary" data-gen>✨<span>Générer une séance</span></button></div></header>
+      <div class="head-actions"><a class="btn" href="#/entrainements">${I.back}<span>Séances</span></a><button class="btn" data-fromfile>📥<span>Depuis un fichier (PDF, photo)</span></button><button class="btn primary" data-gen>✨<span>Générer une séance</span></button></div></header>
       <input class="hl-q" id="exQ" placeholder="Rechercher (ex : rondo, centre, pressing)" value="${esc(st.q)}" autocomplete="off">
       <div class="chips ex-themes"><button class="chip ${!st.theme ? 'on' : ''}" data-th="">Tous</button>${THEMES.map(([k, l]) => `<button class="chip ${st.theme === k ? 'on' : ''}" data-th="${k}">${l}</button>`).join('')}</div>
       <div class="chips"><button class="chip ${!st.fmt ? 'on' : ''}" data-fm="">Toutes catégories</button>${[['5', 'Foot à 5 (U6-U9)'], ['8', 'Foot à 8 (U10-U13)'], ['11', 'Foot à 11 (U14+)']].map(([k, l]) => `<button class="chip ${st.fmt === k ? 'on' : ''}" data-fm="${k}">${l}</button>`).join('')}</div>
@@ -123,6 +123,7 @@ const Exos = (() => {
       if (b.dataset.th !== undefined) { st.theme = b.dataset.th; Store.persistNow(); return redraw(); }
       if (b.dataset.fm !== undefined) { st.fmt = b.dataset.fm; Store.persistNow(); return redraw(); }
       if (b.hasAttribute('data-gen')) return generator();
+      if (b.hasAttribute('data-fromfile')) return Library.schemasFromFiles();
       if (b.dataset.addex) return addTo(all().find(x => x.id === b.dataset.addex));
       if (b.dataset.draw) return drawBase(all().find(x => x.id === b.dataset.draw));
       if (b.dataset.res) { const r = RES[+b.dataset.res]; Media.put({ id: Store.uid(), ref: 'lib', kind: 'link', url: r[2], name: r[1], host: 'fff.fr', createdAt: Date.now(), by: (Auth.current() || {}).id || null }).then(() => toast('Ajouté à la Bibliothèque')); return; }
@@ -140,7 +141,7 @@ const Exos = (() => {
     delete sc.scratch; if (w && h) sc.field = { format: 'zone', view: 'full', w, h };
     Store.upsert('schemas', sc); toast(`Terrain de ${w && h ? w + ' × ' + h + ' m' : 'la catégorie'} prêt : place les joueurs et les flèches`); location.hash = '#/schema/' + sc.id;
   }
-  const copyEx = e => ({ id: Store.uid(), theme: e.theme || themeOf(e)[0] || null, title: e.title, duration: e.duration, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null });
+  const copyEx = e => ({ id: Store.uid(), theme: e.theme || themeOf(e)[0] || null, title: e.title, duration: e.duration, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null, size: e.size || '' });
   function addTo(ex) {
     if (!ex) return;
     const list = S().trainings.filter(t => !t.model && Auth.sees(t.teamId) && t.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 12);
@@ -191,5 +192,5 @@ const Exos = (() => {
   }
 
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-exgen]'); if (b) generator(); });
-  return { page, generator, all, THEMES };
+  return { page, generator, all, themeOf, THEMES };
 })();
