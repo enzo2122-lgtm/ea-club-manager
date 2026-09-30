@@ -250,7 +250,8 @@ const Library = (() => {
                 continue;
               }
               // the same reading as « Lire et créer les exercices »: title, length, organisation, consignes, matériel
-              const ex = parseExercise(pg.text, (lines[0] || `Page ${i + 1}`).slice(0, 70)) || { title: `Page ${i + 1}`, org: '', consignes: '', materiel: '' };
+              const ex = parseExercise(pg.text, title) || { title: '', org: '', consignes: '', materiel: '' };
+              if (!ex.title) ex.title = `${title} · exercice ${i + 1}`;
               if (!/\d{1,3}\s*(?:min|mn|minutes|['’′])/i.test(pg.text || '')) ex.duration = dur;
               const sc = await drawOn(pg.blob, pg.w, pg.h, `${ex.title} · page ${i + 1}`, teamId);
               exercises.push(Object.assign({ id: Store.uid(), theme: themeGuess(ex) || null, schemaId: sc.id }, ex));
@@ -269,10 +270,18 @@ const Library = (() => {
     ['consignes', /^(consignes?|crit[èe]res? de r[ée]ussite|points? cl[ée]s|coaching|comportements? attendus?|conseils?)\s*[:\-–]?\s*/i],
     ['evo', /^(variantes?|[ée]volutions?|progressions?|r[ée]gressions?)\s*[:\-–]?\s*/i], ['materiel', /^(mat[ée]riel)\s*[:\-–]?\s*/i],
     ['duration', /^(dur[ée]e|temps)\s*[:\-–]?\s*/i], ['size', /^(espace|dimensions?|surface|terrain)\s*[:\-–]\s*/i], ['players', /^(effectifs?|nombre de joueurs|joueurs)\s*[:\-–]\s*/i]];
+  const cleanTitle = l => String(l || '').replace(/\.[a-z0-9]{2,4}$/i, '').replace(/^\s*(?:(?:exercice|ex|atelier|fiche|situation)\s*(?:n°|no|#)?\s*\d*\s*[:.\-–]\s*|\d+\s*[.)\-–:]\s*)/i, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').replace(/[\s·|\-–:,.]+$/, '').trim();
+  function goodTitle(l) {
+    l = cleanTitle(l); const letters = (l.match(/[a-zà-ÿ]/gi) || []).length, chars = l.replace(/\s/g, '').length;
+    return l.length >= 4 && l.length <= 90 && letters >= 4 && letters >= chars * .6 && /[a-zà-ÿ]{3,}/i.test(l)
+      && !/^(img|dsc|pxl|mvimg|screenshot|capture|scan|whatsapp|photo|image|document|fichier|page|sans nom|untitled)\b/i.test(l) && !/\d{4}[\-_ ]?\d{2}[\-_ ]?\d{2}/.test(l)
+      && !/^(date|dur[ée]e|cat[ée]gorie|[ée]quipe|coach|club|saison|s[ée]ance|entra[iî]nement|objectifs?|th[èe]me|mat[ée]riel|consignes?|organisation)\b\s*[:\-–]?\s*$/i.test(l)
+      && !/^(date|cat[ée]gorie|[ée]quipe|coach|club|saison)\s*[:\-–]/i.test(l);
+  }
   function parseExercise(text, fallback) {
     const t = String(text || '').replace(/\r/g, '').replace(/[ \t]+/g, ' ').trim();
     if (t.replace(/\s/g, '').length < 12) return null;
-    if (/ASSISTCOACHAI|ASSIST COACH/i.test(t)) { const a = Importer.parseAssistPage(t); if (a) return Object.assign({ size: (t.match(/(\d{1,3})\s*[x×]\s*(\d{1,3})\s*m\b/i) || []).slice(1, 3).join('x') }, a); }
+    if (/ASSISTCOACHAI|ASSIST COACH/i.test(t)) { const a = Importer.parseAssistPage(t); if (a) { if (!goodTitle(a.title)) a.title = ''; else a.title = cleanTitle(a.title); } if (a) return Object.assign({ size: (t.match(/(\d{1,3})\s*[x×]\s*(\d{1,3})\s*m\b/i) || []).slice(1, 3).join('x') }, a); }
     const sec = { intro: [] }; let cur = 'intro';
     // a line with only the length (« 12' », « 15 min »), a page number or « Exercice 3 » is not text of the exercise
     const LONE = /^(?:\d{1,3}\s*(?:min|mn|minutes|['’′])|(?:page|p\.)?\s*\d+(?:\s*\/\s*\d+)?|(?:exercice|atelier|jeu|s[ée]quence|situation|fiche|partie)\s*(?:n°|no|#)?\s*\d*)$/i;
@@ -283,11 +292,12 @@ const Library = (() => {
     });
     const txt = k => (sec[k] || []).join('\n').trim(), bullets = k => (sec[k] || []).map(l => l.replace(/^(?:[•\-–*·>✓✔➢➤→]+|\d+[.)])\s*/, '').trim()).filter(Boolean);
     const intro = sec.intro;
-    const title = (txt('title') || intro.find(l => l.length >= 3 && l.length <= 90 && /[a-zà-ÿ]/i.test(l)) || fallback || 'Exercice').replace(/\s+/g, ' ').slice(0, 90);
+    // the title: the one written as such, else the first line made of words; never numbers or the name of the photo
+    const title = cleanTitle([txt('title'), ...intro, fallback].find(goodTitle) || '').slice(0, 90);
     const dm = (txt('duration') + ' ' + t).match(/(\d{1,3})\s*(?:min|mn|minutes|['’′])/i), duration = dm ? Math.min(120, Math.max(3, +dm[1])) : 15;
     const sm = (txt('size') + ' ' + t).match(/(\d{1,3})\s*(?:m\s*)?[x×]\s*(\d{1,3})\s*m\b/i);
     const org = [txt('goal') && 'Objectif : ' + txt('goal').replace(/\n/g, ' '), txt('players') && 'Joueurs : ' + txt('players').replace(/\n/g, ' '),
-      txt('org') || intro.filter(l => l !== title).join('\n'), (sec.evo || []).length ? 'Évolutions :\n' + bullets('evo').map(e => '+ ' + e).join('\n') : ''].filter(Boolean).join('\n\n');
+      txt('org') || intro.filter(l => cleanTitle(l) !== title && (l.match(/[a-zà-ÿ]/gi) || []).length >= Math.max(3, l.replace(/\s/g, '').length * .45)).join('\n'), (sec.evo || []).length ? 'Évolutions :\n' + bullets('evo').map(e => '+ ' + e).join('\n') : ''].filter(Boolean).join('\n\n');
     return { title, duration, org: org.slice(0, 1800), consignes: bullets('consignes').join('\n').slice(0, 900), materiel: txt('materiel').replace(/\n/g, ', ').slice(0, 200), size: sm ? sm[1] + 'x' + sm[2] : '' };
   }
   const fmtOfTeam = id => ((Store.get('teams', id) || {}).format) || '11';
@@ -366,9 +376,10 @@ const Library = (() => {
           task.progress(i / pages.length);
           try { p.text = await Imports.ocrText(p.blob); } catch (e) { p.ocrFail = true; }
         }
-        p.ex = parseExercise(p.text, p.name) || { title: p.name, duration: 15, org: '', consignes: '', materiel: '', size: '' };
+        p.ex = parseExercise(p.text, p.name) || { title: goodTitle(p.name) ? cleanTitle(p.name) : '', duration: 15, org: '', consignes: '', materiel: '', size: '' };
         p.ex.theme = themeGuess(p.ex);
-        try { const hint = colorHint(await colorScan(p.blob)); if (!p.ex.materiel && hint.materiel) p.ex.materiel = hint.materiel; if (hint.title && (!p.text.trim() || p.ex.title === p.name)) p.ex.title = hint.title; } catch (e) {}
+        try { const hint = colorHint(await colorScan(p.blob)); if (!p.ex.materiel && hint.materiel) p.ex.materiel = hint.materiel; if (hint.title && !p.ex.title) p.ex.title = hint.title; } catch (e) {}
+        if (!p.ex.title) { const th = Exos.THEMES.find(x => x[0] === p.ex.theme); p.ex.title = th ? 'Exercice : ' + th[1].replace(/^\S+\s/, '') : `Exercice ${i + 1}`; }
       }
     } finally { task.done(); }
     const urls = pages.map(p => URL.createObjectURL(p.blob));
