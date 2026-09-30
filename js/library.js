@@ -263,11 +263,26 @@ const Library = (() => {
 
   /* ---------- attach to a training or a match ---------- */
   function attach(rec) {
-    const trs = S().trainings.filter(x => !x.model && Auth.sees(x.teamId)).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 40);
-    const ms = S().matches.filter(x => Auth.sees(x.teamId)).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 40);
-    modal({ title: 'Joindre à…', body: `<label class="fld"><span>Choisis un entraînement ou un match</span><select id="attTo"><option value="">Choisir…</option>
-      <optgroup label="Entraînements">${trs.map(t => `<option value="trainings:${t.id}">${esc(UI.fmtDate(t.date))} · ${esc(t.title || 'Entraînement')}</option>`).join('')}</optgroup>
-      <optgroup label="Matchs">${ms.map(m => `<option value="matches:${m.id}">${esc(UI.fmtDate(m.date))} · contre ${esc(m.opponent || '?')}</option>`).join('')}</optgroup></select></label>`,
+    // every training and match (not only the last 40): by category, the coming ones first (soonest first), then the past ones
+    const today = new Date().toISOString().slice(0, 10), teams = S().teams.filter(t => Auth.sees(t.id));
+    const u = Auth.current(), mine = (u && u.teamIds || []).filter(id => teams.some(t => t.id === id));
+    const all = [...S().trainings.filter(x => !x.model && Auth.sees(x.teamId)).map(t => ({ col: 'trainings', ev: t, lbl: t.title || 'Entraînement' })),
+      ...S().matches.filter(x => Auth.sees(x.teamId)).map(m => ({ col: 'matches', ev: m, lbl: 'contre ' + (m.opponent || '?') }))];
+    const tName = id => { const t = Store.get('teams', id); return t ? t.name : ''; };
+    const opts = (team, q) => {
+      const list = all.filter(x => (!team || x.ev.teamId === team) && (!q || (UI.fmtDate(x.ev.date) + ' ' + (x.ev.date || '') + ' ' + x.lbl + ' ' + tName(x.ev.teamId)).toLowerCase().includes(q)));
+      const line = x => `<option value="${x.col}:${x.ev.id}">${esc(UI.fmtDate(x.ev.date))}${x.ev.time ? ' ' + esc(x.ev.time) : ''} · ${esc(x.lbl)}${team ? '' : ' · ' + esc(tName(x.ev.teamId))}</option>`;
+      const group = (label, col, next) => { const g = list.filter(x => x.col === col && (x.ev.date || '') >= today === next)
+        .sort((a, b) => next ? (a.ev.date || '').localeCompare(b.ev.date || '') : (b.ev.date || '').localeCompare(a.ev.date || ''));
+        return g.length ? `<optgroup label="${label} (${g.length})">${g.map(line).join('')}</optgroup>` : ''; };
+      const html = group('Entraînements à venir', 'trainings', true) + group('Entraînements passés', 'trainings', false) + group('Matchs à venir', 'matches', true) + group('Matchs passés', 'matches', false);
+      return `<option value="">${html ? 'Choisir…' : 'Aucun entraînement ni match trouvé'}</option>${html}`;
+    };
+    const first = mine.length === 1 ? mine[0] : '';
+    modal({ title: 'Joindre à…', body: `<label class="fld"><span>Catégorie</span><select id="attTeam"><option value="">Toutes les catégories</option>${teams.map(t => `<option value="${t.id}" ${t.id === first ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+      <label class="fld"><span>Rechercher (date, titre, adversaire)</span><input id="attQ" type="search" placeholder="ex. 12/10, Seniors, Montreuil"></label>
+      <label class="fld"><span>Choisis un entraînement ou un match</span><select id="attTo">${opts(first, '')}</select></label>`,
+      onOpen: r => { const redo = () => { $('#attTo', r).innerHTML = opts($('#attTeam', r).value, $('#attQ', r).value.trim().toLowerCase()); }; $('#attTeam', r).onchange = redo; $('#attQ', r).oninput = redo; },
       actions: [{ label: 'Annuler' }, { label: 'Joindre', kind: 'primary', onClick: (c, r) => {
         const v = $('#attTo', r).value; if (!v) { toast('Choisis où joindre le fichier', 'err'); return false; }
         const [col, id] = v.split(':'), ev = Store.get(col, id);
