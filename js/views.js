@@ -408,7 +408,7 @@ const Views = (() => {
         </section>
         <h2 class="section">Exercices</h2>
         <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
-        <button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button>
+        <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(tr.teamId, tr.staffIds)}</div>
         ${tm ? `<div class="row-head"><h2 class="section" id="presH">Présents (${(tr.presents || []).length}/${squad(tm.id).length})</h2>
           <div class="chips"><button class="btn soft" data-allpres="1">${I.check}<span>Tous présents</span></button><button class="btn soft" data-allpres="0">${I.x}<span>Personne</span></button></div></div>
@@ -429,7 +429,7 @@ const Views = (() => {
         <section class="card"><label class="fld"><span>Objectif de la séance</span><textarea id="trGoal" rows="2">${esc(tr.goal || '')}</textarea></label></section>
         <h2 class="section">Exercices</h2>
         <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
-        <button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button>
+        <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer la séance type</span></button></div>`;
       Library.mountDocs($('#docsBox', root), tr, save);
@@ -486,6 +486,8 @@ const Views = (() => {
       if (b.hasAttribute('data-draw')) return newSchema({ name: ex.title, teamId: tr.teamId, onCreate: s => { ex.schemaId = s.id; save(); } });
       if (b.hasAttribute('data-pick')) return pickSchema(s => { ex.schemaId = s.id; save(); render(); });
       switch (b.dataset.act) {
+        case 'exClub': return Exos.pick(tr.teamId, ex => { tr.exercises.push(ex); save(); render(); toast('Exercice ajouté à la séance'); });
+        case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
         case 'addEx': tr.exercises.push({ id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }); save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'share': return runExport('Préparation du fichier…', async () => Exporter.json(await Library.withBackgrounds(Store.exportTraining(tr)), tr.title || 'entrainement'));

@@ -294,7 +294,7 @@ const Library = (() => {
 
   /* ---------- a file read and turned into exercises, everywhere: « Exercices du club » (by theme and category), a séance type of the club,
      the schemas (the page is the drawing background, shared with every coach), and a training if chosen ---------- */
-  async function toExercises(recs) {
+  async function toExercises(recs, opts = {}) {
     recs = (recs || []).filter(Boolean);
     const vid = recs.find(r => r.kind === 'video');
     const pages = [];
@@ -326,7 +326,8 @@ const Library = (() => {
       <p class="tip">Chaque page devient un exercice : il va dans <b>Exercices du club</b> (par thème et par catégorie), dans une <b>séance type du club</b> et dans les <b>Schémas</b> (la page sert de fond pour dessiner). Tout est partagé avec les coachs. Vérifie ce que l'appli a lu, corrige si besoin.</p>
       <label class="fld"><span>Nom de la séance type</span><input id="xName" value="${esc(name)}" maxlength="90"></label>
       <div class="row2"><label class="fld"><span>Pour</span><select id="xTeam"><option value="">Tout le club (toutes les catégories)</option>${Auth.teams().map(t => `<option value="${t.id}">${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
-      <label class="fld"><span>Ajouter aussi à un entraînement</span><select id="xTr"><option value="">Non</option>${trs.map(t => `<option value="${t.id}">${esc(UI.fmtDate(t.date))} · ${esc(t.title || 'Entraînement')} · ${esc((Store.get('teams', t.teamId) || {}).name || '')}</option>`).join('')}</select></label></div>
+      <label class="fld"><span>Ajouter aussi à un entraînement</span><select id="xTr">${opts.trId && Store.get('trainings', opts.trId) ? `<option value="${opts.trId}" selected>👉 Cette séance : ${esc(Store.get('trainings', opts.trId).title || 'Entraînement')}</option>` : ''}<option value="">Non</option><option value="new">➕ Créer une nouvelle séance</option>${trs.map(t => `<option value="${t.id}">${esc(UI.fmtDate(t.date))} · ${esc(t.title || 'Entraînement')} · ${esc((Store.get('teams', t.teamId) || {}).name || '')}</option>`).join('')}</select></label></div>
+      <div class="row2" id="xNew" hidden><label class="fld"><span>Date de la séance</span><input type="date" id="xDate" value="${UI.today()}"></label><label class="fld"><span>Heure</span><input type="time" id="xTime" value="18:00"></label></div>
       ${pages.some(p => p.ocrFail) ? '<p class="muted small">⚠️ Certaines pages n\'ont pas pu être lues (il faut internet la première fois) : complète le texte à la main.</p>' : ''}
       ${vid ? '<p class="muted small">Les vidéos ne sont pas lues : ouvre la vidéo, mets-la sur pause et touche « Dessiner sur cette image ».</p>' : ''}
       ${pages.length > 1 ? `<div class="chips"><button type="button" class="btn soft" data-xall="1">${I.check}<span>Tout cocher</span></button><button type="button" class="btn soft" data-xall="0">${I.x}<span>Tout décocher</span></button></div>` : ''}
@@ -340,12 +341,13 @@ const Library = (() => {
           <label class="fld"><span>Organisation</span><textarea data-xo="${i}" rows="4">${esc(p.ex.org)}</textarea></label>
           <label class="fld"><span>Consignes (une par ligne)</span><textarea data-xc="${i}" rows="3">${esc(p.ex.consignes)}</textarea></label>
           <div class="row2"><label class="fld"><span>Matériel</span><input data-xm="${i}" value="${esc(p.ex.materiel)}"></label><label class="fld"><span>Espace (ex. 30x20)</span><input data-xs="${i}" value="${esc(p.ex.size)}"></label></div></details></section>`).join('')}</div>`,
-      onOpen: r => $$('[data-xall]', r).forEach(b => b.onclick = () => $$('[data-xi]', r).forEach(x => x.checked = b.dataset.xall === '1')),
+      onOpen: r => { $$('[data-xall]', r).forEach(b => b.onclick = () => $$('[data-xi]', r).forEach(x => x.checked = b.dataset.xall === '1')); $('#xTr', r).onchange = e => { $('#xNew', r).hidden = e.target.value !== 'new'; }; },
       actions: [{ label: 'Annuler' }, { label: 'Créer les exercices', kind: 'primary', icon: I.check, onClick: (c, r) => {
         const v = (a, i) => { const el = r.querySelector(`[data-${a}="${i}"]`); return el ? el.value.trim() : ''; };
         const pick = $$('[data-xi]', r).filter(x => x.checked).map(x => +x.dataset.xi);
         if (!pick.length) { toast('Coche au moins une page', 'err'); return false; }
-        const teamId = $('#xTeam', r).value || null, trId = $('#xTr', r).value, title = $('#xName', r).value.trim() || name;
+        const teamId = $('#xTeam', r).value || null, title = $('#xName', r).value.trim() || name, when = { date: $('#xDate', r).value || UI.today(), time: $('#xTime', r).value };
+        let trId = $('#xTr', r).value;
         const formats = teamId ? [fmtOfTeam(teamId)] : ['5', '8', '11'];
         (async () => {
           const b = busy('Création des exercices…');
@@ -360,11 +362,15 @@ const Library = (() => {
               exs.push(Object.assign(ex, { schemaId: sc.id }));
             }
             const docIds = recs.map(x => x.id);
-            const model = Store.upsert('trainings', { id: Store.uid(), model: true, title, date: UI.today(), time: '', teamId: null, goal: `Exercices lus dans « ${recs.map(x => cleanName(x.name)).join(', ')} »`, exercises: exs, presents: [], docIds });
+            const target = trId && trId !== 'new' && Store.get('trainings', trId);
+            // added to a séance type from its page: no second séance type
+            const model = target && target.model ? target : Store.upsert('trainings', { id: Store.uid(), model: true, title, date: UI.today(), time: '', teamId: null, goal: `Exercices lus dans « ${recs.map(x => cleanName(x.name)).join(', ')} »`, exercises: exs, presents: [], docIds });
+            if (trId === 'new') trId = Store.upsert('trainings', { id: Store.uid(), title, date: when.date, time: when.time, teamId, goal: '', exercises: [], presents: [] }).id;
             if (trId) { const t = Store.get('trainings', trId); t.exercises = [...(t.exercises || []), ...exs.map(e => Object.assign({}, e, { id: Store.uid() }))]; t.docIds = [...new Set([...(t.docIds || []), ...docIds])]; Store.upsert('trainings', t); }
             if (typeof Cloud !== 'undefined' && Cloud.ready()) await Sync.run().catch(() => {});
             toast(`${exs.length} exercice${exs.length > 1 ? 's' : ''} créé${exs.length > 1 ? 's' : ''} : Exercices du club, séance type${trId ? ', entraînement' : ''} et Schémas`);
-            location.hash = '#/entrainement/' + (trId || model.id);
+            // already on this séance (added from its page): shown again with its new exercises
+            const dest = '#/entrainement/' + (trId || model.id); if (location.hash === dest) window.dispatchEvent(new HashChangeEvent('hashchange')); else location.hash = dest;
           } catch (e) { toast(e.message || 'Création impossible', 'err'); } finally { b.done(); }
         })();
       } }] });
@@ -374,16 +380,16 @@ const Library = (() => {
   const themeGuess = ex => { const all = Exos.themeOf ? Exos.themeOf(ex) : []; return all[0] || ''; };
   const toSchemas = toExercises;
   // « Schémas » → « Depuis un fichier »: import (or take from the library) then choose the pages
-  function schemasFromFiles() {
+  function schemasFromFiles(opts = {}) {
     modal({ title: 'Exercices depuis un fichier', body: '<p class="muted small">PDF, photo ou capture d\'écran d\'une fiche d\'exercice : l\'appli la lit et crée l\'exercice (Exercices du club, séance type du club, Schémas), partagé avec les coachs. Une vidéo : on en garde une image.</p>',
       actions: [{ label: 'Annuler' },
         { label: 'Depuis la bibliothèque', icon: I.layers, onClick: () => { setTimeout(async () => {
           const items = (await Media.list('lib')).filter(m => m.kind !== 'link').reverse();
           const close = modal({ title: 'Choisir dans la bibliothèque', noFocus: true,
             body: items.length ? `<div class="lib-grid small">${items.map(card).join('')}</div>` : '<p class="muted">La bibliothèque est vide.</p>',
-            onOpen: r => $$('[data-doc]', r).forEach(x => x.onclick = async () => { close(); const rec = await Media.get(x.dataset.doc); setTimeout(() => toSchemas([rec]), 60); }) });
+            onOpen: r => $$('[data-doc]', r).forEach(x => x.onclick = async () => { close(); const rec = await Media.get(x.dataset.doc); setTimeout(() => toExercises([rec], opts), 60); }) });
         }, 60); } },
-        { label: 'Importer un fichier', kind: 'primary', icon: I.upload, onClick: () => { setTimeout(() => pickFiles(async ids => toSchemas(await Promise.all(ids.map(id => Media.get(id))))), 60); } }] });
+        { label: 'Importer un fichier', kind: 'primary', icon: I.upload, onClick: () => { setTimeout(() => pickFiles(async ids => toExercises(await Promise.all(ids.map(id => Media.get(id))), opts)), 60); } }] });
   }
 
   /* ---------- attach to a training or a match ---------- */

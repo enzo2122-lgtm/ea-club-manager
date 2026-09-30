@@ -142,12 +142,56 @@ const Exos = (() => {
     Store.upsert('schemas', sc); toast(`Terrain de ${w && h ? w + ' × ' + h + ' m' : 'la catégorie'} prêt : place les joueurs et les flèches`); location.hash = '#/schema/' + sc.id;
   }
   const copyEx = e => ({ id: Store.uid(), theme: e.theme || themeOf(e)[0] || null, title: e.title, duration: e.duration, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null, size: e.size || '' });
+  // « Ajouter à une séance »: an entraînement to come (all of them, by category), or a new séance created with this exercise
   function addTo(ex) {
     if (!ex) return;
-    const list = S().trainings.filter(t => !t.model && Auth.sees(t.teamId) && t.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 12);
-    const close = modal({ title: `Ajouter « ${ex.title} »`, noFocus: true, body: list.length ? `<div class="list">${list.map(t => `<button class="list-item hl-pickrow" data-tr="${t.id}"><span class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${esc(UI.fmtDate(t.date))} · ${esc((Store.get('teams', t.teamId) || {}).name || '')}</span></span></button>`).join('')}</div>`
-      : '<p class="muted">Pas de séance à venir : crée d\'abord un entraînement, ou « Générer une séance ».</p>',
-      onOpen: r => $$('[data-tr]', r).forEach(b => b.onclick = () => { const t = Store.get('trainings', b.dataset.tr); t.exercises.push(copyEx(ex)); Store.upsert('trainings', t); close(); toast('Exercice ajouté'); location.hash = '#/entrainement/' + t.id; }) });
+    const teams = Auth.teams(), u = Auth.current(), mine = ((u && u.teamIds) || []).filter(id => teams.some(t => t.id === id));
+    let team = S().ui.teamId && teams.some(t => t.id === S().ui.teamId) ? S().ui.teamId : mine.length === 1 ? mine[0] : '';
+    const rows = () => {
+      const list = S().trainings.filter(t => !t.model && Auth.sees(t.teamId) && (!team || t.teamId === team) && (t.date || '') >= UI.today()).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+      return list.length ? list.map(t => `<button class="list-item hl-pickrow" data-tr="${t.id}"><span class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${esc(UI.fmtDate(t.date))}${t.time ? ' · ' + esc(t.time) : ''} · ${esc((Store.get('teams', t.teamId) || {}).name || '')} · ${(t.exercises || []).length} exercice${(t.exercises || []).length > 1 ? 's' : ''}</span></span></button>`).join('')
+        : '<p class="muted small">Pas d\'entraînement à venir ici : crée une nouvelle séance juste en dessous.</p>';
+    };
+    const close = modal({ title: `Ajouter « ${ex.title} »`, noFocus: true, body: `
+      <label class="fld"><span>Catégorie</span><select id="atTeam"><option value="">Toutes les catégories</option>${teams.map(t => `<option value="${t.id}" ${t.id === team ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
+      <div class="lbl">Ajouter à un entraînement à venir</div>
+      <div class="list" id="atList">${rows()}</div>
+      <div class="lbl">Ou créer une nouvelle séance avec cet exercice</div>
+      <label class="fld"><span>Thème de la séance</span><input id="atTitle" value="${esc(ex.title)}" maxlength="80"></label>
+      <div class="row2"><label class="fld"><span>Date</span><input type="date" id="atDate" value="${UI.today()}"></label><label class="fld"><span>Heure</span><input type="time" id="atTime" value="18:00"></label></div>
+      <button type="button" class="btn primary wide" id="atNew">${I.plus}<span>Créer la séance</span></button>`,
+      onOpen: r => {
+        const bind = () => $$('[data-tr]', r).forEach(b => b.onclick = () => { const t = Store.get('trainings', b.dataset.tr); t.exercises = [...(t.exercises || []), copyEx(ex)]; Store.upsert('trainings', t); close(); toast('Exercice ajouté'); location.hash = '#/entrainement/' + t.id; });
+        $('#atTeam', r).onchange = e => { team = e.target.value; $('#atList', r).innerHTML = rows(); bind(); };
+        bind();
+        $('#atNew', r).onclick = () => {
+          const tr = Store.upsert('trainings', { id: Store.uid(), title: $('#atTitle', r).value.trim() || ex.title, date: $('#atDate', r).value || UI.today(), time: $('#atTime', r).value, teamId: team || null, goal: '', exercises: [copyEx(ex)], presents: [] });
+          close(); toast('Séance créée avec l\'exercice'); location.hash = '#/entrainement/' + tr.id;
+        };
+      } });
+  }
+
+  // from a séance: pick an exercise of the club (those of its category first), it is copied in the séance
+  function pick(teamId, done) {
+    const fmt = teamId ? fmtOf(teamId) : '';
+    let q = '', th = '';
+    const rows = () => {
+      const list = all().filter(e => (!fmt || !e.formats.length || e.formats.includes(fmt)) && (!th || themeOf(e).includes(th)) && (!q || norm(`${e.title} ${e.org} ${e.consignes}`).includes(norm(q))))
+        .sort((a, b) => (b.club ? 1 : 0) - (a.club ? 1 : 0));
+      return list.slice(0, 120).map(e => { const sc = e.schemaId && Store.get('schemas', e.schemaId);
+        return `<button class="list-item hl-pickrow" data-pk="${esc(e.id)}">${sc ? `<img alt="" src="${UI.thumb(sc, 120, 78)}" style="width:60px;border-radius:4px">` : ''}<span class="li-main"><b>${esc(e.title)}</b><span class="muted small">${e.duration} min · ${e.club ? '📚 club' : 'base'}${themeOf(e).length ? ' · ' + themeOf(e).map(k => (THEMES.find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '')).join(', ') : ''}</span></span></button>`; }).join('')
+        || '<p class="muted small">Aucun exercice ne correspond.</p>';
+    };
+    const close = modal({ title: '📚 Choisir un exercice', noFocus: true, body: `
+      <input class="hl-q" id="pkQ" placeholder="Rechercher (ex : rondo, centre, pressing)" autocomplete="off">
+      <label class="fld"><span>Thème</span><select id="pkTh"><option value="">Tous</option>${THEMES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+      <div class="list" id="pkList">${rows()}</div>`,
+      onOpen: r => {
+        const bind = () => $$('[data-pk]', r).forEach(b => b.onclick = () => { const e = all().find(x => x.id === b.dataset.pk); if (!e) return; close(); done(copyEx(e)); });
+        const redo = () => { $('#pkList', r).innerHTML = rows(); bind(); };
+        $('#pkQ', r).oninput = e => { q = e.target.value; redo(); }; $('#pkTh', r).onchange = e => { th = e.target.value; redo(); };
+        bind();
+      } });
   }
 
   /* ---------- the generator ---------- */
@@ -192,5 +236,5 @@ const Exos = (() => {
   }
 
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-exgen]'); if (b) generator(); });
-  return { page, generator, all, themeOf, THEMES };
+  return { page, generator, all, themeOf, pick, THEMES };
 })();
