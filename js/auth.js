@@ -39,7 +39,7 @@ const Auth = (() => {
   const realAdmin = () => { if (!user) return false; const s = sess(); if (s && s.staff_id === user.id) return !!s.admin; return !!(U(user.id) && U(user.id).admin); };
   // « Voir comme un coach »: a responsable sees the app exactly as a coach of the chosen categories (this device and tab only)
   const PREVIEW = 'ea-preview';
-  const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(sessionStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
+  const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
   // a responsable looking at the app as a volunteer: only the volunteers' tasks and the club's events
   const volView = () => { const p = preview(); return !!p && p.role === 'benevole'; };
@@ -56,8 +56,8 @@ const Auth = (() => {
   const teams = () => allTeams() ? Store.state.teams : Store.state.teams.filter(t => myIds().includes(t.id));
   const sees = teamId => allTeams() || !teamId || myIds().includes(teamId);
   const seesPerson = p => allTeams() || (p.teamIds || []).some(id => myIds().includes(id)) || (user && p.id === user.id);
-  function startPreview(teamIds, role) { try { sessionStorage.setItem(PREVIEW, JSON.stringify({ teamIds, role: role || 'coach' })); } catch (e) {} Store.state.ui.teamId = ''; App.refreshChrome(); location.hash = '#/'; App.route(); toast(role === 'benevole' ? 'Tu vois l\'appli comme un bénévole' : 'Tu vois l\'appli comme un coach'); }
-  function stopPreview() { try { sessionStorage.removeItem(PREVIEW); } catch (e) {} App.refreshChrome(); App.route(); toast('Retour en responsable'); }
+  function startPreview(teamIds, role, extra = {}) { try { localStorage.setItem(PREVIEW, JSON.stringify(Object.assign({ teamIds, role: role || 'coach' }, extra))); } catch (e) {} Store.state.ui.teamId = ''; App.refreshChrome(); location.hash = role === 'arbitre' ? '#/arbitres' : '#/'; App.route(); toast('Tu es maintenant : ' + (extra.label || role)); }
+  function stopPreview() { try { localStorage.removeItem(PREVIEW); sessionStorage.removeItem(PREVIEW); } catch (e) {} App.refreshChrome(); App.route(); toast('Retour en responsable'); }
   // « Voir l'appli comme… » : un coach (ses catégories), un parent ou un joueur (leur vraie page), un bénévole (l'appli réduite)
   const ROLES = [['coach', '🧢 Un coach', 'L\'appli exactement comme lui : ses catégories seulement, sans les réglages du responsable.'],
     ['parent', '👨‍👩‍👧 Un parent', 'La vraie page d\'un parent (avec le code d\'un enfant de la catégorie) : ses matchs, sa convocation, covoiturage, bénévoles, photos. Rien sur les autres enfants.'],
@@ -85,18 +85,18 @@ const Auth = (() => {
     return el;
   }
   // the parents' or players' page, inside the app (full screen), with a bar to come back
-  async function viewPage(role, teamId) {
+  async function viewPage(role, teamId, playerId) {
     if (!Cloud.ready()) return toast('Il faut être connecté au serveur du club', 'err');
     let url; const b = UI.busy('Ouverture de la page…');
     const t = Store.get('teams', teamId), ids = Store.teamGroups([t]).flat().map(x => x.id);
-    const pl = Store.state.players.filter(p => (p.teamIds || []).some(id => id === teamId || ids.includes(id))).sort((a, c) => String(a.lastName || '').localeCompare(String(c.lastName || ''), 'fr'))[0];
+    const pl = (playerId && Store.get('players', playerId)) || Store.state.players.filter(p => (p.teamIds || []).some(id => id === teamId || ids.includes(id))).sort((a, c) => String(a.lastName || '').localeCompare(String(c.lastName || ''), 'fr'))[0];
     if (!pl) { b.done(); return toast('Aucun joueur dans cette catégorie', 'err'); }
     try { const map = await Cloud.memberCodes([pl.id]) || {}, c = (map[pl.id] || {}).code; if (!c) throw new Error('Code indisponible');
       url = `${location.href.split('#')[0].replace(/index\.html$/, '')}${role === 'parent' ? 'parents' : 'joueurs'}.html#c=${c}&preview=1`; }
     catch (e) { return toast(e.message || 'Page indisponible', 'err'); } finally { b.done(); }
     const ov = document.createElement('div'); ov.className = 'pv-frame';
-    ov.innerHTML = `<div class="pv-bar"><b>${role === 'parent' ? '👨‍👩‍👧 Vue parent' : '⚽ Vue joueur'} · ${esc(Store.shortName(pl))} (${esc((t || {}).name || '')})</b><button class="btn" data-pvx>${I.x}<span>Fermer</span></button></div><iframe src="${esc(url)}" title="Aperçu"></iframe>`;
-    document.body.appendChild(ov); ov.querySelector('[data-pvx]').onclick = () => ov.remove();
+    ov.innerHTML = `<div class="pv-bar"><b>${role === 'parent' ? '👨‍👩‍👧 Vue parent' : '⚽ Vue joueur'} · ${esc(Store.shortName(pl))} (${esc((t || {}).name || '')})</b><span class="chips"><button class="btn" data-pvr>🔀<span>Changer de rôle</span></button><button class="btn" data-pvx>${I.x}<span>Fermer</span></button></span></div><iframe src="${esc(url)}" title="Aperçu"></iframe>`;
+    document.body.appendChild(ov); ov.querySelector('[data-pvx]').onclick = () => ov.remove(); ov.querySelector('[data-pvr]').onclick = () => { ov.remove(); Roles.open(); };
   }
   const hasAccounts = () => Object.values(A().users).some(u => u.hash);
   async function setPassword(id, pw, extra = {}) {
@@ -449,7 +449,7 @@ const Auth = (() => {
       <p class="muted small">${sess() ? 'Ton compte est sur le serveur du club : connecte-toi sur n\'importe quel appareil avec ton nom, ton prénom et ton mot de passe.' : 'Ton compte est seulement sur cet appareil.'}</p>
       <div class="chips"><button class="btn" data-auth="pw">${I.edit}<span>Changer mon mot de passe</span></button>
       <button class="btn" data-auth="logout">${I.back}<span>Se déconnecter</span></button>
-      ${realAdmin() ? (preview() ? `<button class="btn primary" data-auth="stopPreview">${I.whistle}<span>Revenir en responsable</span></button>` : `<button class="btn" data-auth="preview">${I.team}<span>Voir l'appli comme… (coach, parent, joueur, bénévole)</span></button>`) : ''}</div></section>`;
+      ${realAdmin() ? (preview() ? `<button class="btn primary" data-auth="stopPreview">${I.whistle}<span>Revenir en responsable</span></button>` : `<button class="btn" data-auth="preview">${I.team}<span>🔀 Mes rôles (coach, bénévole, arbitre, joueur, parent)</span></button>`) : ''}</div></section>`;
     if (!isAdmin()) return me;
     return me + `<section class="card"><h2>${I.team}Comptes des dirigeants</h2>
       <p class="muted">Un responsable peut réinitialiser le mot de passe d'un dirigeant (il en recréera un avec « Première connexion ») et changer ses catégories. 🔒 : catégories choisies à la première connexion, verrouillées pour l'éducateur.</p>
@@ -478,8 +478,8 @@ const Auth = (() => {
   const accOf = id => (serverAcc || []).find(a => a.staff_id === id) || {};
   async function onSettingsClick(b, rerender) {
     if (b.dataset.auth === 'mottoIdea') { const inp = document.getElementById('myMotto'); if (inp) { inp.value = UI.mottoIdea(inp.value); saveMotto(inp.value); } return; }
-    if (b.dataset.auth === 'logout') { try { sessionStorage.removeItem(PREVIEW); } catch (e) {} return logout(); }
-    if (b.dataset.auth === 'preview') return previewDialog();
+    if (b.dataset.auth === 'logout') { try { sessionStorage.removeItem(PREVIEW); localStorage.removeItem(PREVIEW); } catch (e) {} return logout(); }
+    if (b.dataset.auth === 'preview') return Roles.open();
     if (b.dataset.auth === 'absence') return ClubAdmin.absenceDialog(user.id, () => { user = Store.get('staff', user.id) || user; rerender && rerender(); });
     if (b.dataset.auth === 'stopPreview') return stopPreview();
     if (b.dataset.auth === 'pw') return modal({ title: 'Changer mon mot de passe', body: `<label class="fld"><span>Mot de passe actuel</span><input id="old" type="password" autocomplete="current-password"></label>${pwFields('Nouveau mot de passe')}`,
@@ -547,5 +547,5 @@ const Auth = (() => {
     if (serverMode() && isAdmin()) Cloud.accountSet({ staff_id: staffId, delete: true }).catch(() => {});
   }
 
-  return { askPassword, gate, current, isAdmin, realAdmin, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
+  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
 })();

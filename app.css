@@ -1553,6 +1553,14 @@ h2.section svg { width: 22px; height: 22px; vertical-align: -4px; margin-right: 
 .ex-res summary { cursor: pointer; }
 .ex-res-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--line); }
 .ex-res-row a { flex: 1; min-width: 200px; font-weight: 600; }
+.g-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.g-tile { display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: var(--round, 14px); background: var(--surface); border: 1px solid var(--line); color: inherit; text-decoration: none; text-align: left; font: inherit; cursor: pointer; }
+.g-tile:hover { border-color: var(--accent); }
+.g-tile > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.g-ic { font-size: 26px; line-height: 1; }
+.role-go { background: none; border: 0; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.list-item.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+#previewBar .chips { flex-wrap: nowrap; gap: 6px; }
 .ref-m .tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--gold-soft); white-space: nowrap; align-self: flex-start; }
 .ref-m .tag.warn { background: var(--surface2); color: var(--bad); }
 .ref-m .chips { margin-top: 8px; align-items: center; }

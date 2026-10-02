@@ -9,7 +9,7 @@ const Refs = (() => {
   const isRef = p => !!p && /arbitre/i.test(p.role || '');
   const refs = () => S().staff.filter(isRef).sort(Store.byName);
   const me = () => Auth.current();
-  const mine = () => isRef(me()) ? Store.get('staff', me().id) : null;
+  const mine = () => me() && (isRef(me()) || (Auth.preview() || {}).role === 'arbitre') ? Store.get('staff', me().id) : null;
   // the official matches at home still to play, every category
   const homeMatches = () => S().matches.filter(m => m.home && !Store.isFriendly(m) && !m.played && (m.date || '') >= UI.today())
     .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
@@ -18,7 +18,7 @@ const Refs = (() => {
   // a referee taken that day (an official match he referees elsewhere)
   const busy = (r, date) => (r.refGames || []).filter(g => g.date === date);
   const answer = (r, m) => (r.refAvail || {})[m.id] || (busy(r, m.date).length ? 'no' : '');
-  const canChoose = m => Auth.isAdmin() || (Auth.sees(m.teamId) && !isRef(me()));
+  const canChoose = m => Auth.isAdmin() || (Auth.sees(m.teamId) && !mine());
 
   // home: a referee sees what waits for his answer
   function waiting() { const r = mine(); return r ? homeMatches().filter(m => !answer(r, m)).length : 0; }

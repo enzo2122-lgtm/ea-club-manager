@@ -15,8 +15,8 @@ const App = (() => {
     if (pv) {
       if (!bar) { bar = document.createElement('div'); bar.id = 'previewBar'; document.body.appendChild(bar); }
       const names = pv.teamIds.map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', ');
-      bar.innerHTML = `<span>👀 ${pv.role === 'benevole' ? 'Aperçu bénévole' : 'Aperçu coach · ' + UI.esc(names)}</span><button class="btn" id="stopPv">Revenir<span class="lg"> en responsable</span></button>`;
-      bar.querySelector('#stopPv').onclick = () => Auth.stopPreview();
+      bar.innerHTML = `<span>${UI.esc(pv.label || (pv.role === 'benevole' ? '🙋 Bénévole' : pv.role === 'arbitre' ? '🟨 Arbitre' : '🧢 Coach · ' + names))}</span><span class="chips"><button class="btn" id="swPv">🔀<span class="lg"> Changer de rôle</span></button><button class="btn" id="stopPv">🏛️ Responsable</button></span>`;
+      bar.querySelector('#stopPv').onclick = () => Auth.stopPreview(); bar.querySelector('#swPv').onclick = () => Roles.open();
       document.body.classList.add('previewing');
       document.body.style.setProperty('--pvh', bar.offsetHeight + 'px');
     } else if (bar) { bar.remove(); document.body.classList.remove('previewing'); }
@@ -28,7 +28,8 @@ const App = (() => {
     const coach = u ? Messages.coachName(u) : '', first = coach.replace(/^Coach /, '');
     ru.innerHTML = u ? `<a class="ru-me" href="#/reglages" title="Mon compte">
         <span class="avatar" aria-hidden="true">${UI.esc((first[0] || '') + ((u.lastName || '')[0] || ''))}${u.club ? `<span class="avatar-club">${Clubs.crest(u.club, 18, () => refreshChrome())}</span>` : ''}</span>
-        <span class="ru-name">${UI.esc(coach)}</span></a><button class="ru-out" id="logoutBtn">Sortir</button>` : '';
+        <span class="ru-name">${UI.esc(coach)}</span></a>${Auth.realAdmin() ? '<button class="ru-out" id="rolesBtn" title="Mes rôles">🔀 Rôles</button>' : ''}<button class="ru-out" id="logoutBtn">Sortir</button>` : '';
+    const rb = document.getElementById('rolesBtn'); if (rb) rb.onclick = () => Roles.open();
     const lo = document.getElementById('logoutBtn'); if (lo) lo.onclick = () => Auth.logout();
     document.title = (u ? coach + ' · ' : '') + (c.name || 'EA Club Manager');
   }
@@ -37,7 +38,7 @@ const App = (() => {
     const pv = Auth.preview();
     // a volunteer: only what he uses on match days
     const nav = pv && pv.role === 'benevole' ? [['benevoles', 'Bénévoles', 'team'], NAV[5]]
-      : Auth.isAdmin() ? [...NAV.slice(0, -1), ['president', 'Tableau de bord', 'shield', 'Président'], NAV[NAV.length - 1]] : NAV;
+      : Auth.isAdmin() ? [...NAV.slice(0, -1), ['gestion', 'Gestion du club', 'shield', 'Gestion'], NAV[NAV.length - 1]] : NAV;
     const idx = nav.findIndex(n => n[0] === active);
     document.getElementById('nav').innerHTML = nav.map(([h, l, ic, short], i) =>
       `<a href="#/${h}" class="${h === active ? 'on' : ''} ${i >= PHONE_MAIN ? 'more' : ''}" ${h === active ? 'aria-current="page"' : ''} aria-label="${l}">${I[ic]}<span class="lg">${l}</span><span class="sh">${short || l}</span></a>`).join('')
@@ -65,7 +66,7 @@ const App = (() => {
     document.body.dataset.page = name;
     const full = name === 'schema' || name === 'tableau';
     document.body.classList.toggle('editing', full);
-    const navKey = { codes: 'equipes', equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'president', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', bilan: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
+    const navKey = { equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', bilan: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
     renderNav(navKey);
     // Whiteboard: a blank board, never saved (id = format of the pitch)
     if (name === 'tableau') { Help.button(); return Editor.open(root, Templates.blank(id || '11'), { scratch: true }); }
@@ -79,7 +80,7 @@ const App = (() => {
       planning: r => Planning.page(r), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
-      tests: (r, x) => Tests.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
+      tests: (r, x) => Tests.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
     fn(root, id);
     if (keep) { root.scrollTop = st; window.scrollTo(0, sy); } else { releaseHeight(); root.scrollTop = 0; window.scrollTo(0, 0); enter(root); }
     Help.button();
@@ -113,7 +114,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 11, UPD = 'ea-update-tried';
+  const BUILD = 12, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
