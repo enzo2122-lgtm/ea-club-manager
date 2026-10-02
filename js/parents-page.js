@@ -113,7 +113,8 @@
       ${trs.length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${trs.map(trRow).join('')}</div>` : ''}
       ${past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : ''}
       <div id="phView" class="ph-view" hidden></div>
-      <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil ») pour la retrouver. Le code de ton enfant est personnel : ne le donne à personne. Une question ? Écris au coach.</p>`;
+      <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil ») pour la retrouver. Le code de ton enfant est personnel : ne le donne à personne. Une question ? Écris au coach.</p>
+      ${Member.privacy()}`;
   }
 
   async function load(quiet) {

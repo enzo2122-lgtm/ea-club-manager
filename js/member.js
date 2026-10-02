@@ -53,12 +53,14 @@ const Member = (() => {
 
   // the form « Ton code personnel » (category of the QR code shown on top)
   function form(root, opts = {}) {
+    sheetCss();
     const cat = decodeURIComponent(hashArg('cat')).replace(/\+/g, ' ');
     root.innerHTML = `<div class="card code-card">
       ${cat ? `<p class="code-cat">⚽ ${esc(cat)}</p>` : ''}
       <h2>Ton code personnel</h2>
       <p class="info">Le club t'a donné un code de 8 lettres et chiffres (sur ta carte, ou par ton coach). Il ouvre <b>ton</b> espace : tes convocations, ton temps de jeu, les matchs et les séances de ta catégorie.</p>
       <form id="codeForm" autocomplete="off"><input id="codeIn" class="code-in" inputmode="text" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="ABCD-2345" aria-label="Code personnel" value="${esc(pretty(opts.code || ''))}">
+      <label class="consent"><input type="checkbox" id="codeOk"> <span>J'ai lu la <a href="confidentialite.html" target="_blank">page confidentialité</a>. Si le joueur a moins de 15 ans, je suis son parent et je donne mon accord.</span></label>
       <button class="b yes on code-go" type="submit">Entrer</button></form>
       <p id="codeErr" class="code-err" role="alert">${esc(opts.error || '')}</p>
       ${list().length ? `<p class="info">Codes déjà enregistrés sur ce téléphone :</p><div class="btns">${list().map(x => `<button class="b small" data-usecode="${esc(x.c)}">${esc(x.first || x.name || pretty(x.c))}</button>`).join('')}</div>` : ''}
@@ -68,6 +70,7 @@ const Member = (() => {
     root.querySelector('#codeForm').onsubmit = async e => {
       e.preventDefault(); const c = clean(inp.value), err = root.querySelector('#codeErr');
       if (c.length !== 8) { err.textContent = 'Le code a 8 caractères (ex : ABCD-2345).'; return; }
+      if (!root.querySelector('#codeOk').checked) { err.textContent = 'Coche la case : tu as lu la page confidentialité (et, pour un enfant de moins de 15 ans, tu es son parent).'; return; }
       err.textContent = 'Vérification…';
       try { const d = await rpc('member_view', { p_code: c }); remember(c, d); opts.onOk ? opts.onOk(c, d) : location.replace(pageFor(d)); }
       catch (x) { err.textContent = x.message; }
@@ -81,7 +84,21 @@ const Member = (() => {
       <span class="btns">${l.filter(x => x.c !== c).map(x => `<button class="b small" data-usecode="${esc(x.c)}">${esc(x.first || x.name || pretty(x.c))}</button>`).join('')}
       ${PREVIEW ? `<a class="b small lnk" href="${other[0]}#c=${esc(c)}&preview=1">${other[1]}</a>` : `<a class="b small lnk" href="moi.html#add=1">＋ ${kind === 'parents' ? 'Un autre enfant' : 'Un autre code'}</a><a class="b small lnk" href="${other[0]}">${other[1]}</a><button class="b small" data-forget="${esc(c)}">Se déconnecter</button>`}</span></div>`;
   }
+  function privacy() {
+    return `<div class="card privacy"><p class="info">🔒 <a href="confidentialite.html">Confidentialité</a> : tes données ne sont vues que par les coachs de ta catégorie et les responsables du club.</p>
+      <button class="b small" data-forgetme>🗑️ Supprimer mes données</button></div>`;
+  }
+  // the request goes to the coaches of the category (they delete the player's file)
+  async function forgetMe(kind) {
+    const c = read(CUR, ''), me = list().find(x => x.c === c) || {};
+    if (!confirm('Demander au club de supprimer toutes les données de ' + (me.first || me.name || 'ce joueur') + ' ? Les coachs reçoivent la demande et suppriment la fiche dans le mois. Le code ne marchera plus ensuite.')) return;
+    try {
+      await rpc('member_message', { p_code: c, p_parent: kind === 'parents', p_body: `🗑️ Demande de suppression des données de ${me.name || me.first || 'ce joueur'} (espace ${kind === 'parents' ? 'parents' : 'joueur'}). Merci de supprimer sa fiche, ses photos et ses réponses dans le mois, puis de le confirmer.` });
+      alert('Ta demande est envoyée aux coachs. Ils suppriment les données dans le mois.');
+    } catch (e) { alert(e.message); }
+  }
   function onBar(e, reload) {
+    if (e.target.closest('[data-forgetme]')) { forgetMe(/parents/.test(location.pathname) ? 'parents' : 'joueur'); return true; }
     const u = e.target.closest('[data-usecode]'); if (u) { use(u.dataset.usecode); reload(); return true; }
     const f = e.target.closest('[data-forget]'); if (f) { if (confirm('Retirer ce code de ce téléphone ? Il faudra le retaper pour revenir.')) { forget(f.dataset.forget); location.replace('moi.html'); } return true; }
     return false;
@@ -100,6 +117,7 @@ const Member = (() => {
       + '.rs-grid .b{justify-content:flex-start;text-align:left}.rs-grid .b.on{outline:3px solid #be123c;background:#fde8ec}'
       + '.rs-note{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:12px;border:1px solid #d6d0cb;font:inherit;font-size:16px;margin-bottom:12px}'
       + '.rs-sheet .btns{display:flex;gap:8px;justify-content:flex-end}.rs-sheet .b[disabled]{opacity:.45}.why{display:block;font-size:13px;opacity:.85;margin-top:2px}'
+      + '.consent{display:flex;gap:8px;align-items:flex-start;font-size:14px;margin:10px 0;text-align:left}.consent input{width:20px;height:20px;margin-top:2px;flex:none}'
       + '@media (prefers-color-scheme: dark){.rs-sheet{background:#121a33;color:#eceef6}.rs-note{background:#18223f;color:#eceef6;border-color:#263156}.rs-grid .b.on{background:#3b1220}}';
     document.head.appendChild(st);
   }
@@ -142,5 +160,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();
