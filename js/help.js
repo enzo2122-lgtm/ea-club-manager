@@ -2,7 +2,7 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.11';
+  const VERSION = '1.12';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -45,7 +45,7 @@ const Help = (() => {
     const render = () => {
       const [ic, title, text] = SLIDES[i], last = i === SLIDES.length - 1;
       el.innerHTML = `<div class="tour-card">
-        <div class="tour-ic">${ic === 'crest' ? '<img src="${Supporters.crest()}" alt="">' : I[ic]}</div>
+        <div class="tour-ic">${ic === 'crest' ? `<img src="${esc(Supporters.crest())}" alt="">` : I[ic]}</div>
         <p class="eyebrow">Guide · ${i + 1} sur ${SLIDES.length}</p><h2>${esc(title)}</h2><p class="tour-text">${esc(text)}</p>
         <div class="tour-dots">${SLIDES.map((_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>
         <div class="tour-nav"><button class="btn" data-t="skip">${last ? 'Fermer' : 'Passer'}</button>
