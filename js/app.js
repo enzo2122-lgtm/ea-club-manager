@@ -1,9 +1,9 @@
 /* App shell: navigation, routing, service worker. */
 const App = (() => {
-  // [hash, label, icon, short label for phones]; on phones the first five stay in the tab bar, the others go in « Plus »
+  // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
-    ['', 'Accueil', 'home'], ['planning', 'Planning', 'calendar'], ['entrainements', 'Entraînements', 'training', 'Séances'], ['matchs', 'Matchs', 'match'], ['messages', 'Messages', 'chat'],
-    ['club', 'Vie du club', 'pin', 'Club'], ['resultats', 'Résultats', 'medal'], ['equipes', 'Équipes', 'team'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Stats', 'stats'], ['reglages', 'Réglages', 'settings'],
+    ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['resultats', 'Résultats', 'medal'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Stats', 'stats'], ['reglages', 'Réglages', 'settings'],
   ];
   const PHONE_MAIN = 5;
   const view = () => document.getElementById('view');
@@ -37,7 +37,7 @@ const App = (() => {
     // the responsables also have the club's dashboard (before Réglages)
     const pv = Auth.preview();
     // a volunteer: only what he uses on match days
-    const nav = pv && pv.role === 'benevole' ? [['benevoles', 'Bénévoles', 'team'], NAV[5]]
+    const nav = pv && pv.role === 'benevole' ? [['benevoles', 'Bénévoles', 'team'], NAV[6]]
       : Auth.isAdmin() ? [...NAV.slice(0, -1), ['gestion', 'Gestion du club', 'shield', 'Gestion'], NAV[NAV.length - 1]] : NAV;
     const idx = nav.findIndex(n => n[0] === active);
     document.getElementById('nav').innerHTML = nav.map(([h, l, ic, short], i) =>
@@ -66,8 +66,9 @@ const App = (() => {
     document.body.dataset.page = name;
     const full = name === 'schema' || name === 'tableau';
     document.body.classList.toggle('editing', full);
-    const navKey = { equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
+    const navKey = { equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
     renderNav(navKey);
+    Quick.fab();
     // Whiteboard: a blank board, never saved (id = format of the pitch)
     if (name === 'tableau') { Help.button(); return Editor.open(root, Templates.blank(id || '11'), { scratch: true }); }
     if (full) {
@@ -80,7 +81,7 @@ const App = (() => {
       planning: r => Planning.page(r), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
-      tests: (r, x) => Tests.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
+      tests: (r, x) => Tests.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
     if (!keep) Help.visit();
     fn(root, id);
     Help.guideInto(root);
@@ -117,7 +118,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 19, UPD = 'ea-update-tried';
+  const BUILD = 20, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -171,6 +172,7 @@ const App = (() => {
       if (redraw) route(true);
     });
     Messages.start();
+    Quick.start();
     Notify.refresh(); // the phone's subscription to the notifications, sent again at each start
   }
   return { start, route, refreshChrome, checkUpdate };

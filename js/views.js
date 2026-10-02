@@ -110,7 +110,7 @@ const Views = (() => {
     // the next match of the day or of tomorrow: straight to its preparation
     const refW = Refs.waiting(); if (refW) box += `<a class="hero-prep hero-vol" href="#/arbitres">🟨 ${refW} match${refW > 1 ? 's' : ''} à domicile attend${refW > 1 ? 'ent' : ''} ta réponse (arbitre)</a> `;
     const duty = Vol.mine(2); if (duty.length) box += `<a class="hero-prep hero-vol" href="#/benevoles">🙋 ${duty.map(({ m, t }) => `${t.icon} ${esc(t.label)} ${m.date === now ? 'aujourd\'hui' : 'demain'}`).join(' · ')}</a> `;
-    const prepM = todayM[0] || tomorrowM[0]; if (todayM[0]) box += `<a class="hero-prep hero-live" href="#/direct/${todayM[0].id}">📱 Match en direct</a> `; if (prepM) box += `<a class="hero-prep" href="#/prepa/${prepM.id}">🎯 Préparation du match${Prepa.score(prepM) ? ' · ' + Prepa.score(prepM) + ' %' : ''}</a>`;
+    const prepM = todayM[0] || tomorrowM[0]; if (todayM[0]) box += `<a class="hero-prep hero-live" href="#/direct/${todayM[0].id}">📱 Match en direct</a> `; if (prepM) box += `<a class="hero-prep" href="#/jourj/${prepM.id}">🏟️ Jour de match : tout préparer${Prepa.score(prepM) ? ' · ' + Prepa.score(prepM) + ' %' : ''}</a>`;
     const redraw = () => { if (/^#?\/?$/.test(location.hash.replace('#/', '#'))) App.route(true); };
     return `<header class="hero hero-me" data-wx-time="${esc(firstTime)}">
       ${Supporters.coin('hero-crest')}
@@ -148,6 +148,9 @@ const Views = (() => {
       ${serverBanner()}
       ${teamSwitch()}
       ${setupCard()}
+      ${Quick.matchDayCard()}
+      ${Quick.tomorrowCard()}
+      ${Quick.backupCard()}
       ${President.homeReminder()}
       ${Weather.placeholder()}
       <div class="quick">
@@ -186,6 +189,7 @@ const Views = (() => {
     homeWeather(root, now);
     const cb = $('[data-connect]', root); if (cb) cb.onclick = () => Auth.connectServer();
     const bk = $('[data-backup]', root); if (bk) bk.onclick = () => President.saveNow();
+    $$('[data-qbackup]', root).forEach(b => b.onclick = () => Quick.backupClick(b));
     President.checkAuto();
     $$('[data-go]', root).forEach(b => b.onclick = () => ({ 'new-schema': newSchema, 'new-training': newTraining, 'new-match': newMatch })[b.dataset.go]());
   }
@@ -616,7 +620,7 @@ const Views = (() => {
       const t = teamOf(m.teamId), roster = t ? Store.rosterOf(t.id) : [], conv = roster.filter(p => (m.convoked || []).includes(p.id));
       const lineup = m.lineupId && Store.get('schemas', m.lineupId);
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
-        `<button class="btn primary" data-act="pdf">${I.pdf}<span>Feuille de match</span></button>`)}
+        `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button>`)}
         <section class="card ${side(m)}">
           <div class="row3">
             <label class="fld"><span>Équipe</span><select data-f="teamId">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === m.teamId ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
@@ -679,7 +683,7 @@ const Views = (() => {
     };
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.act === 'convoc') return sendConvocation(m);
+      if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.minset) {
         const full = People.matchLength(m), v = { full, half: Math.round(full / 2), zero: 0 }[b.dataset.v];
@@ -904,5 +908,5 @@ const Views = (() => {
       } });
   }
 
-  return { home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema };
+  return { home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup };
 })();

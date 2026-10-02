@@ -128,6 +128,7 @@ const Sync = (() => {
         lastErr = e.message || 'erreur';
         if (e.code === 'SESSION' || e.code === 'CLE_CLUB') Auth.expired();
       } finally { running = null; }
+      if (typeof Quick !== 'undefined') Quick.syncDone(lastErr);
       if (changed) refreshView();
       if (again) { again = false; run(); }
       return changed;

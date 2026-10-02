@@ -1,9 +1,9 @@
 /* Service worker: keeps the app working without internet. Bump VERSION after each update. */
-const VERSION = 'ea-club-manager-v19';
+const VERSION = 'ea-club-manager-v20';
 const JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
-  'js/config.js', 'js/sport.js', 'js/codes.js', 'js/imports.js', 'js/onboard.js', 'js/owner.js', 'js/icons.js', 'js/board.js', 'js/store.js', 'js/ui.js', 'js/clubs.js', 'js/exporter.js', 'js/auth.js', 'js/media.js', 'js/ratings.js', 'js/library.js', 'js/importer.js', 'js/help.js', 'js/cloud.js', 'js/sync.js', 'js/planning.js', 'js/results.js', 'js/messages.js', 'js/people.js', 'js/templates.js', 'js/autoschema.js', 'js/editor.js', 'js/clublife.js', 'js/weather.js', 'js/notify.js', 'js/supporters.js', 'js/vestiaires.js', 'js/prepa.js', 'js/live.js', 'js/health.js', 'js/progress.js', 'js/sport-exos.js', 'js/exos.js', 'js/sessions-foot.js', 'js/sessions-sports.js', 'js/seslib.js', 'js/volunteers.js', 'js/referees.js', 'js/perso.js', 'js/roles.js', 'js/gestion.js', 'js/season.js', 'js/tests.js', 'js/acimport.js', 'js/telestrator.js', 'js/analyse.js', 'js/clubadmin.js', 'js/parents.js', 'js/president.js', 'js/views.js', 'js/app.js',
+  'js/config.js', 'js/sport.js', 'js/codes.js', 'js/imports.js', 'js/onboard.js', 'js/owner.js', 'js/icons.js', 'js/board.js', 'js/store.js', 'js/ui.js', 'js/clubs.js', 'js/exporter.js', 'js/auth.js', 'js/media.js', 'js/ratings.js', 'js/library.js', 'js/importer.js', 'js/help.js', 'js/cloud.js', 'js/sync.js', 'js/planning.js', 'js/results.js', 'js/messages.js', 'js/people.js', 'js/templates.js', 'js/autoschema.js', 'js/editor.js', 'js/clublife.js', 'js/weather.js', 'js/notify.js', 'js/supporters.js', 'js/vestiaires.js', 'js/prepa.js', 'js/live.js', 'js/health.js', 'js/progress.js', 'js/sport-exos.js', 'js/exos.js', 'js/sessions-foot.js', 'js/sessions-sports.js', 'js/seslib.js', 'js/volunteers.js', 'js/referees.js', 'js/perso.js', 'js/roles.js', 'js/gestion.js', 'js/season.js', 'js/tests.js', 'js/acimport.js', 'js/telestrator.js', 'js/analyse.js', 'js/clubadmin.js', 'js/parents.js', 'js/president.js', 'js/quick.js', 'js/views.js', 'js/app.js',
   'icons/ea-logo.png', 'icons/ea-logo.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 self.addEventListener('install', e => {
@@ -22,13 +22,19 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin || url.pathname.endsWith('/version.json')) return;
   // App files: network first so updates arrive when online; cache when offline
-  e.respondWith(
-    fetch(e.request, { cache: 'no-cache' }).then(res => {
-      const copy = res.clone();
-      caches.open(VERSION).then(c => c.put(e.request, copy));
-      return res;
-    }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('index.html')))
-  );
+  // (3.63) a weak network at the stadium: after 3.5 s without an answer, the copy kept on the phone is used (the network still updates it)
+  const net = fetch(e.request, { cache: 'no-cache' }).then(res => {
+    const copy = res.clone();
+    caches.open(VERSION).then(c => c.put(e.request, copy));
+    return res;
+  });
+  const cached = () => caches.match(e.request, { ignoreSearch: true });
+  e.respondWith(new Promise(resolve => {
+    let done = false;
+    const give = r => { if (!done && r) { done = true; resolve(r); } };
+    const t = setTimeout(() => cached().then(give), 3500);
+    net.then(r => { clearTimeout(t); give(r); }).catch(() => { clearTimeout(t); cached().then(r => give(r || caches.match('index.html'))); });
+  }));
 });
 
 /* ---------- notifications (3.15) ----------
