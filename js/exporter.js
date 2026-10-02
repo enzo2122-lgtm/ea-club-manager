@@ -231,6 +231,29 @@ const Exporter = (() => {
   function schemaImages(P, sc, o) {
     sc.steps.forEach((st, k) => P.image(frameCanvas(sc, k, 0, Object.assign({ w: 1500, h: 980 }, o)), P.CW));
   }
+  // the steps of a schema in a PDF: two pictures a row, the sentence of each step under its picture
+  function schemaGrid(P, sc, o) {
+    const n = sc.steps.length, cols = n > 1 ? 2 : 1, gap = 4, w = (P.CW - gap * (cols - 1)) / cols, doc = P.doc;
+    for (let k = 0; k < n; k += cols) {
+      const cells = [];
+      for (let j = 0; j < cols && k + j < n; j++) {
+        const c = frameCanvas(sc, k + j, 0, Object.assign({ w: cols > 1 ? 1000 : 1500, h: cols > 1 ? 650 : 980, caption: false }, o));
+        const note = (sc.steps[k + j].note || '').trim();
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+        const lines = doc.splitTextToSize(latin((n > 1 ? 'Étape ' + (k + j + 1) + '/' + n + (note ? ' : ' : '') : '') + note), w);
+        cells.push({ c, h: w * c.height / c.width, lines });
+      }
+      const rowH = Math.max(...cells.map(x => x.h + (x.lines.length ? x.lines.length * 4 + 2 : 0))) + 4;
+      P.ensure(rowH);
+      cells.forEach((x, j) => {
+        const X = P.M + j * (w + gap);
+        doc.addImage(x.c.toDataURL('image/jpeg', .85), 'JPEG', X, P.y, w, x.h, undefined, 'FAST');
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(20, 30, 25);
+        x.lines.forEach((l, i) => doc.text(l, X, P.y + x.h + 4 + i * 4));
+      });
+      P.y += rowH;
+    }
+  }
   const fmtDate = d => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const fieldLabel = f => f.format === 'bg' ? 'Dessin sur image' : f.format === 'zone' ? `Zone ${f.w} x ${f.h} m` : ((Board.PITCH[f.format] || {}).label || Sport.formatLabel(f.format) + (f.view === 'half' ? ' · demi-terrain' : ''));
   // Attached documents (images, PDF pages, videos) at the end of a printable PDF
@@ -276,8 +299,9 @@ const Exporter = (() => {
       if (e.org) { P.label('Organisation'); P.para(e.org); }
       if (e.consignes) { P.label('Consignes'); P.bullets(e.consignes.split('\n')); }
       if (e.materiel) { P.label('Matériel'); P.para(e.materiel); }
-      const sc = e.schemaId && S.schemas.find(s => s.id === e.schemaId);
-      if (sc) { P.label('Schéma'); schemaImages(P, sc, o); }
+      const own = e.schemaId && S.schemas.find(s => s.id === e.schemaId);
+      let sc = own; if (!sc && typeof AutoSchema !== 'undefined' && (e.title || e.org || e.consignes)) try { sc = AutoSchema.preview(e); } catch (err) { sc = null; }
+      if (sc) { P.label(own ? 'Schéma' : 'Schéma (dessiné par l\'appli)'); schemaGrid(P, sc, o); }
     });
     await addDocs(P, tr.docIds);
     return deliver(P.blob(), safeName((tr.title || 'entrainement') + '-' + (tr.date || '')) + '.pdf');

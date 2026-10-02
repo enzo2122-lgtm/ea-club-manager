@@ -2,7 +2,7 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.17';
+  const VERSION = '1.18';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -69,7 +69,7 @@ const Help = (() => {
 
   /* ---------- help per page ---------- */
   const PAGES = {
-    '': ['Accueil', ['Les gros boutons ouvrent les actions les plus courantes : dessiner un exercice, préparer une séance, ajouter un match, importer une vidéo ou un PDF.', 'Choisis une équipe en haut pour ne voir que ses séances et ses matchs.', 'Touche le prochain match ou la prochaine séance pour l\'ouvrir.']],
+    '': ['Accueil', ['Pour commencer : touche un des gros boutons (préparer une séance, ajouter un match, dessiner un exercice).', 'En haut, choisis ton équipe : tu ne vois plus que ses séances et ses matchs.', 'Le prochain match et la prochaine séance sont juste en dessous : touche-les pour les ouvrir.', 'Le menu (à gauche, ou en bas sur téléphone) mène à toutes les pages. Sur chaque page, ce cadre « Comment ça marche ? » explique quoi faire.']],
     equipes: ['Équipes', ['Chaque carte est une catégorie (U11, Seniors…). Touche-la pour voir ses joueurs et ses dirigeants.', '« Tous les joueurs » montre tout le club, avec une recherche et un filtre par catégorie.', '« Nouvelle catégorie » : choisis le format foot à 11, à 8 ou à 5.']],
     equipe: ['Une catégorie', ['Composition : les convoqués sont placés selon leur poste (DC dans l\'axe, LD à droite, AG à gauche…), les autres sont notés comme remplaçants.', 'Touche un joueur pour ouvrir sa fiche. « Modifier » : numéro, poste principal et autres postes, téléphone des parents, infos santé.', '« Trier : Nom, N°, Poste » range la liste ; par poste, elle est coupée en gardiens, défenseurs, milieux et attaquants.', 'Le menu « Ajouter un joueur d\'une autre catégorie » permet de mettre un joueur dans plusieurs catégories.', 'La croix retire le joueur de la catégorie seulement : il reste dans le club.']],
     joueurs: ['Tous les joueurs', ['Cherche un nom ou filtre par catégorie.', '« Coller une liste » : colle des lignes copiées depuis le logiciel de ta fédération (Footclubs, FBI, Oval-e…), les joueurs sont rangés tout seuls dans leur catégorie.', 'Pour charger le fichier des licenciés : Réglages → Recevoir un fichier.']],
@@ -97,8 +97,8 @@ const Help = (() => {
     briefing: ['Briefing vidéo', ['« Présenter » passe les séquences en plein écran, avec le titre et le commentaire de chacune (flèches du clavier pour avancer).', '« Télécharger » → « Vidéo à regarder partout » crée un seul fichier vidéo à envoyer sur WhatsApp : garde l\'appli ouverte pendant la création, qui dure le temps de la vidéo.', '« Télécharger » → « Briefing à rouvrir dans l\'appli » enregistre le briefing avec ses vidéos dans un fichier (Fichiers, Drive, clé USB, ordinateur). Sur l\'autre appareil : Bibliothèque → Mes briefings → « Importer un briefing ».', 'Change l\'ordre avec les flèches, retire une séquence avec la croix.']],
     vestiaires: ['Vestiaires', ['Une colonne par vestiaire (Vestiaire 1, 2, Karaté 1, Karaté 2) pour le jour choisi. Touche une case vide pour attribuer un vestiaire à une catégorie ou à l\'équipe adverse (🆚).', 'Matchs à domicile : « Attribuer » donne un vestiaire à notre équipe et un à l\'adversaire, du rendez-vous jusqu\'après les douches. « Tous les matchs du jour » le fait pour tous.', '« Chaque semaine » garde le même vestiaire pour les entraînements d\'une catégorie jusqu\'à la fin de la saison.', 'Un vestiaire ne peut pas être donné deux fois en même temps. Touche un vestiaire occupé pour le libérer.']],
     encadrement: ['Qui encadre ?', ['Tous les matchs et séances de la semaine, avec leurs encadrants. ⚠️ Personne : il manque un encadrant.', '« J\'y serai » t\'ajoute comme encadrant, « Je n\'y serai pas » te retire.', '« Déclarer une absence » : tes vacances ou indisponibilités, visibles par les autres dirigeants. Un responsable peut en déclarer pour n\'importe qui.']],
-    entrainements: ['Séances', ['« Séances types du club » : des séances prêtes pour toutes les catégories. « Utiliser » la copie pour ta catégorie et ta date. Pour en créer une : dans une séance réussie, « Enregistrer comme séance type ».', 'Une fiche AssistCoachAI (PDF) : Bibliothèque → Importer → ouvre le PDF → Créer une séance. Chaque exercice est repris avec sa durée, ses consignes et son matériel.', '« Nouvel entraînement » : un thème, une date, une équipe.', 'Tu peux aussi créer une séance d\'un coup à partir d\'un PDF : Bibliothèque → ouvre le PDF → Créer une séance.']],
-    entrainement: ['Une séance', ['Ajoute les exercices, avec la durée, l\'organisation, les consignes et un schéma.', 'Coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles. Le % à côté du prénom est sa présence sur la saison.', 'Joins des documents et des photos. Le bouton PDF fait la fiche à imprimer.']],
+    entrainements: ['Séances', ['Le plus simple : « Générer une séance » (un thème, une catégorie, une durée) ou « Séances par système de jeu » : la séance est prête, avec ses schémas animés.', 'Pour l\'écrire toi-même : « Nouvel entraînement » (un thème, une date, une équipe), puis ajoute les exercices.', 'Une fiche papier ou un PDF : « Importer une fiche PDF » ou « Depuis un fichier » : les exercices sont lus et repris.', '« Séances types du club » : les séances partagées par les coachs. « Utiliser » la copie pour ta catégorie et ta date.']],
+    entrainement: ['Une séance', ['1. Ajoute les exercices : « Ajouter un exercice », « Exercices du club » ou « Depuis un fichier ». Chaque exercice a un schéma animé (« Voir en grand »).', '2. Le jour J : coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles.', '3. « PDF » fait la fiche à imprimer ou à envoyer, avec le schéma de chaque exercice étape par étape. « Envoyer » la transmet à un autre coach.', 'Tu peux joindre des documents et des photos en bas de la séance.']],
     matchs: ['Matchs', ['« Importer » : colle le calendrier copié sur le site de la FFF ou du District 93 (mois par mois), ou choisis un fichier d\'agenda (.ics) ou un tableur (.csv). La catégorie est trouvée toute seule et le terrain peut être réservé pour les matchs à domicile.', '« Nouveau match » : adversaire, date, domicile ou extérieur.', 'Les résultats s\'affichent avec leur smiley.']],
     match: ['Un match', ['Coche les convoqués et choisis les encadrants.', 'Envoie la convocation avec le lien des parents : ils répondent présent ou absent, les réponses s\'affichent sous les convoqués.', 'Match à l\'extérieur : le covoiturage range les enfants dans les voitures des parents, et s\'envoie sur WhatsApp.', 'Match joué : « Temps de jeu » note les minutes de chaque joueur (total sur sa fiche et dans Stats). ⏱️ signale ceux qui ont peu joué cette saison.', '« Relancer les sans réponse » prépare le message WhatsApp pour les parents qui n\'ont pas répondu.', '« Photos pour les parents » : choisis les photos du match à montrer sur leur page (droit à l\'image respecté).', '« Faire la composition » place les joueurs sur le terrain.', 'Coche « Le match est joué », règle le score, les buteurs et les passeurs, puis note les joueurs.', '« Feuille de match » fait le PDF à imprimer.']],
     stats: ['Statistiques', ['Bilan de l\'équipe : victoires, nuls, défaites, buts et points.', 'Tableau des joueurs : touche un titre de colonne pour trier (buts, passes, présences, notes).']],
@@ -120,6 +120,24 @@ const Help = (() => {
           <button class="big-act" data-h="idea">💡<b>Proposer une idée</b><span>Une amélioration, une demande</span></button>
         </div>`,
       onOpen: (r, close) => $$('[data-h]', r).forEach(b => b.onclick = () => { close(); const h = b.dataset.h; setTimeout(() => h === 'tour' ? tour() : report(h), 60); }) });
+  }
+  /* « Comment ça marche ? » at the top of every page: open the first two visits, then a slim bar to touch.
+     « J'ai compris » keeps it closed on this device. */
+  const GUIDE_KEY = 'guide-seen', guideOpen = {};
+  const seen = () => { try { return JSON.parse(localStorage.getItem(GUIDE_KEY)) || {}; } catch (e) { return {}; } };
+  const setSeen = (k, n) => { const s = seen(); s[k] = n; try { localStorage.setItem(GUIDE_KEY, JSON.stringify(s)); } catch (e) {} };
+  function visit() { const k = pageKey(), n = seen()[k] || 0; if (n < 9) setSeen(k, n + 1); guideOpen[k] = (seen()[k] || 0) <= 2; }
+  function guideInto(root) {
+    if (!root || document.body.classList.contains('editing') || !Auth.current()) return;
+    const key = pageKey(), p = PAGES[key]; if (!p || root.querySelector(':scope > .page-guide, :scope > * > .page-guide')) return;
+    const el = document.createElement('details'); el.className = 'card page-guide'; el.open = !!guideOpen[key];
+    el.innerHTML = `<summary><span class="pg-ic">💡</span><b>Comment ça marche ?</b><span class="muted small">${esc(p[0])}</span></summary>
+      <ol>${p[1].map(t => `<li>${esc(t.replace(/^\d\.\s*/, ''))}</li>`).join('')}</ol>
+      <div class="pg-act"><button type="button" class="btn soft" data-pg="ok">J'ai compris</button><button type="button" class="btn soft" data-pg="more">${I.help}<span>Aide · signaler un problème</span></button></div>`;
+    el.ontoggle = () => { guideOpen[key] = el.open; };
+    el.onclick = e => { const b = e.target.closest('[data-pg]'); e.stopPropagation(); if (!b) return;
+      if (b.dataset.pg === 'ok') { el.open = false; setSeen(key, 9); } else open(key); };
+    const head = root.querySelector(':scope > .page-head'); if (head) head.after(el); else root.prepend(el);
   }
   function button() {
     let b = document.getElementById('helpFab');
@@ -217,6 +235,6 @@ const Help = (() => {
     $$('[data-repdone]', root).forEach(b => b.onclick = e => { e.stopPropagation(); const x = Store.get('reports', b.dataset.repdone); x.status = x.status === 'done' ? 'new' : 'done'; Store.upsert('reports', x); rerender(); });
   }
 
-  return { watch, tour, tourSeen, open, button, report, settingsSection, onSettings, VERSION, TYPES };
+  return { watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES };
 })();
 Help.watch();

@@ -337,10 +337,21 @@ const Analyse = (() => {
   /* ---------- full-screen presentation ---------- */
   function present(items, name) {
     const ov = document.createElement('div'); ov.className = 'an-show'; document.body.appendChild(ov);
-    const urls = {}; let i = 0, v = null, stop = false, timer = null, lay = null;
+    const urls = {}; let i = 0, v = null, stop = false, timer = null, lay = null, raf = 0;
+    // one <video> for the whole briefing: the next sequence is loaded and placed on its first image while its title is shown
+    const vid = document.createElement('video'); vid.playsInline = true; vid.setAttribute('playsinline', ''); vid.preload = 'auto';
+    let vidSrc = null, prepTok = 0;
+    const prepare = (rec, clip) => new Promise(res => {
+      let to = 0; const tok = ++prepTok, done = () => { clearTimeout(to); if (tok === prepTok) vid.onloadedmetadata = vid.onseeked = vid.oncanplay = null; res(); };
+      to = setTimeout(done, 8000);
+      const seek = () => { vid.onseeked = () => { vid.onseeked = null; if (vid.readyState >= 3) done(); else vid.oncanplay = done; }; vid.currentTime = clip.start; };
+      const u = urlOf(rec);
+      if (vidSrc !== u) { vidSrc = u; vid.onloadedmetadata = seek; vid.src = u; vid.load(); }
+      else if (vid.readyState >= 1) seek(); else vid.onloadedmetadata = seek;
+    });
     const urlOf = rec => urls[rec.id] || (urls[rec.id] = URL.createObjectURL(rec.blob));
-    const drop = () => { if (v) { v.pause(); if (v.destroy) v.destroy(); } v = null; };
-    const end = () => { stop = true; clearTimeout(timer); drop();Object.values(urls).forEach(u => URL.revokeObjectURL(u)); ov.remove(); document.removeEventListener('keydown', key); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
+    const drop = () => { cancelAnimationFrame(raf); if (v) { v.ontimeupdate = v.onended = null; v.pause(); if (v.destroy) v.destroy(); } v = null; };
+    const end = () => { stop = true; clearTimeout(timer); drop(); vid.removeAttribute('src'); vid.load(); Object.values(urls).forEach(u => URL.revokeObjectURL(u)); ov.remove(); document.removeEventListener('keydown', key); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
     const key = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight') go(i + 1); if (e.key === 'ArrowLeft') go(i - 1); if (e.key === ' ') { e.preventDefault(); if (v) v.paused ? v.play() : v.pause(); } };
     document.addEventListener('keydown', key);
     try { const d = document.documentElement, p = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (p && p.catch) p.catch(() => {}); } catch (e) {}
@@ -352,21 +363,24 @@ const Analyse = (() => {
       const caption = `<b>${t[1]} ${esc(t[2])}</b>${clip.note ? ' · ' + esc(clip.note) : ''}${ps.length ? `<span>${ps.map(p => esc(Store.shortName(p))).join(', ')}</span>` : ''}`;
       // a title card, then the sequence
       ov.innerHTML = `<div class="an-card" style="--c:${t[3]}"><p>${i + 1} / ${items.length}</p><h2>${t[1]} ${esc(t[2])}</h2>${clip.note ? `<p class="an-note">${esc(clip.note)}</p>` : ''}</div>`;
-      timer = setTimeout(() => {
-        if (stop) return;
-        const yt = isYT(rec);
+      const at = i, yt = isYT(rec), ready = yt ? Promise.resolve() : prepare(rec, clip);
+      timer = setTimeout(async () => {
+        await ready;
+        if (stop || i !== at) return;
         ov.innerHTML = `${yt ? '<div class="an-ytbox an-show-yt"></div>' : '<video playsinline></video>'}<div class="an-cap">${caption}</div>
           <div class="an-show-ctrl"><button class="icon-btn" data-x="prev" aria-label="Précédente">${I.back}</button><button class="icon-btn" data-x="pause" aria-label="Pause">${I.pause}</button>
           <span>${i + 1} / ${items.length}</span><button class="icon-btn" data-x="next" aria-label="Suivante">${I.next}</button><button class="icon-btn" data-x="close" aria-label="Fermer">${I.x}</button></div>`;
         // the drawings of the sequence over the video (projecteur, anneaux, vision, étiquettes…), the phase title at the top
+        if (!yt) $('video', ov).replaceWith(vid);
         lay = Tele.layer(ov, () => $(yt ? '.an-ytbox' : 'video', ov), () => v, () => [clip], { phaseTop: true });
         const run = p => {
           v = p;
           p.ontimeupdate = () => { if (p.currentTime >= clip.end) { p.ontimeupdate = p.onended = null; p.pause(); go(i + 1); } };
           p.onended = () => { p.ontimeupdate = p.onended = null; go(i + 1); };
+          // a file video: the end of the sequence is checked at every image (not 4 times a second), so it stops exactly at its end
+          if (!yt) { const watch = () => { if (v !== p || stop) return; if (p.currentTime >= clip.end - .04) { p.ontimeupdate = p.onended = null; p.pause(); return go(i + 1); } raf = requestAnimationFrame(watch); }; raf = requestAnimationFrame(watch); }
         };
         if (yt) {
-          const at = i;
           ytPlayer($('.an-ytbox', ov), ytId(rec.url)).then(p => {
             if (stop || i !== at) return p.destroy();
             run(p); p.currentTime = clip.start; p.play();
@@ -375,9 +389,9 @@ const Analyse = (() => {
           }).catch(e => { if (!stop && i === at) { toast(ytError(e), 'err'); go(i + 1); } });
           return;
         }
-        const el = $('video', ov); el.src = urlOf(rec); run(el);
-        // with the sound when the browser allows it, otherwise muted
-        el.onloadedmetadata = () => { el.currentTime = clip.start; el.play().catch(() => { el.muted = true; el.play().catch(() => {}); }); };
+        // the video is already on the first image of the sequence: it starts at once, with the sound when the browser allows it
+        if (Math.abs(vid.currentTime - clip.start) > .3) vid.currentTime = clip.start;
+        run(vid); vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
       }, 1800);
     }
     ov.onclick = e => {
@@ -421,7 +435,7 @@ const Analyse = (() => {
       stopped = new Promise(r => { rec.onstop = r; });
     }
     // the video plays in the page (hidden) so every browser decodes its images
-    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.style.cssText = 'position:fixed;left:-10px;top:0;width:2px;height:2px;opacity:0';
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.style.cssText = 'position:fixed;left:-10px;top:0;width:2px;height:2px;opacity:0';
     document.body.appendChild(v);
     const urls = [];
     const wrap = (text, maxW, font) => { ctx.font = font; const words = String(text).split(/\s+/), lines = []; let l = ''; words.forEach(w => { const t = l ? l + ' ' + w : w; if (ctx.measureText(t).width > maxW && l) { lines.push(l); l = w; } else l = t; }); if (l) lines.push(l); return lines; };
@@ -448,6 +462,7 @@ const Analyse = (() => {
         const u = URL.createObjectURL(m.blob); urls.push(u); v.src = u;
         await new Promise(r => { v.onloadedmetadata = r; setTimeout(r, 5000); });
         v.currentTime = clip.start; await new Promise(r => { v.onseeked = r; setTimeout(r, 3000); });
+        v.playbackRate = wr ? .5 : 1;
         await v.play().catch(() => {});
         const first = wr ? wr.count : 0, cap = `${t[1]} ${t[2]}${clip.note ? ' · ' + clip.note : ''}${ps.length ? ' · ' + ps.map(p => Store.shortName(p)).join(', ') : ''}`;
         // one image: the video, the drawings of the sequence (with the phase title at the top), the caption at the bottom

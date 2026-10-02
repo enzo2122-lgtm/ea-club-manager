@@ -81,7 +81,9 @@ const App = (() => {
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
       tests: (r, x) => Tests.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
+    if (!keep) Help.visit();
     fn(root, id);
+    Help.guideInto(root);
     if (keep) { root.scrollTop = st; window.scrollTo(0, sy); } else { releaseHeight(); root.scrollTop = 0; window.scrollTo(0, 0); enter(root); }
     Help.button();
   }
@@ -110,11 +112,12 @@ const App = (() => {
         clearTimeout(holdT); holdT = setTimeout(releaseHeight, 1800);
       } else releaseHeight();
       d.set.call(this, v);
+      if (typeof Help !== 'undefined') Help.guideInto(this);
     } });
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 18, UPD = 'ea-update-tried';
+  const BUILD = 19, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
