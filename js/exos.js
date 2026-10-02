@@ -114,20 +114,21 @@ const Exos = (() => {
     const list = all().filter(e => (!st.theme || themeOf(e).includes(st.theme)) && (!st.fmt || e.formats.includes(st.fmt)) && (!st.q || norm(`${e.title} ${e.org} ${e.consignes}`).includes(norm(st.q))));
     const clubN = all().filter(e => e.club).length;
     root.innerHTML = `<header class="page-head"><div><h1>📚 Exercices du club</h1><p class="sub">${clubN} exercice${clubN > 1 ? 's' : ''} des coachs du club + ${BS().length} exercices de base</p></div>
-      <div class="head-actions"><a class="btn" href="#/entrainements">${I.back}<span>Séances</span></a><button class="btn" data-fromfile>📥<span>Depuis un fichier (PDF, photo)</span></button><button class="btn primary" data-gen>✨<span>Générer une séance</span></button></div></header>
+      <div class="head-actions"><a class="btn" href="#/entrainements">${I.back}<span>Séances</span></a><a class="btn" href="#/systemes">🗂️<span>Séances par système</span></a><button class="btn" data-fromfile>📥<span>Depuis un fichier (PDF, photo)</span></button><button class="btn primary" data-gen>✨<span>Générer une séance</span></button></div></header>
       <input class="hl-q" id="exQ" placeholder="Rechercher (ex : ${Sport.isFoot() ? 'rondo, centre, pressing' : esc(coreThemes().slice(0, 3).map(k => (TH().find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '').toLowerCase()).join(', '))})" value="${esc(st.q)}" autocomplete="off">
       <div class="chips ex-themes"><button class="chip ${!st.theme ? 'on' : ''}" data-th="">Tous</button>${TH().map(([k, l]) => `<button class="chip ${st.theme === k ? 'on' : ''}" data-th="${k}">${l}</button>`).join('')}</div>
       <div class="chips"><button class="chip ${!st.fmt ? 'on' : ''}" data-fm="">Toutes catégories</button>${((Sport.isFoot() ? null : Sport.cur().formats.map(x => [x[0], x[1]])) || [['5', 'Foot à 5 (U6-U9)'], ['8', 'Foot à 8 (U10-U13)'], ['11', 'Foot à 11 (U14+)']]).map(([k, l]) => `<button class="chip ${st.fmt === k ? 'on' : ''}" data-fm="${k}">${l}</button>`).join('')}</div>
       ${Sport.isFoot() ? `<details class="card ex-res"><summary><b>📚 Ressources officielles gratuites (FFF)</b><span class="muted small"> · vidéos, fiches et guides par âge</span></summary>${RES.map(([age, n, u], i) => `<div class="ex-res-row"><span class="tag">${esc(age)}</span><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(n)}</a><button class="btn soft" data-res="${i}">${I.plus}<span>Bibliothèque</span></button></div>`).join('')}</details>` : ''}
       <p class="muted small">${list.length} exercice${list.length > 1 ? 's' : ''}</p>
       <div class="ex-lib">${list.slice(0, 80).map(e => { const sc = e.schemaId && Store.get('schemas', e.schemaId), th = themeOf(e);
-        return `<article class="card ex-item"><div class="ex-item-head">${sc ? `<img alt="" src="${UI.thumb(sc, 240, 156)}">` : `<span class="ex-noimg">${(TH().find(t => t[0] === th[0]) || ['', '⚽'])[1].split(' ')[0]}</span>`}
+        return `<article class="card ex-item"><div class="ex-item-head">${true ? `<img alt="" src="${UI.thumb(sc || AutoSchema.preview(e), 240, 156)}" data-big="${esc(e.id)}" style="cursor:zoom-in" title="Voir en grand">` : `<span class="ex-noimg">${(TH().find(t => t[0] === th[0]) || ['', '⚽'])[1].split(' ')[0]}</span>`}
           <div><b>${esc(e.title)}</b><span class="muted small">${e.duration} min${e.size ? ' · ' + esc(e.size.replace('x', ' × ')) + ' m' : ''} · ${th.map(k => (TH().find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '')).join(', ') || 'Divers'}${e.club ? ` · ${esc((Store.get('teams', e.from.teamId) || {}).name || 'club')}` : ' · base'}</span></div></div>
           ${e.org ? `<p class="small">${esc(e.org)}</p>` : ''}${e.consignes ? `<ul class="small ex-cons">${e.consignes.split('\n').filter(Boolean).slice(0, 4).map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
-          <div class="chips"><button class="btn soft" data-addex="${esc(e.id)}">${I.plus}<span>Ajouter à une séance</span></button>${e.club ? `<a class="btn soft" href="#/entrainement/${e.from.id}">Voir la séance</a>` : sc ? `<a class="btn soft" href="#/schema/${sc.id}">${I.board}<span>Le schéma</span></a>` : `<button class="btn soft" data-draw="${esc(e.id)}">${I.board}<span>Dessiner le schéma</span></button>`}</div></article>`; }).join('') || '<p class="muted">Aucun exercice ne correspond.</p>'}</div>`;
+          <div class="chips"><button class="btn soft" data-big="${esc(e.id)}">🔍<span>Voir en grand</span></button><button class="btn soft" data-addex="${esc(e.id)}">${I.plus}<span>Ajouter à une séance</span></button>${e.club ? `<a class="btn soft" href="#/entrainement/${e.from.id}">Voir la séance</a>` : sc ? `<a class="btn soft" href="#/schema/${sc.id}">${I.board}<span>Le schéma</span></a>` : `<button class="btn soft" data-draw="${esc(e.id)}">✨<span>Créer le schéma animé</span></button>`}</div></article>`; }).join('') || '<p class="muted">Aucun exercice ne correspond.</p>'}</div>`;
     const redraw = () => page(root);
     $('#exQ', root).oninput = e => { st.q = e.target.value; clearTimeout(page.t); page.t = setTimeout(() => { const pos = e.target.selectionStart; redraw(); const q = $('#exQ', root); q.focus(); q.setSelectionRange(pos, pos); }, 300); };
     root.onclick = e => {
+      const bg = e.target.closest('[data-big]'); if (bg) { const x = all().find(y => y.id === bg.dataset.big); if (x) return AutoSchema.big(x, x.schemaId && Store.get('schemas', x.schemaId)); }
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.th !== undefined) { st.theme = b.dataset.th; Store.persistNow(); return redraw(); }
       if (b.dataset.fm !== undefined) { st.fmt = b.dataset.fm; Store.persistNow(); return redraw(); }
@@ -144,12 +145,13 @@ const Exos = (() => {
     ['U6-U19', 'Programme éducatif fédéral : fiches et actions terrain', 'https://pef.fff.fr/fiches/'],
     ['Tous', 'L\'échauffement d\'avant-match (FFF, PDF)', 'https://lgef.fff.fr/wp-content/uploads/sites/14/2017/11/1-LEchauffement-dAvant-Match.pdf'],
     ['U11-U13', 'L\'échauffement du jeune footballeur U11-U13 (PDF)', 'https://district71.fff.fr/wp-content/uploads/sites/51/2024/09/Lechauffement-du-jeune-footballeur-U11-U13.pdf']];
+  // the schema of a base exercise: made by the app (players, cones, movements), then the coach changes what he wants
   function drawBase(e) {
-    if (!e) return; const [w, h] = (e.size || '').split('x').map(Number);
-    const sc = Object.assign(Templates.blank(w && h ? 'zone' : (e.formats[0] || '11')), { id: Store.uid(), name: e.title, notes: [e.org, e.consignes].filter(Boolean).join('\n'), baseEx: e.id });
-    delete sc.scratch; if (w && h) sc.field = { format: 'zone', view: 'full', w, h };
-    Store.upsert('schemas', sc); toast(`Terrain de ${w && h ? w + ' × ' + h + ' m' : 'la catégorie'} prêt : place les joueurs et les flèches`); location.hash = '#/schema/' + sc.id;
+    if (!e) return;
+    const sc = AutoSchema.save(e); sc.baseEx = e.id; Store.upsert('schemas', sc);
+    toast('Schéma animé créé : change ce que tu veux'); location.hash = '#/schema/' + sc.id;
   }
+
   const copyEx = e => ({ id: Store.uid(), theme: e.theme || themeOf(e)[0] || null, title: e.title, duration: e.duration, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null, size: e.size || '' });
   // « Ajouter à une séance »: an entraînement to come (all of them, by category), or a new séance created with this exercise
   function addTo(ex) {

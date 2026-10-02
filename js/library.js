@@ -355,17 +355,37 @@ const Library = (() => {
 
   /* ---------- a file read and turned into exercises, everywhere: « Exercices du club » (by theme and category), a séance type of the club,
      the schemas (the page is the drawing background, shared with every coach), and a training if chosen ---------- */
+  async function videoFrames(rec, n = 12) {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(rec.blob);
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('Vidéo illisible sur cet appareil (format non pris en charge)')); setTimeout(() => rej(new Error('Vidéo trop longue à ouvrir')), 20000); });
+    // some videos (recorded by a phone) do not say their length: going to the very end makes it known
+    if (!isFinite(v.duration)) { await new Promise(res => { v.ondurationchange = () => isFinite(v.duration) && res(); v.currentTime = 1e9; setTimeout(res, 4000); }); v.ondurationchange = null; }
+    const dur = isFinite(v.duration) ? v.duration : 0, out = [];
+    const count = Math.max(1, Math.min(n, Math.ceil(dur / 6) || 1));
+    for (let i = 0; i < count; i++) {
+      const t = count === 1 ? Math.min(1, dur / 2) : dur * (0.06 + 0.88 * i / (count - 1));
+      await new Promise(res => { const done = () => { v.removeEventListener('seeked', done); res(); }; v.addEventListener('seeked', done); v.currentTime = t; setTimeout(done, 4000); });
+      if (!v.videoWidth) continue;
+      const c = await canvasBlob(v, v.videoWidth, v.videoHeight), sec = Math.floor(t);
+      out.push({ rec, blob: c.blob, w: c.w, h: c.h, text: '', image: true, video: true, name: `${cleanName(rec.name)} · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` });
+    }
+    URL.revokeObjectURL(v.src); return out;
+  }
   async function toExercises(recs, opts = {}) {
     recs = (recs || []).filter(Boolean);
-    const vid = recs.find(r => r.kind === 'video');
+    const vid = recs.find(r => r.kind === 'video' && !r.blob);
     const pages = [];
+    for (const r of recs.filter(x => x.kind === 'video' && x.blob)) {
+      const b = busy('Lecture de la vidéo : images prises tout au long…');
+      try { pages.push(...await videoFrames(r)); } catch (e) { toast(e.message, 'err'); } finally { b.done(); }
+    }
     recs.forEach(r => {
       if (r.kind === 'pdf') r.pages.forEach((p, i) => pages.push({ rec: r, blob: p.blob, w: p.w, h: p.h, text: p.text || '', name: `${cleanName(r.name)}${r.pages.length > 1 ? ' · page ' + (i + 1) : ''}` }));
       if (r.kind === 'image') pages.push({ rec: r, blob: r.blob, w: r.w, h: r.h, text: '', name: cleanName(r.name), image: true });
     });
     if (!pages.length) {
-      if (vid) { toast('Vidéo : mets-la sur pause au bon moment puis « Dessiner sur cette image »'); return open(vid.id); }
-      return toast('Seuls les PDF et les images (photo, capture d\'écran) peuvent être lus', 'err');
+      if (vid) { toast('Ce lien vidéo n\'est pas sur l\'appareil : télécharge la vidéo puis importe-la', 'err'); return open(vid.id); }
+      return toast('Seuls les PDF, les images et les vidéos (MP4…) peuvent être lus', 'err');
     }
     // read: the text of the PDF, or the picture read letter by letter (photo, capture, scanned PDF)
     const task = busy('Lecture du fichier…');
@@ -392,7 +412,7 @@ const Library = (() => {
       <label class="fld"><span>Ajouter aussi à un entraînement</span><select id="xTr">${opts.trId && Store.get('trainings', opts.trId) ? `<option value="${opts.trId}" selected>👉 Cette séance : ${esc(Store.get('trainings', opts.trId).title || 'Entraînement')}</option>` : ''}<option value="">Non</option><option value="new">➕ Créer une nouvelle séance</option>${trs.map(t => `<option value="${t.id}">${esc(UI.fmtDate(t.date))} · ${esc(t.title || 'Entraînement')} · ${esc((Store.get('teams', t.teamId) || {}).name || '')}</option>`).join('')}</select></label></div>
       <div class="row2" id="xNew" hidden><label class="fld"><span>Date de la séance</span><input type="date" id="xDate" value="${UI.today()}"></label><label class="fld"><span>Heure</span><input type="time" id="xTime" value="18:00"></label></div>
       ${pages.some(p => p.ocrFail) ? '<p class="muted small">⚠️ Certaines pages n\'ont pas pu être lues (il faut internet la première fois) : complète le texte à la main.</p>' : ''}
-      ${vid ? '<p class="muted small">Les vidéos ne sont pas lues : ouvre la vidéo, mets-la sur pause et touche « Dessiner sur cette image ».</p>' : ''}
+      ${pages.some(p => p.video) ? '<p class="muted small">🎬 Vidéo : une image prise régulièrement tout au long. Garde celles qui montrent un exercice (l\'IA les explique mieux que la lecture du texte). La vidéo est jointe à la séance.</p>' : ''}
       ${pages.length > 1 ? `<div class="chips"><button type="button" class="btn soft" data-xall="1">${I.check}<span>Tout cocher</span></button><button type="button" class="btn soft" data-xall="0">${I.x}<span>Tout décocher</span></button></div>` : ''}
       <div class="chips"><button type="button" class="btn" data-xaiall>✨<span>${pages.length > 1 ? 'Analyser avec l\'IA les pages cochées' : 'Analyser avec l\'IA'}</span></button></div>
       <p class="muted small">L'IA regarde le dessin et écrit le titre, l'organisation, le déroulement, les rotations, les consignes et le matériel (plots, chasubles). Sans IA, l'appli lit le texte et compte les couleurs du dessin.</p>
@@ -515,6 +535,7 @@ const Library = (() => {
     const actions = [];
     if (rec.kind === 'image') actions.push({ label: 'Dessiner dessus', kind: 'primary', icon: I.board, onClick: () => { (async () => { const img = await Media.loadImage(URL.createObjectURL(rec.blob)); const c = await canvasBlob(img, img.naturalWidth, img.naturalHeight); const sc = await drawOn(c.blob, c.w, c.h, cleanName(rec.name)); location.hash = '#/schema/' + sc.id; })(); } });
     if (rec.kind === 'video') actions.push({ label: 'Analyser le match', kind: 'primary', icon: I.video, onClick: () => { location.hash = '#/analyse/' + rec.id; } });
+    if (rec.kind === 'video') actions.push({ label: 'Lire et créer les exercices', icon: I.training, onClick: () => { setTimeout(() => toExercises([rec]), 60); } });
     if (rec.kind === 'video') actions.push({ label: 'Dessiner sur cette image', kind: 'primary', icon: I.board, onClick: (close, r) => {
       const v = $('#docVideo', r); if (!v.videoWidth) { toast('Lance la vidéo puis mets-la sur pause', 'err'); return false; }
       v.pause(); (async () => { const c = await canvasBlob(v, v.videoWidth, v.videoHeight); const t = Math.floor(v.currentTime); close();

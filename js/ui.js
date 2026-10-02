@@ -137,5 +137,17 @@ const UI = (() => {
     const b = e.target.closest && e.target.closest('[data-mkind]'); if (!b) return;
     e.stopPropagation(); Store.state.ui.matchKind = b.dataset.mkind; Store.persistNow(); App.route(true);
   }, true);
+  (function lockScroll() {
+    const start = () => {
+      const root = document.getElementById('modal'); if (!root) return;
+      let y = 0, locked = false; const st = document.body.style;
+      const set = () => {
+        if (!root.hidden && !locked) { y = window.scrollY; Object.assign(st, { position: 'fixed', top: -y + 'px', left: '0', right: '0' }); document.documentElement.classList.add('modal-open'); locked = true; }
+        else if (root.hidden && locked) { Object.assign(st, { position: '', top: '', left: '', right: '' }); document.documentElement.classList.remove('modal-open'); window.scrollTo(0, y); locked = false; }
+      };
+      new MutationObserver(set).observe(root, { attributes: true, attributeFilter: ['hidden'] }); set();
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  })();
   return { kindSeg, finePointer, esc, $, $$, toast, modal, confirmBox, busy, bgTask, thumb, fmtDate, today, accentFor, pickFiles, chooseFiles, motto, mottoIdea, MOTTO_MAX };
 })();

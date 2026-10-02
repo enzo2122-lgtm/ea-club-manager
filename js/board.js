@@ -268,10 +268,13 @@ const Board = (() => {
       ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1; ctx.strokeRect(...rc);
       return;
     }
-    ctx.fillStyle = '#1f5137'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#2c6646'; ctx.fillRect(...cam.rect(0, 0, L, FW));
+    // a free zone of an indoor sport: the floor of the hall (wood for basket, blue for hand, orange for volley)
+    const floor = typeof Sport !== 'undefined' && !P ? ({ basket: ['#7a4a24', '#c98c55', '#c4864f'], hand: ['#183a6b', '#2f6fb3', '#2b68a8'], volley: ['#244f8a', '#d9824a', '#d27c45'] })[Sport.id()] : null;
+    const [c0, c1, c2] = floor || ['#1f5137', '#2c6646', '#306d4b'];
+    ctx.fillStyle = c0; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = c1; ctx.fillRect(...cam.rect(0, 0, L, FW));
     const sw = L > 50 ? 5.25 : 3.2;
-    ctx.fillStyle = '#306d4b';
+    ctx.fillStyle = c2;
     for (let x = 0; x < L; x += sw * 2) ctx.fillRect(...cam.rect(x, 0, Math.min(sw, L - x), FW));
     const ov = sc.overlays || {};
     if (ov.phases) drawPhases(ctx, cam, sc);
