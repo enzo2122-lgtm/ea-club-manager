@@ -1799,3 +1799,4 @@ body.demoing .rail { top: var(--dmh, 50px); height: calc(100dvh - var(--dmh, 50p
 .ob-s[hidden] { display: none; }
 body.modal-top #modal { z-index: 90; }
 .lv-ctl .btn:not(.primary) { color: var(--navy); background: #fff; } /* « Mi-temps » was white on white on the dark scoreboard */
+.ans-why { margin: 6px 0 10px; line-height: 1.6; }

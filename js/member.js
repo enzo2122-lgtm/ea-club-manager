@@ -43,7 +43,7 @@ const Member = (() => {
       let m = txt; try { m = JSON.parse(txt).message || txt; } catch (e) {}
       if (/LIMITE/.test(m)) throw new Error('Tu as déjà envoyé 10 messages aujourd’hui : réessaie demain.');
       if (/CODE_PERSO/.test(m)) { const e = new Error('Ce code ne fonctionne pas. Vérifie-le, ou demande ton code au coach.'); e.code = 'CODE'; throw e; }
-      if (/MATCH_PASSE/.test(m)) throw new Error('Ce match est passé : les réponses sont fermées.');
+      if (/MATCH_PASSE/.test(m)) throw new Error('C\'est passé : les réponses sont fermées.');
       if (/COMPLET/.test(m)) throw new Error('Cette tâche est déjà complète. Merci quand même !');
       if (r.status === 404 || /could not find the function/i.test(m)) throw new Error('Cet espace n\'est pas encore prêt : le club doit mettre à jour son serveur.');
       throw new Error('Le serveur ne répond pas. Réessaie dans un instant.');
@@ -88,5 +88,59 @@ const Member = (() => {
   }
   // the club's crest on top of the family pages
   function crest(d) { const c = d && d.club && d.club.crest, im = document.getElementById('clubCrest'); if (c && im && /^data:image\//.test(c)) im.src = c; }
-  return { current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+
+  /* ---------- (3.65) absent: the reason (ill, injured, holidays…), and the answers to matches and sessions ---------- */
+  const REASONS = [['🤒', 'Malade'], ['🤕', 'Blessure'], ['🏖️', 'Vacances'], ['💼', 'Travail'], ['📚', 'École / examens'], ['👪', 'Famille'], ['🙋', 'Perso'], ['✏️', 'Autre']];
+  function sheetCss() {
+    if (document.getElementById('rsCss')) return;
+    const st = document.createElement('style'); st.id = 'rsCss';
+    st.textContent = '.rs-back{position:fixed;inset:0;z-index:90;background:rgba(10,15,34,.55);display:flex;align-items:flex-end;justify-content:center;padding:12px}'
+      + '.rs-sheet{width:min(460px,100%);background:#fff;color:#14172b;border-radius:20px;padding:18px 16px calc(env(safe-area-inset-bottom) + 16px);box-shadow:0 -10px 30px rgba(0,0,0,.3)}'
+      + '.rs-sheet h3{margin:0 0 4px;font-size:19px}.rs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}'
+      + '.rs-grid .b{justify-content:flex-start;text-align:left}.rs-grid .b.on{outline:3px solid #be123c;background:#fde8ec}'
+      + '.rs-note{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:12px;border:1px solid #d6d0cb;font:inherit;font-size:16px;margin-bottom:12px}'
+      + '.rs-sheet .btns{display:flex;gap:8px;justify-content:flex-end}.rs-sheet .b[disabled]{opacity:.45}.why{display:block;font-size:13px;opacity:.85;margin-top:2px}'
+      + '@media (prefers-color-scheme: dark){.rs-sheet{background:#121a33;color:#eceef6}.rs-note{background:#18223f;color:#eceef6;border-color:#263156}.rs-grid .b.on{background:#3b1220}}';
+    document.head.appendChild(st);
+  }
+  // the reason of an absence: a few buttons and a precision; null if cancelled
+  function askReason(title) {
+    sheetCss();
+    return new Promise(res => {
+      const o = document.createElement('div'); o.className = 'rs-back';
+      o.innerHTML = `<div class="rs-sheet" role="dialog" aria-label="Raison de l'absence"><h3>${esc(title)}</h3><p class="info">Pourquoi ? Le coach verra la raison.</p>
+        <div class="rs-grid">${REASONS.map(([i, l]) => `<button class="b rs" type="button" data-r="${l}">${i} ${l}</button>`).join('')}</div>
+        <input class="rs-note" maxlength="80" placeholder="Une précision (facultatif)" aria-label="Précision">
+        <div class="btns"><button class="b" type="button" data-x>Annuler</button><button class="b no on" type="button" data-ok disabled>Envoyer : absent</button></div></div>`;
+      document.body.appendChild(o);
+      let pick = '';
+      const done = v => { o.remove(); res(v); };
+      o.addEventListener('click', e => {
+        e.stopPropagation();
+        if (e.target === o || e.target.closest('[data-x]')) return done(null);
+        const r = e.target.closest('[data-r]');
+        if (r) { pick = r.dataset.r; o.querySelectorAll('[data-r]').forEach(x => x.classList.toggle('on', x === r)); o.querySelector('[data-ok]').disabled = false; if (pick === 'Autre') o.querySelector('.rs-note').focus(); return; }
+        if (e.target.closest('[data-ok]')) {
+          const n = o.querySelector('.rs-note').value.trim();
+          if (pick === 'Autre' && !n) { o.querySelector('.rs-note').focus(); return; }
+          done(pick === 'Autre' ? n : pick + (n ? ' : ' + n : ''));
+        }
+      });
+    });
+  }
+  // the answer to a match or a session (with the reason); a club server not updated yet still takes the answer to a match
+  async function reply(code, kind, id, status, seats, reason) {
+    try { return await rpc('member_reply', { p_code: code, p_kind: kind, p_id: id, p_status: status, p_seats: seats || 0, p_reason: reason || null }); }
+    catch (e) { if (kind === 'match' && /pas encore prêt/.test(e.message)) return rpc('member_answer', { p_code: code, p_match: id, p_status: status, p_seats: seats || 0 }); throw e; }
+  }
+  // the sessions of the 2 weeks to come with my answer, and the reasons of my absences (an old server: nothing more)
+  async function replies(code, data) {
+    try {
+      const r = await rpc('member_replies', { p_code: code });
+      if (r && Array.isArray(r.trainings)) data.trainings = r.trainings;
+      const rs = (r && r.reasons) || {}; (data.matches || []).forEach(m => { m.reason = rs[m.id] || ''; });
+    } catch (e) {}
+    return data;
+  }
+  return { askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();

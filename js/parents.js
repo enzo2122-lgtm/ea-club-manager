@@ -49,11 +49,12 @@ const Parents = (() => {
     const yes = conv.filter(p => (rows[p.id] || {}).status === 'oui'), no = conv.filter(p => (rows[p.id] || {}).status === 'non');
     const mark = p => { const r = rows[p.id]; return r ? (r.status === 'oui' ? '<b class="ans ans-yes">✓</b>' : '<b class="ans ans-no">✗</b>') : '<b class="ans">?</b>'; };
     box.innerHTML = `<section class="card answers">
-      <div class="row-head"><h3>Réponses des parents</h3><button class="btn soft" data-parents="${m.teamId}">${I.share}<span>Lien des parents</span></button></div>
+      <div class="row-head"><h3>Réponses des joueurs et des parents</h3><button class="btn soft" data-parents="${m.teamId}">${I.share}<span>Lien des parents</span></button></div>
       ${err ? `<p class="tip">${esc(err)}</p>` : !Cloud.ready() ? '<p class="muted small">Les réponses arrivent quand l\'appli est connectée au serveur du club.</p>' : `
       <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span> · <span>? ${conv.length - yes.length - no.length} sans réponse</span></p>
       <div class="chips ans-list">${conv.map(p => { const r = rows[p.id];
         return `<button class="chip ans-chip ${r ? 'ans-' + r.status : ''}" data-ans="${p.id}" ${isOpen(m) ? '' : 'disabled'} title="${r ? (r.by_coach ? 'Noté par un coach' : 'Réponse du parent') : 'Pas de réponse'}">${mark(p)}<span>${esc(Store.shortName(p))}</span>${r && r.seats && r.status === 'oui' && !m.home ? ` <i class="muted">🚗 ${r.seats}</i>` : ''}${r && r.note ? ` <i class="muted">« ${esc(r.note)} »</i>` : ''}</button>`; }).join('')}</div>
+      ${no.length ? `<p class="small ans-why">${no.map(p => `✗ <b>${esc(Store.shortName(p))}</b>${rows[p.id].note ? ' · ' + esc(rows[p.id].note) : ''}`).join('<br>')}</p>` : ''}
       ${isOpen(m) && conv.length - yes.length - no.length > 0 ? `<button class="btn soft" data-remind>${I.chat}<span>Relancer les ${conv.length - yes.length - no.length} sans réponse</span></button>` : ''}
       <p class="muted small">${isOpen(m) ? 'Un parent a répondu par téléphone ? Touche le prénom : présent → absent → pas de réponse.' : 'Match passé : les réponses sont fermées.'}</p>`}</section>`;
   }
@@ -220,5 +221,18 @@ const Parents = (() => {
     }).catch(e => { if (ab.isConnected) drawAnswers(ab, m, conv, e.code === 'MISE_A_JOUR' ? needUpdate(e) : ''); });
   }
 
-  return { shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
+  /* ---------- (3.65) the answers of the players and parents to a session (présent / absent and why) ---------- */
+  async function mountTraining(box, tr, onPresent) {
+    if (!box || !Cloud.ready() || !tr.teamId || tr.model) return;
+    let rows = [];
+    try { rows = await Cloud.answers([tr.id]) || []; } catch (e) { return; }
+    if (!box.isConnected || !rows.length) return;
+    const pl = id => Store.get('players', id), yes = rows.filter(r => r.status === 'oui' && pl(r.player_id)), no = rows.filter(r => r.status === 'non' && pl(r.player_id));
+    box.innerHTML = `<section class="card answers"><h3>Réponses des joueurs et des parents</h3>
+      <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''} annoncé${yes.length > 1 ? 's' : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span></p>
+      ${no.length ? `<p class="small ans-why">${no.map(r => `✗ <b>${esc(Store.shortName(pl(r.player_id)))}</b>${r.note ? ' · ' + esc(r.note) : ''}`).join('<br>')}</p>` : ''}
+      ${yes.length ? `<button class="btn soft" data-ansfill>${I.check}<span>Cocher les ${yes.length} présents annoncés</span></button>` : ''}</section>`;
+    const f = box.querySelector('[data-ansfill]'); if (f) f.onclick = () => onPresent(yes.map(r => r.player_id));
+  }
+  return { mountTraining, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
 })();

@@ -82,7 +82,7 @@
         <p class="info">${m.rdv ? `🕘 Rendez-vous <b>${esc(hh(m.rdv))}</b>` : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? `coup d'envoi <b>${esc(hh(m.time))}</b>` : ''}${!m.rdv && !m.time ? '🕘 Horaire à confirmer' : ''}</p>
         ${place ? `<p class="info">📍 ${mapLink(place)}</p>` : ''}`}
       ${m.open && m.convoked ? `<div class="kid mine"><span class="nm">${esc(kid())} est convoqué</span>
-          <span class="st ${esc(m.answer || '')}">${m.answer === 'oui' ? '✓ présent' : m.answer === 'non' ? '✗ absent' : 'pas de réponse'}</span>
+          <span class="st ${esc(m.answer || '')}">${m.answer === 'oui' ? '✓ présent' : m.answer === 'non' ? '✗ absent' + (m.reason ? ' · ' + esc(m.reason) : '') : 'pas de réponse'}</span>
           <span class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button>${m.answer === 'oui' ? seatSel : ''}</span></div>`
         : m.open && m.published ? `<p class="info">${esc(kid())} n'est pas convoqué pour ce match.</p>` : m.open ? '<p class="info">La liste des convoqués n\'est pas encore publiée.</p>' : ''}
       ${volBox(m)}
@@ -93,6 +93,12 @@
     </article>`;
   }
 
+  // a session: présent / absent for the child (when the club's server gives the sessions with their id)
+  function trRow(t) {
+    return `<div class="tr tr-ans" ${t.id ? `data-t="${esc(t.id)}"` : ''}><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}
+      ${t.answer === 'non' && t.reason ? `<span class="why">Absent · ${esc(t.reason)}</span>` : ''}</span>
+      ${t.id ? `<span class="btns"><button class="b small yes ${t.answer === 'oui' ? 'on' : ''}" data-tans="oui">Présent</button><button class="b small no ${t.answer === 'non' ? 'on' : ''}" data-tans="non">Absent</button></span>` : ''}</div>`;
+  }
   function render() {
     const d = new Date(), now = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const club = (data.club && data.club.name) || 'Le club';
@@ -104,7 +110,7 @@
       <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Pour ${esc(kid())} : physique, technique ou tactique, seul ou à plusieurs. Ses footings (temps, distance) et l'envoi au coach.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>
       ${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}
       <h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}
-      ${trs.length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${trs.map(t => `<div class="tr"><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}</span></div>`).join('')}</div>` : ''}
+      ${trs.length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${trs.map(trRow).join('')}</div>` : ''}
       ${past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : ''}
       <div id="phView" class="ph-view" hidden></div>
       <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil ») pour la retrouver. Le code de ton enfant est personnel : ne le donne à personne. Une question ? Écris au coach.</p>`;
@@ -112,7 +118,7 @@
 
   async function load(quiet) {
     code = Member.current();
-    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos(); }
+    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos(); await Member.replies(code, data); render(); loadPhotos(); }
     catch (e) {
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
       if (quiet && data) return;
@@ -121,11 +127,14 @@
     }
   }
 
-  async function answer(matchId, status, seats) {
-    const m = data.matches.find(x => x.id === matchId); if (!m) return;
-    const before = { answer: m.answer, seats: m.seats };
-    Object.assign(m, { answer: status, seats: seats || 0 }); render(); loadPhotos();
-    try { await rpc('member_answer', { p_code: code, p_match: matchId, p_status: status, p_seats: seats || 0 }); toast(status === 'oui' ? `Merci ! ${kid()} est noté présent.` : `Merci ! ${kid()} est noté absent.`); }
+  // présent / absent to a match or a session; absent: the reason first
+  async function answer(matchId, status, seats, kind = 'match') {
+    const m = (kind === 'match' ? data.matches : data.trainings || []).find(x => x.id === matchId); if (!m) return;
+    let reason = '';
+    if (status === 'non') { reason = await Member.askReason(`${kid()} sera absent${kind === 'match' ? ' pour ce match' : ' à cet entraînement'}`); if (reason == null) return; }
+    const before = { answer: m.answer, seats: m.seats, reason: m.reason };
+    Object.assign(m, { answer: status, seats: seats || 0, reason }); render(); loadPhotos();
+    try { await Member.reply(code, kind, matchId, status, seats || 0, reason); toast(status === 'oui' ? `Merci ! ${kid()} est noté présent.` : `Merci ! ${kid()} est noté absent. Le coach voit la raison.`); }
     catch (e) { Object.assign(m, before); render(); toast(e.message, true); }
   }
 
@@ -139,6 +148,7 @@
     if (ph) { e.preventDefault(); const v = $('#phView'), src = photoData[ph.dataset.photo]; if (src) { v.innerHTML = `<img alt="Photo du match" src="${src}"><p>Touche pour fermer</p>`; v.hidden = false; } return; }
     if (e.target.closest('#phView')) { $('#phView').hidden = true; return; }
     const v = e.target.closest('[data-vol]'); if (v) { volunteer(v.closest('[data-m]').dataset.m, v.dataset.vol, v.dataset.label, !!v.dataset.rm); return; }
+    const tb = e.target.closest('[data-tans]'); if (tb) { answer(tb.closest('[data-t]').dataset.t, tb.dataset.tans, 0, 'training'); return; }
     const b = e.target.closest('[data-ans]'); if (!b) return;
     const m = data.matches.find(x => x.id === b.closest('[data-m]').dataset.m);
     answer(m.id, b.dataset.ans, b.dataset.ans === 'oui' ? m.seats || 0 : 0);

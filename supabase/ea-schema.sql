@@ -671,12 +671,44 @@ begin
   insert into messages (club, channel, author_id, author_name, body) values (pl.club, 'team:' || tids[1], 'member:' || pl.id, who, left(p_body, 2000));
   return true; end $$;
 
+-- (1.21) un joueur ou un parent répond présent / absent à un match OU à un entraînement, avec la raison de l'absence (malade, blessé, vacances…)
+create or replace function member_reply(p_code text, p_kind text, p_id text, p_status text, p_seats int default 0, p_reason text default null) returns jsonb language plpgsql security definer set search_path = public as $
+declare pl items := ea_member(p_code); c text := pl.club; m items; r text := nullif(left(trim(coalesce(p_reason, '')), 120), '');
+begin
+  if p_kind = 'match' then
+    select * into m from items where club = c and col = 'matches' and id = p_id and not deleted;
+    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) or not (coalesce(m.data->'convoked', '[]'::jsonb) ? pl.id) then raise exception 'DONNEES'; end if;
+    if coalesce((m.data->>'played')::boolean, false) then raise exception 'MATCH_PASSE'; end if;
+  elsif p_kind = 'training' then
+    select * into m from items where club = c and col = 'trainings' and id = p_id and not deleted;
+    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if;
+  else raise exception 'DONNEES'; end if;
+  if m.data->>'date' < to_char(current_date, 'YYYY-MM-DD') then raise exception 'MATCH_PASSE'; end if;
+  if coalesce(p_status, '') = '' then delete from answers where club = c and match_id = p_id and player_id = pl.id; return to_jsonb(true); end if;
+  if p_status not in ('oui', 'non') then raise exception 'DONNEES'; end if;
+  insert into answers (club, match_id, player_id, status, seats, note, by_coach)
+    values (c, p_id, pl.id, p_status, case when p_kind = 'match' and p_status = 'oui' then greatest(0, least(coalesce(p_seats, 0), 8)) else 0 end, case when p_status = 'non' then r end, false)
+    on conflict (club, match_id, player_id) do update set status = excluded.status, seats = excluded.seats, note = excluded.note, by_coach = false, updated_at = now();
+  return to_jsonb(true); end $;
+-- ses réponses : les entraînements des 2 semaines à venir (avec sa réponse) et les raisons de ses absences aux matchs
+create or replace function member_replies(p_code text) returns jsonb language plpgsql stable security definer set search_path = public as $
+declare pl items := ea_member(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); d0 text := to_char(current_date, 'YYYY-MM-DD');
+begin
+  return jsonb_build_object(
+    'trainings', (select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'date', i.data->>'date', 'time', i.data->>'time', 'title', i.data->>'title', 'answer', a.status, 'reason', a.note)
+        order by i.data->>'date', i.data->>'time'), '[]'::jsonb)
+      from items i left join answers a on a.club = c and a.match_id = i.id and a.player_id = pl.id
+      where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false) and i.data->>'teamId' = any(tids)
+        and i.data->>'date' between d0 and to_char(current_date + 14, 'YYYY-MM-DD')),
+    'reasons', (select coalesce(jsonb_object_agg(a.match_id, a.note), '{}'::jsonb) from answers a where a.club = c and a.player_id = pl.id and a.status = 'non' and a.note is not null and a.updated_at > now() - interval '120 days'));
+end $;
+grant execute on function member_reply(text, text, text, text, int, text), member_replies(text) to anon, authenticated;
 do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_login', 'club_register', 'club_accounts', 'club_account_set', 'club_me', 'club_teams_done',
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
   'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
   'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_answer', 'member_message',
-  'member_wellness', 'member_volunteer', 'member_photo', 'ea_owner_init', 'ea_owner_codes', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
+  'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
 begin
   for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop
     execute format('revoke all on function %s from public', f.sig);

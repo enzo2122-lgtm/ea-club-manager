@@ -111,6 +111,7 @@ const AutoSchema = (() => {
     for (let k = 0; k < 5; k++) {
       const useJoker = J.length && k === 2, mates = A.filter(x => x !== S.holder);
       const to = useJoker ? J[0] : mates.sort((x, y) => free(y) - free(x))[0];
+      if (!to) break; // a single player with the ball: nobody to pass to
       S.step(useJoker ? 'Pressé : passe au joker pour sortir du pressing' : k === 0 ? 'Appel dans l\'espace libre, passe au joueur démarqué' : k === 3 && r.acts.switchPlay ? 'Changement de côté vers le joueur libre' : 'Le porteur passe au partenaire le plus libre, le défenseur le plus proche presse', A2 => {
         if (!useJoker) { const q = P[to]; A2.run(to, [clamp(q[0] + (q[0] < s / 2 ? -2 : 2), 1, s - 1), clamp(q[1] + (q[1] < hh / 2 ? -1.5 : 1.5), 1, hh - 1)], .15); }
         A2.pass(to, useJoker ? .15 : 0); A2.pressBall(B, .5);
@@ -252,7 +253,9 @@ const AutoSchema = (() => {
   // the schema of an exercise (not saved): its action told step by step
   function build(ex) {
     const r = read(ex);
-    const sc = ({ possession, game, finish, duel, shape, run })[r.kind](ex, r);
+    let sc;
+    // an unusual text must never break the page: the shape of the exercise is drawn instead
+    try { sc = ({ possession, game, finish, duel, shape, run })[r.kind](ex, r); } catch (e) { try { sc = shape(ex, r); } catch (e2) { sc = story(ex.title || 'Exercice', r.w || 30, r.h || 20).sc; } }
     sc.name = ex.title || sc.name;
     sc.notes = [ex.org, ex.consignes].filter(Boolean).join('\n');
     sc.kind = r.kind;

@@ -39,7 +39,7 @@
       <span class="tag">${m.home ? '🏠 À domicile' : '🚌 À l\'extérieur'}</span>${m.competition ? `<span class="tag">${esc(m.competition)}</span>` : ''}
       <p class="info">${m.rdv ? `🕘 Rendez-vous <b>${esc(hh(m.rdv))}</b>` : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? `coup d'envoi <b>${esc(hh(m.time))}</b>` : ''}${!m.rdv && !m.time ? '🕘 Horaire à confirmer' : ''}</p>
       ${place ? `<p class="info">📍 ${mapLink(place)}</p>` : ''}
-      ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div></div>`
+      ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div>${m.answer === 'non' && m.reason ? `<span class="why">Raison : ${esc(m.reason)}</span>` : ''}</div>`
         : m.published ? '<div class="mine-box off">Tu n\'es pas convoqué pour ce match.</div>' : '<p class="info">La convocation n\'est pas encore publiée.</p>'}
       ${t.objective || keys.length || t.final || t.video ? `<div class="talk"><h3>🗣️ Le mot du coach</h3>
         ${t.objective ? `<p class="obj">🎯 ${esc(t.objective)}</p>` : ''}${t.system ? `<p class="info">Système : <b>${esc(t.system)}</b></p>` : ''}
@@ -72,6 +72,12 @@
       data.me.wb = today(); toast('Merci ! 💚'); render(); }
     catch (e) { toast(e.message, true); }
   }
+  // a session: the answer (when the club's server gives the sessions with their id)
+  function trRow(t) {
+    return `<div class="tr tr-ans" ${t.id ? `data-t="${esc(t.id)}"` : ''}><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}
+      ${t.answer === 'non' && t.reason ? `<span class="why">Absent · ${esc(t.reason)}</span>` : ''}</span>
+      ${t.id ? `<span class="btns"><button class="b small yes ${t.answer === 'oui' ? 'on' : ''}" data-tans="oui">Présent</button><button class="b small no ${t.answer === 'non' ? 'on' : ''}" data-tans="non">Absent</button></span>` : ''}</div>`;
+  }
   function render() {
     const now = today();
     document.title = `${(data.me || {}).name || 'Joueur'} · ${club()}`;
@@ -84,7 +90,7 @@
       ${my.conv || my.f.mp ? `<h2>Ma saison</h2><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div></div><p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
       <h2>Prochain match</h2>${up.length ? nextCard(up[0]) : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}
       ${up.length > 1 ? `<h2>Ensuite</h2><div class="card">${up.slice(1, 6).map(m => `<div class="tr"><span class="d">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}${m.time ? ' · ' + esc(hh(m.time)) : ''}</span></div>`).join('')}</div>` : ''}
-      ${(data.trainings || []).length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${data.trainings.map(t => `<div class="tr"><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}</span></div>`).join('')}</div>` : ''}
+      ${(data.trainings || []).length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${data.trainings.map(trRow).join('')}</div>` : ''}
       ${past.length ? `<h2>Résultats</h2>${past.slice(0, 12).map(pastCard).join('')}` : ''}
       ${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}
       <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>`;
@@ -92,7 +98,7 @@
 
   async function load(quiet) {
     code = Member.current();
-    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); }
+    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); await Member.replies(code, data); render(); }
     catch (e) {
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
       if (quiet && data) return;
@@ -100,11 +106,14 @@
       const a = $('#again'); if (a) a.onclick = () => load();
     }
   }
-  async function answer(matchId, status) {
-    const m = data.matches.find(x => x.id === matchId); if (!m) return;
-    const before = m.answer; m.answer = status; render();
-    try { await rpc('member_answer', { p_code: code, p_match: matchId, p_status: status, p_seats: 0 }); toast(status === 'oui' ? 'C\'est noté : présent 💪' : 'C\'est noté : absent. Préviens le coach si besoin.'); }
-    catch (e) { m.answer = before; render(); toast(e.message, true); }
+  // présent / absent to a match or a session; absent: the reason first
+  async function answer(kind, id, status) {
+    const x = (kind === 'match' ? data.matches : data.trainings || []).find(y => y.id === id); if (!x) return;
+    let reason = '';
+    if (status === 'non') { reason = await Member.askReason(kind === 'match' ? 'Absent pour ce match' : 'Absent à cet entraînement'); if (reason == null) return; }
+    const before = { answer: x.answer, reason: x.reason }; x.answer = status; x.reason = reason; render();
+    try { await Member.reply(code, kind, id, status, 0, reason); toast(status === 'oui' ? 'C\'est noté : présent 💪' : 'C\'est noté : absent. Le coach voit la raison.'); }
+    catch (e) { Object.assign(x, before); render(); toast(e.message, true); }
   }
   const icsDate = (d, t) => d.replace(/-/g, '') + 'T' + (t || '10:00').replace(':', '') + '00';
   function ics(m) {
@@ -122,8 +131,9 @@
     if (c) { const m = data.matches.find(x => x.id === c.dataset.cal); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics(m)], { type: 'text/calendar;charset=utf-8' })); a.download = `match-${m.date}.ics`; document.body.appendChild(a); a.click(); a.remove(); return; }
     const wb = e.target.closest('[data-wb]'); if (wb) { wbVals[wb.dataset.wb] = +wb.dataset.v; document.querySelectorAll(`[data-wb="${wb.dataset.wb}"]`).forEach(x => x.classList.toggle('on', x === wb)); return; }
     if (e.target.closest('[data-wbsend]')) { wbSend(); return; }
+    const tb = e.target.closest('[data-tans]'); if (tb) { answer('training', tb.closest('[data-t]').dataset.t, tb.dataset.tans); return; }
     const b = e.target.closest('[data-ans]'); if (!b) return;
-    answer(b.closest('[data-m]').dataset.m, b.dataset.ans);
+    answer('match', b.closest('[data-m]').dataset.m, b.dataset.ans);
   });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && data) load(true); });
   load();
