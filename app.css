@@ -1574,6 +1574,11 @@ h2.section svg { width: 22px; height: 22px; vertical-align: -4px; margin-right: 
 .ex-big-board canvas { width: 100%; border-radius: 12px; display: block; background: #1f5137; }
 .ex-big-board .chips { margin-top: 8px; align-items: center; }
 .ex-big-txt { font-size: 18px; line-height: 1.5; }
+.ex-big-step { font-size: 18px; line-height: 1.4; margin: 10px 0 4px; min-height: 2.8em; }
+.ex-big-steps { padding-left: 22px; margin: 4px 0 8px; }
+.ex-big-steps li { padding: 3px 6px; border-radius: 8px; cursor: pointer; }
+.ex-big-steps li.on { background: var(--gold-soft, #f6ecd2); font-weight: 700; }
+.ex-big-board .chips .btn.on { background: var(--accent); color: #fff; }
 .ex-big-txt h3 { margin: 10px 0 4px; font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .ex-big-txt li { margin: 4px 0; }
 .ex-big-dur { font-weight: 800; }
