@@ -2,7 +2,7 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.24';
+  const VERSION = '1.25';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -128,15 +128,31 @@ const Help = (() => {
   const seen = () => { try { return JSON.parse(localStorage.getItem(GUIDE_KEY)) || {}; } catch (e) { return {}; } };
   const setSeen = (k, n) => { const s = seen(); s[k] = n; try { localStorage.setItem(GUIDE_KEY, JSON.stringify(s)); } catch (e) {} };
   function visit() { const k = pageKey(), n = seen()[k] || 0; if (n < 9) setSeen(k, n + 1); guideOpen[k] = (seen()[k] || 0) <= 2; }
+  /* (3.67) « Cette page t'aide ? » : one vote per person and per page, kept with the club's messages (the responsables see the totals) */
+  const voteId = key => 'avis-' + ((Auth.current() || {}).id || 'x') + '-' + (key || 'accueil');
+  const myVote = key => { const r = Store.get('reports', voteId(key)); return r ? r.value : ''; };
+  function vote(key, title, value) {
+    const u = Auth.current();
+    Store.upsert('reports', { id: voteId(key), type: 'avis', value, page: title, key: key || 'accueil', at: Date.now(), by: u ? u.id : null, byName: u ? Store.fullName(u) : '', status: 'new', text: '' });
+    toast(value === 'up' ? 'Merci ! 👍' : 'Merci. Dis-nous ce qui manque avec « Aide · signaler un problème ».');
+  }
+  // the totals by page for the responsables
+  function votesHtml() {
+    const by = {}; Store.state.reports.filter(x => x.type === 'avis').forEach(x => { const b = by[x.page] = by[x.page] || { up: 0, down: 0 }; b[x.value === 'up' ? 'up' : 'down']++; });
+    const rows = Object.entries(by).sort((a, b) => (b[1].down - b[1].up) - (a[1].down - a[1].up));
+    return rows.length ? `<h3 class="sub-h">Avis sur les pages</h3><div class="vote-list">${rows.map(([pg, v]) => `<div><span>${esc(pg)}</span><b class="v-up">👍 ${v.up}</b><b class="v-down">👎 ${v.down}</b></div>`).join('')}</div>` : '';
+  }
   function guideInto(root) {
     if (!root || document.body.classList.contains('editing') || !Auth.current()) return;
     const key = pageKey(), p = PAGES[key]; if (!p || root.querySelector(':scope > .page-guide, :scope > * > .page-guide')) return;
     const el = document.createElement('details'); el.className = 'card page-guide'; el.open = !!guideOpen[key];
     el.innerHTML = `<summary><span class="pg-ic">💡</span><b>Comment ça marche ?</b><span class="muted small">${esc(p[0])}</span></summary>
       <ol>${p[1].map(t => `<li>${esc(t.replace(/^\d\.\s*/, ''))}</li>`).join('')}</ol>
+      <div class="pg-vote"><span>Cette page t'aide ?</span>${['up', 'down'].map(v => `<button type="button" class="btn soft ${myVote(key) === v ? 'on' : ''}" data-pg="${v}" aria-label="${v === 'up' ? 'Oui' : 'Non'}">${v === 'up' ? '👍' : '👎'}</button>`).join('')}</div>
       <div class="pg-act"><button type="button" class="btn soft" data-pg="ok">J'ai compris</button><button type="button" class="btn soft" data-pg="more">${I.help}<span>Aide · signaler un problème</span></button></div>`;
     el.ontoggle = () => { guideOpen[key] = el.open; };
     el.onclick = e => { const b = e.target.closest('[data-pg]'); e.stopPropagation(); if (!b) return;
+      if (b.dataset.pg === 'up' || b.dataset.pg === 'down') { vote(key, p[0], b.dataset.pg); el.querySelectorAll('.pg-vote .btn').forEach(x => x.classList.toggle('on', x === b)); return; }
       if (b.dataset.pg === 'ok') { el.open = false; setSeen(key, 9); } else open(key); };
     const head = root.querySelector(':scope > .page-head'); if (head) head.after(el); else root.prepend(el);
   }
@@ -219,12 +235,13 @@ const Help = (() => {
 
   /* ---------- settings: report e-mail + received reports ---------- */
   function settingsSection() {
-    const c = Store.state.club, admin = Auth.isAdmin(), reps = Store.state.reports.filter(x => !x.life).sort((a, b) => b.at - a.at); // (items with `life` belong to « Vie du club »)
+    const c = Store.state.club, admin = Auth.isAdmin(), reps = Store.state.reports.filter(x => !x.life && x.type !== 'avis').sort((a, b) => b.at - a.at); // (items with `life` belong to « Vie du club »)
     return `<section class="card"><h2>${I.help}Aide et signalements</h2>
       <div class="chips"><button class="btn" data-help="tour">${I.help}<span>Revoir le guide</span></button>
       <button class="btn" data-help="bug">🐞<span>Signaler un problème</span></button><button class="btn" data-help="idea">💡<span>Proposer une idée</span></button></div>
       ${admin ? `<label class="fld" style="margin-top:14px"><span>E-mail qui reçoit les signalements des éducateurs</span><input id="repEmail" type="email" inputmode="email" value="${esc(c.reportEmail || '')}" placeholder="ton.adresse@exemple.fr"></label>
         <p class="muted small">Cet e-mail est transmis aux autres éducateurs avec « Envoyer toutes mes données ». Les messages enregistrés sur leur appareil te reviennent aussi quand ils t'envoient leurs données.</p>
+        ${votesHtml()}
         <h3 class="sub-h">Messages reçus (${reps.length})</h3>
         ${reps.length ? `<div class="rep-list">${reps.map(x => `<details class="rep ${x.status === 'done' ? 'done' : ''}"><summary><span>${TYPES[x.type][0]}</span><b>${esc(x.text.slice(0, 70))}${x.text.length > 70 ? '…' : ''}</b><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}</span></summary>
           <pre>${esc(textOf(x))}</pre>${x.shot ? `<img class="rep-img" alt="Capture d'écran" src="${x.shot}">` : ''}<button class="btn" data-repdone="${x.id}">${x.status === 'done' ? 'Marquer à traiter' : 'Marquer comme traité'}</button></details>`).join('')}</div>` : '<p class="muted">Aucun message pour l\'instant.</p>'}` : ''}

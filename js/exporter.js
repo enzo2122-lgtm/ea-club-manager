@@ -161,7 +161,20 @@ const Exporter = (() => {
     .replace(/œ/g, 'oe').replace(/Œ/g, 'OE').replace(/€/g, 'EUR').replace(/[^\x00-\xFF]/g, '');
   const HEX = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
+  // (3.67) the PDF library is not loaded with the app (it is big): a few seconds after the start, or when a PDF is asked
+  const JSPDF_URL = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+  let pdfLib = null;
+  function loadPdf() {
+    return pdfLib = pdfLib || new Promise((res, rej) => {
+      if (window.jspdf) return res();
+      const s = document.createElement('script'); s.src = JSPDF_URL; s.crossOrigin = 'anonymous';
+      s.onload = () => res(); s.onerror = () => { pdfLib = null; rej(new Error('Le PDF ne peut pas se préparer : vérifie la connexion internet.')); };
+      document.head.appendChild(s);
+    });
+  }
+  setTimeout(() => loadPdf().catch(() => {}), 4000);
   function Doc(club) {
+    if (!window.jspdf) { loadPdf().catch(() => {}); throw new Error('Le PDF se prépare : réessaie dans 2 secondes.'); }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const PW = 210, PH = 297, M = 14, CW = PW - 2 * M;
@@ -334,5 +347,5 @@ const Exporter = (() => {
   }
   async function json(text, name) { return deliver(new Blob([text], { type: 'application/json' }), safeName(name) + '.raincy.json'); }
 
-  return { pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, json, deliver };
+  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, json, deliver };
 })();

@@ -861,7 +861,7 @@ const Views = (() => {
   /* ================= shared ================= */
   async function runExport(label, fn) {
     const b = UI.busy(label);
-    try { const r = await fn(b.progress); if (r === 'downloaded') toast('Fichier enregistré dans Téléchargements'); }
+    try { await Exporter.loadPdf().catch(() => {}); const r = await fn(b.progress); if (r === 'downloaded') toast('Fichier enregistré dans Téléchargements'); }
     catch (err) { console.error(err); toast(err.message || 'Export impossible', 'err'); }
     finally { b.done(); }
   }
