@@ -20,6 +20,7 @@ const App = (() => {
       document.body.classList.add('previewing');
       document.body.style.setProperty('--pvh', bar.offsetHeight + 'px');
     } else if (bar) { bar.remove(); document.body.classList.remove('previewing'); }
+    Demo.bar();
     document.documentElement.style.setProperty('--accent', UI.accentFor(c.homeBib));
     document.getElementById('clubName').textContent = c.name || 'Clubbo';
     Supporters.refresh();
@@ -118,7 +119,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 20, UPD = 'ea-update-tried';
+  const BUILD = 21, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

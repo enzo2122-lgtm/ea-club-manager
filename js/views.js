@@ -67,7 +67,7 @@ const Views = (() => {
       <button class="btn primary" data-connect>${I.check}<span>Me connecter au serveur</span></button></section>`;
   }
   function setupCard() {
-    if (!Auth.isAdmin()) return '';
+    if (!Auth.isAdmin() || S().club.demo) return ''; // the demo club is already set up
     const st = S(), steps = [
       [!!(st.club.crest || st.club.city), 'Personnaliser le club', 'Réglages → Le club : blason, couleurs, ville, catégories', '#/reglages'],
       [st.players.length > 0, 'Importer les joueurs', 'Réglages → Le club → Importer des données (photo, PDF, Excel…)', '#/reglages'],

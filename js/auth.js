@@ -277,6 +277,8 @@ const Auth = (() => {
       <button class="btn primary wide" id="go">Se connecter</button>
       <div class="lock-links"><button class="btn wide" id="first">${I.plus}<span>Première connexion (lien d'invitation)</span></button>
       <button class="btn wide" id="create">${I.whistle}<span>Créer mon club</span></button>
+      ${!Store.state.staff.length ? '<button class="btn wide" id="demo">👀<span>Essayer avec un club de démonstration</span></button>' : ''}
+      <a class="btn wide link" href="decouvrir.html">Découvrir Clubbo</a>
       <button class="btn wide link" id="forgot">Mot de passe oublié ?</button></div>`);
     const go = async () => {
       const club = $('#club', el).value.trim(), ln = $('#ln', el).value.trim(), fn = $('#fn', el).value.trim(), pw = $('#pw', el).value, keep = $('#keep', el).checked;
@@ -305,6 +307,7 @@ const Auth = (() => {
     $('#first', el).onclick = () => firstScreen();
     $('#create', el).onclick = () => createClubScreen();
     $('#forgot', el).onclick = () => forgotServer();
+    const dm = $('#demo', el); if (dm) dm.onclick = () => Demo.start();
     setTimeout(() => { const f = !lastClub() ? $('#club', el) : n.ln ? $('#pw', el) : $('#ln', el); if (f) f.focus(); }, 60);
   }
 
@@ -417,9 +420,12 @@ const Auth = (() => {
         if (restore()) { res(); return; }
       }
       resolveGate = res;
+      const want = (location.hash.match(/^#(demo|creer)$/) || [])[1];
+      if (want) history.replaceState(null, '', location.pathname + location.search);
       if (s && s.token && Store.get('staff', s.staff_id) && needsTeams(s.staff_id)) teamsScreen(s.staff_id, !s.temp);
-      else if (opts.joined) pickScreen(); else loginScreen();
-      if (!Help.tourSeen() && !opts.joined) Help.tour();
+      else if (opts.joined) pickScreen(); else if (want === 'creer') createClubScreen(); else loginScreen();
+      if (want === 'demo' && !Store.state.staff.length) setTimeout(() => Demo.start(), 200);
+      else if (!Help.tourSeen() && !opts.joined && !want) Help.tour();
     });
   }
 

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Découvrir Clubbo</title>
+<meta name="description" content="Clubbo, l'appli des éducateurs du club : séances avec schémas animés, jour de match, joueurs et parents, statistiques. Football, basket, handball, rugby, volley.">
+<meta name="theme-color" content="#0e1d45">
+<link rel="icon" href="icons/ea-logo.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+:root {
+  --navy: #0e1d45; --navy-2: #182b5e; --blue: #1d4ed8; --gold: #c9a45c; --gold-soft: #e2c27d;
+  --bg: #f3f1ef; --surface: #fff; --surface2: #f7f4f2; --ink: #14172b; --muted: #5d6072; --line: #e2dcd8;
+  --font: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+  --round: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0a0f22; --surface: #121a33; --surface2: #18223f; --ink: #eceef6; --muted: #9aa1b8; --line: #263156; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0a0f22; --surface: #121a33; --surface2: #18223f; --ink: #eceef6; --muted: #9aa1b8; --line: #263156; color-scheme: dark; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--font); overflow-x: hidden; }
+a { color: inherit; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+.hero { background: linear-gradient(140deg, var(--navy) 0%, var(--navy-2) 55%, var(--blue) 100%); color: #fff; padding: calc(env(safe-area-inset-top) + 28px) 0 48px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 32px; align-items: center; }
+.brand { display: flex; align-items: center; gap: 12px; font: 800 22px var(--round); color: var(--gold-soft); margin-bottom: 26px; }
+.brand img { width: 52px; height: 52px; }
+h1 { font: 800 clamp(32px, 6vw, 52px)/1.08 var(--round); margin: 0 0 16px; letter-spacing: -.01em; }
+.lead { font-size: clamp(17px, 2.4vw, 20px); color: rgba(255,255,255,.86); margin: 0 0 22px; max-width: 34em; }
+.sports { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; padding: 0; list-style: none; }
+.sports li { padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.12); font-weight: 700; font-size: 15px; }
+.cta { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 22px; border-radius: 14px; font-weight: 800; font-size: 17px; text-decoration: none; border: 2px solid transparent; }
+.btn.main { background: var(--gold); color: var(--navy); }
+.btn.ghost { border-color: rgba(255,255,255,.5); color: #fff; }
+.btn.light { background: #fff; color: var(--navy); }
+.note { font-size: 14px; color: rgba(255,255,255,.72); margin: 12px 0 0; }
+.phone { justify-self: center; width: min(300px, 100%); border-radius: 34px; padding: 10px; background: #050914; box-shadow: 0 30px 60px -20px rgba(0,0,0,.6); }
+.phone img { display: block; width: 100%; border-radius: 26px; }
+section { padding: 52px 0; }
+h2 { font: 800 clamp(26px, 4vw, 34px)/1.15 var(--round); margin: 0 0 10px; }
+.sub { color: var(--muted); margin: 0 0 26px; font-size: 17px; max-width: 40em; }
+.shots { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 260px); gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 4px 18px; margin: 0 -4px; }
+.shot { scroll-snap-align: start; margin: 0; }
+.shot img { width: 100%; display: block; border-radius: 22px; border: 6px solid #050914; box-shadow: 0 16px 32px -18px rgba(0,0,0,.5); }
+.shot figcaption { margin-top: 10px; font-size: 15px; color: var(--muted); }
+.shot figcaption b { color: var(--ink); display: block; font-size: 16px; }
+.feats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.feat { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+.feat b { display: block; font-size: 17px; margin: 6px 0 4px; }
+.feat span { font-size: 26px; }
+.feat p { margin: 0; color: var(--muted); font-size: 15px; }
+.steps { counter-reset: s; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 0; margin: 0; list-style: none; }
+.steps li { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+.steps li::before { counter-increment: s; content: counter(s); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 800; margin-bottom: 10px; }
+.steps b { display: block; font-size: 17px; margin-bottom: 4px; }
+.steps p { margin: 0; color: var(--muted); font-size: 15px; }
+.end { background: var(--navy); color: #fff; text-align: center; }
+.end .sub { color: rgba(255,255,255,.8); margin: 0 auto 22px; }
+.end .cta { justify-content: center; }
+footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: center; color: var(--muted); font-size: 14px; }
+@media (max-width: 860px) {
+  .hero .wrap { grid-template-columns: 1fr; }
+  .phone { width: min(260px, 80%); }
+  .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .steps { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .feats { grid-template-columns: 1fr; }
+  .btn { width: 100%; }
+  section { padding: 40px 0; }
+}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <div class="brand"><img src="icons/ea-logo.png" alt=""><span>Clubbo</span></div>
+      <h1>L'appli des éducateurs de ton club</h1>
+      <p class="lead">Les séances avec leurs schémas animés, le jour de match de la convocation au résumé, les joueurs et les parents, les statistiques. Sur le téléphone, même sans réseau.</p>
+      <ul class="sports" aria-label="Sports"><li>⚽ Football</li><li>🏀 Basket</li><li>🤾 Handball</li><li>🏉 Rugby</li><li>🏐 Volley</li></ul>
+      <div class="cta">
+        <a class="btn main" href="index.html#demo">👀 Essayer la démo</a>
+        <a class="btn ghost" href="index.html#creer">Créer mon club</a>
+      </div>
+      <p class="note">La démo ouvre un club inventé et déjà rempli. Rien n'est envoyé, tu la quittes quand tu veux. Déjà inscrit ? <a href="index.html">Se connecter</a></p>
+    </div>
+    <div class="phone"><img src="icons/shots/accueil.jpg" alt="L'accueil de Clubbo sur un téléphone : la séance du jour, le prochain match, ce qu'il ne faut pas oublier"></div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>Ce que fait Clubbo</h2>
+    <p class="sub">Des écrans simples, pensés pour le bord du terrain. Fais défiler les captures (club de démonstration).</p>
+    <div class="shots">
+      <figure class="shot"><img src="icons/shots/accueil.jpg" alt="Accueil" loading="lazy"><figcaption><b>Ta journée en un coup d'œil</b>La séance, le match, ce qu'il manque, le matériel à prévoir.</figcaption></figure>
+      <figure class="shot"><img src="icons/shots/schema-anime.jpg" alt="Schéma animé d'un exercice" loading="lazy"><figcaption><b>Des exercices animés</b>Chaque exercice a son schéma qui bouge, étape par étape, avec la phrase de chaque action.</figcaption></figure>
+      <figure class="shot"><img src="icons/shots/jour-de-match.jpg" alt="Jour de match" loading="lazy"><figcaption><b>Le jour de match en 5 étapes</b>Convoqués, composition, causerie, match en direct, résumé aux parents.</figcaption></figure>
+      <figure class="shot"><img src="icons/shots/direct.jpg" alt="Match en direct" loading="lazy"><figcaption><b>Le match en direct</b>Un toucher par but ou changement : la minute et le temps de jeu se notent tout seuls.</figcaption></figure>
+      <figure class="shot"><img src="icons/shots/joueur.jpg" alt="Fiche d'un joueur" loading="lazy"><figcaption><b>Le suivi de chaque joueur</b>Présences, matchs, minutes, buts, progression et disponibilité.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <h2>Tout le club au même endroit</h2>
+    <p class="sub">Les coachs, les responsables, les joueurs et les parents ont chacun leur espace.</p>
+    <div class="feats">
+      <div class="feat"><span>✨</span><b>Séances prêtes</b><p>Génère une séance par thème et par durée, ou prends une séance par système de jeu. Fiche PDF avec les schémas.</p></div>
+      <div class="feat"><span>✏️</span><b>Tableau tactique</b><p>Dessine joueurs, ballons, flèches et zones. Les étapes s'animent, sur le terrain de ton sport.</p></div>
+      <div class="feat"><span>📲</span><b>Convocations</b><p>Le message part sur WhatsApp. Les parents répondent présent ou absent d'un toucher.</p></div>
+      <div class="feat"><span>⏱️</span><b>Temps de jeu</b><p>Calculé pendant le match. L'appli signale les joueurs qui ont peu joué.</p></div>
+      <div class="feat"><span>👨‍👩‍👧</span><b>Joueurs et parents</b><p>Chacun a son code et sa page : convocations, causerie, covoiturage, entraînement perso.</p></div>
+      <div class="feat"><span>📊</span><b>Statistiques</b><p>Résultats du club, points, buteurs, présences, progression, bilan de la saison.</p></div>
+      <div class="feat"><span>🗓️</span><b>Planning des terrains</b><p>Les créneaux de tous les coachs, sans chevauchement, et les vestiaires.</p></div>
+      <div class="feat"><span>💬</span><b>Messagerie du club</b><p>Un canal par équipe, des messages aux coachs, des notifications sur le téléphone.</p></div>
+      <div class="feat"><span>📶</span><b>Même sans réseau</b><p>Tout s'enregistre sur le téléphone et part dès que le réseau revient.</p></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <h2>Lancer Clubbo dans ton club</h2>
+    <p class="sub">En 3 étapes, guidées dans l'appli.</p>
+    <ol class="steps">
+      <li><b>Le club</b><p>Avec ton code d'activation : le nom, le sport, le blason et les couleurs.</p></li>
+      <li><b>Les équipes</b><p>Coche tes catégories, puis importe tes joueurs et tes matchs (photo d'une liste, PDF, Excel).</p></li>
+      <li><b>Les coachs</b><p>Envoie le lien d'invitation : chaque coach choisit son nom et son mot de passe.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="end">
+  <div class="wrap">
+    <h2>Essaie-la tout de suite</h2>
+    <p class="sub">30 secondes suffisent pour comprendre : ouvre le club de démonstration et touche le bouton « + ».</p>
+    <div class="cta"><a class="btn main" href="index.html#demo">👀 Essayer la démo</a><a class="btn light" href="index.html#creer">Créer mon club</a></div>
+  </div>
+</section>
+<footer>Clubbo · créée par Coach Enzo · <a href="index.html">Ouvrir l'appli</a></footer>
+</body>
+</html>

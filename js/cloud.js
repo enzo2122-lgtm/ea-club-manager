@@ -4,7 +4,7 @@
 const Cloud = (() => {
   const builtIn = () => (typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER.url && CLUB_SERVER.key ? CLUB_SERVER : null);
   const session = () => (Store.state.auth && Store.state.auth.session) || null;
-  const token = () => { const s = session(); return (s && s.token) || ''; };
+  const token = () => { const s = session(); return (s && !s.demo && s.token) || ''; }; // the demo club stays on the device
   // Server address (built into the app); the invitation code of the club while a dirigeant joins it
   function cfg() {
     const c = Store.state.club.cloud || {}, b = builtIn() || {};

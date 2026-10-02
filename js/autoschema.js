@@ -298,7 +298,7 @@ const AutoSchema = (() => {
         const paint = () => {
           const W = box.clientWidth, ratio = Math.min(.8, (Board.dims(sc.field).W / Board.dims(sc.field).L) || .62), H = Math.round(W * ratio);
           if (cv.width !== W * 2) { cv.width = W * 2; cv.height = H * 2; cv.style.width = W + 'px'; cv.style.height = H + 'px'; }
-          const k = Math.min(n - 1, Math.floor(pos)), u = k < n - 1 ? pos - k : 0;
+          const k = Math.max(0, Math.min(n - 1, Math.floor(pos))), u = k < n - 1 ? Math.max(0, pos - k) : 0;
           Board.drawFrame(cv.getContext('2d'), cv.width, cv.height, sc, k, u, { homeBib: club().homeBib });
           // the drawing shows the action that leads to the next step: its sentence is the one of that step (step 0 is the starting position)
           const cur = n > 1 ? Math.min(n - 1, k + 1) : 0;
@@ -307,7 +307,8 @@ const AutoSchema = (() => {
         };
         const tick = now => {
           if (!document.body.contains(cv)) return cancelAnimationFrame(raf);
-          const dt = (now - last) / 1000; last = now;
+          // the first frame can be dated a little before the window opened: never go back in time (a step -1 does not exist)
+          const dt = Math.max(0, (now - last) / 1000); last = now;
           if (playing) { const k = Math.floor(pos); pos += dt * speed / (k < n - 1 ? durOf(k) : 1.2); if (pos >= n) pos = 0; }
           paint(); raf = requestAnimationFrame(tick);
         };

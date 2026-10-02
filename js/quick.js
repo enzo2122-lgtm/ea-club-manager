@@ -70,7 +70,7 @@ const Quick = (() => {
   /* ---------- search ---------- */
   const DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
   const PAGES = [['', 'Accueil'], ['entrainements', 'Séances (entraînements)'], ['matchs', 'Matchs'], ['equipes', 'Équipes et joueurs'], ['messages', 'Messages'],
-    ['planning', 'Planning des terrains'], ['club', 'Vie du club'], ['resultats', 'Résultats et classements'], ['schemas', 'Schémas et exercices dessinés'], ['bibliotheque', 'Bibliothèque (vidéos, PDF)'],
+    ['planning', 'Planning des terrains'], ['club', 'Vie du club'], ['resultats', 'Résultats du club'], ['schemas', 'Schémas et exercices dessinés'], ['bibliotheque', 'Bibliothèque (vidéos, PDF)'],
     ['stats', 'Stats de la saison'], ['reglages', 'Réglages et mon compte'], ['exercices', 'Exercices du club'], ['systemes', 'Séances par système de jeu'], ['progression', 'Progression des joueurs'],
     ['infirmerie', 'Infirmerie (blessés)'], ['tests', 'Tests physiques'], ['benevoles', 'Bénévoles'], ['arbitres', 'Arbitres'], ['vestiaires', 'Vestiaires'], ['bilan', 'Bilan de la saison']];
   function results(q) {

@@ -1777,3 +1777,25 @@ input[type=color] { width: 100%; min-height: 44px; padding: 2px; border-radius: 
 body.editing .save-pill { display: none; }
 @media (max-width: 760px) { .save-pill { bottom: calc(env(safe-area-inset-bottom) + 84px); font-size: 12px; } }
 @media (pointer: coarse) { .linkish { padding-top: 8px; padding-bottom: 8px; } }
+
+/* ---------- 1.20 : demo club, new club in 3 steps ---------- */
+#demoBar { position: fixed; top: 0; left: 0; right: 0; z-index: 45; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; padding: calc(env(safe-area-inset-top) + 6px) 12px 6px; background: #1d4ed8; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+#demoBar > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#demoBar .chips { flex-wrap: nowrap; gap: 6px; flex: none; }
+#demoBar .btn { min-height: 36px; padding: 0 12px; border: 0; background: rgba(255,255,255,.18); color: #fff; }
+#demoBar .btn.primary { background: #fff; color: #1d4ed8; }
+@media (max-width: 760px) { #demoBar .lg { display: none; } }
+body.demoing .shell { padding-top: var(--dmh, 50px); }
+body.demoing .rail { top: var(--dmh, 50px); height: calc(100dvh - var(--dmh, 50px)); }
+@media (max-width: 760px) { body.demoing .rail { top: auto; height: auto; } }
+.ob-prog { display: flex; gap: 6px; margin-bottom: 12px; }
+.ob-prog span { flex: 1; text-align: center; padding: 7px 4px; border-radius: 10px; background: var(--surface2); color: var(--muted); font-weight: 700; font-size: 13px; }
+.ob-prog span.on { background: var(--navy); color: #fff; }
+.ob-prog span.done { background: #dcfce7; color: #15803d; }
+.ob-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 16px; }
+.ob-nav .btn[hidden] { display: none; }
+.ob-nav #obNext { margin-left: auto; }
+.ob-three { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ob-s[hidden] { display: none; }
+body.modal-top #modal { z-index: 90; }
+.lv-ctl .btn:not(.primary) { color: var(--navy); background: #fff; } /* « Mi-temps » was white on white on the dark scoreboard */

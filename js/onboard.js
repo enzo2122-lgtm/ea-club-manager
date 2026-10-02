@@ -24,7 +24,7 @@ const Onboard = (() => {
   }
   function form() {
     const c = S().club;
-    return `<div class="lbl">Le sport du club</div><div class="chips" id="obSport">${Sport.KEYS.map(k => `<button type="button" class="chip ${k === Sport.id() ? 'on' : ''}" data-sport="${k}">${Sport.SPORTS[k].icon} ${Sport.SPORTS[k].label}</button>`).join('')}</div>
+    return `<div class="ob-form"><div class="ob-s" data-obs="1"><div class="lbl">Le sport du club</div><div class="chips" id="obSport">${Sport.KEYS.map(k => `<button type="button" class="chip ${k === Sport.id() ? 'on' : ''}" data-sport="${k}">${Sport.SPORTS[k].icon} ${Sport.SPORTS[k].label}</button>`).join('')}</div>
       <div class="ob-crest"><img src="${esc(Supporters.crest())}" alt="Blason" id="obCrestImg"><label class="btn">🖼️<span>${c.crest ? 'Changer le blason' : 'Ajouter le blason'}</span><input type="file" accept="image/*" id="obCrest" hidden></label>
         ${c.crest ? '<button class="btn soft" id="obCrestDel">Retirer</button>' : ''}</div>
       <label class="fld"><span>Nom du club</span><input id="obName" value="${esc(c.name || '')}" maxlength="60"></label>
@@ -35,10 +35,10 @@ const Onboard = (() => {
       <label class="fld"><span>Devise du club (facultatif, au dos du blason et sur le drapeau)</span><input id="obSlogan" value="${esc(c.slogan || '')}" maxlength="120" placeholder="ex : Un club, une famille"></label>
       <details ${Sport.isFoot() ? '' : 'hidden'}><summary class="muted small">Pour l'import des calendriers FFF (facultatif)</summary>
         <label class="fld"><span>Nom du club sur la FFF (tel qu'il apparaît dans les calendriers)</span><input id="obFff" value="${esc(c.fffName || '')}" placeholder="ex : FC EXEMPLE"></label>
-        <label class="fld"><span>Page du club sur epreuves.fff.fr</span><input id="obFffUrl" value="${esc(c.fffUrl || '')}" placeholder="https://epreuves.fff.fr/competition/club/…"></label></details>
-      <div class="lbl">Les catégories du club</div>
+        <label class="fld"><span>Page du club sur epreuves.fff.fr</span><input id="obFffUrl" value="${esc(c.fffUrl || '')}" placeholder="https://epreuves.fff.fr/competition/club/…"></label></details></div>
+      <div class="ob-s" data-obs="2"><div class="lbl">Les catégories du club</div>
       <div class="chips" id="obCats">${CATS().map(k => `<button type="button" class="chip ${has(k) ? 'on' : ''}" data-cat="${esc(k)}" ${has(k) ? 'disabled title="Déjà créée"' : ''}>${esc(k)}</button>`).join('')}</div>
-      <label class="switch"><input type="checkbox" id="obAB"><span>Créer aussi des équipes A et B dans les catégories choisies</span></label>`;
+      <label class="switch"><input type="checkbox" id="obAB"><span>Créer aussi des équipes A et B dans les catégories choisies</span></label></div></div>`;
   }
   function bind(r) {
     let crest = S().club.crest || '';
@@ -49,7 +49,7 @@ const Onboard = (() => {
     $$('#obSport [data-sport]', r).forEach(b => b.onclick = async () => {
       const k = b.dataset.sport; if (k === Sport.id()) return;
       setSport(k); const keep = { name: $('#obName', r).value, short: $('#obShort', r).value, city: $('#obCity', r).value, slogan: $('#obSlogan', r).value };
-      const host = $('#obSport', r).parentNode; host.innerHTML = (host.querySelector('.lead') ? host.querySelector('.lead').outerHTML : '') + form();
+      const host = $('#obSport', r).closest('.ob-form'); host.outerHTML = form(); if (r._obStep) r._obStep();
       $('#obName', r).value = keep.name; $('#obShort', r).value = keep.short; $('#obCity', r).value = keep.city; $('#obSlogan', r).value = keep.slogan;
       const again = bind(r); r._obSave = again; toast(`${Sport.cur().icon} Club de ${Sport.cur().label.toLowerCase()} : terrains, postes, catégories et scores changent (joueurs et matchs restent). Touche l'ancien sport pour revenir.`);
     });
@@ -82,13 +82,42 @@ const Onboard = (() => {
     modal({ title: '🏟️ Le club', noFocus: true, body: form(), onOpen: r => { save = bind(r); r._obSave = save; },
       actions: [{ label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (close, r) => { (r._obSave || save)().then(ok => { if (ok) { close(); toast('Club enregistré'); done && done(); App.route(true); } }); return false; } }] });
   }
-  // just after the club is created: its settings, then its data
+  // just after the club is created: 3 steps — the club, its teams, its coaches (everything can be changed later in Réglages → Le club)
   function start() {
-    let save;
-    modal({ title: `Bienvenue sur Clubbo 👋`, noFocus: true,
-      body: `<p class="lead">Quelques réglages pour que l'appli soit celle de <b>${esc(S().club.name || 'ton club')}</b>. Tu pourras tout changer plus tard (Réglages → Le club).</p>${form()}`,
-      onOpen: r => { save = bind(r); r._obSave = save; },
-      actions: [{ label: 'Plus tard' }, { label: 'Continuer', kind: 'primary', onClick: (close, r) => { (r._obSave || save)().then(ok => { if (!ok) return; close(); App.route(true); setTimeout(importStep, 250); }); return false; } }] });
+    let n = 1;
+    const LEAD = { 1: () => `Le nom, le sport et les couleurs de <b>${esc(S().club.name || 'ton club')}</b>.`, 2: () => 'Coche les catégories du club : elles sont créées tout de suite. Les joueurs viendront ensuite.',
+      3: () => 'Invite les coachs : ils reçoivent un lien, choisissent leur nom et créent leur mot de passe. Tu peux aussi importer tes joueurs et tes matchs.' };
+    const close = modal({ title: 'Bienvenue sur Clubbo 👋', noFocus: true,
+      body: `<div class="ob-prog"><span data-p="1">1 · Le club</span><span data-p="2">2 · Les équipes</span><span data-p="3">3 · Les coachs</span></div>
+        <p class="lead" id="obLead"></p>${form()}
+        <div class="ob-s" data-obs="3"><div class="ob-three">
+          <button class="quick-item" data-ob3="invite"><b>📲</b><span>Inviter les coachs</span><small>Un lien à envoyer sur WhatsApp</small></button>
+          <button class="quick-item" data-ob3="players"><b>👥</b><span>Mes joueurs</span><small>Photo d'une liste, PDF, Excel</small></button>
+          <button class="quick-item" data-ob3="matches"><b>${Sport.cur().icon}</b><span>Mes matchs</span><small>Le calendrier de la saison</small></button>
+          <button class="quick-item" data-ob3="staff"><b>🧢</b><span>Mes éducateurs</span><small>La liste des coachs</small></button></div>
+          <p class="muted small">Tout se retrouve plus tard dans Réglages.</p></div>
+        <div class="ob-nav"><button class="btn" id="obBack" type="button">Retour</button><button class="btn primary" id="obNext" type="button">Suivant</button></div>`,
+      onOpen: r => {
+        r._obSave = bind(r);
+        const show = () => {
+          r.querySelectorAll('[data-obs]').forEach(x => { x.hidden = +x.dataset.obs !== n; });
+          r.querySelectorAll('[data-p]').forEach(x => { x.classList.toggle('on', +x.dataset.p === n); x.classList.toggle('done', +x.dataset.p < n); });
+          $('#obLead', r).innerHTML = LEAD[n](); $('#obBack', r).hidden = n === 1; $('#obNext', r).textContent = n === 3 ? 'Terminer' : 'Suivant';
+          const sc = r.closest('.modal-card') || r; sc.scrollTop = 0;
+        };
+        r._obStep = show; show();
+        $('#obBack', r).onclick = () => { n = Math.max(1, n - 1); show(); };
+        $('#obNext', r).onclick = async () => {
+          if (n === 1) { if ($('#obName', r).value.trim().length < 2) return toast('Écris le nom du club', 'err'); n = 2; return show(); }
+          if (n === 2) { if (!(await r._obSave())) return; App.route(true); n = 3; return show(); }
+          close(); App.route(true); toast('Ton club est prêt 🎉');
+        };
+        r.querySelectorAll('[data-ob3]').forEach(b => b.onclick = () => {
+          const k = b.dataset.ob3; close(); App.route(true);
+          setTimeout(() => k === 'invite' ? Cloud.shareInvite(false) : Imports.open(k, () => setTimeout(importStep, 300)), 200);
+        });
+      },
+      actions: [{ label: 'Plus tard' }] });
   }
   function importStep() {
     modal({ title: '📥 Les données du club', noFocus: true,
