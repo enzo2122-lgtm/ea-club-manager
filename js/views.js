@@ -3,8 +3,8 @@ const Views = (() => {
   const { esc, $, $$, toast, modal, confirmBox, fmtDate, today } = UI;
   const S = () => Store.state;
   const teamOf = id => Store.get('teams', id);
-  const fmtLabel = f => ({ '8': 'Foot à 8', '5': 'Foot à 5', zone: 'Zone libre' }[f] || 'Foot à 11');
-  const FORMATS = [['11', 'Foot à 11'], ['8', 'Foot à 8'], ['5', 'Foot à 5']];
+  const fmtLabel = f => Sport.formatLabel(f || Sport.defFormat());
+  const formats = () => Sport.cur().formats.map(x => [x[0], x[1]]);
   const pName = Store.fullName;
   const pLabel = p => `${p.number ? p.number + ' · ' : ''}${pName(p)}`;
   // name on a roster chip, with the positions in short (« DC/LD »)
@@ -102,11 +102,11 @@ const Views = (() => {
     const tomorrowM = matchesOn(addDays(now, 1));
     // The greeting follows the coach's day: match, session, eve of a match, or an ordinary day
     let title = `${hello} ${esc(coach)} 👋`, box = '';
-    const items = [...todayM.map(m => `⚽ ${esc(matchLabel(m))}${m.time ? ' à ' + esc(m.time) : ''}`), ...todayT.map(t => `🏃 Séance${esc(tName(t.teamId))}${t.time ? ' à ' + esc(t.time) : ''}`)].slice(0, 2);
+    const items = [...todayM.map(m => `${Sport.W().icon} ${esc(matchLabel(m))}${m.time ? ' à ' + esc(m.time) : ''}`), ...todayT.map(t => `🏃 Séance${esc(tName(t.teamId))}${t.time ? ' à ' + esc(t.time) : ''}`)].slice(0, 2);
     const firstTime = (todayM[0] || todayT[0] || {}).time || '';
-    if (todayM.length) { title = `Bon match, ${esc(coach)} ⚽`; box = `<b>Aujourd'hui</b> · ${items.join(' · ')}<span class="hero-wx" id="heroWx"></span><i class="hero-wish">Tout le club est derrière vous. Allez ${esc(S().club.short || 'le club')} !</i>`; }
+    if (todayM.length) { title = `Bon match, ${esc(coach)} ${Sport.W().icon}`; box = `<b>Aujourd'hui</b> · ${items.join(' · ')}<span class="hero-wx" id="heroWx"></span><i class="hero-wish">Tout le club est derrière vous. Allez ${esc(S().club.short || 'le club')} !</i>`; }
     else if (todayT.length) { title = `Bonne séance, ${esc(coach)} 💪`; box = `<b>Aujourd'hui</b> · ${items.join(' · ')}<span class="hero-wx" id="heroWx"></span><i class="hero-wish">En espérant un entraînement bénéfique pour tes joueurs !</i>`; }
-    else if (tomorrowM.length) box = `<b>Demain</b> · ⚽ ${esc(matchLabel(tomorrowM[0]))}${tomorrowM[0].time ? ' à ' + esc(tomorrowM[0].time) : ''}<i class="hero-wish">Bonne préparation, et repose bien tes troupes !</i>`;
+    else if (tomorrowM.length) box = `<b>Demain</b> · ${Sport.W().icon} ${esc(matchLabel(tomorrowM[0]))}${tomorrowM[0].time ? ' à ' + esc(tomorrowM[0].time) : ''}<i class="hero-wish">Bonne préparation, et repose bien tes troupes !</i>`;
     // the next match of the day or of tomorrow: straight to its preparation
     const refW = Refs.waiting(); if (refW) box += `<a class="hero-prep hero-vol" href="#/arbitres">🟨 ${refW} match${refW > 1 ? 's' : ''} à domicile attend${refW > 1 ? 'ent' : ''} ta réponse (arbitre)</a> `;
     const duty = Vol.mine(2); if (duty.length) box += `<a class="hero-prep hero-vol" href="#/benevoles">🙋 ${duty.map(({ m, t }) => `${t.icon} ${esc(t.label)} ${m.date === now ? 'aujourd\'hui' : 'demain'}`).join(' · ')}</a> `;
@@ -215,7 +215,7 @@ const Views = (() => {
     modal({ title: 'Nouvelle catégorie', body: `
       <label class="fld"><span>Nom</span><input id="tName" placeholder="ex : U11 A" maxlength="40"></label>
       <label class="fld"><span>Catégorie</span><input id="tCat" placeholder="ex : U11, Seniors" maxlength="20"></label>
-      <div class="lbl">Format</div><div class="chips" id="tFmt">${FORMATS.map(([v, l], i) => `<button class="chip ${i ? '' : 'on'}" data-v="${v}">${l}</button>`).join('')}</div>`,
+      <div class="lbl">Format</div><div class="chips" id="tFmt">${formats().map(([v, l], i) => `<button class="chip ${i ? '' : 'on'}" data-v="${v}">${l}</button>`).join('')}</div>`,
       onOpen: r => $$('#tFmt .chip', r).forEach(b => b.onclick = () => { $$('#tFmt .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); }),
       actions: [{ label: 'Annuler' }, { label: 'Créer', kind: 'primary', onClick: (c, r) => {
         const name = $('#tName', r).value.trim(); if (!name) { toast('Donne un nom à la catégorie', 'err'); return false; }
@@ -231,7 +231,7 @@ const Views = (() => {
         `<a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a>`)}
         <section class="card">
           <div class="row-head"><label class="fld inline"><span>Catégorie</span><input id="tCat" value="${esc(t.category || '')}" maxlength="20"></label>
-          <div class="chips">${FORMATS.map(([v, l]) => `<button class="chip ${t.format === v ? 'on' : ''}" data-fmt="${v}">${l}</button>`).join('')}</div></div>
+          <div class="chips">${formats().map(([v, l]) => `<button class="chip ${t.format === v ? 'on' : ''}" data-fmt="${v}">${l}</button>`).join('')}</div></div>
           ${Auth.isAdmin() && Importer.letterNo(t) ? `<label class="fld" style="margin-top:12px"><span>Nom au District (pour ranger les matchs importés)</span><select id="tDistrict">${[1, 2, 3, 4].map(n => `<option value="${n}" ${Importer.districtNo(t) === n ? 'selected' : ''}>${esc(S().club.name)}${n > 1 ? ' ' + n : ''}</option>`).join('')}</select></label>` : ''}
         </section>
         <div id="teamPeople"></div>
@@ -272,7 +272,7 @@ const Views = (() => {
     const filt = S().ui.schemaFilter || '';
     const list = S().schemas.filter(s => Auth.sees(s.teamId) && (!filt || s.field.format === filt)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     root.innerHTML = `${header('Schémas', 'Exercices et tactiques animés', `<a class="btn" href="#/bibliotheque">${I.video}<span>Bibliothèque</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="fromFile">${I.pdf}<span>Depuis un fichier (PDF, image, vidéo)</span></button><button class="btn" data-act="board">${I.edit}<span>Tableau blanc</span></button><button class="btn" data-act="models">${I.layers}<span>Modèles</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau schéma</span></button>`)}
-      <div class="chips filter">${[['', 'Tous'], ['11', 'Foot à 11'], ['8', 'Foot à 8'], ['5', 'Foot à 5'], ['zone', 'Zones libres']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
+      <div class="chips filter">${[['', 'Tous'], ...formats(), ['zone', 'Zones libres']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
       ${list.length ? `<div class="grid">${list.map(s => `<article class="card schema-card">
           <a href="#/schema/${s.id}" class="thumb"><img alt="" src="${UI.thumb(s)}"></a>
           <div class="sc-meta"><a href="#/schema/${s.id}"><b>${esc(s.name)}</b></a><span class="muted">${s.field.format === 'zone' ? `Zone ${s.field.w}×${s.field.h} m` : fmtLabel(s.field.format)} · ${s.steps.length} étape${s.steps.length > 1 ? 's' : ''}</span></div>
@@ -296,6 +296,7 @@ const Views = (() => {
   // Ready-made exercises: the coach picks one, it becomes his own schema (animated, with notes) that he adapts
   let tplThumbs = null;
   function pickTemplate(opts = {}) {
+    if (!Sport.isFoot()) { toast(`Les modèles animés sont pour le football : voici les exercices de base de ton sport, à dessiner sur le ${Sport.cur().place === 'salle' ? 'terrain' : 'terrain'}`); location.hash = '#/exercices'; return; }
     const t = teamOf(opts.teamId || activeTeam());
     if (!tplThumbs) tplThumbs = Object.fromEntries(Templates.LIST.map(x => [x.key, UI.thumb(x.build(), 320, 208)]));
     const close = modal({ title: 'Partir d\'un modèle', noFocus: true,
@@ -309,10 +310,10 @@ const Views = (() => {
   }
   // Whiteboard: a blank pitch, full screen, nothing saved (to explain something at half-time or in the changing room)
   function whiteboard() {
-    const t = teamOf(activeTeam()), fmt = t ? t.format : '11';
+    const t = teamOf(activeTeam()), fmt = t ? t.format : Sport.defFormat();
     const close = modal({ title: 'Tableau blanc', noFocus: true,
       body: `<p>Un terrain vierge en plein écran pour expliquer une idée tout de suite (mi-temps, vestiaire, causerie). <b>Rien n'est enregistré</b> : en quittant, le dessin disparaît, sauf si tu touches « Garder ».</p>
-        <div class="lbl">Terrain</div><div class="chips">${[...FORMATS, ['zone', 'Zone libre']].map(([v, l]) => `<button class="chip ${v === fmt ? 'on' : ''}" data-wb="${v}">${l}</button>`).join('')}</div>`,
+        <div class="lbl">Terrain</div><div class="chips">${[...formats(), ['zone', 'Zone libre']].map(([v, l]) => `<button class="chip ${v === fmt ? 'on' : ''}" data-wb="${v}">${l}</button>`).join('')}</div>`,
       onOpen: r => $$('[data-wb]', r).forEach(b => b.onclick = () => {
         close();
         // the tap itself asks for full screen (browsers only allow it right after a touch)
@@ -327,7 +328,7 @@ const Views = (() => {
       <button class="btn soft wide" id="sTpl" type="button">${I.layers}<span>Partir d'un modèle (rondo, 3 contre 2, conservation…)</span></button>
       <label class="fld"><span>Nom</span><input id="sName" value="${esc(opts.name || '')}" placeholder="ex : Conservation 5 contre 5" maxlength="80"></label>
       <div class="lbl">Terrain</div>
-      <div class="chips" id="sFmt">${[...FORMATS, ['zone', 'Zone libre']].map(([v, l]) => `<button class="chip ${v === (t ? t.format : '11') ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>
+      <div class="chips" id="sFmt">${[...formats(), ['zone', 'Zone libre']].map(([v, l]) => `<button class="chip ${v === (t ? t.format : Sport.defFormat()) ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>
       <div class="chips" id="sView"><button class="chip on" data-v="full">Terrain entier</button><button class="chip" data-v="half">Demi-terrain</button></div>
       <div class="row2" id="sDims" hidden><label class="fld"><span>Longueur (m)</span><input type="number" id="sW" value="30" min="5" max="110"></label><label class="fld"><span>Largeur (m)</span><input type="number" id="sH" value="20" min="5" max="75"></label></div>`,
       onOpen: (r, close) => {
@@ -557,7 +558,7 @@ const Views = (() => {
   function convocationText(m) {
     const t = teamOf(m.teamId), conv = (t ? Store.rosterOf(t.id) : []).filter(p => (m.convoked || []).includes(p.id)), club = S().club.name || 'Le club';
     const hh = x => String(x || '').replace(':', 'h'), me = Auth.current();
-    return [`⚽ *${club}${t ? ' · ' + t.name : ''}*`, `*Convocation – ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}*`, '',
+    return [`${Sport.W().icon} *${club}${t ? ' · ' + t.name : ''}*`, `*Convocation – ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}*`, '',
       `Match ${m.home ? 'à domicile' : 'à l\'extérieur'} contre *${m.opponent || '?'}*${m.competition ? ' (' + m.competition + ')' : ''}`,
       m.place || m.home ? `📍 ${m.place || S().club.fieldName || 'Stade du club'}` : '',
       m.rdv || m.time ? `🕘 ${m.rdv ? 'Rendez-vous ' + hh(m.rdv) : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? 'coup d\'envoi ' + hh(m.time) : ''}` : '🕘 Horaire à confirmer', '',
@@ -633,12 +634,12 @@ const Views = (() => {
         <section class="card">
           <label class="switch"><input type="checkbox" id="mPlayed" ${m.played ? 'checked' : ''}><span>Le match est joué</span></label>
           ${Ratings.smileyPicker(m)}
-          ${m.played ? `<div class="score-board">${stepper('gf', m.gf, esc(S().club.name))}${stepper('ga', m.ga, esc(m.opponent))}</div>
+          ${m.played ? `<div class="score-board">${stepper('gf', m.gf, esc(S().club.name))}${stepper('ga', m.ga, esc(m.opponent))}</div>${Sport.cur().sets ? `<p class="muted small" style="text-align:center">Sets gagnés${(m.sets || []).length ? ' · ' + m.sets.map(s => s.join('-')).join(', ') : ''}</p>` : ''}
             ${ClubLife.cheerBar(m)}
-            ${conv.length ? `<div class="lbl">Buteurs et passeurs</div><div class="scorers">${conv.map(p => { const st = (m.stats || {})[p.id] || {};
+            ${conv.length ? `<div class="lbl">${Sport.W().Scorers} et passeurs${Sport.isFoot() || Sport.id() === 'hand' ? '' : ' (' + Sport.W().units + ' de chaque joueur)'}</div><div class="scorers">${conv.map(p => { const st = (m.stats || {})[p.id] || {};
               return `<div class="scorer"><span class="nm">${esc(pLabel(p))}</span>
-                <span class="mini-step" title="Buts">${I.ball}<button data-pl="${p.id}" data-k="g" data-d="-1" aria-label="Moins de buts">−</button><b>${st.g || 0}</b><button data-pl="${p.id}" data-k="g" data-d="1" aria-label="Plus de buts">+</button></span>
-                <span class="mini-step" title="Passes décisives"><em>P</em><button data-pl="${p.id}" data-k="a" data-d="-1" aria-label="Moins de passes">−</button><b>${st.a || 0}</b><button data-pl="${p.id}" data-k="a" data-d="1" aria-label="Plus de passes">+</button></span></div>`; }).join('')}</div>` : '<p class="tip">Coche les convoqués pour noter les buteurs.</p>'}` : ''}
+                <span class="mini-step" title="${Sport.W().Units}">${Sport.isFoot() ? I.ball : Sport.W().icon}<button data-pl="${p.id}" data-k="g" data-d="-1" aria-label="Moins de ${Sport.W().units}">−</button><b>${st.g || 0}</b><button data-pl="${p.id}" data-k="g" data-d="1" aria-label="Plus de ${Sport.W().units}">+</button></span>
+                <span class="mini-step" title="Passes décisives"><em>P</em><button data-pl="${p.id}" data-k="a" data-d="-1" aria-label="Moins de passes">−</button><b>${st.a || 0}</b><button data-pl="${p.id}" data-k="a" data-d="1" aria-label="Plus de passes">+</button></span></div>`; }).join('')}</div>` : `<p class="tip">Coche les convoqués pour noter les ${Sport.W().scorers}.</p>`}` : ''}
           <label class="fld"><span>Notes</span><textarea data-f="notes" rows="3" placeholder="Ce qui a marché, ce qu'on travaille la semaine prochaine">${esc(m.notes || '')}</textarea></label>
         </section>
         ${m.played && conv.length ? minutesCard(m, conv) + Season.detailCard(m) + Health.rpeBox(m, conv.map(p => p.id), 'match') : ''}
@@ -715,7 +716,7 @@ const Views = (() => {
   }
   function makeLineup(m) {
     const t = teamOf(m.teamId); if (!t) return toast('Choisis une équipe', 'err');
-    const fmt = Formations[t.format] ? t.format : '11', forms = Object.keys(Formations[fmt]); // a team without a known format plays at 11
+    const fmt = Formations[t.format] ? t.format : Sport.defFormat(), forms = Object.keys(Formations[fmt] || Formations['11']); // a team without a known format plays at 11
     const nConv = Store.rosterOf(t.id).filter(p => (m.convoked || []).includes(p.id)).length;
     modal({ title: 'Composition', body: `<label class="fld"><span>Système</span><select id="lf">${forms.map(f => `<option>${esc(f)}</option>`).join('')}</select></label>
       ${nConv ? `<p class="tip">Les ${nConv} convoqués sont placés selon leur poste (le DC dans l'axe, le LD à droite, l'AG à gauche…). Les autres sont notés comme remplaçants. Tu pourras tout déplacer.</p>`
@@ -767,14 +768,14 @@ const Views = (() => {
         <div class="tile v"><b>${V}</b><span>Gagnés</span></div>
         <div class="tile n"><b>${N}</b><span>Nuls</span></div>
         <div class="tile d"><b>${D}</b><span>Perdus</span></div>
-        <div class="tile"><b>${bp}</b><span>Buts marqués</span></div>
-        <div class="tile"><b>${bc}</b><span>Buts encaissés</span></div>
-        <div class="tile"><b>${V * 3 + N}</b><span>Points</span></div>
+        <div class="tile"><b>${bp}</b><span>${Sport.W().Units} marqués</span></div>
+        <div class="tile"><b>${bc}</b><span>${Sport.W().Units} encaissés</span></div>
+        <div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>
       </div>
       ${(() => { const low = People.lowPlaytime(t.id); return low.length ? `<section class="card playtime-card"><h2>⏱️ Temps de jeu à surveiller</h2><p class="muted small">Joueurs qui ont joué moins de la moitié de la moyenne de l'équipe (${low[0].avg} min) sur les matchs où le temps de jeu est noté.</p><ul class="alerts">${low.map(x => `<li><a href="#/joueur/${x.p.id}"><b>${esc(pName(x.p))}</b></a> : ${x.min} min${x.conv ? ` · ${x.conv} convocation${x.conv > 1 ? 's' : ''}` : ' · jamais convoqué'}</li>`).join('')}</ul></section>` : ''; })()}
       <h2 class="section">Joueurs</h2>
       <div class="table-wrap"><table class="tbl">
-        <thead><tr>${th('num', 'N°')}${th('name', 'Joueur')}${th('post', 'Poste')}${th('played', 'Matchs')}${th('min', 'Minutes')}${th('g', 'Buts')}${th('a', 'Passes déc.')}${th('pr', 'Entraînements')}${th('nm', 'Note matchs')}${th('nt', 'Note entr.')}</tr></thead>
+        <thead><tr>${th('num', 'N°')}${th('name', 'Joueur')}${th('post', 'Poste')}${th('played', 'Matchs')}${th('min', 'Minutes')}${th('g', Sport.W().Units)}${th('a', Sport.W().Assists)}${th('pr', 'Entraînements')}${th('nm', 'Note matchs')}${th('nt', 'Note entr.')}</tr></thead>
         <tbody>${rows.map(r => `<tr><td class="num">${esc(r.p.number)}</td><td><a href="#/joueur/${r.p.id}">${esc(pName(r.p))}</a></td><td class="muted">${esc(r.post) || '–'}</td><td>${r.played}</td><td>${r.min ? r.min + "'" : '–'}</td><td><b>${r.g}</b></td><td>${r.a}</td><td>${r.rate === null ? '–' : `${r.pr} <span class="muted">(${r.rate} %)</span>`}</td><td>${r.nm ? '⭐ ' + Ratings.fr(r.nm) : '–'}</td><td>${r.nt ? '⭐ ' + Ratings.fr(r.nt) : '–'}</td></tr>`).join('')}</tbody>
       </table></div>
       <h2 class="section">Résultats</h2>

@@ -232,7 +232,7 @@ const Exporter = (() => {
     sc.steps.forEach((st, k) => P.image(frameCanvas(sc, k, 0, Object.assign({ w: 1500, h: 980 }, o)), P.CW));
   }
   const fmtDate = d => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '';
-  const fieldLabel = f => f.format === 'bg' ? 'Dessin sur image' : f.format === 'zone' ? `Zone ${f.w} x ${f.h} m` : (Board.PITCH[f.format].label + (f.view === 'half' ? ' · demi-terrain' : ''));
+  const fieldLabel = f => f.format === 'bg' ? 'Dessin sur image' : f.format === 'zone' ? `Zone ${f.w} x ${f.h} m` : ((Board.PITCH[f.format] || {}).label || Sport.formatLabel(f.format) + (f.view === 'half' ? ' · demi-terrain' : ''));
   // Attached documents (images, PDF pages, videos) at the end of a printable PDF
   async function addDocs(P, ids) {
     const docs = await Library.docImages(ids); if (!docs.length) return;

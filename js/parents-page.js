@@ -111,7 +111,7 @@
 
   async function load(quiet) {
     code = Member.current();
-    try { data = await rpc('member_view', { p_code: code }); Member.remember(code, data); Member.crest(data); render(); loadPhotos(); }
+    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos(); }
     catch (e) {
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
       if (quiet && data) return;

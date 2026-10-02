@@ -5,6 +5,14 @@ const Board = (() => {
     '11': { L: 105, W: 68, box: [16.5, 40.32], six: [5.5, 18.32], spot: 11, circle: 9.15, goal: 7.32, label: 'Foot à 11' },
     '8':  { L: 64,  W: 48, box: [13, 26],      six: null,         spot: 9,  circle: 6,    goal: 6,    label: 'Foot à 8' },
     '5':  { L: 35,  W: 25, box: [6, 12],       six: null,         spot: 6,  circle: 4,    goal: 4,    label: 'Foot à 5' },
+    b5:  { kind: 'basket', L: 28, W: 15, goal: 1, label: 'Basket 5 contre 5' },
+    b3:  { kind: 'basket', half: true, L: 11, W: 15, goal: 1, label: 'Basket 3x3' },
+    h7:  { kind: 'hand', L: 40, W: 20, goal: 3, label: 'Hand à 7' },
+    r15: { kind: 'rugby', ig: 7, L: 114, W: 70, goal: 5.6, label: 'Rugby à XV' },
+    r10: { kind: 'rugby', ig: 5, L: 70, W: 40, goal: 5.6, label: 'Rugby à X (école)' },
+    r7:  { kind: 'rugby', ig: 7, L: 114, W: 70, goal: 5.6, label: 'Rugby à 7' },
+    v6:  { kind: 'volley', free: 3, attack: 3, L: 24, W: 15, goal: 1, label: 'Volley 6 contre 6' },
+    v4:  { kind: 'volley', free: 2, attack: 0, L: 16, W: 10, goal: 1, label: 'Volley 4 contre 4' },
   };
   const ARROWS = {
     course:   { label: 'Course',   color: '#ffffff', w: .2 },
@@ -35,7 +43,8 @@ const Board = (() => {
   function dims(f) {
     if (f.format === 'zone') return { L: f.w || 30, W: f.h || 20 };
     if (f.format === 'bg') return { L: f.w || 100, W: f.h || 60 };
-    return { L: PITCH[f.format].L, W: PITCH[f.format].W };
+    const P = PITCH[f.format] || PITCH['11'];
+    return { L: P.L, W: P.W };
   }
   function extents(f) {
     const { L, W } = dims(f);
@@ -181,8 +190,73 @@ const Board = (() => {
     ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = tr.opacity == null ? .7 : tr.opacity; ctx.drawImage(img, ...cam.rect(0, 0, L, FW)); ctx.restore();
   }
   const preloadBackgrounds = list => Promise.all((list || []).map(ensureBg));
+  /* ---------- the courts of the other sports (basket, hand, rugby, volley) ---------- */
+  function drawCourt(ctx, cam, sc, W, H) {
+    const f = sc.field, { L, W: FW } = dims(f), s = cam.s, P = PITCH[f.format];
+    const line = (x1, y1, x2, y2, dash) => { ctx.setLineDash(dash ? dash.map(d => d * s) : []); ctx.beginPath(); ctx.moveTo(...cam.toS([x1, y1])); ctx.lineTo(...cam.toS([x2, y2])); ctx.stroke(); ctx.setLineDash([]); };
+    const arc = (x, y, r, a0, a1, dash) => { ctx.setLineDash(dash ? dash.map(d => d * s) : []); ctx.beginPath(); for (let i = 0; i <= 32; i++) { const a = a0 + (a1 - a0) * i / 32, p = cam.toS([x + r * Math.cos(a), y + r * Math.sin(a)]); i ? ctx.lineTo(...p) : ctx.moveTo(...p); } ctx.stroke(); ctx.setLineDash([]); };
+    const rect = (x, y, w, h, fill) => { const r = cam.rect(x, y, w, h); if (fill) { ctx.fillStyle = fill; ctx.fillRect(...r); } else ctx.strokeRect(...r); };
+    const lw = Math.max(1, .1 * s), white = 'rgba(255,255,255,.9)', cy = FW / 2;
+    if (P.kind === 'basket') {
+      ctx.fillStyle = '#7a4a24'; ctx.fillRect(0, 0, W, H); rect(0, 0, L, FW, '#c98c55');
+      for (let x = 0; x < L; x += 1.2) rect(x, 0, .6, FW, 'rgba(255,255,255,.04)');
+      ctx.strokeStyle = white; ctx.lineWidth = lw; rect(0, 0, L, FW);
+      const ends = P.half ? [[L, -1]] : [[0, 1], [L, -1]];
+      if (!P.half) { line(L / 2, 0, L / 2, FW); arc(L / 2, cy, 1.8, 0, Math.PI * 2); }
+      ends.forEach(([x0, d]) => {
+        rect(d > 0 ? x0 : x0 - 5.8, cy - 2.45, 5.8, 4.9, 'rgba(140,16,36,.35)'); ctx.strokeStyle = white; rect(d > 0 ? x0 : x0 - 5.8, cy - 2.45, 5.8, 4.9);
+        arc(x0 + d * 5.8, cy, 1.8, d > 0 ? -Math.PI / 2 : Math.PI / 2, d > 0 ? Math.PI / 2 : Math.PI * 1.5);
+        const bx = x0 + d * 1.575, k = Math.sqrt(6.75 * 6.75 - (cy - .9) * (cy - .9)), ang = Math.asin((cy - .9) / 6.75);
+        line(x0, .9, bx + d * k, .9); line(x0, FW - .9, bx + d * k, FW - .9);
+        if (d > 0) arc(bx, cy, 6.75, -ang, ang); else arc(bx, cy, 6.75, Math.PI - ang, Math.PI + ang);
+        line(x0 + d * 1.2, cy - .9, x0 + d * 1.2, cy + .9);
+        ctx.strokeStyle = '#ff7a1a'; arc(bx, cy, .23, 0, Math.PI * 2); ctx.strokeStyle = white;
+      });
+      return;
+    }
+    if (P.kind === 'hand') {
+      ctx.fillStyle = '#183a6b'; ctx.fillRect(0, 0, W, H); rect(0, 0, L, FW, '#2f6fb3');
+      ctx.strokeStyle = white; ctx.lineWidth = lw; rect(0, 0, L, FW); line(L / 2, 0, L / 2, FW);
+      ctx.save(); ctx.beginPath(); ctx.rect(...cam.rect(0, 0, L, FW)); ctx.clip();
+      [[0, 1], [L, -1]].forEach(([x0, d]) => {
+        const zone = (r, dash) => { const a = d > 0 ? [-Math.PI / 2, 0] : [Math.PI, Math.PI * 1.5], b = d > 0 ? [0, Math.PI / 2] : [Math.PI / 2, Math.PI];
+          arc(x0, cy - 1.5, r, a[0], a[1], dash); arc(x0, cy + 1.5, r, b[0], b[1], dash); line(x0 + d * r, cy - 1.5, x0 + d * r, cy + 1.5, dash); };
+        ctx.fillStyle = 'rgba(226,194,125,.35)'; ctx.beginPath(); ctx.moveTo(...cam.toS([x0, cy - 7.5]));
+        for (let i = 0; i <= 16; i++) { const a = -Math.PI / 2 + Math.PI / 2 * i / 16; ctx.lineTo(...cam.toS([x0 + d * 6 * Math.cos(a), cy - 1.5 + 6 * Math.sin(a)])); }
+        for (let i = 0; i <= 16; i++) { const a = Math.PI / 2 * i / 16; ctx.lineTo(...cam.toS([x0 + d * 6 * Math.cos(a), cy + 1.5 + 6 * Math.sin(a)])); }
+        ctx.closePath(); ctx.fill();
+        zone(6); zone(9, [.4, .3]); line(x0 + d * 7, cy - .5, x0 + d * 7, cy + .5);
+        const g = cam.rect(d > 0 ? x0 - 1 : x0, cy - 1.5, 1, 3); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(...g); ctx.strokeRect(...g);
+      });
+      ctx.restore(); ctx.strokeStyle = white; ctx.lineWidth = lw;
+      [[0, 1], [L, -1]].forEach(([x0, d]) => { const g = cam.rect(d > 0 ? x0 - 1 : x0, cy - 1.5, 1, 3); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(...g); ctx.strokeRect(...g); });
+      return;
+    }
+    if (P.kind === 'rugby') {
+      ctx.fillStyle = '#1f5137'; ctx.fillRect(0, 0, W, H); rect(0, 0, L, FW, '#2c6646');
+      const ig = P.ig, F = L - 2 * ig; rect(0, 0, ig, FW, '#275c3f'); rect(L - ig, 0, ig, FW, '#275c3f');
+      ctx.strokeStyle = white; ctx.lineWidth = lw; rect(0, 0, L, FW);
+      line(ig, 0, ig, FW); line(L - ig, 0, L - ig, FW); line(L / 2, 0, L / 2, FW);
+      if (F >= 90) { line(ig + 22, 0, ig + 22, FW); line(L - ig - 22, 0, L - ig - 22, FW); }
+      line(L / 2 - 10, 0, L / 2 - 10, FW, [1.2, 1]); line(L / 2 + 10, 0, L / 2 + 10, FW, [1.2, 1]);
+      line(ig + 5, 0, ig + 5, FW, [1.2, 1.6]); line(L - ig - 5, 0, L - ig - 5, FW, [1.2, 1.6]);
+      if (FW >= 50) [5, 15, FW - 15, FW - 5].forEach(y => line(ig, y, L - ig, y, [1, 4]));
+      [[ig, 1], [L - ig, -1]].forEach(([x0]) => { ctx.lineWidth = lw * 2.4; line(x0, cy - 2.8, x0, cy + 2.8); ctx.lineWidth = lw;
+        ctx.fillStyle = '#fff'; [cy - 2.8, cy + 2.8].forEach(y => { ctx.beginPath(); ctx.arc(...cam.toS([x0, y]), Math.max(2, .35 * s), 0, Math.PI * 2); ctx.fill(); }); });
+      return;
+    }
+    if (P.kind === 'volley') {
+      ctx.fillStyle = '#244f8a'; ctx.fillRect(0, 0, W, H); rect(0, 0, L, FW, '#2f63a8');
+      const m = P.free, cl = L - 2 * m, cw = FW - 2 * m; rect(m, m, cl, cw, '#d9824a');
+      ctx.strokeStyle = white; ctx.lineWidth = lw; rect(m, m, cl, cw);
+      if (P.attack) { line(L / 2 - P.attack, m, L / 2 - P.attack, m + cw); line(L / 2 + P.attack, m, L / 2 + P.attack, m + cw); }
+      ctx.lineWidth = lw * 3; ctx.strokeStyle = '#f8fafc'; line(L / 2, m - .6, L / 2, m + cw + .6); ctx.lineWidth = lw;
+      ctx.fillStyle = '#111827'; [m - .9, m + cw + .9].forEach(y => { ctx.beginPath(); ctx.arc(...cam.toS([L / 2, y]), Math.max(2, .25 * s), 0, Math.PI * 2); ctx.fill(); });
+    }
+  }
   function drawPitch(ctx, cam, sc, W, H) {
     const f = sc.field, { L, W: FW } = dims(f), s = cam.s, P = PITCH[f.format];
+    if (P && P.kind) return drawCourt(ctx, cam, sc, W, H);
     if (f.format === 'bg') {
       ctx.fillStyle = '#10182e'; ctx.fillRect(0, 0, W, H);
       const img = BG.get(f.bgId), rc = cam.rect(0, 0, L, FW);

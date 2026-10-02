@@ -50,7 +50,7 @@ const President = (() => {
       <div class="tiles">
         ${tile(S().players.length, 'Licenciés')}${tile(S().staff.length, 'Dirigeants')}${tile(f.rows.length, 'Équipes actives')}
         ${tile(f.played.length, 'Matchs joués')}${tile(V, 'Gagnés', 'v')}${tile(N, 'Nuls', 'n')}${tile(D, 'Perdus', 'd')}
-        ${tile(`${bp}–${bc}`, 'Buts pour – contre')}${tile(avgRate == null ? '–' : avgRate + ' %', 'Présence moyenne')}${tile(f.trs.length, 'Séances passées')}
+        ${tile(`${bp}–${bc}`, Sport.W().Units + ' pour – contre')}${tile(avgRate == null ? '–' : avgRate + ' %', 'Présence moyenne')}${tile(f.trs.length, 'Séances passées')}
       </div>
       <div class="cards2">
         <section class="card"><h2>${I.calendar}Les 7 prochains jours</h2>

@@ -10,7 +10,7 @@ const Editor = (() => {
     move: 'Fais glisser un joueur pour le placer. Touche une flèche ou une zone pour la modifier.',
     home: 'Touche le terrain pour ajouter un joueur de ton équipe.',
     away: 'Touche le terrain pour ajouter un adversaire.',
-    gk: 'Touche le terrain pour ajouter un gardien.',
+    gk: `Touche le ${Sport.cur().place === 'salle' ? 'terrain' : 'terrain'} pour ajouter un ${(Sport.cur().gk || 'gardien').toLowerCase()}.`,
     ball: 'Touche le terrain pour poser un ballon.',
     cone: 'Touche le terrain pour poser un plot.',
     goal: 'Touche le terrain pour poser un but.',
@@ -129,7 +129,7 @@ const Editor = (() => {
     if (tool === 'gk') return { type: 'player', color: 'jaune', gk: true, label: 'G' };
     if (tool === 'ball') return { type: 'ball' };
     if (tool === 'cone') return { type: 'cone', color: E.coneColor };
-    if (tool === 'goal') return { type: 'goal', size: f.format === 'zone' ? 'mini' : 'big', w: f.format === '11' ? 7.32 : 6, rot: w[0] > Board.dims(f).L / 2 ? 0 : 180 };
+    if (tool === 'goal') return { type: 'goal', size: f.format === 'zone' ? 'mini' : 'big', w: (Board.PITCH[f.format] || {}).goal || (f.format === '11' ? 7.32 : 6), rot: w[0] > Board.dims(f).L / 2 ? 0 : 180 };
   }
   function addObject(o, p) {
     o.id = Store.uid(); E.sc.objects.push(o);
@@ -316,7 +316,7 @@ const Editor = (() => {
   /* ---------- toolbar, steps, side panel ---------- */
   function renderTools() {
     const c = club();
-    E.root.querySelector('#edTools').innerHTML = TOOLS.map(([id, lab, ic]) => {
+    E.root.querySelector('#edTools').innerHTML = TOOLS.filter(([id]) => id !== 'gk' || Sport.cur().gk).map(([id, lab, ic]) => { if (id === 'goal' && !Sport.isFoot()) lab = Sport.id() === 'basket' ? 'Panier' : Sport.id() === 'volley' ? 'Cible' : Sport.id() === 'rugby' ? 'Poteaux' : 'But';
       const col = id === 'home' ? Board.BIBS[c.homeBib] : id === 'away' ? Board.BIBS[c.awayBib] : id === 'gk' ? Board.BIBS.jaune : null;
       const style = col ? ` style="color:${col[0]};--tool-ink:${col[1]}"` : '';
       return `<button class="tool ${E.tool === id ? 'on' : ''}" data-tool="${id}" aria-pressed="${E.tool === id}"><span class="ti"${style}>${I[ic]}</span><span>${lab}</span></button>`;
@@ -369,7 +369,7 @@ const Editor = (() => {
           <label class="fld"><span>Nom affiché</span><input id="pName" maxlength="24" value="${esc(o.name || '')}" placeholder="Prénom"></label>
           <div class="lbl">Couleur du maillot</div>
           ${chipRow(Object.entries(Board.BIBS).map(([k, v]) => [k, '', swatch(v[0])]), 'bib', o.color)}
-          <label class="switch"><input type="checkbox" id="pGk" ${o.gk ? 'checked' : ''}><span>C'est un gardien</span></label>`;
+          <label class="switch"><input type="checkbox" id="pGk" ${o.gk ? 'checked' : ''}><span>${Sport.cur().gk ? 'C\'est un gardien' : 'Joueur à part (couleur différente)'}</span></label>`;
       }
       if (o.type === 'cone') h += `<div class="lbl">Couleur</div>${chipRow([['orange', 'Orange'], ['jaune', 'Jaune'], ['bleu', 'Bleu'], ['rouge', 'Rouge']], 'cone', o.color)}`;
       if (o.type === 'goal') h += `<div class="lbl">Taille</div>${chipRow([['big', 'Grand but'], ['mini', 'Mini-but']], 'gsize', o.size === 'mini' ? 'mini' : 'big')}
@@ -412,9 +412,9 @@ const Editor = (() => {
         <label class="fld"><span>Transparence du calque</span><input type="range" id="traceOp" min="10" max="90" step="5" value="${Math.round((sc.trace.opacity == null ? .7 : sc.trace.opacity) * 100)}"></label>
         <button class="btn primary wide" data-act="dropTrace">${I.check}<span>Retirer le calque (version propre)</span></button>`;
       h += `<h3>Afficher</h3>
-        ${tg('lanes', 'Couloirs et demi-espaces')}${tg('phases', 'Zones de jeu : conservation, progression, déséquilibre, finition')}${tg('bloc', 'Bloc adverse')}${tg('names', 'Prénoms des joueurs')}
+        ${Sport.isFoot() ? tg('lanes', 'Couloirs et demi-espaces') + tg('phases', 'Zones de jeu : conservation, progression, déséquilibre, finition') : ''}${tg('bloc', 'Bloc adverse')}${tg('names', 'Prénoms des joueurs')}
         <h3>Terrain</h3>
-        ${f.format === 'bg' ? '<p class="tip">Le fond est une image importée (photo, page de PDF ou image de vidéo). Dessine dessus avec les outils : joueurs, flèches, zones et étapes.</p>' : chipRow([['11', 'Foot à 11'], ['8', 'Foot à 8'], ['5', 'Foot à 5'], ['zone', 'Zone libre']], 'fmt', f.format)}
+        ${f.format === 'bg' ? '<p class="tip">Le fond est une image importée (photo, page de PDF ou image de vidéo). Dessine dessus avec les outils : joueurs, flèches, zones et étapes.</p>' : chipRow([...Sport.cur().formats.map(x => [x[0], x[1]]), ['zone', 'Zone libre']], 'fmt', f.format)}
         ${f.format === 'bg' ? '' : f.format === 'zone' ? `<div class="row2"><label class="fld"><span>Longueur (m)</span><input type="number" id="fW" min="5" max="110" value="${f.w || 30}"></label><label class="fld"><span>Largeur (m)</span><input type="number" id="fH" min="5" max="75" value="${f.h || 20}"></label></div>`
           : chipRow([['full', 'Terrain entier'], ['half', 'Demi-terrain']], 'view', f.view || 'full')}
         <h3>Équipe</h3>

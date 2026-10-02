@@ -37,7 +37,7 @@ const Sync = (() => {
         if (r.del || !r.data) continue;
         const loc = clubData();
         if (H[k] && fp(loc) !== H[k]) continue; // changed here too: ours will be sent
-        if (fp(loc) !== fp(r.data)) { Object.assign(S().club, r.data); changed = true; }
+        if (fp(loc) !== fp(r.data)) { Object.assign(S().club, r.data); changed = true; if (typeof Sport !== 'undefined') Sport.apply(); }
         H[k] = fp(clubData()); continue;
       }
       if (!COLS.includes(r.col)) continue;

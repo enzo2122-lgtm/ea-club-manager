@@ -37,7 +37,7 @@ const Prepa = (() => {
   const addDays = (d, n) => { const x = new Date(d + 'T12:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const teamOf = m => Store.get('teams', m.teamId);
-  const fmt = t => (teamOf({ teamId: t }) || {}).format || '11';
+  const fmt = t => (teamOf({ teamId: t }) || {}).format || Sport.defFormat();
   const title = m => `${esc((teamOf(m) || {}).name || S().club.name)} ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`;
 
   /* ---------- progress: what is ready ---------- */
@@ -205,7 +205,7 @@ const Prepa = (() => {
     const ko = toMin(m.time); if (ko == null) return [];
     const warm = +((P(m).day || {}).warmMin || 25), rdv = toMin(m.rdv) != null ? toMin(m.rdv) : ko - (m.home ? 75 : 90);
     return [[rdv, m.home ? '📍 Rendez-vous au stade' : '🚌 Rendez-vous et départ'], [ko - warm - 20, '👕 Vestiaire, tenue, strapping'], [ko - warm - 12, '🗣️ Causerie'],
-      [ko - warm, `🏃 Échauffement (${warm} min)`], [ko - 10, '🔙 Retour au vestiaire, derniers mots'], [ko - 3, '🤝 Sortie des joueurs'], [ko, '⚽ Coup d\'envoi']]
+      [ko - warm, `🏃 Échauffement (${warm} min)`], [ko - 10, '🔙 Retour au vestiaire, derniers mots'], [ko - 3, '🤝 Sortie des joueurs'], [ko, Sport.isFoot() ? '⚽ Coup d\'envoi' : Sport.W().icon + ' Début du match']]
       .filter(([t]) => t >= rdv).sort((a, b) => a[0] - b[0]);
   }
   function stDay(m) {
@@ -259,7 +259,7 @@ const Prepa = (() => {
   /* ---------- the summary for the players (WhatsApp) ---------- */
   function summary(m) {
     const p = P(m), t = p.talk || {}, keys = (t.keys || []).filter(Boolean), tl = timeline(m), hh = s => String(s || '').replace(':', 'h');
-    return [`⚽ ${(teamOf(m) || {}).name || S().club.name} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`,
+    return [`${Sport.W().icon} ${(teamOf(m) || {}).name || S().club.name} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`,
       `🕘 ${m.rdv ? 'Rendez-vous ' + hh(m.rdv) : tl.length ? 'Rendez-vous ' + hm(tl[0][0]) : ''}${m.time ? ' · coup d\'envoi ' + hh(m.time) : ''}${m.place ? ' · 📍 ' + m.place : ''}`,
       t.objective ? `🎯 Objectif : ${t.objective}` : '',
       keys.length ? `🔑 Nos clés :\n${keys.map((k, i) => `${i + 1}. ${k}`).join('\n')}` : '',

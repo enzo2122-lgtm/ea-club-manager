@@ -173,7 +173,7 @@ const Imports = (() => {
       if (!ln && !fn) return null;
       const o = { lastName: ln.toUpperCase(), firstName: cap(fn), phone: phone(get('phone')), email: get('email').toLowerCase() };
       if (kind === 'staff') return Object.assign(o, { role: get('role'), cat: get('cat') });
-      const pos = norm(get('pos')), pm = POS.find(([re]) => re.test(pos));
+      const pos = norm(get('pos')), pm = Sport.isFoot() ? POS.find(([re]) => re.test(pos)) : (pt => pt && [null, pt[0]])(Sport.POSTS.find(x => pos && (norm(x[1]) === pos || norm(x[2]) === pos || pos.includes(norm(x[1])))));
       return Object.assign(o, { birth: date(get('birth'), true), licence: digits(get('licence')) ? get('licence').replace(/\s+/g, ' ') : '', cat: get('cat'),
         pos: pm ? pm[1] : '', number: digits(get('number')).slice(0, 2), parent: get('parent'), parentPhone: phone(get('parentPhone')) });
     }

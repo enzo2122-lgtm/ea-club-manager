@@ -5,18 +5,18 @@
 const Exos = (() => {
   const { esc, $, $$, toast, modal } = UI;
   const S = () => Store.state;
-  const THEMES = [['pressing', '🔥 Pressing / récupération'], ['conservation', '🔄 Conservation'], ['transitions', '⚡ Transitions'], ['finition', '🎯 Finition'],
+  const THEMES_F = [['pressing', '🔥 Pressing / récupération'], ['conservation', '🔄 Conservation'], ['transitions', '⚡ Transitions'], ['finition', '🎯 Finition'],
     ['defense', '🛡️ Défense'], ['construction', '🧱 Construction / relance'], ['technique', '⚽ Technique'], ['cpa', '🚩 Coups de pied arrêtés'], ['physique', '🏃 Physique / vitesse'],
     ['gardien', '🧤 Gardien de but'], ['echauffement', '🔥 Échauffement'], ['jeu', '🏟️ Jeu / match à thème'], ['calme', '🧘 Retour au calme']];
-  const KEYS = { pressing: /press|récup|contre-press|harc|déclench/i, conservation: /conserv|rondo|possess|toro|garder le ballon/i, transitions: /transit|contre-attaque|perte.*balle|récupération.*attaque|attaque rapide/i,
+  const KEYS_F = { pressing: /press|récup|contre-press|harc|déclench/i, conservation: /conserv|rondo|possess|toro|garder le ballon/i, transitions: /transit|contre-attaque|perte.*balle|récupération.*attaque|attaque rapide/i,
     finition: /finit|frapp|\btirs?\b|\bcentres?\b|devant le but|conclu/i, defense: /défen|duel|marquage|bloc|couverture|coulisse/i, construction: /construct|relance|sortie de balle|jeu court|premi[eè]re relance/i,
     technique: /techni|contrôle|passe|conduite|dribble|jongl|coordination|motricit/i, cpa: /cpa|corner|coup franc|coup-franc|penalty|touche longue|arrêté/i,
     physique: /physi|vitesse|sprint|endurance|puissance|fractionn|intermittent|explos|athlét/i, echauffement: /échauff|activation|mobilit|gamme/i,
     gardien: /gardien|plongeon|sortie aérienne|prise de balle/i, jeu: /match|jeu réduit|jeu à thème|opposition|\d ?c ?\d|contre \d/i, calme: /retour au calme|étirement|récupération active/i };
   // age groups: the format of the team (5, 8 or 11)
-  const fmtOf = teamId => ((Store.get('teams', teamId) || {}).format) || '11';
+  const fmtOf = teamId => ((Store.get('teams', teamId) || {}).format) || Sport.defFormat();
   // the classic base: [theme, title, minutes, organisation, consignes, matériel, formats]
-  const BASE = [
+  const BASE_F = [
     ['echauffement', 'Échauffement avec ballon par 2', 12, 'Par 2, 15 m d\'écart. Passes, contrôles orientés, puis déplacements.', 'Contrôle orienté du bon pied\nRegarder avant de recevoir\nMonter progressivement l\'intensité', 'Ballons, plots', '5,8,11'],
     ['echauffement', 'Activation : gammes et coordination', 10, 'Couloir de 20 m, échelle de rythme et petites haies.', 'Appuis rapides\nGainage du buste\nAccélération en sortie', 'Échelle, haies, plots', '8,11'],
     ['echauffement', 'Le béret / jeu de réaction', 10, 'Deux équipes face à face, un ballon au centre. Le coach appelle un numéro.', 'Réagir vite\nProtéger le ballon\nRevenir en défense', 'Ballons, plots', '5,8'],
@@ -80,9 +80,18 @@ const Exos = (() => {
     ['gardien', 'Gardien : jeu au pied et relance', 12, 'Passes en retrait, contrôle et relance vers une cible (plot) à gauche ou à droite.', 'Regarder avant de recevoir\nRelance rapide et précise', 'Ballons, plots', '5,8,11', '30x30'],
     ['gardien', 'Gardien : duels en 1 contre 1', 12, 'L\'attaquant part de 25 m, le gardien sort réduire l\'angle.', 'Sortir vite puis se fixer\nRester debout le plus longtemps', 'Ballons, but', '5,8,11', '25x20'],
   ].map(([theme, title, duration, org, consignes, materiel, formats, size], i) => ({ id: 'base' + i, theme, title, duration, org, consignes, materiel, formats: formats.split(','), size: size || '', base: true }));
+  // the lists of the club's sport (football: the ones above; the other sports: sport-exos.js)
+  const mapBase = (list, pre) => list.map(([theme, title, duration, org, consignes, materiel, formats, size], i) => ({ id: pre + i, theme, title, duration, org, consignes, materiel, formats: formats ? formats.split(',') : [], size: size || '', base: true }));
+  const SX = () => Sport.isFoot() ? null : SPORT_EXOS[Sport.id()];
+  const TH = () => SX() ? SX().themes : THEMES_F;
+  const KY = () => SX() ? SX().keys : KEYS_F;
+  let baseCache = null, baseOf = '';
+  const BS = () => { if (baseOf !== Sport.id()) { baseOf = Sport.id(); baseCache = SX() ? mapBase(SX().base, baseOf + '-') : BASE_F; } return baseCache; };
+  // the themes the generator can complete with (warm-up, game and cool-down apart)
+  const coreThemes = () => TH().map(t => t[0]).filter(k => !['echauffement', 'calme', 'jeu'].includes(k));
 
   const schemaOfBase = e => e.base && S().schemas.find(sc => sc.baseEx === e.id);
-  const themeOf = e => { if (e.theme) return [e.theme]; const t = `${e.title || ''} ${e.org || ''} ${e.consignes || ''}`; return Object.keys(KEYS).filter(k => KEYS[k].test(t)); };
+  const themeOf = e => { if (e.theme) return [e.theme]; const t = `${e.title || ''} ${e.org || ''} ${e.consignes || ''}`; return Object.keys(KY()).filter(k => KY()[k].test(t)); };
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   // every exercise of the club (one per title, the one with a diagram first), then the base
   function all() {
@@ -96,7 +105,7 @@ const Exos = (() => {
     }));
     const club = [...seen.values()];
     const clubTitles = new Set(club.map(e => norm(e.title)));
-    return [...club, ...BASE.filter(b => !clubTitles.has(norm(b.title))).map(b => { const sc = schemaOfBase(b); return sc ? Object.assign({}, b, { schemaId: sc.id }) : b; })];
+    return [...club, ...BS().filter(b => !clubTitles.has(norm(b.title))).map(b => { const sc = schemaOfBase(b); return sc ? Object.assign({}, b, { schemaId: sc.id }) : b; })];
   }
 
   /* ---------- the library page ---------- */
@@ -104,16 +113,16 @@ const Exos = (() => {
     const st = S().ui.exos = S().ui.exos || { theme: '', fmt: '', q: '' };
     const list = all().filter(e => (!st.theme || themeOf(e).includes(st.theme)) && (!st.fmt || e.formats.includes(st.fmt)) && (!st.q || norm(`${e.title} ${e.org} ${e.consignes}`).includes(norm(st.q))));
     const clubN = all().filter(e => e.club).length;
-    root.innerHTML = `<header class="page-head"><div><h1>📚 Exercices du club</h1><p class="sub">${clubN} exercice${clubN > 1 ? 's' : ''} des coachs du club + ${BASE.length} exercices de base</p></div>
+    root.innerHTML = `<header class="page-head"><div><h1>📚 Exercices du club</h1><p class="sub">${clubN} exercice${clubN > 1 ? 's' : ''} des coachs du club + ${BS().length} exercices de base</p></div>
       <div class="head-actions"><a class="btn" href="#/entrainements">${I.back}<span>Séances</span></a><button class="btn" data-fromfile>📥<span>Depuis un fichier (PDF, photo)</span></button><button class="btn primary" data-gen>✨<span>Générer une séance</span></button></div></header>
-      <input class="hl-q" id="exQ" placeholder="Rechercher (ex : rondo, centre, pressing)" value="${esc(st.q)}" autocomplete="off">
-      <div class="chips ex-themes"><button class="chip ${!st.theme ? 'on' : ''}" data-th="">Tous</button>${THEMES.map(([k, l]) => `<button class="chip ${st.theme === k ? 'on' : ''}" data-th="${k}">${l}</button>`).join('')}</div>
-      <div class="chips"><button class="chip ${!st.fmt ? 'on' : ''}" data-fm="">Toutes catégories</button>${[['5', 'Foot à 5 (U6-U9)'], ['8', 'Foot à 8 (U10-U13)'], ['11', 'Foot à 11 (U14+)']].map(([k, l]) => `<button class="chip ${st.fmt === k ? 'on' : ''}" data-fm="${k}">${l}</button>`).join('')}</div>
-      <details class="card ex-res"><summary><b>📚 Ressources officielles gratuites (FFF)</b><span class="muted small"> · vidéos, fiches et guides par âge</span></summary>${RES.map(([age, n, u], i) => `<div class="ex-res-row"><span class="tag">${esc(age)}</span><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(n)}</a><button class="btn soft" data-res="${i}">${I.plus}<span>Bibliothèque</span></button></div>`).join('')}</details>
+      <input class="hl-q" id="exQ" placeholder="Rechercher (ex : ${Sport.isFoot() ? 'rondo, centre, pressing' : esc(coreThemes().slice(0, 3).map(k => (TH().find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '').toLowerCase()).join(', '))})" value="${esc(st.q)}" autocomplete="off">
+      <div class="chips ex-themes"><button class="chip ${!st.theme ? 'on' : ''}" data-th="">Tous</button>${TH().map(([k, l]) => `<button class="chip ${st.theme === k ? 'on' : ''}" data-th="${k}">${l}</button>`).join('')}</div>
+      <div class="chips"><button class="chip ${!st.fmt ? 'on' : ''}" data-fm="">Toutes catégories</button>${((Sport.isFoot() ? null : Sport.cur().formats.map(x => [x[0], x[1]])) || [['5', 'Foot à 5 (U6-U9)'], ['8', 'Foot à 8 (U10-U13)'], ['11', 'Foot à 11 (U14+)']]).map(([k, l]) => `<button class="chip ${st.fmt === k ? 'on' : ''}" data-fm="${k}">${l}</button>`).join('')}</div>
+      ${Sport.isFoot() ? `<details class="card ex-res"><summary><b>📚 Ressources officielles gratuites (FFF)</b><span class="muted small"> · vidéos, fiches et guides par âge</span></summary>${RES.map(([age, n, u], i) => `<div class="ex-res-row"><span class="tag">${esc(age)}</span><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(n)}</a><button class="btn soft" data-res="${i}">${I.plus}<span>Bibliothèque</span></button></div>`).join('')}</details>` : ''}
       <p class="muted small">${list.length} exercice${list.length > 1 ? 's' : ''}</p>
       <div class="ex-lib">${list.slice(0, 80).map(e => { const sc = e.schemaId && Store.get('schemas', e.schemaId), th = themeOf(e);
-        return `<article class="card ex-item"><div class="ex-item-head">${sc ? `<img alt="" src="${UI.thumb(sc, 240, 156)}">` : `<span class="ex-noimg">${(THEMES.find(t => t[0] === th[0]) || ['', '⚽'])[1].split(' ')[0]}</span>`}
-          <div><b>${esc(e.title)}</b><span class="muted small">${e.duration} min${e.size ? ' · ' + esc(e.size.replace('x', ' × ')) + ' m' : ''} · ${th.map(k => (THEMES.find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '')).join(', ') || 'Divers'}${e.club ? ` · ${esc((Store.get('teams', e.from.teamId) || {}).name || 'club')}` : ' · base'}</span></div></div>
+        return `<article class="card ex-item"><div class="ex-item-head">${sc ? `<img alt="" src="${UI.thumb(sc, 240, 156)}">` : `<span class="ex-noimg">${(TH().find(t => t[0] === th[0]) || ['', '⚽'])[1].split(' ')[0]}</span>`}
+          <div><b>${esc(e.title)}</b><span class="muted small">${e.duration} min${e.size ? ' · ' + esc(e.size.replace('x', ' × ')) + ' m' : ''} · ${th.map(k => (TH().find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '')).join(', ') || 'Divers'}${e.club ? ` · ${esc((Store.get('teams', e.from.teamId) || {}).name || 'club')}` : ' · base'}</span></div></div>
           ${e.org ? `<p class="small">${esc(e.org)}</p>` : ''}${e.consignes ? `<ul class="small ex-cons">${e.consignes.split('\n').filter(Boolean).slice(0, 4).map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
           <div class="chips"><button class="btn soft" data-addex="${esc(e.id)}">${I.plus}<span>Ajouter à une séance</span></button>${e.club ? `<a class="btn soft" href="#/entrainement/${e.from.id}">Voir la séance</a>` : sc ? `<a class="btn soft" href="#/schema/${sc.id}">${I.board}<span>Le schéma</span></a>` : `<button class="btn soft" data-draw="${esc(e.id)}">${I.board}<span>Dessiner le schéma</span></button>`}</div></article>`; }).join('') || '<p class="muted">Aucun exercice ne correspond.</p>'}</div>`;
     const redraw = () => page(root);
@@ -179,12 +188,12 @@ const Exos = (() => {
       const list = all().filter(e => (!fmt || !e.formats.length || e.formats.includes(fmt)) && (!th || themeOf(e).includes(th)) && (!q || norm(`${e.title} ${e.org} ${e.consignes}`).includes(norm(q))))
         .sort((a, b) => (b.club ? 1 : 0) - (a.club ? 1 : 0));
       return list.slice(0, 120).map(e => { const sc = e.schemaId && Store.get('schemas', e.schemaId);
-        return `<button class="list-item hl-pickrow" data-pk="${esc(e.id)}">${sc ? `<img alt="" src="${UI.thumb(sc, 120, 78)}" style="width:60px;border-radius:4px">` : ''}<span class="li-main"><b>${esc(e.title)}</b><span class="muted small">${e.duration} min · ${e.club ? '📚 club' : 'base'}${themeOf(e).length ? ' · ' + themeOf(e).map(k => (THEMES.find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '')).join(', ') : ''}</span></span></button>`; }).join('')
+        return `<button class="list-item hl-pickrow" data-pk="${esc(e.id)}">${sc ? `<img alt="" src="${UI.thumb(sc, 120, 78)}" style="width:60px;border-radius:4px">` : ''}<span class="li-main"><b>${esc(e.title)}</b><span class="muted small">${e.duration} min · ${e.club ? '📚 club' : 'base'}${themeOf(e).length ? ' · ' + themeOf(e).map(k => (TH().find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '')).join(', ') : ''}</span></span></button>`; }).join('')
         || '<p class="muted small">Aucun exercice ne correspond.</p>';
     };
     const close = modal({ title: '📚 Choisir un exercice', noFocus: true, body: `
-      <input class="hl-q" id="pkQ" placeholder="Rechercher (ex : rondo, centre, pressing)" autocomplete="off">
-      <label class="fld"><span>Thème</span><select id="pkTh"><option value="">Tous</option>${THEMES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+      <input class="hl-q" id="pkQ" placeholder="Rechercher (ex : ${Sport.isFoot() ? 'rondo, centre, pressing' : esc(coreThemes().slice(0, 3).map(k => (TH().find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '').toLowerCase()).join(', '))})" autocomplete="off">
+      <label class="fld"><span>Thème</span><select id="pkTh"><option value="">Tous</option>${TH().map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
       <div class="list" id="pkList">${rows()}</div>`,
       onOpen: r => {
         const bind = () => $$('[data-pk]', r).forEach(b => b.onclick = () => { const e = all().find(x => x.id === b.dataset.pk); if (!e) return; close(); done(copyEx(e)); });
@@ -197,7 +206,8 @@ const Exos = (() => {
   /* ---------- the generator ---------- */
   function generator(pre = {}) {
     const teams = Auth.teams(), g = Object.assign({ theme: 'pressing', teamId: S().ui.teamId || (teams[0] || {}).id, minutes: 75, date: UI.today() }, S().ui.exGen || {}, pre);
-    const body = () => `<div class="lbl">Thème</div><div class="chips">${THEMES.filter(t => !['echauffement', 'calme', 'jeu'].includes(t[0])).map(([k, l]) => `<button class="chip ${g.theme === k ? 'on' : ''}" data-gth="${k}">${l}</button>`).join('')}</div>
+    if (!coreThemes().includes(g.theme)) g.theme = coreThemes()[0]; // a theme of another sport (the club changed sport)
+    const body = () => `<div class="lbl">Thème</div><div class="chips">${TH().filter(t => !['echauffement', 'calme', 'jeu'].includes(t[0])).map(([k, l]) => `<button class="chip ${g.theme === k ? 'on' : ''}" data-gth="${k}">${l}</button>`).join('')}</div>
       <div class="row2"><label class="fld"><span>Catégorie</span><select id="gTeam">${teams.map(t => `<option value="${t.id}" ${t.id === g.teamId ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
         <label class="fld"><span>Durée</span><select id="gMin">${[45, 60, 75, 90, 105].map(n => `<option ${n === +g.minutes ? 'selected' : ''} value="${n}">${n} min</option>`).join('')}</select></label>
         <label class="fld"><span>Date</span><input type="date" id="gDate" value="${esc(g.date)}"></label></div>
@@ -222,13 +232,13 @@ const Exos = (() => {
     // too few exercises of the theme for this category: a close theme completes (never one exercise of 45 min)
     const NEAR = { defense: ['pressing', 'physique'], pressing: ['transitions', 'defense'], transitions: ['pressing', 'finition'], finition: ['technique', 'transitions'],
       conservation: ['construction', 'technique'], construction: ['conservation', 'technique'], technique: ['conservation', 'finition'], cpa: ['finition', 'defense'], physique: ['pressing', 'transitions'] };
-    for (const alt of [...(NEAR[g.theme] || []), 'conservation', 'technique']) { if (coreEx.length >= nCore) break; coreEx.push(...pick(alt, used, nCore - coreEx.length)); }
+    for (const alt of Sport.isFoot() ? [...(NEAR[g.theme] || []), 'conservation', 'technique'] : coreThemes().filter(k => k !== g.theme)) { if (coreEx.length >= nCore) break; coreEx.push(...pick(alt, used, nCore - coreEx.length)); }
     const each = Math.max(5, Math.floor(core / Math.max(1, coreEx.length) / 5) * 5);
     const plan = [...pick('echauffement', used).map(e => [e, warm]), ...coreEx.map((e, i) => [e, i === coreEx.length - 1 ? core - each * (coreEx.length - 1) : each]),
       ...pick('jeu', used).map(e => [e, game]), ...pick('calme', used).map(e => [e, calm])];
     // not enough exercises of the theme: another close theme completes
-    const have = plan.reduce((a, [, d]) => a + d, 0); if (have < total - 10) { const extra = pick('conservation', used)[0] || pick('technique', used)[0]; if (extra) plan.splice(1 + nCore, 0, [extra, total - have]); }
-    const thLabel = (THEMES.find(t => t[0] === g.theme) || ['', g.theme])[1].replace(/^\S+\s/, '');
+    const have = plan.reduce((a, [, d]) => a + d, 0); if (have < total - 10) { const extra = Sport.isFoot() ? pick('conservation', used)[0] || pick('technique', used)[0] : coreThemes().map(k => pick(k, used)[0]).find(Boolean); if (extra) plan.splice(1 + nCore, 0, [extra, total - have]); }
+    const thLabel = (TH().find(t => t[0] === g.theme) || ['', g.theme])[1].replace(/^\S+\s/, '');
     const tr = Store.upsert('trainings', { id: Store.uid(), title: thLabel, date: g.date, time: '', teamId: g.teamId, goal: `Thème : ${thLabel}. Séance générée : échauffement, ${nCore} exercice${nCore > 1 ? 's' : ''} du thème, jeu à thème, retour au calme.`,
       exercises: plan.map(([e, d]) => Object.assign(copyEx(e), { duration: d })), presents: [] });
     toast(`Séance « ${thLabel} » créée : ${plan.length} exercices, ${plan.reduce((a, [, d]) => a + d, 0)} min`);
@@ -236,5 +246,5 @@ const Exos = (() => {
   }
 
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-exgen]'); if (b) generator(); });
-  return { page, generator, all, themeOf, pick, THEMES };
+  return { page, generator, all, themeOf, pick, get THEMES() { return TH(); } };
 })();

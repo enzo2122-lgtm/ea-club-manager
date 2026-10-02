@@ -19,12 +19,12 @@ const sha = async (t: string) => Array.from(new Uint8Array(await crypto.subtle.d
 // the answer of the AI: always this shape (a « tool » it must fill)
 const TOOL = {
   name: 'exercice',
-  description: 'L\'exercice de football lu sur la fiche ou le dessin, en français, prêt pour un coach.',
+  description: 'L\'exercice lu sur la fiche ou le dessin, en français, prêt pour un coach.',
   input_schema: {
     type: 'object',
     properties: {
       titre: { type: 'string', description: 'Titre court et parlant (ex. « Conservation 4 contre 4 + 2 jokers »). Si la fiche a un titre, le garder.' },
-      theme: { type: 'string', enum: ['pressing', 'conservation', 'transitions', 'finition', 'defense', 'construction', 'technique', 'cpa', 'physique', 'gardien', 'echauffement', 'jeu', 'calme', ''] },
+      theme: { type: 'string', description: 'Un des thèmes donnés dans la consigne, ou vide.' },
       duree: { type: 'integer', description: 'Durée en minutes (écrite, ou estimée).' },
       objectif: { type: 'string' },
       joueurs: { type: 'string', description: 'Nombre de joueurs et répartition (ex. « 2 équipes de 4 + 2 jokers + 1 gardien »).' },
@@ -41,8 +41,8 @@ const TOOL = {
     required: ['titre', 'duree', 'organisation', 'deroulement', 'consignes', 'plots', 'chasubles'],
   },
 };
-const PROMPT = `Tu es un éducateur de football diplômé. Voici une fiche ou un dessin d'exercice (terrain vu du dessus : ronds ou joueurs de couleur = joueurs et leurs chasubles,
-triangles ou petits ronds orange/jaunes = plots ou coupelles, traits pleins = passes, pointillés = courses, zigzags = conduites de balle).
+const PROMPT = (sport: string) => `Tu es un éducateur de ${sport} diplômé. Voici une fiche ou un dessin d'exercice (terrain vu du dessus : ronds ou joueurs de couleur = joueurs et leurs chasubles,
+triangles ou petits ronds orange/jaunes = plots ou coupelles, traits pleins = passes, pointillés = courses, zigzags = dribbles ou conduites de balle).
 Lis l'image avec attention (et le texte déjà extrait, s'il y en a) et remplis l'outil « exercice » en français simple, comme pour un coach de club amateur.
 Compte les joueurs de chaque couleur pour les chasubles et compte les plots. Décris les rotations (qui prend quelle place après son action).
 N'invente pas ce qui n'est pas sur la fiche : laisse vide si tu ne sais pas, sauf la durée et le titre que tu peux proposer.`;
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
   try {
     if (!AI) return json({ error: 'CLE_IA' }, 503);
-    const { k, image, text, fmt } = await req.json().catch(() => ({})) as { k?: string; image?: string; text?: string; fmt?: string };
+    const { k, image, text, fmt, sport, themes } = await req.json().catch(() => ({})) as { k?: string; image?: string; text?: string; fmt?: string; sport?: string; themes?: string[] };
     if (!k || !image) return json({ error: 'DONNEES' }, 400);
     // a dirigeant logged in on the club server
     const r = await db(`sessions?token_hash=eq.${await sha(k)}&expires_at=gt.${new Date().toISOString()}&select=staff_id`);
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         model: MODEL, max_tokens: 2000, tools: [TOOL], tool_choice: { type: 'tool', name: 'exercice' },
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } },
-          { type: 'text', text: PROMPT + (fmt ? `\nFormat de jeu de la catégorie : foot à ${fmt}.` : '') + (text ? `\n\nTexte extrait de la page :\n${String(text).slice(0, 4000)}` : '') },
+          { type: 'text', text: PROMPT(String(sport || 'football').slice(0, 30)) + (fmt ? `\nFormat de jeu de la catégorie : ${String(fmt).slice(0, 40)}.` : '') + (Array.isArray(themes) && themes.length ? `\nThèmes possibles : ${themes.slice(0, 20).join(', ')}.` : '') + (text ? `\n\nTexte extrait de la page :\n${String(text).slice(0, 4000)}` : '') },
         ] }],
       }),
     });

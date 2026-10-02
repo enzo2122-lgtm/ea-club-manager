@@ -105,7 +105,8 @@ const Templates = (() => {
     return Store.upsert('schemas', sc);
   }
   // The whiteboard: a blank board that is never saved (unless the coach asks)
-  function blank(format = '11') {
+  function blank(format) {
+    if (!format || (format !== 'zone' && !Board.PITCH[format])) format = Sport.defFormat();
     const field = format === 'zone' ? { format, view: 'full', w: 40, h: 25 } : { format, view: 'full' };
     return { id: 'tableau-' + Store.uid(), name: 'Tableau blanc', teamId: null, field, overlays: {}, objects: [], zones: [], steps: [{ pos: {}, arrows: [], moves: {}, note: '', dur: 2 }], scratch: true };
   }

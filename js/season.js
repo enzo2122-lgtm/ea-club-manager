@@ -32,12 +32,12 @@ const Season = (() => {
       <label class="fld inline"><span>Équipe</span><select id="ssTeam">${teams.map(x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
       ${UI.kindSeg()}
       <div class="tiles"><div class="tile"><b>${d.ms.length}</b><span>Matchs</span></div><div class="tile v"><b>${d.r.V}</b><span>Victoires</span></div><div class="tile n"><b>${d.r.N}</b><span>Nuls</span></div><div class="tile d"><b>${d.r.D}</b><span>Défaites</span></div>
-        <div class="tile"><b>${d.gf} – ${d.ga}</b><span>Buts pour – contre</span></div><div class="tile"><b>${d.trs.length}</b><span>Séances (${Math.round(d.trMin / 60)} h)</span></div></div>
+        <div class="tile"><b>${d.gf} – ${d.ga}</b><span>${Sport.W().Units} pour – contre</span></div><div class="tile"><b>${d.trs.length}</b><span>Séances (${Math.round(d.trMin / 60)} h)</span></div></div>
       <div class="cards2">
-        <section class="card"><h2>⚽ Buteurs</h2>${top('g').map((x, i) => `<p class="ss-row"><span>${i + 1}. ${esc(Store.fullName(x.p))}</span><b>${x.g}</b></p>`).join('') || '<p class="muted">—</p>'}</section>
+        <section class="card"><h2>${Sport.W().icon} ${Sport.W().Scorers}</h2>${top('g').map((x, i) => `<p class="ss-row"><span>${i + 1}. ${esc(Store.fullName(x.p))}</span><b>${x.g}</b></p>`).join('') || '<p class="muted">—</p>'}</section>
         <section class="card"><h2>🅿️ Passeurs</h2>${top('a').map((x, i) => `<p class="ss-row"><span>${i + 1}. ${esc(Store.fullName(x.p))}</span><b>${x.a}</b></p>`).join('') || '<p class="muted">—</p>'}</section>
       </div>
-      <section class="card"><h2>👥 Les joueurs</h2><div class="ss-table"><table><thead><tr><th>Joueur</th><th>Matchs</th><th>Minutes</th><th>Buts</th><th>Passes</th><th>Présence</th><th>Éval.</th><th>Blessé</th></tr></thead>
+      <section class="card"><h2>👥 Les joueurs</h2><div class="ss-table"><table><thead><tr><th>Joueur</th><th>Matchs</th><th>Minutes</th><th>${Sport.W().Units}</th><th>Passes</th><th>Présence</th><th>Éval.</th><th>Blessé</th></tr></thead>
         <tbody>${d.players.map(x => `<tr><td><a href="#/joueur/${x.p.id}">${esc(Store.fullName(x.p))}</a></td><td>${x.mp}</td><td>${x.minutes}'</td><td>${x.g || ''}</td><td>${x.a || ''}</td><td>${x.att == null ? '–' : x.att + ' %'}</td><td>${x.evalG == null ? '–' : x.evalG.toFixed(1).replace('.', ',')}</td><td>${x.inj ? x.inj + ' j' : ''}</td></tr>`).join('')}</tbody></table></div></section>
       <section class="card"><h2>📋 Les résultats</h2><div class="ss-results">${d.ms.map(m => `<a href="#/match/${m.id}" class="res-${res(m)}"><span>${esc(UI.fmtDate(m.date, { day: 'numeric', month: 'short' }))}</span><span>${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}</span><b>${m.gf} – ${m.ga}</b></a>`).join('') || '<p class="muted">Pas encore de match joué.</p>'}</div></section>
       <section class="card"><h2>🗣️ Le mot du coach</h2><textarea id="ssNote" rows="4" placeholder="Ce qu'on retient de la saison, les progrès, les objectifs pour la suivante (apparaît dans le PDF)">${esc(note)}</textarea></section>`;
@@ -53,12 +53,12 @@ const Season = (() => {
     try {
       const d = data(t), season = People.seasonLabel(), P = Exporter.pdfDoc(S().club), note = ((t.seasonNotes || {})[season]) || '';
       P.header('Bilan de saison', `${t.name} · ${season}`); P.h2(`${t.name} · saison ${season}`);
-      P.facts([['Matchs', String(d.ms.length)], ['V / N / D', `${d.r.V} / ${d.r.N} / ${d.r.D}`], ['Buts', `${d.gf} pour · ${d.ga} contre`], ['Séances', `${d.trs.length} (${Math.round(d.trMin / 60)} h)`]]);
+      P.facts([['Matchs', String(d.ms.length)], ['V / N / D', `${d.r.V} / ${d.r.N} / ${d.r.D}`], [Sport.W().Units, `${d.gf} pour · ${d.ga} contre`], ['Séances', `${d.trs.length} (${Math.round(d.trMin / 60)} h)`]]);
       if (note) { P.label('Le mot du coach'); P.para(note, 11.5); }
       const top = k => d.players.filter(x => x[k] > 0).sort((a, c) => c[k] - a[k]).slice(0, 5);
-      if (top('g').length) { P.label('Meilleurs buteurs'); P.table(['Joueur', 'Buts'], top('g').map(x => [Store.fullName(x.p), String(x.g)]), [.8, .2]); }
+      if (top('g').length) { P.label('Meilleurs ' + Sport.W().scorers); P.table(['Joueur', Sport.W().Units], top('g').map(x => [Store.fullName(x.p), String(x.g)]), [.8, .2]); }
       if (top('a').length) { P.label('Meilleurs passeurs'); P.table(['Joueur', 'Passes'], top('a').map(x => [Store.fullName(x.p), String(x.a)]), [.8, .2]); }
-      P.label('Les joueurs'); P.table(['Joueur', 'Matchs', 'Min.', 'Buts', 'Passes', 'Présence', 'Éval.'], d.players.map(x => [Store.fullName(x.p), String(x.mp), String(x.minutes), String(x.g || ''), String(x.a || ''), x.att == null ? '-' : x.att + ' %', x.evalG == null ? '-' : x.evalG.toFixed(1)]), [.34, .1, .1, .1, .1, .13, .13]);
+      P.label('Les joueurs'); P.table(['Joueur', 'Matchs', 'Min.', Sport.W().Units, 'Passes', 'Présence', 'Éval.'], d.players.map(x => [Store.fullName(x.p), String(x.mp), String(x.minutes), String(x.g || ''), String(x.a || ''), x.att == null ? '-' : x.att + ' %', x.evalG == null ? '-' : x.evalG.toFixed(1)]), [.34, .1, .1, .1, .1, .13, .13]);
       if (d.ms.length) { P.label('Les résultats'); P.table(['Date', 'Adversaire', 'Score', ''], d.ms.map(m => [UI.fmtDate(m.date), `${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`, `${m.gf} - ${m.ga}`, { V: 'Victoire', N: 'Nul', D: 'Défaite' }[res(m)]]), [.25, .45, .15, .15]); }
       const r = await Exporter.deliver(P.blob(), `bilan-${String(t.name).replace(/[^\wÀ-ÿ-]+/g, '-')}-${season}.pdf`);
       if (r === 'downloaded') toast('Bilan enregistré dans Téléchargements');
@@ -83,7 +83,7 @@ const Season = (() => {
       <div class="adv-grid"><div><h3>🏠 À domicile</h3><p>${home.V} V · ${home.N} N · ${home.D} D</p><p class="muted small">${home.gf} – ${home.ga}</p></div>
         <div><h3>🚌 À l'extérieur</h3><p>${away.V} V · ${away.N} N · ${away.D} D</p><p class="muted small">${away.gf} – ${away.ga}</p></div>
         <div><h3>🧤 Sans encaisser</h3><p>${cs} match${cs > 1 ? 's' : ''}</p><p class="muted small">${Math.round(cs / ms.length * 100)} % des matchs</p></div>
-        <div><h3>⚽ A marqué</h3><p>${scored} match${scored > 1 ? 's' : ''} sur ${ms.length}</p><p class="muted small">${(ms.reduce((a, m) => a + (+m.gf || 0), 0) / ms.length).toFixed(1).replace('.', ',')} but${ms.length ? 's' : ''} par match</p></div>
+        <div><h3>${Sport.W().icon} A marqué</h3><p>${scored} match${scored > 1 ? 's' : ''} sur ${ms.length}</p><p class="muted small">${(ms.reduce((a, m) => a + (+m.gf || 0), 0) / ms.length).toFixed(1).replace('.', ',')} but${ms.length ? 's' : ''} par match</p></div>
         ${big ? `<div><h3>🏆 Plus large victoire</h3><p>${big.gf} – ${big.ga}</p><p class="muted small">${big.home ? 'contre' : 'chez'} ${esc(big.opponent || '?')}</p></div>` : ''}
         ${bad && bad.gf < bad.ga ? `<div><h3>📉 Plus lourde défaite</h3><p>${bad.gf} – ${bad.ga}</p><p class="muted small">${bad.home ? 'contre' : 'chez'} ${esc(bad.opponent || '?')}</p></div>` : ''}</div>
       ${lives.length ? `<h3>⏱️ Buts par période de 15 min (${lives.length} match${lives.length > 1 ? 's' : ''} suivi${lives.length > 1 ? 's' : ''} en direct)</h3>
@@ -92,7 +92,7 @@ const Season = (() => {
         : '<p class="muted small">Suis tes matchs en direct (📱 sur la page du match) pour voir les buts par période et les résultats selon qui marque le premier.</p>'}</section>`;
   }
   /* ---------- the detailed stats of a match (shots, key passes, interceptions, crosses, corners, cards, saves) ---------- */
-  const DET = [['g', '⚽', 'Buts'], ['a', '🅿️', 'Passes déc.'], ['sc', '🎯', 'Tirs cadrés'], ['snc', '↗️', 'Non cadrés'], ['d', '🔑', 'Passes clés'], ['iv', '✋', 'Interceptions'],
+  const DET = [['g', '⚽', 'Buts / points'], ['a', '🅿️', 'Passes déc.'], ['sc', '🎯', 'Tirs cadrés'], ['snc', '↗️', 'Non cadrés'], ['d', '🔑', 'Passes clés'], ['iv', '✋', 'Interceptions'],
     ['cr', '📐', 'Centres'], ['co', '🚩', 'Corners'], ['yc', '🟨', 'Jaunes'], ['rc', '🟥', 'Rouges'], ['sv', '🧤', 'Arrêts']];
   function detailCard(m) {
     const det = m.detail || {}, st = m.stats || {}, ids = [...new Set([...Object.keys(det), ...Object.keys(st)])].filter(id => Store.get('players', id));

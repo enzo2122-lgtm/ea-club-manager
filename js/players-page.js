@@ -52,7 +52,7 @@
     const r = result(m), st = m.my;
     return `<article class="card past"><div class="m-date">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}${m.competition ? ' · ' + esc(m.competition) : ''}</div>
       <div class="m-title">${title(m)}</div><p><span class="score">${score(m)}</span>${r ? `<span class="res ${r}">${RES[r]}</span>` : ''}</p>
-      ${st ? `<p class="me-line">Toi : <b>${+st.min ? esc(st.min) + "'" : 'pas joué'}</b>${+st.g ? ` · ⚽ ${esc(st.g)}` : ''}${+st.a ? ` · 🅿️ ${esc(st.a)}` : ''}</p>` : ''}</article>`;
+      ${st ? `<p class="me-line">Toi : <b>${+st.min ? esc(st.min) + "'" : 'pas joué'}</b>${+st.g ? ` · ${Sport.W().icon} ${esc(st.g)}` : ''}${+st.a ? ` · 🅿️ ${esc(st.a)}` : ''}</p>` : ''}</article>`;
   }
 
   // the well-being questionnaire of the day (1 to 10), sent to the coaches
@@ -91,7 +91,7 @@
 
   async function load(quiet) {
     code = Member.current();
-    try { data = await rpc('member_view', { p_code: code }); Member.remember(code, data); Member.crest(data); render(); }
+    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); }
     catch (e) {
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
       if (quiet && data) return;

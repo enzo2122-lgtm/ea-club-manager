@@ -64,7 +64,7 @@ const Results = (() => {
           <div class="tile t-V"><b>${count('V')}</b><span>victoires</span></div>
           <div class="tile t-N"><b>${count('N')}</b><span>nuls</span></div>
           <div class="tile t-D"><b>${count('D')}</b><span>défaites</span></div>
-          <div class="tile"><b>${bp} – ${bc}</b><span>buts pour – contre</span></div>
+          <div class="tile"><b>${bp} – ${bc}</b><span>${Sport.W().units} pour – contre</span></div>
         </div>
       </section>
       <div class="side-legend"><span class="side-home">🏠 Domicile</span><span class="side-away">🚌 Extérieur</span></div>
@@ -84,7 +84,7 @@ const Results = (() => {
   // Text for WhatsApp: one line per category
   function share(mon, list) {
     const lines = list.slice().sort((a, b) => rank(a) - rank(b)).map(m => { const [h, a] = sides(m, true), r = result(m); return `${RES[r][1]} ${teamName(m)} : ${h} ${score(m)} ${a}`; });
-    const text = `⚽ ${club()} · ${weekendName(mon)}\n\n${lines.join('\n')}\n\n${list.filter(m => result(m) === 'V').length} victoire(s), ${list.filter(m => result(m) === 'N').length} nul(s), ${list.filter(m => result(m) === 'D').length} défaite(s)`;
+    const text = `${Sport.W().icon} ${club()} · ${weekendName(mon)}\n\n${lines.join('\n')}\n\n${list.filter(m => result(m) === 'V').length} victoire(s), ${list.filter(m => result(m) === 'N').length} nul(s), ${list.filter(m => result(m) === 'D').length} défaite(s)`;
     if (navigator.share) return navigator.share({ title: 'Résultats du week-end', text }).catch(() => {});
     navigator.clipboard.writeText(text).then(() => toast('Récapitulatif copié : colle-le dans WhatsApp')).catch(() => UI.modal({ title: 'Récapitulatif', body: `<textarea rows="10" readonly>${esc(text)}</textarea>`, actions: [{ label: 'OK', kind: 'primary' }] }));
   }

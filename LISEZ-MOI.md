@@ -1,6 +1,6 @@
 # EA Club Manager
 
-L'appli des clubs de foot : équipes et catégories, tableau tactique animé, séances et bibliothèque d'exercices, matchs (convocations, match en direct, préparation, causerie), statistiques (matchs officiels et amicaux à part), messagerie, planning des terrains, bénévoles, espaces joueurs et parents avec un code personnel par licencié.
+L'appli des clubs de **football, basket, handball, rugby et volley** (le club choisit son sport à la création ; terrains, postes, catégories, scores et exercices s'adaptent) : équipes et catégories, tableau tactique animé, séances et bibliothèque d'exercices, matchs (convocations, match en direct, préparation, causerie), statistiques (matchs officiels et amicaux à part), messagerie, planning des terrains, bénévoles, espaces joueurs et parents avec un code personnel par licencié.
 
 Un seul serveur pour tous les clubs : chaque club ne voit que ses propres données. Le propriétaire de la plateforme remet un **code d'activation** à chaque club qui s'inscrit.
 
@@ -30,7 +30,7 @@ Ensuite, dans cet espace :
 
 1. Le responsable ouvre l'appli, touche **Créer mon club**, et écrit le code d'activation, le nom du club, un **code du club** (ex. `fc-exemple`) et son compte.
 2. Il personnalise le club : blason, couleurs, ville (météo), devise, catégories.
-3. Il importe ses données : **Réglages → Le club → Importer des données**. Une photo ou une capture d'écran d'une liste, un PDF (Footclubs, calendrier du district), un fichier Excel / CSV ou un texte copié. Il vérifie et corrige le tableau avant d'importer, sans doublon.
+3. Il importe ses données : **Réglages → Le club → Importer des données**. Une photo ou une capture d'écran d'une liste, un PDF (liste de la fédération, calendrier), un fichier Excel / CSV ou un texte copié. Il vérifie et corrige le tableau avant d'importer, sans doublon.
 4. Il invite ses éducateurs (**Réglages → Inviter les éducateurs**). Chacun se connecte ensuite partout avec le code du club, son nom, son prénom et son mot de passe.
 5. Il remet un **code personnel** à chaque joueur ou à ses parents (**Codes personnels**), avec les cartes à imprimer et le QR code de chaque catégorie.
 

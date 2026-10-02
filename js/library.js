@@ -167,7 +167,7 @@ const Library = (() => {
   /* ---------- « Mettre au propre »: a hand-drawn exercise (photo, PDF page) redrawn on a clean pitch ---------- */
   function cleanCopy(blob, w, h, name) {
     modal({ title: 'Mettre au propre', body: `<p class="tip">Ton dessin s'affiche en transparence sur un vrai terrain. Redessine-le avec les joueurs, les flèches et les zones, puis retire le calque : il reste un schéma propre, animable et imprimable.</p>
-      <div class="lbl">Sur quel terrain ?</div><div class="chips" id="ccFmt">${[['11', 'Foot à 11'], ['8', 'Foot à 8'], ['5', 'Foot à 5'], ['zone', 'Zone libre']].map(([v, l], i) => `<button class="chip ${i ? '' : 'on'}" data-v="${v}">${l}</button>`).join('')}</div>
+      <div class="lbl">Sur quel terrain ?</div><div class="chips" id="ccFmt">${[...Sport.cur().formats.map(x => [x[0], x[1]]), ['zone', 'Zone libre']].map(([v, l], i) => `<button class="chip ${i ? '' : 'on'}" data-v="${v}">${l}</button>`).join('')}</div>
       <label class="fld" style="margin-top:12px"><span>Nom du schéma</span><input id="ccName" value="${esc(cleanName(name))} · au propre"></label>`,
       onOpen: r => $$('#ccFmt .chip', r).forEach(b => b.onclick = () => { $$('#ccFmt .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); }),
       actions: [{ label: 'Annuler' }, { label: 'Commencer', kind: 'primary', icon: I.board, onClick: (c, r) => {
@@ -300,7 +300,7 @@ const Library = (() => {
       txt('org') || intro.filter(l => cleanTitle(l) !== title && (l.match(/[a-zà-ÿ]/gi) || []).length >= Math.max(3, l.replace(/\s/g, '').length * .45)).join('\n'), (sec.evo || []).length ? 'Évolutions :\n' + bullets('evo').map(e => '+ ' + e).join('\n') : ''].filter(Boolean).join('\n\n');
     return { title, duration, org: org.slice(0, 1800), consignes: bullets('consignes').join('\n').slice(0, 900), materiel: txt('materiel').replace(/\n/g, ', ').slice(0, 200), size: sm ? sm[1] + 'x' + sm[2] : '' };
   }
-  const fmtOfTeam = id => ((Store.get('teams', id) || {}).format) || '11';
+  const fmtOfTeam = id => ((Store.get('teams', id) || {}).format) || Sport.defFormat();
 
   /* ---------- reading the drawing of an exercise ---------- */
   // free, on the phone: the coloured marks of the drawing are counted (players' bibs, orange cones) on a small copy of the picture
@@ -339,7 +339,7 @@ const Library = (() => {
     if (!c || !t) throw new Error('Connecte-toi au serveur du club pour utiliser l\'IA.');
     const img = await Media.loadImage(URL.createObjectURL(p.blob)), image = Media.drawScaled(img, img.naturalWidth, img.naturalHeight, 1400).toDataURL('image/jpeg', .85);
     const headers = { apikey: c.key, 'Content-Type': 'application/json' }; if (!String(c.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + c.key;
-    let r; try { r = await fetch(c.url.replace(/\/+$/, '') + '/functions/v1/exercice-ia', { method: 'POST', headers, body: JSON.stringify({ k: t, image, text: p.text || '', fmt }) }); }
+    let r; try { r = await fetch(c.url.replace(/\/+$/, '') + '/functions/v1/exercice-ia', { method: 'POST', headers, body: JSON.stringify({ k: t, image, text: p.text || '', fmt: Sport.formatLabel(fmt) || fmt, sport: Sport.cur().ai, themes: Exos.THEMES.map(x => x[0]) }) }); }
     catch (e) { throw new Error('Pas de connexion internet.'); }
     const o = await r.json().catch(() => ({}));
     if (!r.ok || !o.ex) throw new Error(AI_ERR[o.error] || (r.status === 404 ? 'L\'IA n\'est pas encore installée sur le serveur du club.' : 'Analyse impossible pour le moment.'));
@@ -424,7 +424,7 @@ const Library = (() => {
         if (!pick.length) { toast('Coche au moins une page', 'err'); return false; }
         const teamId = $('#xTeam', r).value || null, title = $('#xName', r).value.trim() || name, when = { date: $('#xDate', r).value || UI.today(), time: $('#xTime', r).value };
         let trId = $('#xTr', r).value;
-        const formats = teamId ? [fmtOfTeam(teamId)] : ['5', '8', '11'];
+        const formats = teamId ? [fmtOfTeam(teamId)] : Sport.cur().formats.map(x => x[0]);
         (async () => {
           const b = busy('Création des exercices…');
           try {
