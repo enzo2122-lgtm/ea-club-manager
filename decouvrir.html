@@ -62,6 +62,18 @@ h2 { font: 800 clamp(26px, 4vw, 34px)/1.15 var(--round); margin: 0 0 10px; }
 .end { background: var(--navy); color: #fff; text-align: center; }
 .end .sub { color: rgba(255,255,255,.8); margin: 0 auto 22px; }
 .end .cta { justify-content: center; }
+.req { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+.req-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.req label { display: flex; flex-direction: column; gap: 5px; font-weight: 700; font-size: 14px; }
+.req input, .req select, .req textarea { font: 16px var(--font); padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface2); color: var(--ink); width: 100%; }
+.req textarea { resize: vertical; }
+.req .btn { align-self: flex-start; border: 0; cursor: pointer; }
+.req .btn[disabled] { opacity: .6; }
+.req .trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.req-msg { margin: 0; font-weight: 700; min-height: 1.4em; }
+.req-msg.ok { color: #15803d; } .req-msg.err { color: #be123c; }
+.req-note { margin: 0; font-size: 13px; color: var(--muted); }
+@media (max-width: 520px) { .req-row { grid-template-columns: 1fr; } .req .btn { align-self: stretch; } }
 footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: center; color: var(--muted); font-size: 14px; }
 @media (max-width: 860px) {
   .hero .wrap { grid-template-columns: 1fr; }
@@ -131,10 +143,33 @@ footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: c
     <h2>Lancer Clubbo dans ton club</h2>
     <p class="sub">En 3 étapes, guidées dans l'appli.</p>
     <ol class="steps">
-      <li><b>Le club</b><p>Avec ton code d'activation : le nom, le sport, le blason et les couleurs.</p></li>
+      <li><b>Le club</b><p>Avec ton code d'activation (<a href="#code">le demander</a>) : le nom, le sport, le blason et les couleurs.</p></li>
       <li><b>Les équipes</b><p>Coche tes catégories, puis importe tes joueurs et tes matchs (photo d'une liste, PDF, Excel).</p></li>
       <li><b>Les coachs</b><p>Envoie le lien d'invitation : chaque coach choisit son nom et son mot de passe.</p></li>
     </ol>
+  </div>
+</section>
+
+<section id="code" style="padding-top:0">
+  <div class="wrap">
+    <h2>Demander mon code d'activation</h2>
+    <p class="sub">Laisse tes coordonnées : tu reçois ton code par e-mail ou par WhatsApp pour créer l'espace de ton club.</p>
+    <form class="req" id="reqForm" novalidate>
+      <div class="req-row">
+        <label><span>Ton prénom et ton nom</span><input name="name" autocomplete="name" maxlength="80" required></label>
+        <label><span>Ton club</span><input name="club" autocomplete="organization" maxlength="80" required placeholder="ex : FC Exemple"></label>
+      </div>
+      <div class="req-row">
+        <label><span>Sport</span><select name="sport"><option>Football</option><option>Basket</option><option>Handball</option><option>Rugby</option><option>Volley</option><option>Autre</option></select></label>
+        <label><span>Ville</span><input name="town" autocomplete="address-level2" maxlength="60"></label>
+      </div>
+      <label><span>Ton e-mail ou ton téléphone (pour te répondre)</span><input name="contact" autocomplete="email" maxlength="120" required></label>
+      <label><span>Un message (facultatif)</span><textarea name="message" rows="3" maxlength="1000" placeholder="Nombre d'équipes, questions…"></textarea></label>
+      <label class="trap" aria-hidden="true"><span>Ne pas remplir</span><input name="website" tabindex="-1" autocomplete="off"></label>
+      <button class="btn main" type="submit">Envoyer ma demande</button>
+      <p class="req-msg" id="reqMsg" role="status"></p>
+      <p class="req-note">Ces informations servent seulement à te répondre. Elles ne sont ni publiées ni partagées.</p>
+    </form>
   </div>
 </section>
 
@@ -142,9 +177,37 @@ footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: c
   <div class="wrap">
     <h2>Essaie-la tout de suite</h2>
     <p class="sub">30 secondes suffisent pour comprendre : ouvre le club de démonstration et touche le bouton « + ».</p>
-    <div class="cta"><a class="btn main" href="index.html#demo">👀 Essayer la démo</a><a class="btn light" href="index.html#creer">Créer mon club</a></div>
+    <div class="cta"><a class="btn main" href="index.html#demo">👀 Essayer la démo</a><a class="btn light" href="#code">Demander mon code</a></div>
   </div>
 </section>
-<footer>Clubbo · créée par Coach Enzo · <a href="index.html">Ouvrir l'appli</a></footer>
+<footer>Clubbo · créée par Coach Enzo · <a href="#code">Demander un code</a> · <a href="index.html">Ouvrir l'appli</a></footer>
+<script src="js/config.js"></script>
+<script>
+/* The request of an activation code: sent to the Clubbo server (ea_request), seen by the owner in his space */
+(() => {
+  const f = document.getElementById('reqForm'), msg = document.getElementById('reqMsg');
+  const say = (t, ok) => { msg.textContent = t; msg.className = 'req-msg ' + (ok ? 'ok' : 'err'); };
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    const v = k => (f.elements[k].value || '').trim();
+    if (v('name').length < 2) return say('Écris ton prénom et ton nom.');
+    if (v('club').length < 2) return say('Écris le nom de ton club.');
+    const c = v('contact');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c) && c.replace(/\D/g, '').length < 9) return say('Écris un e-mail ou un numéro de téléphone valable.');
+    const srv = typeof CLUB_SERVER !== 'undefined' ? CLUB_SERVER : null;
+    if (!srv || !srv.url) return say('Le formulaire n\'est pas disponible pour l\'instant.');
+    const b = f.querySelector('button[type="submit"]'); b.disabled = true; say('Envoi…', true);
+    try {
+      const headers = { apikey: srv.key, 'Content-Type': 'application/json' };
+      if (!String(srv.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + srv.key;
+      const r = await fetch(srv.url.replace(/\/+$/, '') + '/rest/v1/rpc/ea_request', { method: 'POST', headers,
+        body: JSON.stringify({ p_name: v('name'), p_club: v('club'), p_sport: v('sport'), p_town: v('town'), p_contact: c, p_message: v('message'), p_trap: v('website') }) });
+      if (!r.ok) { const t = await r.text(); throw new Error(/LIMITE/.test(t) ? 'Beaucoup de demandes en ce moment : réessaie dans une heure.' : 'L\'envoi n\'a pas marché. Réessaie dans un instant.'); }
+      f.reset(); say('Merci ! Ta demande est bien arrivée. Tu recevras ton code très vite.', true);
+    } catch (x) { say(x.message.startsWith('Failed') ? 'Pas de connexion internet. Réessaie dans un instant.' : x.message); }
+    finally { b.disabled = false; }
+  });
+})();
+</script>
 </body>
 </html>

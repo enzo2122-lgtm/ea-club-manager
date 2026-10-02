@@ -22,12 +22,13 @@ const Owner = (() => {
     }
     root.innerHTML = head + '<p class="muted">Chargement…</p>';
     let clubs, codes;
-    try { [clubs, codes] = await Promise.all([Cloud.ownerClubs(key()), Cloud.ownerCodes(key(), 0)]); }
+    try { [clubs, codes, reqs] = await Promise.all([Cloud.ownerClubs(key()), Cloud.ownerCodes(key(), 0), Cloud.ownerRequests(key()).catch(() => [])]); }
     catch (e) { if (e.code === 'PROPRIETAIRE') setKey(''); root.innerHTML = head + `<p class="tip">${esc(e.message)}</p>`; bind(root); return; }
     const free = codes.filter(c => !c.used), tot = k => clubs.reduce((a, c) => a + (+c[k] || 0), 0);
     root.innerHTML = head + `
       <div class="tiles"><div class="tile"><b>${clubs.length}</b><span>Clubs</span></div><div class="tile"><b>${clubs.filter(c => c.status === 'active').length}</b><span>Actifs</span></div>
         <div class="tile"><b>${tot('players')}</b><span>Joueurs</span></div><div class="tile"><b>${tot('accounts')}</b><span>Comptes</span></div><div class="tile"><b>${free.length}</b><span>Codes libres</span></div></div>
+      ${requestsCard()}
       <section class="card"><div class="row-head"><h2>🎟️ Codes d'activation</h2><button class="btn primary" data-ow="new">${I.plus}<span>Nouveaux codes</span></button></div>
         <p class="muted small">Remets un code à chaque club que tu inscris : il crée son espace avec « Créer mon club ». Un code ne sert qu'une fois.</p>
         <div class="ow-codes">${codes.map(c => `<div class="ow-code ${c.used ? 'used' : ''}"><code>${esc(c.code)}</code><span class="muted small">${c.used ? `utilisé par <b>${esc(c.club || '?')}</b> le ${fmt(c.used)}` : `libre${c.note ? ' · ' + esc(c.note) : ''}`}</span>${c.used ? '' : `<button class="btn soft small" data-owcopy="${esc(c.code)}">${I.copy}<span>Copier</span></button>`}</div>`).join('') || '<p class="muted">Aucun code pour l\'instant.</p>'}</div></section>
@@ -41,10 +42,46 @@ const Owner = (() => {
         <button class="btn" data-ow="push">Enregistrer</button></section>`;
     bind(root);
   }
+  /* ---------- (1.22) the requests sent from « Découvrir Clubbo » ---------- */
+  let reqs = [];
+  const isMail = c => /@/.test(c);
+  const phone = c => { const d = String(c).replace(/[^\d+]/g, ''); return d.startsWith('+') ? d.slice(1) : d.startsWith('00') ? d.slice(2) : d.startsWith('0') ? '33' + d.slice(1) : d; };
+  const contactLink = c => isMail(c) ? `<a href="mailto:${esc(c)}">${esc(c)}</a>` : `<a href="tel:${esc(String(c).replace(/[^\d+]/g, ''))}">${esc(c)}</a>`;
+  function requestsCard() {
+    const open = reqs.filter(r => r.status === 'new');
+    return `<section class="card"><h2>📨 Demandes de code${open.length ? ` <span class="ow-new">${open.length} nouvelle${open.length > 1 ? 's' : ''}</span>` : ''}</h2>
+      <p class="muted small">Envoyées depuis la page « Découvrir Clubbo ». « Donner un code » crée le code et prépare le message à envoyer.</p>
+      <div class="ow-reqs">${reqs.slice(0, 40).map(r => `<div class="ow-req ${esc(r.status)}"><div><b>${esc(r.club)}</b> <span class="muted small">${[r.sport, r.town, fmt(r.at)].filter(Boolean).map(esc).join(' · ')}</span>
+          <span class="small">${esc(r.name)} · ${contactLink(r.contact)}</span>${r.message ? `<span class="muted small">« ${esc(r.message)} »</span>` : ''}
+          ${r.code ? `<span class="small">Code donné : <code>${esc(r.code)}</code></span>` : ''}</div>
+        <div class="chips">${r.status === 'new' ? `<button class="btn primary small" data-owreq="${esc(r.id)}" data-act="give">Donner un code</button><button class="btn small" data-owreq="${esc(r.id)}" data-act="drop">Écarter</button>`
+          : r.code ? `<button class="btn small" data-owreq="${esc(r.id)}" data-act="send">Renvoyer le message</button>` : '<span class="muted small">Écartée</span>'}</div></div>`).join('') || '<p class="muted">Aucune demande pour l\'instant.</p>'}</div></section>`;
+  }
+  // the code and the way to use it, ready to send by e-mail or WhatsApp
+  function sendCode(r, code) {
+    const first = String(r.name || '').trim().split(/\s+/)[0] || '';
+    const text = `Bonjour ${first}, merci pour ta demande ! Voici le code d'activation Clubbo pour ${r.club} : ${code}\nCrée ton club ici : ${Cloud.appUrl()}#creer (touche « Créer mon club » et colle le code).\nÀ bientôt sur Clubbo !`;
+    modal({ title: 'Envoyer le code', noFocus: true, body: `<p class="muted small">À ${esc(r.name)} (${esc(r.contact)}).</p><textarea id="owMsg" rows="7">${esc(text)}</textarea>`,
+      actions: [
+        isMail(r.contact) ? { label: 'E-mail', kind: 'primary', onClick: (c, x) => { location.href = `mailto:${encodeURIComponent(r.contact)}?subject=${encodeURIComponent('Ton code Clubbo')}&body=${encodeURIComponent($('#owMsg', x).value)}`; return false; } }
+          : { label: 'WhatsApp', kind: 'primary', onClick: (c, x) => { window.open(`https://wa.me/${phone(r.contact)}?text=${encodeURIComponent($('#owMsg', x).value)}`, '_blank'); return false; } },
+        { label: 'Copier', onClick: (c, x) => { navigator.clipboard.writeText($('#owMsg', x).value).then(() => toast('Message copié')).catch(() => toast('Sélectionne le texte et copie-le')); return false; } }] });
+  }
+  async function onRequest(b, redraw) {
+    const r = reqs.find(x => x.id === b.dataset.owreq); if (!r) return;
+    try {
+      if (b.dataset.act === 'drop') { reqs = await Cloud.ownerRequests(key(), r.id, 'dropped'); return redraw(); }
+      if (b.dataset.act === 'send') return sendCode(r, r.code);
+      const codes = await Cloud.ownerCodes(key(), 1, 'Demande : ' + r.club), code = (codes[0] || {}).code;
+      if (!code) return toast('Code non créé', 'err');
+      reqs = await Cloud.ownerRequests(key(), r.id, 'done', code); redraw(); setTimeout(() => sendCode(r, code), 400);
+    } catch (x) { toast(x.message, 'err'); }
+  }
   function bind(root) {
     root.onclick = async e => {
-      const b = e.target.closest('[data-ow], [data-owcopy], [data-owset]'); if (!b) return;
+      const b = e.target.closest('[data-ow], [data-owcopy], [data-owset], [data-owreq]'); if (!b) return;
       const redraw = () => page(root);
+      if (b.dataset.owreq) return onRequest(b, redraw);
       if (b.dataset.ow === 'in') { const v = $('#owKey', root).value.trim(); if (!v) return toast('Écris ta clé', 'err'); setKey(v); return redraw(); }
       if (b.dataset.ow === 'init') {
         const v = $('#owKey', root).value.trim(); if (v.length < 12) return toast('La clé doit faire au moins 12 caractères', 'err');

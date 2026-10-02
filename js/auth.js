@@ -378,7 +378,7 @@ const Auth = (() => {
       ${nameFields(n.ln, n.fn)}${pwFields('Ton mot de passe')}${keepBox}
       <button class="btn primary wide" id="go">Créer le club</button>
       <div class="lock-links"><button class="btn wide link" id="back">Retour</button></div>
-      <p class="muted small">Pas de code d'activation ? Contacte Clubbo.</p>`);
+      <p class="muted small">Pas de code d'activation ? <a href="decouvrir.html#code">Demande-le ici</a>.</p>`);
     let slugTouched = false;
     $('#cname', el).oninput = () => { if (!slugTouched) $('#cslug', el).value = slugOf($('#cname', el).value); };
     $('#cslug', el).oninput = () => { slugTouched = true; };
