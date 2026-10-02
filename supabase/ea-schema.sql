@@ -55,6 +55,9 @@ do $rls$ declare t text; begin
     execute format('alter table %I enable row level security', t);
   end loop;
 end $rls$;
+-- (1.23) la fonction « raincy-push » lit la configuration des notifications et range les abonnements disparus
+grant select, update on push_config to service_role;
+grant select, delete on push_subs to service_role;
 
 /* ================= outils ================= */
 create or replace function ea_hash(t text) returns text language sql immutable as $$ select encode(sha256(convert_to(coalesce(t, ''), 'UTF8')), 'hex') $$;
@@ -723,12 +726,60 @@ begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
     from (select * from ea_requests order by created_at desc limit 200) r); end $;
 revoke all on function ea_request(text, text, text, text, text, text, text), ea_owner_requests(text, uuid, text, text) from public;
 grant execute on function ea_request(text, text, text, text, text, text, text), ea_owner_requests(text, uuid, text, text) to anon, authenticated;
+-- (1.23) le propriétaire est prévenu sur son téléphone à chaque nouvelle demande de code
+create extension if not exists pg_net;
+create table if not exists ea_owner_subs (id uuid primary key default gen_random_uuid(), endpoint text not null unique, created_at timestamptz not null default now());
+alter table ea_owner_subs enable row level security;
+alter table ea_requests add column if not exists notified_at timestamptz;
+-- réveille les téléphones du propriétaire (sans contenu : le téléphone vient ensuite lire « ea_owner_news »)
+create or replace function ea_owner_wake() returns void language plpgsql security definer set search_path = public as $
+declare cfg push_config; subs jsonb;
+begin
+  select * into cfg from push_config where id = 1;
+  select jsonb_agg(jsonb_build_object('id', id, 'endpoint', endpoint)) into subs from ea_owner_subs;
+  if cfg.fn_url is null or subs is null then return; end if;
+  begin perform net.http_post(url := cfg.fn_url, body := jsonb_build_object('subs', subs), headers := jsonb_build_object('Content-Type', 'application/json', 'x-raincy-secret', cfg.secret));
+  exception when others then raise notice 'notification propriétaire : %', sqlerrm; end;
+end $;
+create or replace function ea_request(p_name text, p_club text, p_sport text, p_town text, p_contact text, p_message text, p_trap text default null) returns boolean language plpgsql security definer set search_path = public as $
+begin
+  if coalesce(p_trap, '') <> '' then return true; end if; -- un robot a rempli le champ caché
+  if length(trim(coalesce(p_name, ''))) < 2 or length(trim(coalesce(p_club, ''))) < 2 or length(trim(coalesce(p_contact, ''))) < 6 then raise exception 'DONNEES'; end if;
+  if (select count(*) from ea_requests where created_at > now() - interval '1 hour') >= 20 then raise exception 'LIMITE'; end if;
+  if exists (select 1 from ea_requests where lower(contact) = lower(trim(p_contact)) and created_at > now() - interval '1 day') then return true; end if;
+  insert into ea_requests (name, club, sport, town, contact, message)
+    values (left(trim(p_name), 80), left(trim(p_club), 80), left(p_sport, 20), left(trim(coalesce(p_town, '')), 60), left(trim(p_contact), 120), left(trim(coalesce(p_message, '')), 1000));
+  perform ea_owner_wake();
+  return true; end $;
+-- ce téléphone reçoit (ou plus) les alertes du propriétaire ; renvoie la clé publique des notifications
+create or replace function ea_owner_sub(p_key text, p_endpoint text default null, p_on boolean default null) returns jsonb language plpgsql security definer set search_path = public as $
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  if coalesce(p_endpoint, '') <> '' and p_on is not null then
+    if p_on then insert into ea_owner_subs (endpoint) values (left(p_endpoint, 1000)) on conflict (endpoint) do nothing;
+    else delete from ea_owner_subs where endpoint = p_endpoint; end if;
+  end if;
+  return jsonb_build_object('key', (select vapid_public from push_config where id = 1),
+    'on', coalesce(p_endpoint, '') <> '' and exists (select 1 from ea_owner_subs where endpoint = p_endpoint)); end $;
+-- le téléphone réveillé lit ses alertes (seulement s'il est abonné comme propriétaire)
+create or replace function ea_owner_news(p_endpoint text) returns jsonb language plpgsql security definer set search_path = public as $
+declare n int; last ea_requests;
+begin
+  if coalesce(p_endpoint, '') = '' or not exists (select 1 from ea_owner_subs where endpoint = p_endpoint) then return '[]'::jsonb; end if;
+  select count(*) into n from ea_requests where status = 'new' and notified_at is null and created_at > now() - interval '2 days';
+  if n = 0 then return '[]'::jsonb; end if;
+  select * into last from ea_requests where status = 'new' and notified_at is null order by created_at desc limit 1;
+  update ea_requests set notified_at = now() where status = 'new' and notified_at is null;
+  return jsonb_build_array(jsonb_build_object('title', case when n > 1 then '📨 ' || n || ' nouvelles demandes de code' else '📨 Nouvelle demande de code' end,
+    'body', last.club || coalesce(' · ' || nullif(last.sport, ''), '') || ' · ' || last.name, 'url', '#/proprietaire', 'tag', 'ea-request')); end $;
+revoke all on function ea_owner_wake() from public, anon, authenticated;
+revoke all on function ea_request(text, text, text, text, text, text, text), ea_owner_sub(text, text, boolean), ea_owner_news(text) from public;
+grant execute on function ea_request(text, text, text, text, text, text, text), ea_owner_sub(text, text, boolean), ea_owner_news(text) to anon, authenticated;
 do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_login', 'club_register', 'club_accounts', 'club_account_set', 'club_me', 'club_teams_done',
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
   'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
   'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_answer', 'member_message',
-  'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_request', 'ea_owner_requests', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
+  'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_request', 'ea_owner_requests', 'ea_owner_sub', 'ea_owner_news', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
 begin
   for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop
     execute format('revoke all on function %s from public', f.sig);

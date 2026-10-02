@@ -40,7 +40,7 @@ const Owner = (() => {
         <p class="muted small">Adresse de la fonction « raincy-push » déployée sur le serveur EA (Supabase → Edge Functions). Tous les clubs en profitent.</p>
         <label class="fld"><span>Adresse de la fonction</span><input id="owPush" placeholder="https://xxxx.supabase.co/functions/v1/raincy-push"></label>
         <button class="btn" data-ow="push">Enregistrer</button></section>`;
-    bind(root);
+    bind(root); mountAlert(root);
   }
   /* ---------- (1.22) the requests sent from « Découvrir Clubbo » ---------- */
   let reqs = [];
@@ -51,11 +51,34 @@ const Owner = (() => {
     const open = reqs.filter(r => r.status === 'new');
     return `<section class="card"><h2>📨 Demandes de code${open.length ? ` <span class="ow-new">${open.length} nouvelle${open.length > 1 ? 's' : ''}</span>` : ''}</h2>
       <p class="muted small">Envoyées depuis la page « Découvrir Clubbo ». « Donner un code » crée le code et prépare le message à envoyer.</p>
+      <div id="owAlert" class="ow-alert"></div>
       <div class="ow-reqs">${reqs.slice(0, 40).map(r => `<div class="ow-req ${esc(r.status)}"><div><b>${esc(r.club)}</b> <span class="muted small">${[r.sport, r.town, fmt(r.at)].filter(Boolean).map(esc).join(' · ')}</span>
           <span class="small">${esc(r.name)} · ${contactLink(r.contact)}</span>${r.message ? `<span class="muted small">« ${esc(r.message)} »</span>` : ''}
           ${r.code ? `<span class="small">Code donné : <code>${esc(r.code)}</code></span>` : ''}</div>
         <div class="chips">${r.status === 'new' ? `<button class="btn primary small" data-owreq="${esc(r.id)}" data-act="give">Donner un code</button><button class="btn small" data-owreq="${esc(r.id)}" data-act="drop">Écarter</button>`
           : r.code ? `<button class="btn small" data-owreq="${esc(r.id)}" data-act="send">Renvoyer le message</button>` : '<span class="muted small">Écartée</span>'}</div></div>`).join('') || '<p class="muted">Aucune demande pour l\'instant.</p>'}</div></section>`;
+  }
+  /* a notification on this phone at each new request (the platform's push, the phone then reads ea_owner_news) */
+  const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const b64 = s => { const p = '='.repeat((4 - s.length % 4) % 4), raw = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, c => c.charCodeAt(0)); };
+  async function mySub() { try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch (e) { return null; } }
+  async function mountAlert(root) {
+    const box = $('#owAlert', root); if (!box) return;
+    if (!pushOk()) { box.innerHTML = '<p class="muted small">🔔 Ce navigateur ne reçoit pas de notifications. Sur iPhone : ajoute d\'abord Clubbo à l\'écran d\'accueil, puis ouvre-le depuis là.</p>'; return; }
+    const sub = await mySub(); let on = false;
+    try { on = sub ? (await Cloud.ownerSub(key(), sub.endpoint)).on : false; } catch (e) {}
+    box.innerHTML = on ? '<p class="small">🔔 Ce téléphone est prévenu à chaque nouvelle demande. <button class="btn small" data-owalert="off">Ne plus me prévenir</button></p>'
+      : '<button class="btn primary small" data-owalert="on">🔔 Me prévenir sur ce téléphone</button>';
+  }
+  async function setAlert(on, root) {
+    try {
+      if (!on) { const sub = await mySub(); if (sub) await Cloud.ownerSub(key(), sub.endpoint, false); toast('Tu ne seras plus prévenu sur ce téléphone'); return mountAlert(root); }
+      if (await Notification.requestPermission() !== 'granted') return toast('Autorise les notifications pour Clubbo dans les réglages du téléphone', 'err');
+      const k = (await Cloud.ownerSub(key())).key; if (!k) return toast('Les notifications ne sont pas encore prêtes sur le serveur', 'err');
+      const reg = await navigator.serviceWorker.ready; let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(k) });
+      await Cloud.ownerSub(key(), sub.endpoint, true); toast('C\'est fait : ce téléphone sera prévenu 🔔'); mountAlert(root);
+    } catch (e) { toast(e.message || 'Notifications impossibles sur ce téléphone', 'err'); }
   }
   // the code and the way to use it, ready to send by e-mail or WhatsApp
   function sendCode(r, code) {
@@ -79,9 +102,10 @@ const Owner = (() => {
   }
   function bind(root) {
     root.onclick = async e => {
-      const b = e.target.closest('[data-ow], [data-owcopy], [data-owset], [data-owreq]'); if (!b) return;
+      const b = e.target.closest('[data-ow], [data-owcopy], [data-owset], [data-owreq], [data-owalert]'); if (!b) return;
       const redraw = () => page(root);
       if (b.dataset.owreq) return onRequest(b, redraw);
+      if (b.dataset.owalert) return setAlert(b.dataset.owalert === 'on', root);
       if (b.dataset.ow === 'in') { const v = $('#owKey', root).value.trim(); if (!v) return toast('Écris ta clé', 'err'); setKey(v); return redraw(); }
       if (b.dataset.ow === 'init') {
         const v = $('#owKey', root).value.trim(); if (v.length < 12) return toast('La clé doit faire au moins 12 caractères', 'err');

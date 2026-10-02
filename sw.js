@@ -1,5 +1,5 @@
 /* Service worker: keeps the app working without internet. Bump VERSION after each update. */
-const VERSION = 'ea-club-manager-v23';
+const VERSION = 'ea-club-manager-v24';
 const JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
@@ -58,10 +58,20 @@ async function pending() {
   const r = await fetch(c.url.replace(/\/+$/, '') + '/rest/v1/rpc/club_notifs', { method: 'POST', headers, body: JSON.stringify({ k: s.token }) });
   return r.ok ? (await r.json()) || [] : [];
 }
+// (1.23) the owner's phone: the new requests of an activation code (this phone's subscription is its proof)
+async function ownerNews() {
+  const c = typeof CLUB_SERVER !== 'undefined' ? CLUB_SERVER : null, sub = await self.registration.pushManager.getSubscription();
+  if (!c || !sub) return [];
+  const headers = { apikey: c.key, 'Content-Type': 'application/json' };
+  if (!String(c.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + c.key;
+  const r = await fetch(c.url.replace(/\/+$/, '') + '/rest/v1/rpc/ea_owner_news', { method: 'POST', headers, body: JSON.stringify({ p_endpoint: sub.endpoint }) });
+  return r.ok ? (await r.json()) || [] : [];
+}
 self.addEventListener('push', e => {
   e.waitUntil((async () => {
     let list = [];
-    try { list = await pending(); } catch (err) {}
+    try { list = await ownerNews(); } catch (err) {}
+    try { list = list.concat(await pending()); } catch (err) {}
     // a phone must always show something when it is woken up
     if (!list.length) list = [{ title: 'Clubbo', body: 'Nouvelle information du club', url: '#/', tag: 'raincy' }];
     for (const n of list.slice(0, 4)) {

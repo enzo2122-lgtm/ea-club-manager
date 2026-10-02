@@ -1805,3 +1805,4 @@ body.modal-top #modal { z-index: 90; }
 .ow-req > div:first-child { flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px; }
 .ow-req.done, .ow-req.dropped { opacity: .65; }
 .ow-new { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 999px; background: #e11d48; color: #fff; font-size: 13px; vertical-align: middle; }
+.ow-alert { margin: 4px 0 10px; }
