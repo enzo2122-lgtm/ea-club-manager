@@ -41,6 +41,7 @@ const Member = (() => {
     const txt = await r.text();
     if (!r.ok) {
       let m = txt; try { m = JSON.parse(txt).message || txt; } catch (e) {}
+      if (/LIMITE/.test(m)) throw new Error('Tu as déjà envoyé 10 messages aujourd’hui : réessaie demain.');
       if (/CODE_PERSO/.test(m)) { const e = new Error('Ce code ne fonctionne pas. Vérifie-le, ou demande ton code au coach.'); e.code = 'CODE'; throw e; }
       if (/MATCH_PASSE/.test(m)) throw new Error('Ce match est passé : les réponses sont fermées.');
       if (/COMPLET/.test(m)) throw new Error('Cette tâche est déjà complète. Merci quand même !');

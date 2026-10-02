@@ -661,11 +661,21 @@ begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
   return (select jsonb_build_object('secret', secret, 'public', vapid_public) from push_config where id = 1); end $$;
 
 /* ================= droits ================= */
+-- a player or a parent (with the personal code) sends a message to the coaches of the category: his own training, his footings. 10 a day at most.
+create or replace function member_message(p_code text, p_body text, p_parent boolean default false) returns boolean language plpgsql security definer set search_path = public as $$
+declare pl items := ea_member(p_code); tids text[] := ea_member_teams(pl); who text;
+begin
+  if coalesce(trim(p_body), '') = '' or coalesce(array_length(tids, 1), 0) = 0 then raise exception 'DONNEES'; end if;
+  if (select count(*) from messages where club = pl.club and author_id = 'member:' || pl.id and created_at > now() - interval '1 day') >= 10 then raise exception 'LIMITE'; end if;
+  who := trim(coalesce(pl.data->>'firstName', '') || ' ' || coalesce(pl.data->>'lastName', '')) || case when p_parent then ' (parent)' else ' (joueur)' end;
+  insert into messages (club, channel, author_id, author_name, body) values (pl.club, 'team:' || tids[1], 'member:' || pl.id, who, left(p_body, 2000));
+  return true; end $$;
+
 do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_login', 'club_register', 'club_accounts', 'club_account_set', 'club_me', 'club_teams_done',
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
   'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
-  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_answer',
+  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_answer', 'member_message',
   'member_wellness', 'member_volunteer', 'member_photo', 'ea_owner_init', 'ea_owner_codes', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
 begin
   for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop

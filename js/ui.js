@@ -137,6 +137,13 @@ const UI = (() => {
     const b = e.target.closest && e.target.closest('[data-mkind]'); if (!b) return;
     e.stopPropagation(); Store.state.ui.matchKind = b.dataset.mkind; Store.persistNow(); App.route(true);
   }, true);
+  // a text field as high as its text (on a phone, a small field that scrolls inside could not be read)
+  function autogrow(el) { if (!el || el.tagName !== 'TEXTAREA' || !el.offsetParent) return; el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
+  const growAll = root => (root || document).querySelectorAll('textarea').forEach(autogrow);
+  document.addEventListener('input', e => autogrow(e.target));
+  document.addEventListener('toggle', e => growAll(e.target), true);
+  { let t = 0; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => growAll(), 60); }).observe(document.documentElement, { childList: true, subtree: true }); }
+  window.addEventListener('resize', () => growAll());
   (function lockScroll() {
     const start = () => {
       const root = document.getElementById('modal'); if (!root) return;

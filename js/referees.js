@@ -40,7 +40,7 @@ const Refs = (() => {
       </article>`;
     };
     root.innerHTML = `<header class="page-head"><div><h1>🟨 Arbitres du club</h1><p class="sub">Dépanner sur les matchs officiels à domicile, toutes catégories</p></div>
-      <div class="head-actions"><a class="btn" href="#/club">${I.back}<span>Vie du club</span></a>${r ? `<button class="btn primary" data-act="game">${I.plus}<span>Un match où j'arbitre</span></button>` : ''}</div></header>
+      <div class="head-actions"><a class="btn" href="#/club">${I.back}<span>Vie du club</span></a><button class="btn" data-act="perso">🏃<span>Mon entraînement perso</span></button>${r ? `<button class="btn primary" data-act="game">${I.plus}<span>Un match où j'arbitre</span></button>` : ''}</div></header>
       ${r ? `<section class="card"><h2>Mes matchs où j'arbitre</h2><p class="muted small">Tes désignations officielles (district, ligue) : ces jours-là, tu es noté « pas dispo » pour le club.</p>
         ${(r.refGames || []).filter(g => g.date >= UI.today()).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).map(g => `<div class="list-item"><span class="li-main"><b>${esc(UI.fmtDate(g.date))}${g.time ? ' · ' + esc(g.time) : ''}</b><span class="muted small">${esc(g.comp || 'Match officiel')}${g.place ? ' · ' + esc(g.place) : ''}</span></span><button class="icon-btn" data-delg="${g.id}" aria-label="Retirer">${I.x}</button></div>`).join('') || '<p class="muted small">Aucun pour l\'instant.</p>'}</section>`
         : !all.length ? `<section class="card"><p>Aucun arbitre dans le club pour l'instant. Dans <a href="#/dirigeants">Dirigeants</a>, mets le rôle <b>« Arbitre du club »</b> (ou « Arbitre bénévole ») : il pourra se connecter et donner ses disponibilités ici.</p></section>` : ''}
@@ -56,6 +56,7 @@ const Refs = (() => {
         st.refAvail = Object.assign({}, st.refAvail || {}); if (st.refAvail[b.dataset.av] === b.dataset.v) delete st.refAvail[b.dataset.av]; else st.refAvail[b.dataset.av] = b.dataset.v;
         Store.upsert('staff', st); return page(root);
       }
+      if (b.dataset.act === 'perso') return openPerso();
       if (b.dataset.act === 'game') return addGame(() => page(root));
       if (b.dataset.delg) { const st = mine(); st.refGames = (st.refGames || []).filter(g => g.id !== b.dataset.delg); Store.upsert('staff', st); return page(root); }
       if (b.dataset.pick) return pick(Store.get('matches', b.dataset.pick), () => page(root));
@@ -101,5 +102,12 @@ const Refs = (() => {
     toast('Message envoyé aux arbitres');
   }
 
-  return { page, isRef, waiting, refs };
+  // the personal training of the person connected (a referee: running, placement); sent in private to the responsables
+  function openPerso() {
+    const u = me(); if (!u) return;
+    const to = S().staff.filter(x => x.id !== u.id && /président|responsable|vice/i.test(x.role || '')).slice(0, 3);
+    Perso.open({ key: 'perso-staff-' + u.id, who: Store.fullName(u), referee: !!mine(), toast: (m, err) => toast(m, err ? 'err' : ''),
+      send: Cloud.ready() && to.length ? async text => { for (const x of to) await Cloud.post('dm:' + [u.id, x.id].sort().join(':'), text); } : null });
+  }
+  return { page, isRef, waiting, refs, openPerso };
 })();

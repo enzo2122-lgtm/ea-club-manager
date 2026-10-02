@@ -356,7 +356,9 @@ a.hero-chip:hover { background: rgba(201,164,92,.22); }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px 8px; }
 .sheet-head h2 { font-size: 22px; font-weight: 800; }
 .sheet-body { padding: 8px 18px 12px; overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.modal { overscroll-behavior: contain; touch-action: pan-y; }
+.modal { overscroll-behavior: contain; touch-action: pan-y pinch-zoom; }
+/* a text field grows with its text: no small box that scrolls (organisation, consignes…) */
+textarea { overflow-y: hidden; resize: vertical; min-height: 3.2em; }
 html.modal-open, html.modal-open body { overscroll-behavior: none; }
 .sheet-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 18px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
 @media (max-width: 600px) { .modal { place-items: end stretch; padding: 0; } .sheet { border-radius: 20px 20px 0 0; max-height: 92dvh; } .sheet-foot .btn { flex: 1; } }
@@ -1583,6 +1585,7 @@ h2.section svg { width: 22px; height: 22px; vertical-align: -4px; margin-right: 
 .sl-ex { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 8px; }
 .sl-item { display: flex; flex-direction: column; gap: 6px; }
 .sl-item p { margin: 4px 0; }
+.perso-card { margin: 12px 0; }
 .ref-m .tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--gold-soft); white-space: nowrap; align-self: flex-start; }
 .ref-m .tag.warn { background: var(--surface2); color: var(--bad); }
 .ref-m .chips { margin-top: 8px; align-items: center; }
