@@ -140,5 +140,15 @@ const Onboard = (() => {
     if (b.dataset.ob === 'import') Imports.open('players', redraw);
     return true;
   }
-  return { start, edit, card, onClick, importStep, setSport };
+  /* (1.26) the free version goes up to 3 teams; above, the « Club » plan (15 € a month). A card for the responsables: nothing is blocked. */
+  let planAsked = false;
+  function planCard() {
+    if (!Auth.isAdmin() || S().club.demo || !Cloud.ready()) return '';
+    if (!planAsked) { planAsked = true; Cloud.info().then(i => { const p = (i && i.plan) || 'free'; if (S().ui.plan !== p) { S().ui.plan = p; Store.persistNow(); App.route(true); } }).catch(() => {}); }
+    const n = S().teams.length;
+    if ((S().ui.plan || 'free') !== 'free' || n <= 3) return '';
+    return `<section class="card plan-card"><h2>⭐ Ton club a ${n} équipes</h2><p class="muted">La version gratuite de Clubbo va jusqu'à 3 équipes. La <b>formule Club</b> (15 € par mois) compte toutes les équipes du club. Rien n'est bloqué en attendant.</p>
+      <a class="btn primary" href="decouvrir.html#tarifs">Voir la formule Club</a></section>`;
+  }
+  return { start, edit, card, onClick, importStep, setSport, planCard };
 })();

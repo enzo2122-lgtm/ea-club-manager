@@ -148,6 +148,7 @@ const Views = (() => {
       ${serverBanner()}
       ${teamSwitch()}
       ${setupCard()}
+      ${Onboard.planCard()}
       ${Quick.matchDayCard()}
       ${Quick.tomorrowCard()}
       ${Quick.backupCard()}

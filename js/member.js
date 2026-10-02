@@ -97,7 +97,42 @@ const Member = (() => {
       alert('Ta demande est envoyée aux coachs. Ils suppriment les données dans le mois.');
     } catch (e) { alert(e.message); }
   }
+
+  /* ---------- (3.68) notifications on the family's phone: convocation, change of time or place, cancellation ---------- */
+  let nState = null, nAsked = false;
+  const b64 = s => { const p = '='.repeat((4 - s.length % 4) % 4), raw = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, ch => ch.charCodeAt(0)); };
+  const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && location.protocol !== 'file:';
+  const ios = () => /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  // the card (filled once the club's server has answered)
+  function notifyCard(kind) {
+    if (PREVIEW) return '';
+    if (!pushOk()) return ios() && !standalone() ? `<div class="card notif-card"><p class="info">🔔 Pour être prévenu des convocations et des changements d'horaire : touche <b>Partager</b> → <b>« Sur l'écran d'accueil »</b>, puis ouvre l'appli depuis cette icône.</p></div>` : '';
+    if (!nAsked) { nAsked = true; refreshNotify(); }
+    if (nState === null || nState === 'old') return '';
+    return `<div class="card notif-card">${nState ? `<p class="info">🔔 Ce téléphone est prévenu : convocations, changements d'horaire ou de lieu, annulations. <button class="b small" data-mnotif="off" data-kind="${kind}">Arrêter</button></p>`
+      : `<p class="info"><b>🔔 Être prévenu sur ce téléphone</b> : convocations, changements d'horaire ou de lieu, matchs et séances annulés.</p><button class="b yes on" data-mnotif="on" data-kind="${kind}">Me prévenir</button>`}</div>`;
+  }
+  async function refreshNotify() {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      nState = sub ? !!(await rpc('member_push', { p_code: current(), p_endpoint: sub.endpoint })).on : (await rpc('member_push', { p_code: current() }), false);
+    } catch (e) { nState = 'old'; return; } // a club server not updated yet: no card
+    document.dispatchEvent(new Event('member-redraw'));
+  }
+  async function setNotify(on, kind) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (!on) { const sub = await reg.pushManager.getSubscription(); if (sub) await rpc('member_push', { p_code: current(), p_endpoint: sub.endpoint, p_on: false }); nState = false; document.dispatchEvent(new Event('member-redraw')); return; }
+      if (await Notification.requestPermission() !== 'granted') return alert('Autorise les notifications pour cette appli dans les réglages du téléphone.');
+      const k = (await rpc('member_push', { p_code: current() })).key; if (!k) return alert('Les notifications ne sont pas encore prêtes sur le serveur du club.');
+      let sub = await reg.pushManager.getSubscription(); if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(k) });
+      await rpc('member_push', { p_code: current(), p_endpoint: sub.endpoint, p_on: true, p_page: kind === 'parents' ? 'parents.html' : 'joueurs.html' });
+      nState = true; document.dispatchEvent(new Event('member-redraw'));
+    } catch (e) { alert(e.message || 'Notifications impossibles sur ce téléphone.'); }
+  }
   function onBar(e, reload) {
+    const nb = e.target.closest('[data-mnotif]'); if (nb) { setNotify(nb.dataset.mnotif === 'on', nb.dataset.kind); return true; }
     if (e.target.closest('[data-forgetme]')) { forgetMe(/parents/.test(location.pathname) ? 'parents' : 'joueur'); return true; }
     const u = e.target.closest('[data-usecode]'); if (u) { use(u.dataset.usecode); reload(); return true; }
     const f = e.target.closest('[data-forget]'); if (f) { if (confirm('Retirer ce code de ce téléphone ? Il faudra le retaper pour revenir.')) { forget(f.dataset.forget); location.replace('moi.html'); } return true; }
@@ -160,5 +195,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();

@@ -1812,3 +1812,7 @@ body.modal-top #modal { z-index: 90; }
 .vote-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .vote-list div { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
 .vote-list span { flex: 1; } .vote-list .v-down { color: var(--bad); } .vote-list .v-up { color: var(--good); }
+.ow-plan { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--surface2); font-weight: 700; }
+.ow-plan.club { background: #fef3c7; color: #92400e; }
+.ow-over { color: var(--bad); }
+.plan-card { border-left: 5px solid #f59e0b; }

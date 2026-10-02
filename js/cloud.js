@@ -122,6 +122,8 @@ const Cloud = (() => {
     ownerCodes: (key, n, note) => rpc('ea_owner_codes', { p_key: key, p_new: n || 0, p_note: note || null }),
     ownerClubs: key => rpc('ea_owner_clubs', { p_key: key }),
     ownerSub: (key, endpoint, on) => rpc('ea_owner_sub', { p_key: key, p_endpoint: endpoint || null, p_on: on == null ? null : !!on }),
+    ownerVotes: key => rpc('ea_owner_votes', { p_key: key }),
+    ownerClubPlan: (key, club, plan) => rpc('ea_owner_club_plan', { p_key: key, p_club: club, p_plan: plan }),
     ownerRequests: (key, id, status, code) => rpc('ea_owner_requests', { p_key: key, p_id: id || null, p_status: status || null, p_code: code || null }),
     ownerClubSet: (key, club, status) => rpc('ea_owner_club_set', { p_key: key, p_club: club, p_status: status }),
     ownerPush: (key, url) => rpc('ea_owner_push', { p_key: key, p_url: url }),

@@ -74,6 +74,15 @@ h2 { font: 800 clamp(26px, 4vw, 34px)/1.15 var(--round); margin: 0 0 10px; }
 .req-msg.ok { color: #15803d; } .req-msg.err { color: #be123c; }
 .req-note { margin: 0; font-size: 13px; color: var(--muted); }
 @media (max-width: 520px) { .req-row { grid-template-columns: 1fr; } .req .btn { align-self: stretch; } }
+.plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 760px; }
+.plan { background: var(--surface); border: 2px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.plan.best { border-color: var(--gold); }
+.plan > b { font-size: 19px; }
+.plan .price { font: 800 30px var(--round); margin: 0; } .plan .price small { font-size: 15px; color: var(--muted); font-weight: 600; }
+.plan ul { margin: 4px 0 10px; padding-left: 20px; color: var(--muted); } .plan .btn { margin-top: auto; }
+.btn.light-b { border-color: var(--line); color: var(--ink); }
+.note-dark { font-size: 14px; color: var(--muted); margin: 12px 0 0; }
+@media (max-width: 620px) { .plans { grid-template-columns: 1fr; } }
 footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: center; color: var(--muted); font-size: 14px; }
 @media (max-width: 860px) {
   .hero .wrap { grid-template-columns: 1fr; }
@@ -138,6 +147,18 @@ footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: c
   </div>
 </section>
 
+<section id="tarifs" style="padding-top:0">
+  <div class="wrap">
+    <h2>Tarifs</h2>
+    <p class="sub">Toutes les fonctions dans les deux formules. Seul le nombre d'équipes change.</p>
+    <div class="plans">
+      <div class="plan"><b>Gratuit</b><p class="price">0 €</p><ul><li>Jusqu'à <b>3 équipes</b></li><li>Coachs, joueurs et parents illimités</li><li>Toutes les fonctions</li></ul><a class="btn light-b" href="#code">Demander mon code</a></div>
+      <div class="plan best"><b>⭐ Formule Club</b><p class="price">15 € <small>par mois</small></p><ul><li><b>Toutes les équipes</b> du club</li><li>Coachs, joueurs et parents illimités</li><li>Toutes les fonctions</li></ul><a class="btn main" href="#code" data-want="club">Passer à la formule Club</a></div>
+    </div>
+    <p class="note-dark">Le paiement se fait directement avec Clubbo une fois la demande reçue. Pas d'engagement : la formule s'arrête quand tu veux.</p>
+  </div>
+</section>
+
 <section style="padding-top:0">
   <div class="wrap">
     <h2>Lancer Clubbo dans ton club</h2>
@@ -159,6 +180,7 @@ footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: c
         <label><span>Ton prénom et ton nom</span><input name="name" autocomplete="name" maxlength="80" required></label>
         <label><span>Ton club</span><input name="club" autocomplete="organization" maxlength="80" required placeholder="ex : FC Exemple"></label>
       </div>
+      <label><span>Je demande</span><select name="want"><option value="code">Un code pour créer mon club (gratuit jusqu'à 3 équipes)</option><option value="club">La formule Club (15 € par mois, toutes les équipes)</option></select></label>
       <div class="req-row">
         <label><span>Sport</span><select name="sport"><option>Football</option><option>Basket</option><option>Handball</option><option>Rugby</option><option>Volley</option><option>Autre</option></select></label>
         <label><span>Ville</span><input name="town" autocomplete="address-level2" maxlength="60"></label>
@@ -187,6 +209,8 @@ footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: c
 (() => {
   const f = document.getElementById('reqForm'), msg = document.getElementById('reqMsg');
   const say = (t, ok) => { msg.textContent = t; msg.className = 'req-msg ' + (ok ? 'ok' : 'err'); };
+  // « Passer à la formule Club » chooses it in the form
+  document.querySelectorAll('[data-want]').forEach(a => a.addEventListener('click', () => { f.elements.want.value = a.dataset.want; }));
   f.addEventListener('submit', async e => {
     e.preventDefault();
     const v = k => (f.elements[k].value || '').trim();
@@ -201,7 +225,7 @@ footer { padding: 22px 0 calc(env(safe-area-inset-bottom) + 22px); text-align: c
       const headers = { apikey: srv.key, 'Content-Type': 'application/json' };
       if (!String(srv.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + srv.key;
       const r = await fetch(srv.url.replace(/\/+$/, '') + '/rest/v1/rpc/ea_request', { method: 'POST', headers,
-        body: JSON.stringify({ p_name: v('name'), p_club: v('club'), p_sport: v('sport'), p_town: v('town'), p_contact: c, p_message: v('message'), p_trap: v('website') }) });
+        body: JSON.stringify({ p_name: v('name'), p_club: v('club'), p_sport: v('sport'), p_town: v('town'), p_contact: c, p_message: (v('want') === 'club' ? '[Formule Club] ' : '') + v('message'), p_trap: v('website') }) });
       if (!r.ok) { const t = await r.text(); throw new Error(/LIMITE/.test(t) ? 'Beaucoup de demandes en ce moment : réessaie dans une heure.' : 'L\'envoi n\'a pas marché. Réessaie dans un instant.'); }
       f.reset(); say('Merci ! Ta demande est bien arrivée. Tu recevras ton code très vite.', true);
     } catch (x) { say(x.message.startsWith('Failed') ? 'Pas de connexion internet. Réessaie dans un instant.' : x.message); }

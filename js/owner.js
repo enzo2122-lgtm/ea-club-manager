@@ -6,6 +6,7 @@ const Owner = (() => {
   const K = 'ea-owner-key';
   const key = () => { try { return sessionStorage.getItem(K) || ''; } catch (e) { return ''; } };
   const setKey = v => { try { if (v) sessionStorage.setItem(K, v); else sessionStorage.removeItem(K); } catch (e) {} };
+  const FREE_TEAMS = 3; // the free version: up to 3 teams (then the « Club » plan, 15 € a month)
   const fmt = d => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
   const ago = d => { if (!d) return 'jamais'; const n = Math.round((Date.now() - new Date(d)) / 864e5); return n <= 0 ? 'aujourd\'hui' : n === 1 ? 'hier' : `il y a ${n} jours`; };
 
@@ -21,21 +22,27 @@ const Owner = (() => {
       bind(root); return;
     }
     root.innerHTML = head + '<p class="muted">Chargement…</p>';
-    let clubs, codes;
-    try { [clubs, codes, reqs] = await Promise.all([Cloud.ownerClubs(key()), Cloud.ownerCodes(key(), 0), Cloud.ownerRequests(key()).catch(() => [])]); }
+    let clubs, codes, votes;
+    try { [clubs, codes, reqs, votes] = await Promise.all([Cloud.ownerClubs(key()), Cloud.ownerCodes(key(), 0), Cloud.ownerRequests(key()).catch(() => []), Cloud.ownerVotes(key()).catch(() => [])]); }
     catch (e) { if (e.code === 'PROPRIETAIRE') setKey(''); root.innerHTML = head + `<p class="tip">${esc(e.message)}</p>`; bind(root); return; }
     const free = codes.filter(c => !c.used), tot = k => clubs.reduce((a, c) => a + (+c[k] || 0), 0);
     root.innerHTML = head + `
       <div class="tiles"><div class="tile"><b>${clubs.length}</b><span>Clubs</span></div><div class="tile"><b>${clubs.filter(c => c.status === 'active').length}</b><span>Actifs</span></div>
-        <div class="tile"><b>${tot('players')}</b><span>Joueurs</span></div><div class="tile"><b>${tot('accounts')}</b><span>Comptes</span></div><div class="tile"><b>${free.length}</b><span>Codes libres</span></div></div>
+        <div class="tile"><b>${tot('players')}</b><span>Joueurs</span></div><div class="tile"><b>${tot('accounts')}</b><span>Comptes</span></div><div class="tile"><b>${free.length}</b><span>Codes libres</span></div>
+        <div class="tile"><b>${clubs.filter(c => c.plan === 'club').length}</b><span>Formule Club</span></div><div class="tile"><b>${clubs.filter(c => +c.week > 0).length}</b><span>Actifs cette semaine</span></div><div class="tile"><b>${tot('families')}</b><span>Familles prévenues</span></div></div>
       ${requestsCard()}
       <section class="card"><div class="row-head"><h2>🎟️ Codes d'activation</h2><button class="btn primary" data-ow="new">${I.plus}<span>Nouveaux codes</span></button></div>
         <p class="muted small">Remets un code à chaque club que tu inscris : il crée son espace avec « Créer mon club ». Un code ne sert qu'une fois.</p>
         <div class="ow-codes">${codes.map(c => `<div class="ow-code ${c.used ? 'used' : ''}"><code>${esc(c.code)}</code><span class="muted small">${c.used ? `utilisé par <b>${esc(c.club || '?')}</b> le ${fmt(c.used)}` : `libre${c.note ? ' · ' + esc(c.note) : ''}`}</span>${c.used ? '' : `<button class="btn soft small" data-owcopy="${esc(c.code)}">${I.copy}<span>Copier</span></button>`}</div>`).join('') || '<p class="muted">Aucun code pour l\'instant.</p>'}</div></section>
       <section class="card"><h2>🏟️ Les clubs</h2>
         <div class="ow-clubs">${clubs.map(c => `<div class="ow-club ${c.status}"><div><b>${esc(c.name)}</b> <span class="muted small">code : ${esc(c.slug)}</span>
-          <span class="muted small">créé le ${fmt(c.created)} · dernière activité ${ago(c.seen)} · ${c.players} joueurs · ${c.staff} dirigeants (${c.accounts} comptes) · ${c.matches} matchs</span></div>
-          <button class="btn ${c.status === 'active' ? 'danger' : 'primary'} small" data-owset="${esc(c.id)}" data-st="${c.status === 'active' ? 'suspended' : 'active'}">${c.status === 'active' ? 'Suspendre' : 'Réactiver'}</button></div>`).join('') || '<p class="muted">Aucun club inscrit.</p>'}</div></section>
+          <span class="muted small">créé le ${fmt(c.created)} · dernière activité ${ago(c.seen)} · ${c.players} joueurs · ${c.staff} dirigeants (${c.accounts} comptes) · ${c.matches} matchs</span>
+          <span class="small"><span class="ow-plan ${c.plan === 'club' ? 'club' : ''}">${c.plan === 'club' ? '⭐ Formule Club' : 'Gratuit'}</span> ${c.teams != null ? `· <b class="${c.plan !== 'club' && +c.teams > FREE_TEAMS ? 'ow-over' : ''}">${c.teams} équipe${c.teams > 1 ? 's' : ''}</b>${c.plan !== 'club' && +c.teams > FREE_TEAMS ? ' (au-delà de la version gratuite)' : ''}` : ''}
+            ${c.week != null ? ` · ${c.week} changement${c.week > 1 ? 's' : ''} en 7 jours · ${c.families || 0} famille${c.families > 1 ? 's' : ''} prévenue${c.families > 1 ? 's' : ''} · 👍 ${c.up || 0} 👎 ${c.down || 0}` : ''}</span></div>
+          <div class="chips"><button class="btn small" data-owplan="${esc(c.id)}" data-plan="${c.plan === 'club' ? 'free' : 'club'}">${c.plan === 'club' ? 'Repasser en gratuit' : '⭐ Formule Club'}</button>
+          <button class="btn ${c.status === 'active' ? 'danger' : 'primary'} small" data-owset="${esc(c.id)}" data-st="${c.status === 'active' ? 'suspended' : 'active'}">${c.status === 'active' ? 'Suspendre' : 'Réactiver'}</button></div></div>`).join('') || '<p class="muted">Aucun club inscrit.</p>'}</div></section>
+      ${(votes || []).length ? `<section class="card"><h2>📊 Avis sur les pages (tous les clubs)</h2><p class="muted small">« Cette page t'aide ? » : les pages les moins aimées d'abord. Ce sont elles à simplifier.</p>
+        <div class="vote-list">${votes.slice(0, 20).map(v => `<div><span>${esc(v.page || '?')}</span><b class="v-up">👍 ${+v.up || 0}</b><b class="v-down">👎 ${+v.down || 0}</b></div>`).join('')}</div></section>` : ''}
       <section class="card"><h2>🔔 Notifications des téléphones</h2>
         <p class="muted small">Adresse de la fonction « raincy-push » déployée sur le serveur EA (Supabase → Edge Functions). Tous les clubs en profitent.</p>
         <label class="fld"><span>Adresse de la fonction</span><input id="owPush" placeholder="https://xxxx.supabase.co/functions/v1/raincy-push"></label>
@@ -102,9 +109,10 @@ const Owner = (() => {
   }
   function bind(root) {
     root.onclick = async e => {
-      const b = e.target.closest('[data-ow], [data-owcopy], [data-owset], [data-owreq], [data-owalert]'); if (!b) return;
+      const b = e.target.closest('[data-ow], [data-owcopy], [data-owset], [data-owreq], [data-owalert], [data-owplan]'); if (!b) return;
       const redraw = () => page(root);
       if (b.dataset.owreq) return onRequest(b, redraw);
+      if (b.dataset.owplan) { try { await Cloud.ownerClubPlan(key(), b.dataset.owplan, b.dataset.plan); toast(b.dataset.plan === 'club' ? 'Club passé en formule Club ⭐' : 'Club repassé en gratuit'); redraw(); } catch (x) { toast(x.message, 'err'); } return; }
       if (b.dataset.owalert) return setAlert(b.dataset.owalert === 'on', root);
       if (b.dataset.ow === 'in') { const v = $('#owKey', root).value.trim(); if (!v) return toast('Écris ta clé', 'err'); setKey(v); return redraw(); }
       if (b.dataset.ow === 'init') {

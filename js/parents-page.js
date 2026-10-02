@@ -107,6 +107,7 @@
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now), past = ms.filter(m => m.played || m.date < now).reverse().slice(0, 8);
     const trs = data.trainings || [];
     $('#page').innerHTML = `${Member.bar(data, 'parents')}
+      ${Member.notifyCard('parents')}
       <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Pour ${esc(kid())} : physique, technique ou tactique, seul ou à plusieurs. Ses footings (temps, distance) et l'envoi au coach.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>
       ${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}
       <h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}
@@ -159,5 +160,6 @@
     answer(s.closest('[data-m]').dataset.m, 'oui', +s.value);
   });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && data) load(true); });
+  document.addEventListener('member-redraw', () => { if (data) { render(); loadPhotos(); } });
   load();
 })();
