@@ -18,7 +18,7 @@ const Parents = (() => {
   const familyName = id => (family(id) || {}).name || '';
   // Explanation shown when the server has not been updated yet (3.8 functions missing)
   const needUpdate = e => e && e.code === 'MISE_A_JOUR'
-    ? 'Le serveur EA Club Manager est en cours de mise à jour : réessaie dans quelques minutes.' : (e && e.message) || 'Erreur';
+    ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes.' : (e && e.message) || 'Erreur';
   // (3.42) The pages of the players and of the parents are opened with each licensee's personal code: the category has a QR code
   // that leads to the page where the code is typed, and the codes are handed out from « Codes personnels ».
   function shareDialog(teamId) {

@@ -83,3 +83,63 @@ const SESSIONS_FOOT = [
     ['jeu', 'Losange contre 2', 12, 'Losange de 12 m : 4 attaquants contre 2 défenseurs, 5 passes = 1 point.', 'Toujours deux solutions', 'Chasubles, plots', '12x12'],
     ['jeu', 'Match 4 contre 4 en losange', 15, 'Terrain de foot à 5 : garder la forme du losange pour marquer.', 'Écarter le jeu', 'Chasubles', '']] },
 ];
+
+// more systems (written for the app)
+SESSIONS_FOOT.push(
+  { sys: '4-1-2-3', fmt: '11', title: 'La sentinelle et les deux 8 offensifs', goal: 'Une sentinelle devant la défense, deux relayeurs qui attaquent les demi-espaces, trois attaquants.', ex: [
+    ['construction', 'Jouer par la sentinelle', 15, 'Zone de 35 x 40 m : 2 centraux et la sentinelle contre 3 attaquants, puis passe à un relayeur.', 'La sentinelle se montre dans le dos des attaquants|Contrôle orienté vers l\'avant|Jouer simple', 'Chasubles, plots', '35x40'],
+    ['finition', 'Les 8 dans la surface', 18, 'Attaque à 5 (2 relayeurs + 3 attaquants) contre 4 défenseurs et le gardien sur 40 m.', 'Un relayeur arrive lancé|L\'ailier rentre, le latéral déborde', 'Ballons, 1 but', '40x60'],
+    ['jeu', 'Match à thème 4-1-2-3', 25, 'Grand terrain : un but d\'un relayeur compte double.', 'Équilibre : la sentinelle couvre', 'Chasubles', '']] },
+  { sys: '4-3-2-1 (sapin)', fmt: '11', title: 'Le sapin : deux meneurs derrière la pointe', goal: 'Trois milieux solides, deux meneurs entre les lignes, un attaquant qui fixe.', ex: [
+    ['conservation', 'Les deux meneurs entre les lignes', 18, 'Demi-terrain : 3 milieux + 2 meneurs contre 4 milieux adverses. Passe à un meneur qui se retourne = 1 point.', 'Les meneurs dans les demi-espaces|Se montrer entre deux adversaires', 'Chasubles', '45x50'],
+    ['finition', 'Combinaisons à 3 devant', 15, 'Les 2 meneurs et l\'attaquant contre 3 défenseurs et le gardien.', 'Une-deux avec la pointe|Frappe de loin si l\'axe est fermé', 'Ballons, 1 but', '35x45'],
+    ['jeu', 'Match à thème : passe entre les lignes', 25, 'Grand terrain : un but après une passe reçue par un meneur compte double.', 'Largeur par les latéraux', 'Chasubles', '']] },
+  { sys: '4-3-1-2', fmt: '11', title: 'Le meneur derrière deux attaquants', goal: 'Un milieu axial à 3, un meneur et deux attaquants : jeu dans l\'axe, latéraux pour la largeur.', ex: [
+    ['construction', 'Losange au milieu', 15, 'Zone de 40 x 40 m : les 3 milieux + le meneur contre 3 milieux adverses.', 'Former des triangles|Le meneur décroche entre les lignes', 'Chasubles', '40x40'],
+    ['finition', 'Meneur et deux attaquants', 15, 'Le meneur sert un des deux attaquants, l\'autre attaque le second ballon.', 'Appels croisés|Passe dans la course', 'Ballons, 1 but', '35x45'],
+    ['jeu', 'Match : les latéraux doivent monter', 25, 'Grand terrain : un but après un centre d\'un latéral compte double.', 'Largeur par les latéraux', 'Chasubles', '']] },
+  { sys: '4-4-2 losange', fmt: '11', title: 'Le losange au milieu', goal: 'Sentinelle, deux relayeurs, un meneur : supériorité dans l\'axe.', ex: [
+    ['conservation', 'Losange 4 contre 2', 12, 'Losange de 15 m : 4 joueurs aux pointes contre 2 au centre. 8 passes = 1 point.', 'Toujours deux solutions|Jouer en une ou deux touches', 'Chasubles, plots', '15x15'],
+    ['conservation', 'Supériorité dans l\'axe', 18, 'Zone de 40 x 30 m : les 4 du losange + 2 attaquants contre 4 milieux et 2 défenseurs.', 'Attirer au centre puis écarter|Le meneur se retourne', 'Chasubles', '40x30'],
+    ['jeu', 'Match en 4-4-2 losange', 25, 'Grand terrain : un but après 3 passes dans l\'axe compte double.', 'Les latéraux donnent la largeur', 'Chasubles', '']] },
+  { sys: '4-2-2-2', fmt: '11', title: 'Le carré au milieu', goal: 'Deux milieux défensifs, deux milieux offensifs intérieurs, deux attaquants : jeu direct et combinaisons.', ex: [
+    ['transitions', 'Récupérer et jouer vite vers l\'avant', 15, 'Zone de 50 x 40 m : 6 contre 6, après récupération 3 passes maximum pour marquer.', 'Première passe vers l\'avant|Les milieux offensifs attaquent l\'espace', 'Chasubles, 2 buts', '50x40'],
+    ['finition', 'Combinaisons à 4 devant', 15, 'Les 2 milieux offensifs et les 2 attaquants contre 4 défenseurs.', 'Appels dans la profondeur|Jeu à une touche', 'Ballons, 1 but', '40x50'],
+    ['jeu', 'Match à thème', 25, 'Grand terrain : un but marqué moins de 10 secondes après la récupération compte double.', 'Verticalité', 'Chasubles', '']] },
+  { sys: '4-5-1', fmt: '11', title: 'Le bloc à 5 milieux', goal: 'Densité au milieu, un attaquant en appui, les milieux arrivent de la deuxième ligne.', ex: [
+    ['defense', 'Bloc de 9 sans ballon', 18, 'Deux lignes (4 + 5) contre 7 attaquants : coulisser et fermer l\'axe.', 'Compacité|Distances courtes', 'Chasubles', '45x68'],
+    ['finition', 'L\'appui et les arrivées', 15, 'L\'attaquant reçoit dos au but, remise pour un milieu qui arrive et frappe.', 'Remise en une touche|Arriver lancé', 'Ballons, 1 but', '30x40'],
+    ['jeu', 'Match à thème', 25, 'Grand terrain : un but d\'un milieu compte double.', 'Équilibre', 'Chasubles', '']] },
+  { sys: '4-4-1-1', fmt: '11', title: 'Le 9 et demi', goal: 'Deux lignes de 4, un attaquant de soutien derrière la pointe.', ex: [
+    ['pressing', 'Pressing à 2 décalés', 15, 'Le 9 et le 9 et demi contre 2 centraux et un 6 : le 9 et demi coupe le 6.', 'Un presse, l\'autre ferme|Orienter vers un côté', 'Chasubles, plots', '30x30'],
+    ['finition', 'Le 9 et demi entre les lignes', 15, 'Il reçoit entre les lignes et sert la pointe ou frappe.', 'Se retourner vite|Regarder avant de recevoir', 'Ballons, 1 but', '35x40'],
+    ['jeu', 'Match à thème', 25, 'Grand terrain : passe décisive du 9 et demi = but double.', 'Compacité', 'Chasubles', '']] },
+  { sys: '3-4-1-2', fmt: '11', title: 'Trois derrière, un meneur et deux attaquants', goal: 'Pistons pour la largeur, un meneur, deux attaquants.', ex: [
+    ['construction', 'Relance à 3 et piston', 15, 'Zone de 40 x 60 m : 3 centraux + 2 pistons contre 3 attaquants.', 'Le piston haut|Changer de côté', 'Chasubles', '40x60'],
+    ['finition', 'Le meneur et les deux attaquants', 15, 'Combinaisons à 3 contre 3 défenseurs devant la surface.', 'Appels croisés|Le meneur frappe si c\'est ouvert', 'Ballons, 1 but', '35x45'],
+    ['jeu', 'Match en 3-4-1-2', 25, 'Grand terrain : centre d\'un piston puis but = double.', 'Largeur', 'Chasubles', '']] },
+  { sys: '3-4-2-1', fmt: '11', title: 'Les deux 10 derrière la pointe', goal: 'Deux milieux offensifs dans les demi-espaces, une pointe, les pistons dans les couloirs.', ex: [
+    ['conservation', 'Les demi-espaces', 18, 'Terrain découpé en 5 couloirs : les deux 10 seuls dans les demi-espaces, 7 contre 7.', 'Recevoir dans le demi-espace|Jouer vers la pointe', 'Chasubles, plots', '50x60'],
+    ['finition', 'Arrivées des deux 10', 15, 'Le piston centre en retrait, les deux 10 arrivent.', 'Arriver au bon moment', 'Ballons, 1 but', '40x50'],
+    ['jeu', 'Match à thème', 25, 'Grand terrain : but d\'un 10 = double.', 'Occuper les couloirs', 'Chasubles', '']] },
+  { sys: '5-4-1', fmt: '11', title: 'Défendre très bas à 9', goal: 'Cinq défenseurs et quatre milieux très proches, un attaquant qui garde le ballon.', ex: [
+    ['defense', 'Bloc bas 9 contre 9', 20, 'Tiers défensif : 9 défenseurs contre 9 attaquants. Sortir le ballon = 1 point.', 'Pas d\'espace entre les lignes|Défendre la surface', 'Chasubles, 1 but', '40x68'],
+    ['transitions', 'L\'attaquant garde le ballon', 15, 'Passe longue vers l\'attaquant qui protège en attendant 2 soutiens.', 'Protéger avec le corps|Jouer en retrait vers le soutien', 'Ballons', '40x30'],
+    ['jeu', 'Match en 5-4-1', 25, 'Grand terrain : but sur contre-attaque = double.', 'Patience', 'Chasubles', '']] },
+  { sys: '5-2-3', fmt: '11', title: 'Défense à 5 et trois attaquants', goal: 'Solides derrière, trois attaquants qui restent hauts pour la contre-attaque.', ex: [
+    ['defense', 'Ligne de 5 et double pivot', 18, 'Les 5 défenseurs et 2 milieux contre 7 attaquants.', 'Fermer l\'axe|Les pistons sortent sur les ailiers', 'Chasubles', '40x68'],
+    ['transitions', 'Contre-attaque à 3', 15, 'Les 3 attaquants contre 3 défenseurs qui reculent, 10 secondes pour finir.', 'Courir vers l\'avant|Passe dans la course', 'Ballons, 1 but', '60x50'],
+    ['jeu', 'Match à thème', 25, 'Grand terrain : but en contre-attaque = double.', 'Rester haut devant', 'Chasubles', '']] },
+  { sys: '3-1-3', fmt: '8', title: 'Foot à 8 en 3-1-3 : trois attaquants', goal: 'Un milieu central, trois attaquants qui attaquent la largeur.', ex: [
+    ['construction', 'Le milieu central relais', 12, 'Zone de 25 x 25 m : 3 défenseurs + le milieu contre 2 attaquants.', 'Le milieu se montre|Jouer vers les côtés', 'Chasubles', '25x25'],
+    ['finition', 'Attaque à 3', 15, 'Les 3 attaquants contre 2 défenseurs et le gardien.', 'Largeur|Centre au premier poteau', 'Ballons, 1 but', '30x35'],
+    ['jeu', 'Match 8 contre 8 en 3-1-3', 20, 'Terrain de foot à 8 : but d\'un attaquant de côté = double.', 'Écarter', 'Chasubles', '']] },
+  { sys: '2-4-1', fmt: '8', title: 'Foot à 8 en 2-4-1 : le milieu à 4', goal: 'Densité au milieu, deux défenseurs, un attaquant de pointe.', ex: [
+    ['conservation', 'Milieu à 4 contre 3', 15, 'Zone de 30 x 25 m : 4 milieux contre 3, 6 passes = 1 point.', 'Losange|Passes courtes', 'Chasubles', '30x25'],
+    ['finition', 'La pointe et les arrivées', 12, 'L\'attaquant remise pour un milieu qui frappe.', 'Remise propre', 'Ballons, 1 but', '25x30'],
+    ['jeu', 'Match 8 contre 8 en 2-4-1', 20, 'But d\'un milieu = double.', 'Arriver dans la surface', 'Chasubles', '']] },
+  { sys: '2-1-1', fmt: '5', title: 'Foot à 5 en 2-1-1', goal: 'Deux derrière, un milieu, un attaquant.', ex: [
+    ['technique', 'Passe au milieu puis devant', 10, 'Les 2 défenseurs passent au milieu qui sert l\'attaquant.', 'Regarder avant de recevoir', 'Ballons, plots', '20x15'],
+    ['jeu', '3 contre 2', 12, 'Zone de 20 x 15 m : 3 attaquants contre 2.', 'Fixer et passer', 'Ballons, mini-but', '20x15'],
+    ['jeu', 'Match 4 contre 4', 15, 'Terrain de foot à 5 : chacun à son poste.', 'Revenir défendre', 'Chasubles', '']] }
+);

@@ -453,8 +453,8 @@ const Editor = (() => {
     UI.modal({
       title: 'Placer une formation',
       body: `<label class="fld"><span>Mon équipe</span><select id="fmTeam"><option value="">Sans prénoms</option>${teams.map(t => `<option value="${t.id}" ${t.id === E.sc.teamId ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
-        <label class="fld"><span>Notre système</span><select id="fmHome">${list.map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
-        <label class="fld"><span>Adversaires</span><select id="fmAway"><option value="">Pas d'adversaires</option>${list.map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
+        <label class="fld"><span>Notre système</span><select id="fmHome">${formationOptions(f.format)}</select></label>
+        <label class="fld"><span>Adversaires</span><select id="fmAway"><option value="">Pas d'adversaires</option>${formationOptions(f.format)}</select></label>
         <label class="switch"><input type="checkbox" id="fmReplace" checked><span>Enlever les joueurs déjà placés</span></label>`,
       actions: [{ label: 'Annuler' }, { label: 'Placer', kind: 'primary', onClick: (close, root) => {
         const team = Store.get('teams', root.querySelector('#fmTeam').value), home = root.querySelector('#fmHome').value, away = root.querySelector('#fmAway').value;

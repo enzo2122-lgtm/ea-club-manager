@@ -172,9 +172,9 @@ const Auth = (() => {
   const lock = () => document.getElementById('lock');
   function frame(inner) {
     const el = lock(); el.hidden = false;
-    el.innerHTML = `<div class="lock-card">${Supporters.coin('lock-crest')}<p class="eyebrow">EA Club Manager</p><h1>${esc(Store.state.club.name || 'Espace éducateurs')}</h1>${inner}
+    el.innerHTML = `<div class="lock-card">${Supporters.coin('lock-crest')}<p class="eyebrow">Clubbo</p><h1>${esc(Store.state.club.name || 'Espace éducateurs')}</h1>${inner}
       <button class="btn wide link how-btn" id="howTo">${I.help}<span>Comment utiliser l'appli ?</span></button>
-      <p class="lock-version">EA Club Manager · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" id="updApp">Mettre à jour l'appli</button></p></div>`;
+      <p class="lock-version">Clubbo · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" id="updApp">Mettre à jour l'appli</button></p></div>`;
     el.querySelector('#howTo').onclick = () => Help.tour();
     el.querySelector('#updApp').onclick = () => App.checkUpdate(true);
     el.scrollTop = 0;
@@ -266,7 +266,7 @@ const Auth = (() => {
     done(s.id, keep);
   }
   const errText = code => ({ MOT_DE_PASSE: 'Mot de passe incorrect', BLOQUE: 'Trop d\'essais : attends 5 minutes avant de réessayer', COMPTE_INCONNU: 'Aucun compte à ce nom dans ce club',
-    CLUB_INCONNU: 'Aucun club avec ce code', CLUB_SUSPENDU: 'L\'accès de ce club est suspendu : contacte EA Club Manager' }[code] || 'Connexion impossible');
+    CLUB_INCONNU: 'Aucun club avec ce code', CLUB_SUSPENDU: 'L\'accès de ce club est suspendu : contacte Clubbo' }[code] || 'Connexion impossible');
   const clubField = (v = '') => `<label class="fld"><span>Code du club</span><input id="club" value="${esc(v)}" placeholder="ex : fc-exemple" autocapitalize="off" autocorrect="off" autocomplete="organization"></label>`;
 
   function loginScreen() {
@@ -363,19 +363,19 @@ const Auth = (() => {
       };
     };
   }
-  // A new club: the activation code given by EA Club Manager, the name of the club, its code, and its first responsable
+  // A new club: the activation code given by Clubbo, the name of the club, its code, and its first responsable
   const slugOf = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
   function createClubScreen() {
     const n = lastNames();
-    const el = frame(`<p class="lead"><b>Créer mon club</b> sur EA Club Manager</p>
-      <label class="fld"><span>Code d'activation (remis par EA Club Manager)</span><input id="act" placeholder="EA-XXXX-XXXX" autocapitalize="characters" autocorrect="off" autocomplete="off"></label>
+    const el = frame(`<p class="lead"><b>Créer mon club</b> sur Clubbo</p>
+      <label class="fld"><span>Code d'activation (remis par Clubbo)</span><input id="act" placeholder="EA-XXXX-XXXX" autocapitalize="characters" autocorrect="off" autocomplete="off"></label>
       <label class="fld"><span>Nom du club</span><input id="cname" placeholder="ex : FC Exemple" autocomplete="organization"></label>
       <label class="fld"><span>Code du club (pour se connecter, sans espace)</span><input id="cslug" placeholder="fc-exemple" autocapitalize="off" autocorrect="off"></label>
       <p class="muted small">Toi, le premier responsable du club :</p>
       ${nameFields(n.ln, n.fn)}${pwFields('Ton mot de passe')}${keepBox}
       <button class="btn primary wide" id="go">Créer le club</button>
       <div class="lock-links"><button class="btn wide link" id="back">Retour</button></div>
-      <p class="muted small">Pas de code d'activation ? Contacte EA Club Manager.</p>`);
+      <p class="muted small">Pas de code d'activation ? Contacte Clubbo.</p>`);
     let slugTouched = false;
     $('#cname', el).oninput = () => { if (!slugTouched) $('#cslug', el).value = slugOf($('#cname', el).value); };
     $('#cslug', el).oninput = () => { slugTouched = true; };
@@ -402,7 +402,7 @@ const Auth = (() => {
   function forgotServer() {
     const el = frame(`<p class="lead"><b>Mot de passe oublié</b></p>
       <p><b>Éducateur</b> : demande au responsable de ton club de réinitialiser ton mot de passe (Réglages → Comptes des dirigeants → Réinitialiser). Ensuite, ouvre le lien d'invitation et crée un nouveau mot de passe.</p>
-      <p><b>Responsable</b> : un autre responsable de ton club peut le réinitialiser. Sinon, contacte EA Club Manager.</p>
+      <p><b>Responsable</b> : un autre responsable de ton club peut le réinitialiser. Sinon, contacte Clubbo.</p>
       <div class="lock-links"><button class="btn wide link" id="back">Retour</button></div>`);
     $('#back', el).onclick = () => loginScreen();
   }

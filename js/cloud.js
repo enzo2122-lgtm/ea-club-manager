@@ -1,4 +1,4 @@
-/* Cloud: the EA Club Manager server, shared by every club (Supabase). Each club only reaches its own data:
+/* Cloud: the Clubbo server, shared by every club (Supabase). Each club only reaches its own data:
    every SQL function finds the club from the dirigeant's login (or the club's invitation code) — see supabase/ea-schema.sql.
    The clubs never set up anything: the server is run by the owner of the platform, who gives each new club an activation code. */
 const Cloud = (() => {
@@ -18,7 +18,7 @@ const Cloud = (() => {
   const ERRORS = {
     COMPTE_INCONNU: 'Aucun compte à ce nom dans ce club.',
     CLUB_INCONNU: 'Aucun club avec ce code. Vérifie le code du club (demande-le à ton responsable).',
-    CLUB_SUSPENDU: 'L\'accès de ce club est suspendu : contacte EA Club Manager.',
+    CLUB_SUSPENDU: 'L\'accès de ce club est suspendu : contacte Clubbo.',
     ACTIVATION: 'Ce code d\'activation n\'est pas valable (ou a déjà servi).',
     SLUG_PRIS: 'Ce code de club est déjà pris : choisis-en un autre.',
     PROPRIETAIRE: 'Clé du propriétaire incorrecte.',
@@ -52,7 +52,7 @@ const Cloud = (() => {
     if (!r.ok) {
       let m = txt; try { m = JSON.parse(txt).message || txt; } catch (e) {}
       const err = new Error(nice(m)); err.code = Object.keys(ERRORS).find(x => String(m).includes(x)) || '';
-      if (r.status === 404 || /could not find the function/i.test(m)) { err.code = 'MISE_A_JOUR'; err.message = 'Le serveur EA Club Manager est en cours de mise à jour : réessaie dans quelques minutes.'; }
+      if (r.status === 404 || /could not find the function/i.test(m)) { err.code = 'MISE_A_JOUR'; err.message = 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes.'; }
       throw err;
     }
     return txt ? JSON.parse(txt) : null;
@@ -132,7 +132,7 @@ const Cloud = (() => {
     let code;
     try { code = await api.invite(renew); } catch (e) { return toast(e.message, 'err'); }
     const link = inviteLink(code), club = Store.state.club.name || 'le club';
-    const text = `${club} · EA Club Manager : ouvre ce lien pour créer ton mot de passe (première connexion), puis ajoute l'appli à ton écran d'accueil.\nCode du club : ${clubSlug()}\n${link}`;
+    const text = `${club} · Clubbo : ouvre ce lien pour créer ton mot de passe (première connexion), puis ajoute l'appli à ton écran d'accueil.\nCode du club : ${clubSlug()}\n${link}`;
     Store.state.ui.invited = true; Store.save();
     modal({ title: 'Inviter les éducateurs', body: `<p>Envoie ce lien aux dirigeants (WhatsApp, SMS, e-mail). En l'ouvrant, chacun choisit son nom et crée son mot de passe. Ensuite, ils se connectent partout avec le <b>code du club</b> (<b>${esc(clubSlug())}</b>), leur <b>nom, prénom et mot de passe</b>.</p>
       <label class="fld"><span>Lien d'invitation</span><input id="invLink" value="${esc(link)}" readonly></label>
@@ -140,14 +140,14 @@ const Cloud = (() => {
       onOpen: r => { const i = $('#invLink', r); i.onclick = () => i.select(); },
       actions: [{ label: 'Nouveau lien', onClick: () => { setTimeout(() => shareInvite(true), 60); } },
         { label: 'Copier', icon: I.copy, onClick: () => { navigator.clipboard.writeText(text).then(() => toast('Invitation copiée')).catch(() => toast('Sélectionne le lien et copie-le')); return false; } },
-        ...(navigator.share ? [{ label: 'Envoyer', kind: 'primary', icon: I.share, onClick: () => { navigator.share({ title: 'EA Club Manager', text }).catch(() => {}); return false; } }] : [])] });
+        ...(navigator.share ? [{ label: 'Envoyer', kind: 'primary', icon: I.share, onClick: () => { navigator.share({ title: 'Clubbo', text }).catch(() => {}); return false; } }] : [])] });
   }
 
   /* ---------- Réglages ---------- */
   const { esc, $, toast, modal } = UI;
   function settingsSection() {
     const admin = Auth.isAdmin(), sync = typeof Sync !== 'undefined' ? Sync.status() : '';
-    return `<section class="card"><h2>${I.share}Le club sur EA Club Manager</h2>
+    return `<section class="card"><h2>${I.share}Le club sur Clubbo</h2>
       <p>${ready() ? `<span class="res res-V">Connecté</span> Code du club : <b>${esc(clubSlug() || '—')}</b>` : '<span class="res res-D">Non connecté</span>'}</p>
       ${sync ? `<p class="muted small">${esc(sync)}</p>` : ''}
       ${admin && ready() ? `<div class="chips"><button class="btn primary" data-cloud="invite">${I.share}<span>Inviter les éducateurs</span></button><button class="btn" data-cloud="test">${I.check}<span>Tester la connexion</span></button></div>

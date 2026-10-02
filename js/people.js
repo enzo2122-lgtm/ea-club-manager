@@ -361,7 +361,7 @@ const People = (() => {
   }
   /* ---------- categories by year of birth (FFF: a season starts on 1 July, U13 in 2026-2027 = born in 2014) ---------- */
   const FOOT_CATS = ['U6', 'U7', 'U8', 'U9', 'U10', 'U11', 'U12', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'Seniors', 'Vétérans'];
-  const REMOVED_CATS = []; // (EA Club Manager: each club chooses its categories, U18 / U19 / U20 included)
+  const REMOVED_CATS = []; // (Clubbo: each club chooses its categories, U18 / U19 / U20 included)
   const seasonStart = (d = new Date()) => d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1;
   const seasonLabel = () => `${seasonStart()}-${seasonStart() + 1}`;
   // From U9 to Seniors, each category also has two teams A and B: the coach picks their players among the category's licenci\u00e9s

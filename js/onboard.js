@@ -1,4 +1,4 @@
-/* Onboard: the club's own settings on EA Club Manager — name, short name, crest, colours, town (weather), FFF name, slogan,
+/* Onboard: the club's own settings on Clubbo — name, short name, crest, colours, town (weather), FFF name, slogan,
    and its categories. Shown once after the club is created (then Réglages → Le club), followed by the import of the club's data. */
 const Onboard = (() => {
   const { esc, $, $$, toast, modal } = UI;
@@ -85,7 +85,7 @@ const Onboard = (() => {
   // just after the club is created: its settings, then its data
   function start() {
     let save;
-    modal({ title: `Bienvenue sur EA Club Manager 👋`, noFocus: true,
+    modal({ title: `Bienvenue sur Clubbo 👋`, noFocus: true,
       body: `<p class="lead">Quelques réglages pour que l'appli soit celle de <b>${esc(S().club.name || 'ton club')}</b>. Tu pourras tout changer plus tard (Réglages → Le club).</p>${form()}`,
       onOpen: r => { save = bind(r); r._obSave = save; },
       actions: [{ label: 'Plus tard' }, { label: 'Continuer', kind: 'primary', onClick: (close, r) => { (r._obSave || save)().then(ok => { if (!ok) return; close(); App.route(true); setTimeout(importStep, 250); }); return false; } }] });

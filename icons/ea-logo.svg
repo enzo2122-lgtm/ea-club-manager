@@ -4,19 +4,16 @@
     <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3dc9c"/><stop offset="1" stop-color="#c9a45c"/></linearGradient>
     <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b3172f"/><stop offset="1" stop-color="#7a0a16"/></linearGradient>
   </defs>
-  <!-- the shield -->
+  <!-- Clubbo: the shield of every club, a big C, the name on the band and a ball of every sport -->
   <path d="M256 22 L452 88 V240 C452 360 370 446 256 492 C142 446 60 360 60 240 V88 Z" fill="url(#bg)" stroke="url(#gold)" stroke-width="18" stroke-linejoin="round"/>
   <path d="M256 58 L420 112 V240 C420 342 352 416 256 456 C160 416 92 342 92 240 V112 Z" fill="none" stroke="#c9a45c" stroke-opacity=".45" stroke-width="4"/>
-  <!-- the band across -->
-  <path d="M92 300 C170 270 342 270 420 300 V334 C342 304 170 304 92 334 Z" fill="url(#red)"/>
-  <!-- EA -->
-  <text x="256" y="262" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="168" fill="url(#gold)" letter-spacing="-4">EA</text>
-  <!-- the ball -->
-  <g transform="translate(256 392)">
-    <circle r="40" fill="#fff" stroke="#0b1633" stroke-width="5"/>
-    <path d="M0 -16 L15 -5 L9 13 L-9 13 L-15 -5 Z" fill="#0b1633"/>
-    <path d="M0 -16 V-39 M15 -5 L37 -12 M9 13 L23 33 M-9 13 L-23 33 M-15 -5 L-37 -12" stroke="#0b1633" stroke-width="4"/>
+  <path d="M306 132 A80 80 0 1 0 306 246" fill="none" stroke="url(#gold)" stroke-width="42" stroke-linecap="round"/>
+  <path d="M92 292 C170 262 342 262 420 292 V340 C342 310 170 310 92 340 Z" fill="url(#red)"/>
+  <text x="256" y="322" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="44" fill="#fff" letter-spacing="3">CLUBBO</text>
+  <g transform="translate(256 396)">
+    <circle r="36" fill="#fff" stroke="#0b1633" stroke-width="5"/>
+    <path d="M-36 0 H36 M0 -36 V36" stroke="#0b1633" stroke-width="4"/>
+    <path d="M-25 -26 C-8 -10 -8 10 -25 26 M25 -26 C8 -10 8 10 25 26" fill="none" stroke="#0b1633" stroke-width="4"/>
   </g>
-  <!-- stars -->
-  <g fill="#e2c27d"><path d="M150 132 l7 15 16 2 -12 11 3 16 -14 -8 -14 8 3 -16 -12 -11 16 -2z"/><path d="M362 132 l7 15 16 2 -12 11 3 16 -14 -8 -14 8 3 -16 -12 -11 16 -2z"/></g>
+  <g fill="#e2c27d" transform="translate(256 0) scale(1.28 1) translate(-256 0)"><path d="M150 132 l7 15 16 2 -12 11 3 16 -14 -8 -14 8 3 -16 -12 -11 16 -2z"/><path d="M362 132 l7 15 16 2 -12 11 3 16 -14 -8 -14 8 3 -16 -12 -11 16 -2z"/></g>
 </svg>

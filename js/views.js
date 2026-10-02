@@ -728,7 +728,7 @@ const Views = (() => {
     const t = teamOf(m.teamId); if (!t) return toast('Choisis une équipe', 'err');
     const fmt = Formations[t.format] ? t.format : Sport.defFormat(), forms = Object.keys(Formations[fmt] || Formations['11']); // a team without a known format plays at 11
     const nConv = Store.rosterOf(t.id).filter(p => (m.convoked || []).includes(p.id)).length;
-    modal({ title: 'Composition', body: `<label class="fld"><span>Système</span><select id="lf">${forms.map(f => `<option>${esc(f)}</option>`).join('')}</select></label>
+    modal({ title: 'Composition', body: `<label class="fld"><span>Système</span><select id="lf">${formationOptions(Formations[t.format] ? t.format : fmt)}</select></label>
       ${nConv ? `<p class="tip">Les ${nConv} convoqués sont placés selon leur poste (le DC dans l'axe, le LD à droite, l'AG à gauche…). Les autres sont notés comme remplaçants. Tu pourras tout déplacer.</p>`
         : '<p class="tip">⚠️ Aucun joueur convoqué pour ce match : les postes seront placés sans prénoms. Pour avoir les prénoms, coche d\'abord les convoqués (liste « Convoqués » du match), puis refais la composition.</p>'}`,
       actions: [{ label: 'Annuler' }, { label: 'Créer', kind: 'primary', onClick: (c, r) => {
@@ -831,7 +831,7 @@ const Views = (() => {
         <p class="muted">${Cloud.ready() ? 'Efface les données de cet appareil seulement (elles restent sur le serveur du club et reviennent à la prochaine connexion).' : 'Les données sont enregistrées sur cet appareil uniquement. Pense à envoyer une copie avant d\'effacer.'}</p>
         <button class="btn danger" data-act="reset">${I.trash}<span>Effacer les données de cet appareil</span></button>
       </section>` : ''}
-      <p class="muted small">EA Club Manager · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button></p>`;
+      <p class="muted small">Clubbo · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
     root.onchange = e => { if (e.target.dataset.notifpref) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };

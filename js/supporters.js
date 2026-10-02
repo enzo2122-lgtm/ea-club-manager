@@ -1,5 +1,5 @@
 /* Supporters: the club's crest turning like a coin (its name and slogan on the back), and the flag with the crest and the slogan,
-   waving above supporters of all ages. Everything comes from the club's settings (crest, colours, slogan), the EA Club Manager logo by default. */
+   waving above supporters of all ages. Everything comes from the club's settings (crest, colours, slogan), the Clubbo logo by default. */
 const Supporters = (() => {
   const club = () => (typeof Store !== 'undefined' && Store.state && Store.state.club) || {};
   const crest = () => club().crest || 'icons/ea-logo.png';
@@ -12,7 +12,7 @@ const Supporters = (() => {
 
   // The back of the coin: the club's name around the ring, its slogan (or its short name) in the middle
   function back() {
-    const id = 'coinArc' + (++n), c = col(), name = String(club().name || 'EA Club Manager').toUpperCase().slice(0, 30);
+    const id = 'coinArc' + (++n), c = col(), name = String(club().name || 'Clubbo').toUpperCase().slice(0, 30);
     const mid = slogan() ? wrap(slogan().toUpperCase(), 14, 4) : wrap(String(club().short || club().name || 'EA').toUpperCase(), 12, 3);
     const top = 37.9, y0 = 50 - (mid.length - 1) * 5.2;
     return `<svg class="coin-svg" viewBox="0 0 100 100" aria-hidden="true">

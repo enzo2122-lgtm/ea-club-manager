@@ -1,4 +1,4 @@
-/* Owner: the space of the owner of EA Club Manager (#/proprietaire), reached with the owner key (never kept after the tab is closed).
+/* Owner: the space of the owner of Clubbo (#/proprietaire), reached with the owner key (never kept after the tab is closed).
    Activation codes for the new clubs, the list of the clubs (players, dirigeants, matches, last activity), suspend / reactivate a club,
    the phone notifications of the platform. */
 const Owner = (() => {
@@ -10,9 +10,9 @@ const Owner = (() => {
   const ago = d => { if (!d) return 'jamais'; const n = Math.round((Date.now() - new Date(d)) / 864e5); return n <= 0 ? 'aujourd\'hui' : n === 1 ? 'hier' : `il y a ${n} jours`; };
 
   async function page(root) {
-    const head = `<header class="page-head"><div><h1>👑 Propriétaire</h1><p class="sub">EA Club Manager · les clubs et leurs codes d'activation</p></div>
+    const head = `<header class="page-head"><div><h1>👑 Propriétaire</h1><p class="sub">Clubbo · les clubs et leurs codes d'activation</p></div>
       ${key() ? '<div class="head-actions"><button class="btn" data-ow="out">Fermer l\'espace</button></div>' : ''}</header>`;
-    if (!Cloud.canLogin()) { root.innerHTML = head + '<p class="tip">Le serveur EA Club Manager n\'est pas encore renseigné dans l\'appli (js/config.js).</p>'; return; }
+    if (!Cloud.canLogin()) { root.innerHTML = head + '<p class="tip">Le serveur Clubbo n\'est pas encore renseigné dans l\'appli (js/config.js).</p>'; return; }
     if (!key()) {
       root.innerHTML = head + `<section class="card"><h2>🔑 Clé du propriétaire</h2>
         <label class="fld"><span>Ta clé (au moins 12 caractères)</span><input id="owKey" type="password" autocomplete="off"></label>

@@ -1577,6 +1577,8 @@ h2.section svg { width: 22px; height: 22px; vertical-align: -4px; margin-right: 
 .ex-big-dur { font-weight: 800; }
 @media (max-width: 760px) { .ex-big { grid-template-columns: 1fr; } .ex-big-txt { font-size: 17px; } }
 .modal .sheet:has(.ex-big) { width: min(1100px, 100%); }
+.sl-grp { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin: 4px 0; }
+.sl-grp > span { min-width: 92px; }
 .sl-card h2 { margin: 0; }
 .sl-ex { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 8px; }
 .sl-item { display: flex; flex-direction: column; gap: 6px; }

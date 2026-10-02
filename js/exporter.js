@@ -239,7 +239,7 @@ const Exporter = (() => {
     P.doc.addPage(); P.y = P.M; P.h2('Documents joints');
     for (const d of docs) {
       P.label(d.name || 'Document');
-      if (d.video) { P.para('Vidéo : à regarder dans l\'appli EA Club Manager.'); continue; }
+      if (d.video) { P.para('Vidéo : à regarder dans l\'appli Clubbo.'); continue; }
       if (d.link) { P.para('Lien : ' + d.link); continue; }
       for (const url of d.images) {
         const img = await Media.loadImage(url), ratio = img.naturalHeight / img.naturalWidth;

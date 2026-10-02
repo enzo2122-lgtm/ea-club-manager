@@ -1,4 +1,4 @@
-# EA Club Manager
+# Clubbo
 
 L'appli des clubs de **football, basket, handball, rugby et volley** (le club choisit son sport à la création ; terrains, postes, catégories, scores et exercices s'adaptent) : équipes et catégories, tableau tactique animé, séances et bibliothèque d'exercices, matchs (convocations, match en direct, préparation, causerie), statistiques (matchs officiels et amicaux à part), messagerie, planning des terrains, bénévoles, espaces joueurs et parents avec un code personnel par licencié.
 

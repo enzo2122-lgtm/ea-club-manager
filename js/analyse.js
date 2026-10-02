@@ -440,7 +440,7 @@ const Analyse = (() => {
     };
     try {
       if (rec) rec.start(250);
-      await card('#8c1024', `${S().club.name || 'EA Club Manager'} · Briefing vidéo`, name, `${items.length} séquence${items.length > 1 ? 's' : ''}`, 2200);
+      await card('#8c1024', `${S().club.name || 'Clubbo'} · Briefing vidéo`, name, `${items.length} séquence${items.length > 1 ? 's' : ''}`, 2200);
       for (let k = 0; k < items.length; k++) {
         const { rec: m, clip } = items[k], t = tagOf(clip.tag), ps = (clip.players || []).map(pid => Store.get('players', pid)).filter(Boolean);
         bz.progress(k / items.length);
@@ -477,7 +477,7 @@ const Analyse = (() => {
             requestAnimationFrame(tick);
           } catch (e) { rej(e); } }; tick(); });
       }
-      await card('#8c1024', S().club.name || 'EA Club Manager', 'Fin du briefing', '', 1200);
+      await card('#8c1024', S().club.name || 'Clubbo', 'Fin du briefing', '', 1200);
       let blob;
       if (wr) blob = await wr.finish();
       else { rec.stop(); await stopped; blob = new Blob(chunks, { type: (rec.mimeType || mime || 'video/webm').split(';')[0] }); }

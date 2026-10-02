@@ -1,5 +1,5 @@
 /* Service worker: keeps the app working without internet. Bump VERSION after each update. */
-const VERSION = 'ea-club-manager-v15';
+const VERSION = 'ea-club-manager-v16';
 const JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
@@ -57,9 +57,9 @@ self.addEventListener('push', e => {
     let list = [];
     try { list = await pending(); } catch (err) {}
     // a phone must always show something when it is woken up
-    if (!list.length) list = [{ title: 'EA Club Manager', body: 'Nouvelle information du club', url: '#/', tag: 'raincy' }];
+    if (!list.length) list = [{ title: 'Clubbo', body: 'Nouvelle information du club', url: '#/', tag: 'raincy' }];
     for (const n of list.slice(0, 4)) {
-      await self.registration.showNotification(n.title || 'EA Club Manager', {
+      await self.registration.showNotification(n.title || 'Clubbo', {
         body: (n.body || '') + (n.n > 1 ? ` (+${n.n - 1})` : ''), tag: n.tag || undefined, renotify: !!n.tag,
         icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: n.url || '#/' } });
     }

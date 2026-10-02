@@ -237,6 +237,66 @@ const Formations = {
   },
 };
 
+/* More game systems, made line by line (« 4-3-2-1 » = 4 defenders, 3, 2, then 1): the ones drawn by hand above stay as they are.
+   Then the systems of the other sports (attack and defence), and the list sorted in sub-categories for the menus. */
+(function moreFormations() {
+  const xsOf = n => ({ 2: [.2, .45], 3: [.18, .32, .47], 4: [.17, .28, .38, .48], 5: [.16, .24, .32, .4, .48] })[n];
+  const ysOf = n => n === 1 ? [.5] : n === 2 ? [.34, .66] : Array.from({ length: n }, (_, i) => .08 + .84 * i / (n - 1));
+  const build = lines => { const xs = xsOf(lines.length), out = [['G', lines.length > 2 ? .02 : .04, .5, 1]]; let num = 2;
+    lines.forEach((n, li) => ysOf(n).forEach(y => out.push([String(num++), xs[li], y]))); return out; };
+  const add = (fmt, name, lines) => { Formations[fmt] = Formations[fmt] || {}; if (!Formations[fmt][name]) Formations[fmt][name] = build(lines); };
+  // football à 11
+  [['4-1-4-1', [4, 1, 4, 1]], ['4-3-2-1 (sapin)', [4, 3, 2, 1]], ['4-3-1-2', [4, 3, 1, 2]], ['4-4-2 losange', [4, 1, 2, 1, 2]], ['4-2-2-2', [4, 2, 2, 2]], ['4-5-1', [4, 5, 1]],
+    ['4-4-1-1', [4, 4, 1, 1]], ['4-2-4', [4, 2, 4]], ['4-1-3-2', [4, 1, 3, 2]], ['4-2-1-3', [4, 2, 1, 3]], ['4-1-2-1-2', [4, 1, 2, 1, 2]],
+    ['3-5-2', [3, 5, 2]], ['3-4-3', [3, 4, 3]], ['3-4-1-2', [3, 4, 1, 2]], ['3-4-2-1', [3, 4, 2, 1]], ['3-1-4-2', [3, 1, 4, 2]], ['3-3-3-1', [3, 3, 3, 1]], ['3-6-1', [3, 6, 1]], ['3-5-1-1', [3, 5, 1, 1]],
+    ['5-3-2', [5, 3, 2]], ['5-4-1', [5, 4, 1]], ['5-2-3', [5, 2, 3]], ['5-2-1-2', [5, 2, 1, 2]], ['5-3-1-1', [5, 3, 1, 1]]].forEach(([n, l]) => add('11', n, l));
+  // football à 8 (7 joueurs de champ)
+  [['2-4-1', [2, 4, 1]], ['3-1-2-1', [3, 1, 2, 1]], ['3-2-1-1', [3, 2, 1, 1]], ['2-3-1-1', [2, 3, 1, 1]], ['2-1-3-1', [2, 1, 3, 1]], ['1-3-2-1', [1, 3, 2, 1]]].forEach(([n, l]) => add('8', n, l));
+  // football à 5 (4 joueurs de champ)
+  [['2-1-1', [2, 1, 1]], ['1-1-2', [1, 1, 2]], ['3-1', [3, 1]], ['1-3', [1, 3]]].forEach(([n, l]) => add('5', n, l));
+  // the other sports: [label, x, y, gk, positions that fit]
+  const more = {
+    b5: { '1-4 haut': [['1', .6, .5, 0, ['MEN']], ['2', .75, .1, 0, ['ARR']], ['3', .75, .9, 0, ['AIL']], ['4', .8, .38, 0, ['AF']], ['5', .8, .62, 0, ['PIV']]],
+      '4 extérieurs - 1 intérieur': [['1', .62, .5, 0, ['MEN']], ['2', .7, .12, 0, ['ARR']], ['3', .7, .88, 0, ['AIL']], ['4', .9, .05, 0, ['AF', 'AIL']], ['5', .9, .55, 0, ['PIV']]],
+      '5 extérieurs': [['1', .6, .5, 0, ['MEN']], ['2', .68, .15, 0, ['ARR']], ['3', .68, .85, 0, ['AIL']], ['4', .92, .05, 0, ['AF']], ['5', .92, .95, 0, ['PIV', 'AF']]],
+      'Triangle (2 intérieurs)': [['1', .62, .5, 0, ['MEN']], ['2', .7, .1, 0, ['ARR']], ['3', .7, .9, 0, ['AIL']], ['4', .88, .35, 0, ['AF']], ['5', .9, .65, 0, ['PIV']]],
+      'Homme à homme (défense)': [['1', .35, .5, 0, ['MEN']], ['2', .25, .15, 0, ['ARR']], ['3', .25, .85, 0, ['AIL']], ['4', .15, .35, 0, ['AF']], ['5', .12, .62, 0, ['PIV']]],
+      'Zone 2-3': [['1', .24, .35, 0, ['MEN', 'ARR']], ['2', .24, .65, 0, ['ARR', 'AIL']], ['3', .1, .15, 0, ['AIL', 'AF']], ['4', .08, .5, 0, ['PIV']], ['5', .1, .85, 0, ['AF']]],
+      'Zone 3-2': [['1', .28, .5, 0, ['MEN']], ['2', .22, .15, 0, ['ARR']], ['3', .22, .85, 0, ['AIL']], ['4', .09, .35, 0, ['AF', 'PIV']], ['5', .09, .65, 0, ['PIV']]],
+      'Zone 1-3-1': [['1', .3, .5, 0, ['MEN']], ['2', .2, .12, 0, ['ARR']], ['3', .18, .5, 0, ['PIV', 'AF']], ['4', .2, .88, 0, ['AIL']], ['5', .07, .5, 0, ['PIV', 'AF']]],
+      'Box and one': [['1', .3, .45, 0, ['MEN', 'ARR']], ['2', .22, .32, 0, ['ARR']], ['3', .22, .68, 0, ['AIL']], ['4', .09, .32, 0, ['AF']], ['5', .09, .68, 0, ['PIV']]] },
+    h7: { '2-4 (deux pivots)': [['G', .03, .5, 1, ['GB']], ['AG', .9, .04, 0, ['AIG', 'AIL']], ['ArG', .7, .3, 0, ['ARG', 'ARR']], ['ArD', .7, .7, 0, ['ARD', 'ARR']], ['AD', .9, .96, 0, ['AID', 'AIL']], ['P1', .88, .4, 0, ['PIV']], ['P2', .88, .6, 0, ['PIV', 'DC']]],
+      '1-5 (défense)': [['G', .03, .5, 1, ['GB']], ['Av', .26, .5, 0, ['DC', 'ARR']], ['1', .18, .08, 0, ['AIL']], ['2', .16, .3, 0, ['ARR']], ['3', .15, .5, 0, ['PIV']], ['4', .16, .7, 0, ['ARR']], ['5', .18, .92, 0, ['AIL']]],
+      '3-2-1 (défense)': [['G', .03, .5, 1, ['GB']], ['Pte', .3, .5, 0, ['DC']], ['2', .24, .3, 0, ['ARR']], ['3', .24, .7, 0, ['ARR']], ['4', .16, .1, 0, ['AIL']], ['5', .15, .5, 0, ['PIV']], ['6', .16, .9, 0, ['AIL']]],
+      '5+1 (défense)': [['G', .03, .5, 1, ['GB']], ['Ind', .3, .4, 0, ['ARR']], ['1', .18, .1, 0, ['AIL']], ['2', .16, .32, 0, ['ARR']], ['3', .15, .5, 0, ['PIV']], ['4', .16, .68, 0, ['ARR']], ['5', .18, .9, 0, ['AIL']]],
+      '4+2 (défense)': [['G', .03, .5, 1, ['GB']], ['I1', .28, .35, 0, ['ARR']], ['I2', .28, .65, 0, ['ARR']], ['1', .17, .15, 0, ['AIL']], ['2', .15, .4, 0, ['PIV']], ['3', .15, .6, 0, ['PIV']], ['4', .17, .85, 0, ['AIL']]] },
+    r15: { 'Défense en ligne': Array.from({ length: 15 }, (_, i) => [String(i + 1), i === 14 ? .2 : i === 8 ? .4 : .44, i === 14 ? .5 : .05 + .9 * (i < 8 ? i : i - 1) / 13, 0, [i < 3 ? 'PIL' : i < 5 ? 'DL' : i < 8 ? 'FL' : i === 8 ? 'DM' : i === 9 ? 'DO' : i < 12 ? 'CEN' : i < 14 ? 'AIL' : 'ARR']]),
+      'Mêlée offensive': [['1', .47, .46, 0, ['PIL']], ['2', .47, .5, 0, ['TAL']], ['3', .47, .54, 0, ['PIL']], ['4', .455, .48, 0, ['DL']], ['5', .455, .52, 0, ['DL']], ['6', .445, .44, 0, ['FL']], ['7', .445, .56, 0, ['FL']], ['8', .44, .5, 0, ['N8']],
+        ['9', .45, .4, 0, ['DM']], ['10', .38, .33, 0, ['DO']], ['12', .35, .26, 0, ['CEN']], ['13', .32, .19, 0, ['CEN']], ['14', .3, .1, 0, ['AIL']], ['11', .38, .9, 0, ['AIL']], ['15', .2, .5, 0, ['ARR']]] },
+    v6: { 'Rotation 3 (passeur en 5)': [['4', .44, .3, 0, ['CEN']], ['3', .44, .5, 0, ['R4']], ['2', .44, .7, 0, ['OPP']], ['5', .25, .3, 0, ['PAS']], ['6', .25, .5, 0, ['R4']], ['1', .25, .7, 0, ['CEN', 'LIB']]],
+      'Rotation 4 (passeur en 4)': [['4', .44, .3, 0, ['PAS']], ['3', .44, .5, 0, ['R4']], ['2', .44, .7, 0, ['CEN']], ['5', .25, .3, 0, ['OPP']], ['6', .25, .5, 0, ['CEN', 'LIB']], ['1', .25, .7, 0, ['R4']]],
+      'Rotation 5 (passeur en 3)': [['4', .44, .3, 0, ['R4']], ['3', .44, .5, 0, ['PAS']], ['2', .44, .7, 0, ['OPP']], ['5', .25, .3, 0, ['CEN', 'LIB']], ['6', .25, .5, 0, ['R4']], ['1', .25, .7, 0, ['CEN']]],
+      'Rotation 6 (passeur en 2)': [['4', .44, .3, 0, ['CEN']], ['3', .44, .5, 0, ['R4']], ['2', .44, .7, 0, ['PAS']], ['5', .25, .3, 0, ['R4']], ['6', .25, .5, 0, ['OPP']], ['1', .25, .7, 0, ['CEN', 'LIB']]],
+      'Réception à 3': [['4', .44, .25, 0, ['CEN']], ['P', .42, .62, 0, ['PAS']], ['2', .44, .85, 0, ['OPP']], ['R1', .22, .2, 0, ['R4']], ['L', .2, .5, 0, ['LIB']], ['R2', .22, .8, 0, ['R4']]],
+      'Réception à 4': [['P', .42, .7, 0, ['PAS']], ['A', .44, .2, 0, ['CEN']], ['R1', .28, .15, 0, ['R4']], ['R2', .22, .4, 0, ['LIB']], ['R3', .22, .62, 0, ['R4']], ['R4', .28, .86, 0, ['OPP']]] },
+  };
+  Object.entries(more).forEach(([f, list]) => { Formations[f] = Formations[f] || {}; Object.entries(list).forEach(([n, rows]) => { if (!Formations[f][n]) Formations[f][n] = rows; }); });
+})();
+// The systems of a format in sub-categories, for the menus: football by the number of defenders, the other sports by attack / defence
+function formationGroups(fmt) {
+  const names = Object.keys(Formations[fmt] || {}), groups = {};
+  const foot = ['11', '8', '5'].includes(fmt);
+  names.forEach(n => {
+    const g = foot ? `Défense à ${n[0]}` : /^v/.test(fmt) ? (/réception/i.test(n) ? 'Réception' : 'Rotations') : /défense|zone|box|homme|0-6|1-5|3-2-1|5\+1|4\+2/i.test(n) ? 'Défense' : 'Attaque / lancement';
+    (groups[g] = groups[g] || []).push(n);
+  });
+  return Object.entries(groups).sort((a, b) => foot ? (+b[0].slice(-1) === 4 ? 1 : 0) - (+a[0].slice(-1) === 4 ? 1 : 0) || a[0].localeCompare(b[0]) : a[0].localeCompare(b[0]));
+}
+function formationOptions(fmt, sel) {
+  const e = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  return formationGroups(fmt).map(([g, ns]) => `<optgroup label="${e(g)} (${ns.length})">${ns.map(n => `<option ${n === sel ? 'selected' : ''}>${e(n)}</option>`).join('')}</optgroup>`).join('');
+}
+
 /* Example content so the app opens in a working state. Everything is marked « exemple » and can be deleted. */
 const Seed = {
   schema(name, format, extra = {}) {

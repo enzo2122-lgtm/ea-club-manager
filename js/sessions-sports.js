@@ -78,3 +78,65 @@ const SESSIONS_SPORTS = {
       ['jeu', 'Match : défense récompensée', 20, 'Match normal : une défense remontée puis attaquée gagnante vaut 2 points.', 'Ne rien lâcher', 'Ballons', '']] },
   ],
 };
+
+// more systems (written for the app)
+SESSIONS_SPORTS.basket.push(
+  { sys: 'Zone 3-2', fmt: 'b5', title: 'Défense de zone 3-2', goal: 'Trois devant pour gêner les tireurs, deux derrière pour la raquette.', ex: [
+    ['defense', 'Glissements de la zone 3-2', 10, 'Le coach fait circuler le ballon entre 5 positions, la zone suit.', 'La pointe sur le ballon|Les ailes ferment les passes vers le coin', 'Ballon', ''],
+    ['defense', 'Zone 3-2 contre 5', 18, 'Demi-terrain : la zone contre une attaque qui fait circuler.', 'Sortir sur les tireurs|Rebond', 'Chasubles, ballons', ''],
+    ['jeu', 'Match en zone 3-2', 20, 'Chaque équipe défend en 3-2.', 'Communication', 'Chasubles', '']] },
+  { sys: 'Box and one', fmt: 'b5', title: 'Box and one : stopper le meilleur adversaire', goal: 'Quatre défenseurs en carré, un défenseur colle le meilleur joueur adverse.', ex: [
+    ['defense', 'Le défenseur collant', 12, '1 contre 1 tout terrain sur le meilleur attaquant : l\'empêcher de recevoir.', 'Toujours entre lui et le ballon|Bras dans la ligne de passe', 'Ballons', ''],
+    ['defense', 'Le carré de 4', 15, 'Quatre défenseurs en carré contre 4 attaquants.', 'Garder le carré|Aider sur la pénétration', 'Chasubles, ballons', ''],
+    ['jeu', 'Match avec box and one', 20, 'Une équipe défend en box and one.', 'Discipline', 'Chasubles', '']] },
+  { sys: 'Motion offense (5 extérieurs)', fmt: 'b5', title: 'Attaque en mouvement', goal: 'Cinq joueurs à l\'extérieur qui coupent, passent et se replacent.', ex: [
+    ['attaque', 'Passe et coupe', 15, '5 contre 0 puis 5 contre 5 : après chaque passe, on coupe vers le panier puis on se replace.', 'Couper fort|Remplir la place libre', 'Ballons', ''],
+    ['attaque', 'Lecture sur la coupe', 15, '3 contre 3 : passe au coupeur s\'il est libre, sinon on continue.', 'Lire son défenseur|Passe à terre', 'Ballons', ''],
+    ['jeu', 'Match : pas de dribble de plus de 2 rebonds', 20, 'Match normal avec 2 dribbles maximum.', 'Mouvement', 'Chasubles', '']] },
+  { sys: 'Presse tout terrain', fmt: 'b5', title: 'Presse tout terrain', goal: 'Mettre la pression dès la remise en jeu pour provoquer des pertes.', ex: [
+    ['defense', 'Prise à deux sur la remise en jeu', 12, 'Remise en jeu : deux défenseurs piègent le receveur dans le coin.', 'Fermer la ligne de touche|Bras hauts', 'Ballons', ''],
+    ['defense', 'Presse 2-2-1', 15, '5 contre 5 tout terrain avec une presse 2-2-1.', 'Le dernier défenseur protège le panier', 'Chasubles, ballons', ''],
+    ['jeu', 'Match avec presse', 20, 'Après chaque panier, presse tout terrain.', 'Repli si la presse est battue', 'Chasubles', '']] }
+);
+SESSIONS_SPORTS.hand.push(
+  { sys: 'Défense 5+1', fmt: 'h7', title: 'Défense 5+1 : un défenseur individuel', goal: 'Cinq sur la zone, un défenseur qui suit le meilleur tireur adverse.', ex: [
+    ['defense', 'L\'individuel', 12, '1 contre 1 sur le meilleur arrière : l\'empêcher de recevoir.', 'Toujours entre lui et le ballon', 'Ballons', ''],
+    ['defense', 'Les 5 sur la zone', 15, 'Cinq défenseurs contre 5 attaquants (le sixième est pris en individuel).', 'Glisser ensemble|Le pivot marqué', 'Ballons, chasubles', ''],
+    ['jeu', 'Match en 5+1', 20, 'Défense 5+1 obligatoire.', 'Discipline', 'Chasubles', '']] },
+  { sys: 'Attaque à 2 pivots', fmt: 'h7', title: 'Attaquer à deux pivots', goal: 'Deux pivots qui bloquent et libèrent les arrières.', ex: [
+    ['attaque', 'Blocs des pivots', 15, 'Deux pivots posent des blocs pour les arrières qui tirent.', 'Bloc immobile|Tirer au-dessus du bloc', 'Ballons', ''],
+    ['attaque', 'Passe au pivot libre', 15, '4 arrières/ailiers + 2 pivots contre 6 : trouver le pivot qui se libère.', 'Fixer avant de passer|Passe à terre au pivot', 'Ballons', ''],
+    ['jeu', 'Match à 2 pivots', 20, 'But d\'un pivot = 2 points.', 'Patience', 'Chasubles', '']] },
+  { sys: 'Montée de balle', fmt: 'h7', title: 'Montée de balle et engagement rapide', goal: 'Marquer avant que la défense soit en place : première, deuxième et troisième vague.', ex: [
+    ['transitions', 'Première vague', 12, 'Arrêt du gardien, relance longue vers l\'ailier qui part.', 'Partir au moment de l\'arrêt|Relance précise', 'Ballons', ''],
+    ['transitions', 'Deuxième vague à 3 contre 2', 15, 'Les arrières montent vite contre 2 défenseurs qui se replient.', 'Largeur|Tir rapide', 'Ballons', ''],
+    ['jeu', 'Match : but en moins de 10 secondes = 2 points', 20, 'Match normal.', 'Vitesse', 'Chasubles', '']] }
+);
+SESSIONS_SPORTS.rugby.push(
+  { sys: 'Jeu au large', fmt: 'r15', title: 'Faire vivre le ballon au large', goal: 'Attirer au centre puis écarter vite vers les ailes.', ex: [
+    ['passe', 'Passes longues sautées', 12, 'Ligne de 5 : le ballon va de l\'ouvreur à l\'ailier en 2 passes.', 'Passe vrillée|Courir droit', 'Ballons', ''],
+    ['attaque', 'Surnombre au large', 15, '4 contre 3 sur un couloir de 25 m après un ruck.', 'Fixer l\'intérieur|Ailier dans la course', 'Ballons, plots', ''],
+    ['jeu', 'Match : essai au large = bonus', 20, 'Match au contact réduit : essai dans les 15 m = 2 points de plus.', 'Largeur', 'Chasubles', '']] },
+  { sys: 'Touche et maul', fmt: 'r15', title: 'Conquête en touche et maul', goal: 'Gagner la touche et avancer en maul.', ex: [
+    ['conquete', 'Alignement à 4', 15, 'Lancer, saut et réception avec deux lifteurs.', 'Appel clair|Synchronisation', 'Ballons', ''],
+    ['contact', 'Former le maul', 15, 'Après réception, les avants se lient et poussent sur 5 m.', 'Lier fort|Ballon caché au fond', 'Boucliers, ballons', ''],
+    ['jeu', 'Match : touche obligatoire', 20, 'Chaque sortie de ballon donne une touche.', 'Conquête', 'Chasubles', '']] },
+  { sys: 'Mêlée', fmt: 'r15', title: 'La mêlée fermée', goal: 'Se lier, pousser ensemble et sortir un ballon propre (en sécurité).', ex: [
+    ['conquete', 'Liaisons de la première ligne', 12, 'Liaisons sans pousser, puis poussée légère contre bouclier (encadré par l\'éducateur).', 'Dos droit, tête haute|Pieds bien placés', 'Boucliers', ''],
+    ['conquete', 'Introduction et talonnage', 12, 'Le demi introduit, le talonneur talonne, le 8 contrôle.', 'Signal du talonneur|Ballon au 8', 'Ballons', ''],
+    ['jeu', 'Match : mêlée sur chaque en-avant', 20, 'Mêlée simulée à la sortie des en-avants.', 'Sécurité avant tout', 'Chasubles', '']] }
+);
+SESSIONS_SPORTS.volley.push(
+  { sys: '6-2', fmt: 'v6', title: 'Le système 6-2', goal: 'Deux passeurs opposés : celui de l\'arrière passe, trois attaquants devant.', ex: [
+    ['technique', 'Le passeur arrière', 12, 'Le passeur en zone 1 pénètre et passe à 3 attaquants.', 'Pénétrer vite|Passe haute', 'Ballons', ''],
+    ['attaque', 'Trois attaquants devant', 18, 'Réception, passe du passeur arrière, attaque en 4, 3 ou 2.', 'Varier|Annoncer', 'Ballons', ''],
+    ['jeu', 'Match en 6-2', 20, 'Rotation 6-2 obligatoire.', 'Rotation correcte', 'Ballons', '']] },
+  { sys: 'Réception à 4', fmt: 'v6', title: 'Réceptionner à 4', goal: 'Quatre réceptionneurs en W pour les débutants.', ex: [
+    ['reception', 'Le W', 15, 'Quatre réceptionneurs en W, service facile.', 'Chacun sa zone|Annoncer', 'Ballons', ''],
+    ['reception', 'Réception puis passe', 15, 'Réception à 4, passe vers la cible.', 'Viser le passeur', 'Ballons, cible', ''],
+    ['jeu', 'Match : réception à 4', 20, 'Réception à 4 obligatoire.', 'Communication', 'Ballons', '']] },
+  { sys: 'Attaque rapide (courte)', fmt: 'v6', title: 'L\'attaque courte au centre', goal: 'Le central attaque une passe courte et rapide devant le passeur.', ex: [
+    ['attaque', 'Timing de la courte', 15, 'Le central saute pendant que le passeur touche le ballon.', 'Partir avant la passe|Bras haut', 'Ballons', ''],
+    ['attaque', 'Courte et feinte', 15, 'Le passeur choisit : courte au centre ou passe haute en 4.', 'Lire le contre adverse', 'Ballons', ''],
+    ['jeu', 'Match : point en courte = 2', 20, 'Match normal.', 'Vitesse', 'Ballons', '']] }
+);

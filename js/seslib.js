@@ -9,6 +9,8 @@ const SesLib = (() => {
   const fmtLabel = f => typeof Sport !== 'undefined' ? Sport.formatLabel(f) : ({ '11': 'Foot à 11', '8': 'Foot à 8', '5': 'Foot à 5' }[f] || f);
   const key = s => s.sys + '|' + s.title;
   const exOf = (x, fmt) => ({ id: Store.uid(), theme: x[0], title: x[1], duration: x[2], org: x[3], consignes: String(x[4] || '').split('|').join('\n'), materiel: x[5] || '', size: x[6] || '', schemaId: null, formats: fmt ? [fmt] : [] });
+  // sub-categories: football by the number of defenders, the other sports defence / attack
+  const groupOf = s => sportId() === 'foot' && /^\d/.test(s) ? `Défense à ${s[0]}` : /défense|zone|box|presse|0-6|1-5|3-2-1|5\+1|rideau|homme/i.test(s) ? 'Défense' : sportId() === 'volley' ? 'Systèmes et réception' : 'Attaque et organisation';
   // the systems of the club's sport, by format (foot à 11, à 8, à 5…)
   function systems() {
     const out = []; all().forEach(s => { if (!out.some(o => o.sys === s.sys && o.fmt === s.fmt)) out.push({ sys: s.sys, fmt: s.fmt }); });
@@ -21,7 +23,9 @@ const SesLib = (() => {
     const fmts = [...new Set(sys.map(x => x.fmt))];
     root.innerHTML = `<header class="page-head"><div><h1>📚 Séances par système de jeu</h1><p class="sub">${all().length} séances prêtes à l'emploi · chaque exercice a son schéma animé</p></div>
       <div class="head-actions"><a class="btn" href="#/entrainements">${I.back}<span>Séances</span></a><a class="btn" href="#/exercices">📚<span>Exercices du club</span></a></div></header>
-      ${fmts.map(f => `<div class="lbl">${esc(fmtLabel(f))}</div><div class="chips">${sys.filter(x => x.fmt === f).map(x => `<button class="chip ${cur && x.sys === cur.sys && x.fmt === cur.fmt ? 'on' : ''}" data-sys="${esc(x.sys)}" data-fmt="${esc(x.fmt)}">${esc(x.sys)}</button>`).join('')}</div>`).join('') || '<p class="muted">Pas encore de séances pour ce sport.</p>'}
+      ${fmts.map(f => { const groups = []; sys.filter(x => x.fmt === f).forEach(x => { const g = groupOf(x.sys); let gr = groups.find(y => y[0] === g); if (!gr) groups.push(gr = [g, []]); gr[1].push(x); });
+        groups.sort((a, b) => a[0] === 'Défense à 4' ? -1 : b[0] === 'Défense à 4' ? 1 : a[0].localeCompare(b[0]));
+        return `<div class="lbl">${esc(fmtLabel(f))}</div>${groups.map(([g, xs]) => `<div class="sl-grp"><span class="muted small">${esc(g)}</span><div class="chips">${xs.map(x => `<button class="chip ${cur && x.sys === cur.sys && x.fmt === cur.fmt ? 'on' : ''}" data-sys="${esc(x.sys)}" data-fmt="${esc(x.fmt)}">${esc(x.sys)}</button>`).join('')}</div></div>`).join('')}`; }).join('') || '<p class="muted">Pas encore de séances pour ce sport.</p>'}
       ${list.map(s => `<section class="card sl-card"><div class="row-head"><div><h2>${esc(s.title)}</h2><p class="muted small">${esc(s.sys)} · ${esc(fmtLabel(s.fmt))} · ${s.ex.reduce((a, x) => a + x[2], 0) + 20} min avec échauffement et retour au calme</p></div>
           <button class="btn primary" data-use="${esc(key(s))}">${I.plus}<span>Utiliser cette séance</span></button></div>
         <p>🎯 ${esc(s.goal)}</p>

@@ -1,4 +1,4 @@
--- EA Club Manager : le serveur commun de tous les clubs (Supabase → SQL Editor → New query → coller → Run).
+-- Clubbo : le serveur commun de tous les clubs (Supabase → SQL Editor → New query → coller → Run).
 -- Chaque donnée porte l'identifiant de son club : aucune fonction ne lit ni n'écrit en dehors du club de celui qui la demande.
 -- Les tables sont fermées (row level security sans règle) : tout passe par les fonctions ci-dessous.
 -- Le script peut être relancé sans perte (mise à jour du serveur).
@@ -415,7 +415,7 @@ begin delete from push_subs where endpoint = p_endpoint and club = ea_club(k) an
 create or replace function club_push_test(k text) returns int language plpgsql security definer set search_path = public as $$
 declare c text := ea_club(k); sid text := ea_staff(k);
 begin if c is null or sid is null then raise exception 'SESSION'; end if;
-  perform ea_notify(c, array[sid], 'test', 'test:' || now(), '🔔 EA Club Manager', 'Les notifications marchent sur ce téléphone !', '#/reglages');
+  perform ea_notify(c, array[sid], 'test', 'test:' || now(), '🔔 Clubbo', 'Les notifications marchent sur ce téléphone !', '#/reglages');
   return (select count(*) from push_subs where club = c and staff_id = sid); end $$;
 create or replace function club_notifs(k text) returns jsonb language plpgsql security definer set search_path = public as $$
 declare c text := ea_club(k); sid text := ea_staff(k); r jsonb;

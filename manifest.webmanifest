@@ -1,6 +1,6 @@
 {
-  "name": "EA Club Manager",
-  "short_name": "EA Club",
+  "name": "Clubbo",
+  "short_name": "Clubbo",
   "description": "L'appli des éducateurs du club : équipes, séances, matchs, parents, statistiques",
   "lang": "fr",
   "start_url": "./",

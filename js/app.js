@@ -21,7 +21,7 @@ const App = (() => {
       document.body.style.setProperty('--pvh', bar.offsetHeight + 'px');
     } else if (bar) { bar.remove(); document.body.classList.remove('previewing'); }
     document.documentElement.style.setProperty('--accent', UI.accentFor(c.homeBib));
-    document.getElementById('clubName').textContent = c.name || 'EA Club Manager';
+    document.getElementById('clubName').textContent = c.name || 'Clubbo';
     Supporters.refresh();
     const u = Auth.current(), ru = document.getElementById('railUser');
     // The connected coach: his initials with his favourite club's crest, and « Coach Prénom » (opens Mon compte)
@@ -31,7 +31,7 @@ const App = (() => {
         <span class="ru-name">${UI.esc(coach)}</span></a>${Auth.realAdmin() ? '<button class="ru-out" id="rolesBtn" title="Mes rôles">🔀 Rôles</button>' : ''}<button class="ru-out" id="logoutBtn">Sortir</button>` : '';
     const rb = document.getElementById('rolesBtn'); if (rb) rb.onclick = () => Roles.open();
     const lo = document.getElementById('logoutBtn'); if (lo) lo.onclick = () => Auth.logout();
-    document.title = (u ? coach + ' · ' : '') + (c.name || 'EA Club Manager');
+    document.title = (u ? coach + ' · ' : '') + (c.name || 'Clubbo');
   }
   function renderNav(active) {
     // the responsables also have the club's dashboard (before Réglages)
@@ -114,7 +114,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 15, UPD = 'ea-update-tried';
+  const BUILD = 16, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -146,7 +146,7 @@ const App = (() => {
     if (location.protocol !== 'file:') { checkUpdate(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); }); }
     await Store.load();
     Sport.apply();
-    // the owner's space of EA Club Manager: no club account needed (the owner key is asked on the page)
+    // the owner's space of Clubbo: no club account needed (the owner key is asked on the page)
     if (/^#\/proprietaire/.test(location.hash)) { refreshChrome(); window.addEventListener('hashchange', route); route(); return; }
     // Invitation link sent by the responsable: …#rejoindre=CODE
     const join = (location.hash.match(/^#rejoindre=([A-Za-z0-9]+)/) || [])[1];
