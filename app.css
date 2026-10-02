@@ -1553,6 +1553,10 @@ h2.section svg { width: 22px; height: 22px; vertical-align: -4px; margin-right: 
 .ex-res summary { cursor: pointer; }
 .ex-res-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--line); }
 .ex-res-row a { flex: 1; min-width: 200px; font-weight: 600; }
+.ref-m .tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--gold-soft); white-space: nowrap; align-self: flex-start; }
+.ref-m .tag.warn { background: var(--surface2); color: var(--bad); }
+.ref-m .chips { margin-top: 8px; align-items: center; }
+.ref-m p.small { margin: 8px 0 0; }
 .ex-res-row .tag { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--surface2); }
 /* 3.40 : statistiques avancées */
 .adv-form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; font-weight: 700; }

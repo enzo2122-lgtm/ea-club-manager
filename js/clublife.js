@@ -36,7 +36,7 @@ const ClubLife = (() => {
     S().ui.lifeTab = tab;
     const openN = life('issue').filter(x => x.status !== 'done').length;
     root.innerHTML = `<header class="page-head"><div><h1>Vie du club</h1><p class="sub">Réunions, tournois, repas et signalements</p></div>
-      <div class="head-actions"><a class="btn" href="#/benevoles">🙋<span>Bénévoles</span></a>${vol ? '' : `<button class="btn primary" data-l="new">${I.plus}<span>${tab === 'events' ? 'Organiser' : 'Signaler'}</span></button>`}</div></header>
+      <div class="head-actions"><a class="btn" href="#/benevoles">🙋<span>Bénévoles</span></a><a class="btn" href="#/arbitres">🟨<span>Arbitres</span></a>${vol ? '' : `<button class="btn primary" data-l="new">${I.plus}<span>${tab === 'events' ? 'Organiser' : 'Signaler'}</span></button>`}</div></header>
       <div class="seg" role="tablist" ${vol ? 'hidden' : ''}><button class="seg-b ${tab === 'events' ? 'on' : ''}" data-tab="events" role="tab">📅 Événements</button>
         <button class="seg-b ${tab === 'issues' ? 'on' : ''}" data-tab="issues" role="tab">🛠️ Signalements${openN ? ` <i class="seg-n">${openN}</i>` : ''}</button></div>
       <div class="life-list">${tab === 'events' ? eventsHtml() : issuesHtml()}</div>`;
