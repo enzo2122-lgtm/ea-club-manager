@@ -106,7 +106,9 @@ const Member = (() => {
   // the card (filled once the club's server has answered)
   function notifyCard(kind) {
     if (PREVIEW) return '';
-    if (!pushOk()) return ios() && !standalone() ? `<div class="card notif-card"><p class="info">🔔 Pour être prévenu des convocations et des changements d'horaire : touche <b>Partager</b> → <b>« Sur l'écran d'accueil »</b>, puis ouvre l'appli depuis cette icône.</p></div>` : '';
+    // (iPhone) the notifications only work from the home screen icon, in Safari as in Chrome (Chrome on iPhone says it can, then fails)
+    if (ios() && !standalone()) return `<div class="card notif-card"><p class="info">🔔 <b>Être prévenu sur ce téléphone</b> (convocations, changements d'horaire, annulations) : sur iPhone, ajoute d'abord cette page à l'écran d'accueil. ${/CriOS/.test(navigator.userAgent) ? 'Dans Chrome : touche <b>Partager</b> (le carré avec la flèche, en haut à droite) → <b>« Sur l\'écran d\'accueil »</b>' : 'Dans Safari : touche <b>Partager</b> (le carré avec la flèche) → <b>« Sur l\'écran d\'accueil »</b>'}, puis ouvre-la depuis cette nouvelle icône : le bouton « Me prévenir » apparaît.</p></div>`;
+    if (!pushOk()) return '';
     if (!nAsked) { nAsked = true; refreshNotify(); }
     if (nState === null || nState === 'old') return '';
     return `<div class="card notif-card">${nState ? `<p class="info">🔔 Ce téléphone est prévenu : convocations, changements d'horaire ou de lieu, annulations. <button class="b small" data-mnotif="off" data-kind="${kind}">Arrêter</button></p>`
