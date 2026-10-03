@@ -3464,7 +3464,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.35';
+  const VERSION = '1.36';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -12167,7 +12167,7 @@ var Onboard = (() => {
   function bind(r) {
     let crest = S().club.crest || '';
     $('#obCrest', r).onchange = async e => { const f = e.target.files[0]; if (!f) return; try { crest = await crestFrom(f); $('#obCrestImg', r).src = crest; } catch (x) { toast('Image illisible', 'err'); } };
-    const del = $('#obCrestDel', r); if (del) del.onclick = () => { crest = ''; $('#obCrestImg', r).src = 'icons/ea-logo.png'; };
+    const del = $('#obCrestDel', r); if (del) del.onclick = () => { crest = ''; $('#obCrestImg', r).src = AppCfg.crest; };
     $$('#obCats .chip:not([disabled])', r).forEach(b => b.onclick = () => b.classList.toggle('on'));
     // another sport: the courts, positions and categories change at once (the categories already created stay)
     $$('#obSport [data-sport]', r).forEach(b => b.onclick = async () => {
@@ -14001,7 +14001,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 36, UPD = AppCfg.key('update-tried');
+  const BUILD = 37, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

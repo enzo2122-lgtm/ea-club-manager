@@ -43,7 +43,7 @@ const Onboard = (() => {
   function bind(r) {
     let crest = S().club.crest || '';
     $('#obCrest', r).onchange = async e => { const f = e.target.files[0]; if (!f) return; try { crest = await crestFrom(f); $('#obCrestImg', r).src = crest; } catch (x) { toast('Image illisible', 'err'); } };
-    const del = $('#obCrestDel', r); if (del) del.onclick = () => { crest = ''; $('#obCrestImg', r).src = 'icons/ea-logo.png'; };
+    const del = $('#obCrestDel', r); if (del) del.onclick = () => { crest = ''; $('#obCrestImg', r).src = AppCfg.crest; };
     $$('#obCats .chip:not([disabled])', r).forEach(b => b.onclick = () => b.classList.toggle('on'));
     // another sport: the courts, positions and categories change at once (the categories already created stay)
     $$('#obSport [data-sport]', r).forEach(b => b.onclick = async () => {

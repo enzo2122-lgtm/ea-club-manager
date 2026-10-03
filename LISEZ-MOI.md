@@ -41,6 +41,13 @@ Ensuite, dans cet espace :
 
 Depuis que FA Le Raincy est sur ce serveur, une modification du serveur touche tous les clubs : la faire seulement après avoir vérifié, et garder `supabase/ea-schema.sql` à jour.
 
+## L'appli d'un seul club (Raincy Coach)
+
+Le même code fait aussi l'appli d'un club précis, à son nom et à son blason, sans code du club à taper : par exemple **Raincy Coach** pour FA Le Raincy.
+Son dossier contient `js/config.js` (son club, son nom, les noms de sa mémoire sur le téléphone, ses réglages par défaut) et `club/fabrication.json` (sa version, ses mots dans les pages).
+
+Pour la mettre à jour après une modification de Clubbo : `node tools/fabriquer.js ../raincy-coach 4.1`, puis vérifier et publier le dossier du club. Voir `tools/fusion-raincy.md`.
+
 ## Données personnelles
 
 La plateforme héberge les données de tous les clubs, dont des mineurs. Avant d'accueillir des clubs : une politique de confidentialité, un contrat avec chaque club (qui reste responsable de ses licenciés), et un plan Supabase adapté (le plan gratuit met le projet en pause après une semaine sans activité et limite la taille de la base).
