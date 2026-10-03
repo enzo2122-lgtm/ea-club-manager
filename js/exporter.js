@@ -2,7 +2,7 @@
 const Exporter = (() => {
   // Club crest, drawn on images, videos and PDFs
   const crest = new Image(); let crestOk = false;
-  crest.onload = () => { crestOk = true; }; crest.src = 'icons/ea-logo.png'; // then the club's own crest, once the app is loaded
+  crest.onload = () => { crestOk = true; }; crest.src = AppCfg.crest; // then the club's own crest, once the app is loaded
   setTimeout(() => { try { const c = Supporters.crest(); if (c && c !== crest.src) { crestOk = false; crest.src = c; } } catch (e) {} }, 1500);
   const crestData = () => { if (!crestOk) return null; const c = document.createElement('canvas'); c.width = c.height = 256; c.getContext('2d').drawImage(crest, 0, 0, 256, 256); return c.toDataURL('image/png'); };
   const isTouch = () => matchMedia('(pointer: coarse)').matches;
@@ -294,7 +294,7 @@ const Exporter = (() => {
     P.doc.addPage(); P.y = P.M; P.h2('Documents joints');
     for (const d of docs) {
       P.label(d.name || 'Document');
-      if (d.video) { P.para('Vidéo : à regarder dans l\'appli Clubbo.'); continue; }
+      if (d.video) { P.para('Vidéo : à regarder dans l\'appli ' + AppCfg.name + '.'); continue; }
       if (d.link) { P.para('Lien : ' + d.link); continue; }
       for (const url of d.images) {
         const img = await Media.loadImage(url), ratio = img.naturalHeight / img.naturalWidth;

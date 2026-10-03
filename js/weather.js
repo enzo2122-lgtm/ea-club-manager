@@ -3,7 +3,7 @@
 const Weather = (() => {
   const { esc } = UI;
   const HOMEOF = () => { const c = Store.state.club; return c.lat != null && c.lon != null ? { name: c.city || 'le club', lat: +c.lat, lon: +c.lon } : null; };
-  const TTL = 2 * 3600e3, KEY = 'ea-weather', GEO = 'ea-geo';
+  const TTL = 2 * 3600e3, KEY = AppCfg.key('weather'), GEO = AppCfg.key('geo');
   const load = k => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch (e) { return {}; } };
   const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 

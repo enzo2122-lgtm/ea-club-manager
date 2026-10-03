@@ -4,7 +4,7 @@
    Without a club server (another club, no setup yet) accounts stay on the device, as in the first versions. */
 const Auth = (() => {
   const { esc, $, toast, modal, confirmBox } = UI;
-  const KEY = 'ea-session', TMP = 'ea-session-tmp', NAMES = 'ea-last-names', ITER = 150000, MIN = 6;
+  const KEY = AppCfg.key('session'), TMP = AppCfg.key('session-tmp'), NAMES = AppCfg.key('last-names'), ITER = 150000, MIN = 6;
   const enc = new TextEncoder();
   const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
   const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -38,7 +38,7 @@ const Auth = (() => {
   const current = () => user;
   const realAdmin = () => { if (!user) return false; const s = sess(); if (s && s.staff_id === user.id) return !!s.admin; return !!(U(user.id) && U(user.id).admin); };
   // « Voir comme un coach »: a responsable sees the app exactly as a coach of the chosen categories (this device and tab only)
-  const PREVIEW = 'ea-preview';
+  const PREVIEW = AppCfg.key('preview');
   const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
   // a responsable looking at the app as a volunteer: only the volunteers' tasks and the club's events
@@ -173,9 +173,9 @@ const Auth = (() => {
   const lock = () => document.getElementById('lock');
   function frame(inner) {
     const el = lock(); el.hidden = false;
-    el.innerHTML = `<div class="lock-card">${Supporters.coin('lock-crest')}<p class="eyebrow">Clubbo</p><h1>${esc(Store.state.club.name || 'Espace éducateurs')}</h1>${inner}
+    el.innerHTML = `<div class="lock-card">${Supporters.coin('lock-crest')}<p class="eyebrow">${esc(AppCfg.name)}</p><h1>${esc(Store.state.club.name || 'Espace éducateurs')}</h1>${inner}
       <button class="btn wide link how-btn" id="howTo">${I.help}<span>Comment utiliser l'appli ?</span></button>
-      <p class="lock-version">Clubbo · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" id="updApp">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p></div>`;
+      <p class="lock-version">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" id="updApp">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p></div>`;
     el.querySelector('#howTo').onclick = () => Help.tour();
     el.querySelector('#updApp').onclick = () => App.checkUpdate(true);
     el.scrollTop = 0;
@@ -242,8 +242,8 @@ const Auth = (() => {
     return byPw(match(L, F)) || byPw(match(F, L)) || null;
   }
   // the club of this device (its code, remembered for the next connection)
-  const CLUB = 'ea-club-code';
-  const lastClub = () => { try { return localStorage.getItem(CLUB) || ''; } catch (e) { return ''; } };
+  const CLUB = AppCfg.key('club-code');
+  const lastClub = () => { if (AppCfg.fixed) return AppCfg.club; try { return localStorage.getItem(CLUB) || ''; } catch (e) { return ''; } };
   const saveClub = c => { try { localStorage.setItem(CLUB, c); } catch (e) {} };
   async function serverLogin(club, ln, fn, pw) {
     let last = null;
@@ -268,18 +268,18 @@ const Auth = (() => {
   }
   const errText = code => ({ MOT_DE_PASSE: 'Mot de passe incorrect', BLOQUE: 'Trop d\'essais : attends 5 minutes avant de réessayer', COMPTE_INCONNU: 'Aucun compte à ce nom dans ce club',
     CLUB_INCONNU: 'Aucun club avec ce code', CLUB_SUSPENDU: 'L\'accès de ce club est suspendu : contacte Clubbo' }[code] || 'Connexion impossible');
-  const clubField = (v = '') => `<label class="fld"><span>Code du club</span><input id="club" value="${esc(v)}" placeholder="ex : fc-exemple" autocapitalize="off" autocorrect="off" autocomplete="organization"></label>`;
+  const clubField = (v = '') => AppCfg.fixed ? `<input id="club" type="hidden" value="${esc(AppCfg.club)}">` : `<label class="fld"><span>Code du club</span><input id="club" value="${esc(v)}" placeholder="ex : fc-exemple" autocapitalize="off" autocorrect="off" autocomplete="organization"></label>`;
 
   function loginScreen() {
     const n = lastNames();
-    const el = frame(`<p class="lead">Connecte-toi avec le code de ton club, ton nom, ton prénom et ton mot de passe.</p>
+    const el = frame(`<p class="lead">Connecte-toi avec ${AppCfg.fixed ? '' : 'le code de ton club, '}ton nom, ton prénom et ton mot de passe.</p>
       ${clubField(lastClub())}${nameFields(n.ln, n.fn)}
       <label class="fld"><span>Mot de passe</span><input id="pw" type="password" autocomplete="current-password"></label>${keepBox}
       <button class="btn primary wide" id="go">Se connecter</button>
       <div class="lock-links"><button class="btn wide" id="first">${I.plus}<span>Première connexion (lien d'invitation)</span></button>
-      <button class="btn wide" id="create">${I.whistle}<span>Créer mon club</span></button>
+      ${AppCfg.fixed ? '' : `<button class="btn wide" id="create">${I.whistle}<span>Créer mon club</span></button>
       ${!Store.state.staff.length ? '<button class="btn wide" id="demo">👀<span>Essayer avec un club de démonstration</span></button>' : ''}
-      <a class="btn wide link" href="decouvrir.html">Découvrir Clubbo</a>
+      <a class="btn wide link" href="decouvrir.html">Découvrir Clubbo</a>`}
       <button class="btn wide link" id="forgot">Mot de passe oublié ?</button></div>`);
     const go = async () => {
       const club = $('#club', el).value.trim(), ln = $('#ln', el).value.trim(), fn = $('#fn', el).value.trim(), pw = $('#pw', el).value, keep = $('#keep', el).checked;
@@ -306,7 +306,7 @@ const Auth = (() => {
     const failed = () => { fails++; if (fails >= 5) { lockedUntil = Date.now() + 30000; fails = 0; } toast('Mot de passe incorrect', 'err'); const p = $('#pw', el); if (p) p.select(); };
     $('#go', el).onclick = go; $('#pw', el).onkeydown = e => { if (e.key === 'Enter') go(); };
     $('#first', el).onclick = () => firstScreen();
-    $('#create', el).onclick = () => createClubScreen();
+    const cr = $('#create', el); if (cr) cr.onclick = () => createClubScreen();
     $('#forgot', el).onclick = () => forgotServer();
     const dm = $('#demo', el); if (dm) dm.onclick = () => Demo.start();
     setTimeout(() => { const f = !lastClub() ? $('#club', el) : n.ln ? $('#pw', el) : $('#ln', el); if (f) f.focus(); }, 60);
@@ -326,14 +326,14 @@ const Auth = (() => {
       <p>Ouvre le <b>lien d'invitation</b> envoyé par le responsable de ton club (WhatsApp, SMS, e-mail) : tu pourras choisir ton nom et créer ton mot de passe.</p>
       <label class="fld"><span>Ou colle le lien d'invitation ici</span><input id="inv" placeholder="https://…#rejoindre=…" autocapitalize="off" autocorrect="off"></label>
       <button class="btn primary wide" id="useInv">Continuer</button>
-      <div class="lock-links"><button class="btn wide" id="create">${I.whistle}<span>Je suis responsable : créer mon club</span></button>
+      <div class="lock-links">${AppCfg.fixed ? '' : `<button class="btn wide" id="create">${I.whistle}<span>Je suis responsable : créer mon club</span></button>`}
       <button class="btn wide link" id="back">Retour</button></div>`);
     $('#useInv', el).onclick = () => {
       const v = $('#inv', el).value.trim(), m = v.match(/rejoindre=([A-Za-z0-9]+)/) || v.match(/^([A-Za-z0-9]{8,})$/);
       if (!m) return toast('Colle le lien reçu du responsable', 'err');
       setInvite(m[1]); pickScreen();
     };
-    $('#create', el).onclick = () => createClubScreen();
+    const cr = $('#create', el); if (cr) cr.onclick = () => createClubScreen();
     $('#back', el).onclick = () => loginScreen();
   }
   async function pickScreen() {
@@ -457,7 +457,7 @@ const Auth = (() => {
         if (restore()) { res(); return; }
       }
       resolveGate = res;
-      const want = (location.hash.match(/^#(demo|creer)$/) || [])[1];
+      const want = AppCfg.fixed ? '' : (location.hash.match(/^#(demo|creer)$/) || [])[1];
       if (want) history.replaceState(null, '', location.pathname + location.search);
       if (s && s.token && Store.get('staff', s.staff_id) && needsTeams(s.staff_id)) teamsScreen(s.staff_id, !s.temp);
       else if (opts.joined) pickScreen(); else if (want === 'creer') createClubScreen(); else loginScreen();

@@ -1,7 +1,7 @@
 /* Store: the whole club lives in one object, saved in IndexedDB on the device.
    Sharing between coaches goes through export/import of a .json file (AirDrop, WhatsApp, mail). */
 const Store = (() => {
-  const DB = 'ea-club-manager', OS = 'kv', KEY = 'state';
+  const DB = AppCfg.db, OS = 'kv', KEY = 'state';
   const COLS = ['teams', 'players', 'staff', 'schemas', 'trainings', 'matches', 'reports'];
   let state = null, saveTimer = null;
   const listeners = new Set();
@@ -42,7 +42,8 @@ const Store = (() => {
   }
 
   function blank() {
-    return { version: 2, club: { name: '', homeBib: 'bleu', awayBib: 'blanc', brand: 1 }, ui: {}, teams: [], players: [], staff: [], schemas: [], trainings: [], matches: [], reports: [] };
+    return { version: 2, club: Object.assign({ name: '', homeBib: 'bleu', awayBib: 'blanc', brand: 1 }, AppCfg.defaults), // the app of one club starts with its name, slogan, town…
+      ui: {}, teams: [], players: [], staff: [], schemas: [], trainings: [], matches: [], reports: [] };
   }
   // v1 kept players inside each team; v2 keeps one club-wide list where a player can belong to several categories.
   function migrate() {

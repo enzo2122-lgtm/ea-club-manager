@@ -10,7 +10,7 @@ const Analyse = (() => {
     ['cpa', '🚩', 'Coup de pied arrêté', '#7c3aed'], ['defense', '🛡️', 'Bien défendu', '#0d9488'], ['erreur', '⚠️', 'Erreur', '#a16207'], ['autre', '✏️', 'Autre', '#475569']];
   const tagOf = k => TAGS.find(t => t[0] === k) || TAGS[TAGS.length - 1];
   const mmss = t => { t = Math.max(0, Math.floor(t || 0)); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
-  const BRIEF = 'ea-briefings';
+  const BRIEF = AppCfg.key('briefings');
   const briefings = () => { try { return JSON.parse(localStorage.getItem(BRIEF)) || []; } catch (e) { return []; } };
   const saveBriefings = l => { try { localStorage.setItem(BRIEF, JSON.stringify(l)); } catch (e) { toast('Impossible d\'enregistrer le briefing sur cet appareil', 'err'); } };
   const pref = () => Object.assign({ before: 8, after: 4 }, S().ui.clipPref || {});
@@ -454,7 +454,7 @@ const Analyse = (() => {
     };
     try {
       if (rec) rec.start(250);
-      await card('#8c1024', `${S().club.name || 'Clubbo'} · Briefing vidéo`, name, `${items.length} séquence${items.length > 1 ? 's' : ''}`, 2200);
+      await card('#8c1024', `${S().club.name || AppCfg.name} · Briefing vidéo`, name, `${items.length} séquence${items.length > 1 ? 's' : ''}`, 2200);
       for (let k = 0; k < items.length; k++) {
         const { rec: m, clip } = items[k], t = tagOf(clip.tag), ps = (clip.players || []).map(pid => Store.get('players', pid)).filter(Boolean);
         bz.progress(k / items.length);
@@ -492,7 +492,7 @@ const Analyse = (() => {
             requestAnimationFrame(tick);
           } catch (e) { rej(e); } }; tick(); });
       }
-      await card('#8c1024', S().club.name || 'Clubbo', 'Fin du briefing', '', 1200);
+      await card('#8c1024', S().club.name || AppCfg.name, 'Fin du briefing', '', 1200);
       let blob;
       if (wr) blob = await wr.finish();
       else { rec.stop(); await stopped; blob = new Blob(chunks, { type: (rec.mimeType || mime || 'video/webm').split(';')[0] }); }

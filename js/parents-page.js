@@ -19,7 +19,7 @@
   const VOL = [{ key: 'buvette', icon: '🥤', label: 'Buvette', need: 2, when: 'home' }, { key: 'touche', icon: '🚩', label: 'Arbitre de touche', need: 1, when: 'all' },
     { key: 'delegue', icon: '📋', label: 'Délégué', need: 1, when: 'home' }, { key: 'table', icon: '🧾', label: 'Table de marque / FMI', need: 1, when: 'home' },
     { key: 'lavage', icon: '🧺', label: 'Lavage des maillots', need: 1, when: 'all' }];
-  const NAME = 'ea-parent-name';
+  const NAME = AppCfg.key('parent-name');
   const myName = () => { try { return localStorage.getItem(NAME) || ''; } catch (e) { return ''; } };
   const volTasks = m => ((data.volTasks && data.volTasks.length) ? data.volTasks : VOL).filter(t => t.on !== false && (t.when === 'all' || (t.when === 'home' && m.home) || (t.when === 'away' && !m.home)));
   function volBox(m) {
@@ -51,7 +51,7 @@
         'LOCATION:' + esc2(m.place || (m.home ? (data.club && data.club.fieldName) || '' : '')),
         'DESCRIPTION:' + esc2(`${m.home ? 'À domicile' : 'À l\'extérieur'}${m.rdv ? ' · rendez-vous ' + hh(m.rdv) : ''}${m.time ? ' · coup d\'envoi ' + hh(m.time) : ''}`),
         'BEGIN:VALARM', 'TRIGGER:-PT2H', 'ACTION:DISPLAY', 'DESCRIPTION:Match', 'END:VALARM', 'END:VEVENT'].join('\r\n'); };
-    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Clubbo//Parents//FR', 'CALSCALE:GREGORIAN', ...list.map(ev), 'END:VCALENDAR'].join('\r\n');
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//' + AppCfg.name + '//Parents//FR', 'CALSCALE:GREGORIAN', ...list.map(ev), 'END:VCALENDAR'].join('\r\n');
   }
   function download(text, name) {
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/calendar;charset=utf-8' })); a.download = name;

@@ -132,7 +132,7 @@ const Cloud = (() => {
     ownerPush: (key, url) => rpc('ea_owner_push', { p_key: key, p_url: url }),
   };
   // the club of this device (its code, shown to the dirigeants to log in)
-  const clubSlug = () => (session() && session().club && session().club.slug) || (Store.state.club.cloud || {}).slug || '';
+  const clubSlug = () => AppCfg.club || (session() && session().club && session().club.slug) || (Store.state.club.cloud || {}).slug || '';
   const appUrl = () => `${location.origin}${location.pathname.replace(/index\.html$/, '')}`;
   const inviteLink = code => `${appUrl()}#rejoindre=${encodeURIComponent(code)}`;
   // (3.69) the link of one person: his name is already chosen when he opens it
@@ -152,7 +152,7 @@ const Cloud = (() => {
     let code;
     try { code = await api.invite(renew); } catch (e) { return toast(e.message, 'err'); }
     const link = inviteLink(code), club = Store.state.club.name || 'le club';
-    const text = `${club} · Clubbo : ouvre ce lien pour créer ton mot de passe (première connexion), puis ajoute l'appli à ton écran d'accueil.\nCode du club : ${clubSlug()}\n${link}`;
+    const text = `${club} · ${AppCfg.name} : ouvre ce lien pour créer ton mot de passe (première connexion), puis ajoute l'appli à ton écran d'accueil.\nCode du club : ${clubSlug()}\n${link}`;
     Store.state.ui.invited = true; Store.save();
     modal({ title: 'Inviter les éducateurs', body: `<p>Envoie ce lien aux dirigeants (WhatsApp, SMS, e-mail). En l'ouvrant, chacun choisit son nom et crée son mot de passe. Ensuite, ils se connectent partout avec le <b>code du club</b> (<b>${esc(clubSlug())}</b>), leur <b>nom, prénom et mot de passe</b>.</p>
       <label class="fld"><span>Lien d'invitation</span><input id="invLink" value="${esc(link)}" readonly></label>
@@ -160,14 +160,14 @@ const Cloud = (() => {
       onOpen: r => { const i = $('#invLink', r); i.onclick = () => i.select(); },
       actions: [{ label: 'Nouveau lien', onClick: () => { setTimeout(() => shareInvite(true), 60); } },
         { label: 'Copier', icon: I.copy, onClick: () => { navigator.clipboard.writeText(text).then(() => toast('Invitation copiée')).catch(() => toast('Sélectionne le lien et copie-le')); return false; } },
-        ...(navigator.share ? [{ label: 'Envoyer', kind: 'primary', icon: I.share, onClick: () => { navigator.share({ title: 'Clubbo', text }).catch(() => {}); return false; } }] : [])] });
+        ...(navigator.share ? [{ label: 'Envoyer', kind: 'primary', icon: I.share, onClick: () => { navigator.share({ title: AppCfg.name, text }).catch(() => {}); return false; } }] : [])] });
   }
 
   /* ---------- Réglages ---------- */
   const { esc, $, toast, modal } = UI;
   function settingsSection() {
     const admin = Auth.isAdmin(), sync = typeof Sync !== 'undefined' ? Sync.status() : '';
-    return `<section class="card"><h2>${I.share}Le club sur Clubbo</h2>
+    return `<section class="card"><h2>${I.share}${AppCfg.fixed ? 'Serveur du club' : 'Le club sur Clubbo'}</h2>
       <p>${ready() ? `<span class="res res-V">Connecté</span> Code du club : <b>${esc(clubSlug() || '—')}</b>` : '<span class="res res-D">Non connecté</span>'}</p>
       ${sync ? `<p class="muted small">${esc(sync)}</p>` : ''}
       ${admin && ready() ? `<div class="chips"><button class="btn primary" data-cloud="invite">${I.share}<span>Inviter les éducateurs</span></button><button class="btn" data-cloud="test">${I.check}<span>Tester la connexion</span></button></div>

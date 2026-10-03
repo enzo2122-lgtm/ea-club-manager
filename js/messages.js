@@ -3,13 +3,13 @@
 const Messages = (() => {
   const { esc, $, $$, toast, confirmBox } = UI;
   const S = () => Store.state;
-  const CACHE = 'ea-msgs', READ = 'ea-msg-read';
+  const CACHE = AppCfg.key('msgs'), READ = AppCfg.key('msg-read');
   let msgs = [], last = '1970-01-01T00:00:00Z', timer = null, fast = false, busy = false;
 
-  try { msgs = JSON.parse(localStorage.getItem(CACHE)) || []; if (msgs.length) last = msgs[msgs.length - 1].created_at; } catch (e) {}
+  try { msgs = JSON.parse(localStorage.getItem(CACHE)) || []; if (!Array.isArray(msgs)) msgs = []; if (msgs.length) last = msgs[msgs.length - 1].created_at; } catch (e) { msgs = []; } // a damaged copy: read again from the server
   const reads = () => { try { return JSON.parse(localStorage.getItem(READ)) || {}; } catch (e) { return {}; } };
   // categories whose teams A / B are shown in the list of conversations (this device)
-  const FAMS = 'ea-msg-fams';
+  const FAMS = AppCfg.key('msg-fams');
   const openFams = () => { try { return JSON.parse(localStorage.getItem(FAMS)) || []; } catch (e) { return []; } };
   const saveFams = l => { try { localStorage.setItem(FAMS, JSON.stringify(l)); } catch (e) {} };
   const markRead = ch => { const r = reads(); r[ch] = new Date().toISOString(); try { localStorage.setItem(READ, JSON.stringify(r)); } catch (e) {} };

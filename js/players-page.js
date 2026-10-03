@@ -121,7 +121,7 @@
   function ics(m) {
     const e2 = s => String(s || '').replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n'), start = m.rdv || m.time || '10:00', [h, mi] = (m.time || start).split(':').map(Number);
     const end = String(Math.min(23, h + 2)).padStart(2, '0') + ':' + String(mi || 0).padStart(2, '0');
-    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Clubbo//Joueurs//FR', 'BEGIN:VEVENT', 'UID:raincy-j-' + m.id + '@raincy-coach', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z',
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//' + AppCfg.name + '//Joueurs//FR', 'BEGIN:VEVENT', 'UID:raincy-j-' + m.id + '@raincy-coach', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z',
       'DTSTART:' + icsDate(m.date, start), 'DTEND:' + icsDate(m.date, end), 'SUMMARY:' + e2(`⚽ ${m.team || data.team} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`),
       'LOCATION:' + e2(m.place || (m.home ? (data.club && data.club.fieldName) || '' : '')), 'DESCRIPTION:' + e2(`${m.rdv ? 'Rendez-vous ' + hh(m.rdv) : ''}${m.time ? ' · coup d\'envoi ' + hh(m.time) : ''}`),
       'BEGIN:VALARM', 'TRIGGER:-PT3H', 'ACTION:DISPLAY', 'DESCRIPTION:Match', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');

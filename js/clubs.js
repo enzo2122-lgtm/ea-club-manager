@@ -44,7 +44,7 @@ const Clubs = (() => {
     flamengo: ['Flamengo', 'CR Flamengo', '#c8102e', '#000000', 'CRF', 'hoops'],
     raincy: ['FA Le Raincy', '', '#8b1426', '#0e1d45', 'FAR', 'halves'],
   };
-  const KEY = 'ea-crests';
+  const KEY = AppCfg.key('crests');
   const cache = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
   const saveCache = () => { try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch (e) {} };
   const asking = new Set(), inFlight = new Set(), waiting = new Set();

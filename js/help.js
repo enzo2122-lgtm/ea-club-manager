@@ -2,8 +2,8 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.34';
-  const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
+  const VERSION = '1.35';
+  const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
   function errors() { try { return JSON.parse(localStorage.getItem(ERR_KEY)) || []; } catch (e) { return []; } }
@@ -28,7 +28,7 @@ const Help = (() => {
 
   /* ---------- first-use tour ---------- */
   const SLIDES = [
-    ['crest', 'Bienvenue !', "Clubbo, c'est l'appli des éducateurs du club : tableau tactique animé, effectifs, séances, matchs et statistiques. Elle marche aussi sans internet."],
+    ['crest', 'Bienvenue !', `${AppCfg.name}, c'est l'appli des éducateurs du club : tableau tactique animé, effectifs, séances, matchs et statistiques. Elle marche aussi sans internet.`],
     ['whistle', 'Ton compte', "Première fois : ouvre le lien d'invitation du responsable, choisis ton nom et crée ton mot de passe. Ensuite, connecte-toi sur n'importe quel téléphone, tablette ou ordinateur avec ton nom, ton prénom et ton mot de passe : tes données te suivent."],
     ['team', 'Équipes et joueurs', "Dans Équipes, retrouve chaque catégorie avec ses joueurs et dirigeants. Pour charger les licenciés : Réglages → Recevoir un fichier. Touche un joueur pour ajouter son numéro et le téléphone des parents."],
     ['board', 'Le tableau tactique', "Dans Schémas : choisis un outil (joueur, ballon, flèche, zone) puis touche le terrain. Touche « + Étape », déplace les joueurs : la flèche se dessine toute seule. « Jouer » lance l'animation."],
@@ -173,7 +173,7 @@ const Help = (() => {
   const pageTitle = (key = pageKey()) => (PAGES[key] || PAGES[''])[0];
   function textOf(rep) {
     const d = rep.diag || {};
-    return [`${TYPES[rep.type][0]} ${TYPES[rep.type][1]} – Clubbo${rep.page ? ' · page « ' + rep.page + ' »' : ''}`, `De : ${rep.byName || '?'}${d.role ? ' (' + d.role + ')' : ''}`, `Date : ${new Date(rep.at).toLocaleString('fr-FR')}`, '',
+    return [`${TYPES[rep.type][0]} ${TYPES[rep.type][1]} – ${AppCfg.name}${rep.page ? ' · page « ' + rep.page + ' »' : ''}`, `De : ${rep.byName || '?'}${d.role ? ' (' + d.role + ')' : ''}`, `Date : ${new Date(rep.at).toLocaleString('fr-FR')}`, '',
       rep.text, rep.context ? `\nCe que je faisais : ${rep.context}` : '',
       rep.withDiag ? `\n--- Infos techniques ---\nVersion ${d.version} · page ${d.page}\nÉcran ${d.screen} · appli installée : ${d.standalone ? 'oui' : 'non'}\n${d.device}${(d.errors || []).length ? '\nErreurs récentes :\n' + d.errors.map(e => `- ${e.at.slice(0, 16)} ${e.msg} (${e.src} ${e.page})`).join('\n') : ''}` : ''].join('\n');
   }
@@ -222,7 +222,7 @@ const Help = (() => {
       at: Date.now(), by: u ? u.id : null, byName: u ? Store.fullName(u) : '', status: 'new', page: page || pageTitle() };
     if (shot) rep.shot = shot;
     Store.upsert('reports', rep);
-    const body = textOf(rep), subject = `[Clubbo] ${TYPES[rep.type][1]} de ${rep.byName || 'un éducateur'}`;
+    const body = textOf(rep), subject = `[${AppCfg.name}] ${TYPES[rep.type][1]} de ${rep.byName || 'un éducateur'}`;
     if (how === 'mail') location.href = `mailto:${encodeURIComponent(Store.state.club.reportEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.slice(0, 1800))}`;
     else if (how === 'share') {
       if (navigator.share) navigator.share({ title: subject, text: body }).catch(() => {});

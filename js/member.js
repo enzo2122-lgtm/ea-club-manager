@@ -3,7 +3,7 @@
    parents see only his own information and his category's (matches, sessions, results, coaches): never the other players'.
    A parent with several children keeps the codes of each one on his phone and switches from one to the other. */
 const Member = (() => {
-  const LIST = 'ea-codes', CUR = 'ea-code';
+  const LIST = AppCfg.key('codes'), CUR = AppCfg.key('code');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clean = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   const pretty = c => clean(c).replace(/^(.{4})(.+)$/, '$1-$2');

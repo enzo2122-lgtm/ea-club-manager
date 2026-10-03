@@ -22,7 +22,7 @@ const App = (() => {
     } else if (bar) { bar.remove(); document.body.classList.remove('previewing'); }
     Demo.bar();
     document.documentElement.style.setProperty('--accent', UI.accentFor(c.homeBib));
-    document.getElementById('clubName').textContent = c.name || 'Clubbo';
+    document.getElementById('clubName').textContent = c.name || AppCfg.name;
     Supporters.refresh();
     const u = Auth.current(), ru = document.getElementById('railUser');
     // The connected coach: his initials with his favourite club's crest, and « Coach Prénom » (opens Mon compte)
@@ -32,7 +32,7 @@ const App = (() => {
         <span class="ru-name">${UI.esc(coach)}</span></a>${Auth.realAdmin() ? '<button class="ru-out" id="rolesBtn" title="Mes rôles">🔀 Rôles</button>' : ''}<button class="ru-out" id="logoutBtn">Sortir</button>` : '';
     const rb = document.getElementById('rolesBtn'); if (rb) rb.onclick = () => Roles.open();
     const lo = document.getElementById('logoutBtn'); if (lo) lo.onclick = () => Auth.logout();
-    document.title = (u ? coach + ' · ' : '') + (c.name || 'Clubbo');
+    document.title = (u ? coach + ' · ' : '') + (c.name || AppCfg.name);
   }
   function renderNav(active) {
     // the responsables also have the club's dashboard (before Réglages)
@@ -119,7 +119,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 35, UPD = 'ea-update-tried';
+  const BUILD = 36, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -151,6 +151,14 @@ const App = (() => {
     }
     if (manual) { UI.busy('Rechargement de l\'appli…'); forceUpdate(); }
   }
+  // (fusion) the app of one club: the club's settings (name, slogan, town, FFF page…) given by js/config.js when they are missing
+  function fillDefaults() {
+    if (!AppCfg.fixed || !Auth.isAdmin()) return false;
+    const c = Store.state.club, d = AppCfg.defaults; let n = 0;
+    Object.keys(d).forEach(k => { if (c[k] == null || c[k] === '') { c[k] = d[k]; n++; } });
+    if (n) { Store.save(); refreshChrome(); }
+    return n > 0;
+  }
   async function start() {
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -163,7 +171,7 @@ const App = (() => {
     window.__appStarted = true; // the data are read: the safety net of index.html is not needed
     Sport.apply();
     // the owner's space of Clubbo: no club account needed (the owner key is asked on the page)
-    if (/^#\/proprietaire/.test(location.hash)) { refreshChrome(); window.addEventListener('hashchange', route); route(); return; }
+    if (!AppCfg.fixed && /^#\/proprietaire/.test(location.hash)) { refreshChrome(); window.addEventListener('hashchange', route); route(); return; }
     // Invitation link sent by the responsable: …#rejoindre=CODE
     const join = (location.hash.match(/^#rejoindre=([A-Za-z0-9]+)/) || [])[1];
     // (3.74) a session received as a link: …#/recevoir/CODE
@@ -182,7 +190,7 @@ const App = (() => {
     Sync.start();
     // After the first exchange with the server: categories U6 … Vétérans for the new season
     Promise.resolve(Sync.run()).catch(() => {}).then(() => {
-      let redraw = People.autoCategories();
+      let redraw = fillDefaults() || People.autoCategories();
       // once, on a responsable's device: imported matches go to team A / B from the District team number
       const c = Store.state.club;
       if (Auth.isAdmin() && !c.matchTeamsV1) { if (Importer.reassignImported()) redraw = true; c.matchTeamsV1 = 1; Store.save(); }

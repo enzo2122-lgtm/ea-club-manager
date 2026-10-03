@@ -2,7 +2,7 @@
    Photos are resized to keep the iPad storage light; videos are kept as they are. */
 const Media = (() => {
   const { esc, toast, modal, confirmBox } = UI;
-  const DB = 'ea-media', OS = 'media', MAX_VIDEO = 300 * 1024 * 1024;
+  const DB = AppCfg.key('media'), OS = 'media', MAX_VIDEO = 300 * 1024 * 1024;
   let dbp = null;
   function db() {
     return dbp || (dbp = new Promise((res, rej) => {

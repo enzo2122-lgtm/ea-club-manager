@@ -1,4 +1,24 @@
 /* Fichier généré par build.js : ne pas modifier ici, modifier les fichiers de js/ puis relancer « node build.js ». */
+/* ===== appcfg.js ===== */
+/* AppCfg: which app this is. The same code makes Clubbo (every club) and the app of one club (js/config.js « club »,
+   e.g. FA Le Raincy). From js/config.js: the app's name, the names of its memory on the phone (so a club's app keeps the data
+   its phones already have), its default crest, and the club settings filled once when they are missing (« defaults »).
+   Loaded first (app, family pages and service worker). */
+var AppCfg = (() => {
+  const c = typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER ? CLUB_SERVER : {};
+  const pre = c.store || 'ea';
+  return {
+    name: c.app || 'Clubbo',            // shown to the users (title, login screen, notifications…)
+    club: c.club || '',                 // the code of the club on the Clubbo server, for the app of one club
+    fixed: !!c.club,                    // one club: no club code to type, no « Créer mon club », no demo, no owner's space
+    db: c.db || 'ea-club-manager',      // the database of the app on the phone
+    key: s => pre + '-' + s,            // the other names of its memory on the phone (« ea-msgs », « raincy-msgs »…)
+    crest: c.crest || 'icons/ea-logo.png',
+    defaults: c.defaults || {},
+  };
+})();
+
+;
 /* ===== sport.js ===== */
 /* Sport: what changes from one sport to another. The club chooses its sport when it is created (club.sport);
    the app then takes from here the playing formats and their courts, the positions, the age categories, the way to score,
@@ -661,7 +681,7 @@ var Board = (() => {
 /* Store: the whole club lives in one object, saved in IndexedDB on the device.
    Sharing between coaches goes through export/import of a .json file (AirDrop, WhatsApp, mail). */
 var Store = (() => {
-  const DB = 'ea-club-manager', OS = 'kv', KEY = 'state';
+  const DB = AppCfg.db, OS = 'kv', KEY = 'state';
   const COLS = ['teams', 'players', 'staff', 'schemas', 'trainings', 'matches', 'reports'];
   let state = null, saveTimer = null;
   const listeners = new Set();
@@ -702,7 +722,8 @@ var Store = (() => {
   }
 
   function blank() {
-    return { version: 2, club: { name: '', homeBib: 'bleu', awayBib: 'blanc', brand: 1 }, ui: {}, teams: [], players: [], staff: [], schemas: [], trainings: [], matches: [], reports: [] };
+    return { version: 2, club: Object.assign({ name: '', homeBib: 'bleu', awayBib: 'blanc', brand: 1 }, AppCfg.defaults), // the app of one club starts with its name, slogan, town…
+      ui: {}, teams: [], players: [], staff: [], schemas: [], trainings: [], matches: [], reports: [] };
   }
   // v1 kept players inside each team; v2 keeps one club-wide list where a player can belong to several categories.
   function migrate() {
@@ -1244,7 +1265,7 @@ var Clubs = (() => {
     flamengo: ['Flamengo', 'CR Flamengo', '#c8102e', '#000000', 'CRF', 'hoops'],
     raincy: ['FA Le Raincy', '', '#8b1426', '#0e1d45', 'FAR', 'halves'],
   };
-  const KEY = 'ea-crests';
+  const KEY = AppCfg.key('crests');
   const cache = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
   const saveCache = () => { try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch (e) {} };
   const asking = new Set(), inFlight = new Set(), waiting = new Set();
@@ -1315,7 +1336,7 @@ var Clubs = (() => {
 var Exporter = (() => {
   // Club crest, drawn on images, videos and PDFs
   const crest = new Image(); let crestOk = false;
-  crest.onload = () => { crestOk = true; }; crest.src = 'icons/ea-logo.png'; // then the club's own crest, once the app is loaded
+  crest.onload = () => { crestOk = true; }; crest.src = AppCfg.crest; // then the club's own crest, once the app is loaded
   setTimeout(() => { try { const c = Supporters.crest(); if (c && c !== crest.src) { crestOk = false; crest.src = c; } } catch (e) {} }, 1500);
   const crestData = () => { if (!crestOk) return null; const c = document.createElement('canvas'); c.width = c.height = 256; c.getContext('2d').drawImage(crest, 0, 0, 256, 256); return c.toDataURL('image/png'); };
   const isTouch = () => matchMedia('(pointer: coarse)').matches;
@@ -1607,7 +1628,7 @@ var Exporter = (() => {
     P.doc.addPage(); P.y = P.M; P.h2('Documents joints');
     for (const d of docs) {
       P.label(d.name || 'Document');
-      if (d.video) { P.para('Vidéo : à regarder dans l\'appli Clubbo.'); continue; }
+      if (d.video) { P.para('Vidéo : à regarder dans l\'appli ' + AppCfg.name + '.'); continue; }
       if (d.link) { P.para('Lien : ' + d.link); continue; }
       for (const url of d.images) {
         const img = await Media.loadImage(url), ratio = img.naturalHeight / img.naturalWidth;
@@ -1690,7 +1711,7 @@ var Exporter = (() => {
    Without a club server (another club, no setup yet) accounts stay on the device, as in the first versions. */
 var Auth = (() => {
   const { esc, $, toast, modal, confirmBox } = UI;
-  const KEY = 'ea-session', TMP = 'ea-session-tmp', NAMES = 'ea-last-names', ITER = 150000, MIN = 6;
+  const KEY = AppCfg.key('session'), TMP = AppCfg.key('session-tmp'), NAMES = AppCfg.key('last-names'), ITER = 150000, MIN = 6;
   const enc = new TextEncoder();
   const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
   const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -1724,7 +1745,7 @@ var Auth = (() => {
   const current = () => user;
   const realAdmin = () => { if (!user) return false; const s = sess(); if (s && s.staff_id === user.id) return !!s.admin; return !!(U(user.id) && U(user.id).admin); };
   // « Voir comme un coach »: a responsable sees the app exactly as a coach of the chosen categories (this device and tab only)
-  const PREVIEW = 'ea-preview';
+  const PREVIEW = AppCfg.key('preview');
   const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
   // a responsable looking at the app as a volunteer: only the volunteers' tasks and the club's events
@@ -1859,9 +1880,9 @@ var Auth = (() => {
   const lock = () => document.getElementById('lock');
   function frame(inner) {
     const el = lock(); el.hidden = false;
-    el.innerHTML = `<div class="lock-card">${Supporters.coin('lock-crest')}<p class="eyebrow">Clubbo</p><h1>${esc(Store.state.club.name || 'Espace éducateurs')}</h1>${inner}
+    el.innerHTML = `<div class="lock-card">${Supporters.coin('lock-crest')}<p class="eyebrow">${esc(AppCfg.name)}</p><h1>${esc(Store.state.club.name || 'Espace éducateurs')}</h1>${inner}
       <button class="btn wide link how-btn" id="howTo">${I.help}<span>Comment utiliser l'appli ?</span></button>
-      <p class="lock-version">Clubbo · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" id="updApp">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p></div>`;
+      <p class="lock-version">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" id="updApp">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p></div>`;
     el.querySelector('#howTo').onclick = () => Help.tour();
     el.querySelector('#updApp').onclick = () => App.checkUpdate(true);
     el.scrollTop = 0;
@@ -1928,8 +1949,8 @@ var Auth = (() => {
     return byPw(match(L, F)) || byPw(match(F, L)) || null;
   }
   // the club of this device (its code, remembered for the next connection)
-  const CLUB = 'ea-club-code';
-  const lastClub = () => { try { return localStorage.getItem(CLUB) || ''; } catch (e) { return ''; } };
+  const CLUB = AppCfg.key('club-code');
+  const lastClub = () => { if (AppCfg.fixed) return AppCfg.club; try { return localStorage.getItem(CLUB) || ''; } catch (e) { return ''; } };
   const saveClub = c => { try { localStorage.setItem(CLUB, c); } catch (e) {} };
   async function serverLogin(club, ln, fn, pw) {
     let last = null;
@@ -1954,18 +1975,18 @@ var Auth = (() => {
   }
   const errText = code => ({ MOT_DE_PASSE: 'Mot de passe incorrect', BLOQUE: 'Trop d\'essais : attends 5 minutes avant de réessayer', COMPTE_INCONNU: 'Aucun compte à ce nom dans ce club',
     CLUB_INCONNU: 'Aucun club avec ce code', CLUB_SUSPENDU: 'L\'accès de ce club est suspendu : contacte Clubbo' }[code] || 'Connexion impossible');
-  const clubField = (v = '') => `<label class="fld"><span>Code du club</span><input id="club" value="${esc(v)}" placeholder="ex : fc-exemple" autocapitalize="off" autocorrect="off" autocomplete="organization"></label>`;
+  const clubField = (v = '') => AppCfg.fixed ? `<input id="club" type="hidden" value="${esc(AppCfg.club)}">` : `<label class="fld"><span>Code du club</span><input id="club" value="${esc(v)}" placeholder="ex : fc-exemple" autocapitalize="off" autocorrect="off" autocomplete="organization"></label>`;
 
   function loginScreen() {
     const n = lastNames();
-    const el = frame(`<p class="lead">Connecte-toi avec le code de ton club, ton nom, ton prénom et ton mot de passe.</p>
+    const el = frame(`<p class="lead">Connecte-toi avec ${AppCfg.fixed ? '' : 'le code de ton club, '}ton nom, ton prénom et ton mot de passe.</p>
       ${clubField(lastClub())}${nameFields(n.ln, n.fn)}
       <label class="fld"><span>Mot de passe</span><input id="pw" type="password" autocomplete="current-password"></label>${keepBox}
       <button class="btn primary wide" id="go">Se connecter</button>
       <div class="lock-links"><button class="btn wide" id="first">${I.plus}<span>Première connexion (lien d'invitation)</span></button>
-      <button class="btn wide" id="create">${I.whistle}<span>Créer mon club</span></button>
+      ${AppCfg.fixed ? '' : `<button class="btn wide" id="create">${I.whistle}<span>Créer mon club</span></button>
       ${!Store.state.staff.length ? '<button class="btn wide" id="demo">👀<span>Essayer avec un club de démonstration</span></button>' : ''}
-      <a class="btn wide link" href="decouvrir.html">Découvrir Clubbo</a>
+      <a class="btn wide link" href="decouvrir.html">Découvrir Clubbo</a>`}
       <button class="btn wide link" id="forgot">Mot de passe oublié ?</button></div>`);
     const go = async () => {
       const club = $('#club', el).value.trim(), ln = $('#ln', el).value.trim(), fn = $('#fn', el).value.trim(), pw = $('#pw', el).value, keep = $('#keep', el).checked;
@@ -1992,7 +2013,7 @@ var Auth = (() => {
     const failed = () => { fails++; if (fails >= 5) { lockedUntil = Date.now() + 30000; fails = 0; } toast('Mot de passe incorrect', 'err'); const p = $('#pw', el); if (p) p.select(); };
     $('#go', el).onclick = go; $('#pw', el).onkeydown = e => { if (e.key === 'Enter') go(); };
     $('#first', el).onclick = () => firstScreen();
-    $('#create', el).onclick = () => createClubScreen();
+    const cr = $('#create', el); if (cr) cr.onclick = () => createClubScreen();
     $('#forgot', el).onclick = () => forgotServer();
     const dm = $('#demo', el); if (dm) dm.onclick = () => Demo.start();
     setTimeout(() => { const f = !lastClub() ? $('#club', el) : n.ln ? $('#pw', el) : $('#ln', el); if (f) f.focus(); }, 60);
@@ -2012,14 +2033,14 @@ var Auth = (() => {
       <p>Ouvre le <b>lien d'invitation</b> envoyé par le responsable de ton club (WhatsApp, SMS, e-mail) : tu pourras choisir ton nom et créer ton mot de passe.</p>
       <label class="fld"><span>Ou colle le lien d'invitation ici</span><input id="inv" placeholder="https://…#rejoindre=…" autocapitalize="off" autocorrect="off"></label>
       <button class="btn primary wide" id="useInv">Continuer</button>
-      <div class="lock-links"><button class="btn wide" id="create">${I.whistle}<span>Je suis responsable : créer mon club</span></button>
+      <div class="lock-links">${AppCfg.fixed ? '' : `<button class="btn wide" id="create">${I.whistle}<span>Je suis responsable : créer mon club</span></button>`}
       <button class="btn wide link" id="back">Retour</button></div>`);
     $('#useInv', el).onclick = () => {
       const v = $('#inv', el).value.trim(), m = v.match(/rejoindre=([A-Za-z0-9]+)/) || v.match(/^([A-Za-z0-9]{8,})$/);
       if (!m) return toast('Colle le lien reçu du responsable', 'err');
       setInvite(m[1]); pickScreen();
     };
-    $('#create', el).onclick = () => createClubScreen();
+    const cr = $('#create', el); if (cr) cr.onclick = () => createClubScreen();
     $('#back', el).onclick = () => loginScreen();
   }
   async function pickScreen() {
@@ -2143,7 +2164,7 @@ var Auth = (() => {
         if (restore()) { res(); return; }
       }
       resolveGate = res;
-      const want = (location.hash.match(/^#(demo|creer)$/) || [])[1];
+      const want = AppCfg.fixed ? '' : (location.hash.match(/^#(demo|creer)$/) || [])[1];
       if (want) history.replaceState(null, '', location.pathname + location.search);
       if (s && s.token && Store.get('staff', s.staff_id) && needsTeams(s.staff_id)) teamsScreen(s.staff_id, !s.temp);
       else if (opts.joined) pickScreen(); else if (want === 'creer') createClubScreen(); else loginScreen();
@@ -2298,7 +2319,7 @@ var Auth = (() => {
    Photos are resized to keep the iPad storage light; videos are kept as they are. */
 var Media = (() => {
   const { esc, toast, modal, confirmBox } = UI;
-  const DB = 'ea-media', OS = 'media', MAX_VIDEO = 300 * 1024 * 1024;
+  const DB = AppCfg.key('media'), OS = 'media', MAX_VIDEO = 300 * 1024 * 1024;
   let dbp = null;
   function db() {
     return dbp || (dbp = new Promise((res, rej) => {
@@ -3443,8 +3464,8 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.34';
-  const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
+  const VERSION = '1.35';
+  const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
   function errors() { try { return JSON.parse(localStorage.getItem(ERR_KEY)) || []; } catch (e) { return []; } }
@@ -3469,7 +3490,7 @@ var Help = (() => {
 
   /* ---------- first-use tour ---------- */
   const SLIDES = [
-    ['crest', 'Bienvenue !', "Clubbo, c'est l'appli des éducateurs du club : tableau tactique animé, effectifs, séances, matchs et statistiques. Elle marche aussi sans internet."],
+    ['crest', 'Bienvenue !', `${AppCfg.name}, c'est l'appli des éducateurs du club : tableau tactique animé, effectifs, séances, matchs et statistiques. Elle marche aussi sans internet.`],
     ['whistle', 'Ton compte', "Première fois : ouvre le lien d'invitation du responsable, choisis ton nom et crée ton mot de passe. Ensuite, connecte-toi sur n'importe quel téléphone, tablette ou ordinateur avec ton nom, ton prénom et ton mot de passe : tes données te suivent."],
     ['team', 'Équipes et joueurs', "Dans Équipes, retrouve chaque catégorie avec ses joueurs et dirigeants. Pour charger les licenciés : Réglages → Recevoir un fichier. Touche un joueur pour ajouter son numéro et le téléphone des parents."],
     ['board', 'Le tableau tactique', "Dans Schémas : choisis un outil (joueur, ballon, flèche, zone) puis touche le terrain. Touche « + Étape », déplace les joueurs : la flèche se dessine toute seule. « Jouer » lance l'animation."],
@@ -3614,7 +3635,7 @@ var Help = (() => {
   const pageTitle = (key = pageKey()) => (PAGES[key] || PAGES[''])[0];
   function textOf(rep) {
     const d = rep.diag || {};
-    return [`${TYPES[rep.type][0]} ${TYPES[rep.type][1]} – Clubbo${rep.page ? ' · page « ' + rep.page + ' »' : ''}`, `De : ${rep.byName || '?'}${d.role ? ' (' + d.role + ')' : ''}`, `Date : ${new Date(rep.at).toLocaleString('fr-FR')}`, '',
+    return [`${TYPES[rep.type][0]} ${TYPES[rep.type][1]} – ${AppCfg.name}${rep.page ? ' · page « ' + rep.page + ' »' : ''}`, `De : ${rep.byName || '?'}${d.role ? ' (' + d.role + ')' : ''}`, `Date : ${new Date(rep.at).toLocaleString('fr-FR')}`, '',
       rep.text, rep.context ? `\nCe que je faisais : ${rep.context}` : '',
       rep.withDiag ? `\n--- Infos techniques ---\nVersion ${d.version} · page ${d.page}\nÉcran ${d.screen} · appli installée : ${d.standalone ? 'oui' : 'non'}\n${d.device}${(d.errors || []).length ? '\nErreurs récentes :\n' + d.errors.map(e => `- ${e.at.slice(0, 16)} ${e.msg} (${e.src} ${e.page})`).join('\n') : ''}` : ''].join('\n');
   }
@@ -3663,7 +3684,7 @@ var Help = (() => {
       at: Date.now(), by: u ? u.id : null, byName: u ? Store.fullName(u) : '', status: 'new', page: page || pageTitle() };
     if (shot) rep.shot = shot;
     Store.upsert('reports', rep);
-    const body = textOf(rep), subject = `[Clubbo] ${TYPES[rep.type][1]} de ${rep.byName || 'un éducateur'}`;
+    const body = textOf(rep), subject = `[${AppCfg.name}] ${TYPES[rep.type][1]} de ${rep.byName || 'un éducateur'}`;
     if (how === 'mail') location.href = `mailto:${encodeURIComponent(Store.state.club.reportEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.slice(0, 1800))}`;
     else if (how === 'share') {
       if (navigator.share) navigator.share({ title: subject, text: body }).catch(() => {});
@@ -3834,7 +3855,7 @@ var Cloud = (() => {
     ownerPush: (key, url) => rpc('ea_owner_push', { p_key: key, p_url: url }),
   };
   // the club of this device (its code, shown to the dirigeants to log in)
-  const clubSlug = () => (session() && session().club && session().club.slug) || (Store.state.club.cloud || {}).slug || '';
+  const clubSlug = () => AppCfg.club || (session() && session().club && session().club.slug) || (Store.state.club.cloud || {}).slug || '';
   const appUrl = () => `${location.origin}${location.pathname.replace(/index\.html$/, '')}`;
   const inviteLink = code => `${appUrl()}#rejoindre=${encodeURIComponent(code)}`;
   // (3.69) the link of one person: his name is already chosen when he opens it
@@ -3854,7 +3875,7 @@ var Cloud = (() => {
     let code;
     try { code = await api.invite(renew); } catch (e) { return toast(e.message, 'err'); }
     const link = inviteLink(code), club = Store.state.club.name || 'le club';
-    const text = `${club} · Clubbo : ouvre ce lien pour créer ton mot de passe (première connexion), puis ajoute l'appli à ton écran d'accueil.\nCode du club : ${clubSlug()}\n${link}`;
+    const text = `${club} · ${AppCfg.name} : ouvre ce lien pour créer ton mot de passe (première connexion), puis ajoute l'appli à ton écran d'accueil.\nCode du club : ${clubSlug()}\n${link}`;
     Store.state.ui.invited = true; Store.save();
     modal({ title: 'Inviter les éducateurs', body: `<p>Envoie ce lien aux dirigeants (WhatsApp, SMS, e-mail). En l'ouvrant, chacun choisit son nom et crée son mot de passe. Ensuite, ils se connectent partout avec le <b>code du club</b> (<b>${esc(clubSlug())}</b>), leur <b>nom, prénom et mot de passe</b>.</p>
       <label class="fld"><span>Lien d'invitation</span><input id="invLink" value="${esc(link)}" readonly></label>
@@ -3862,14 +3883,14 @@ var Cloud = (() => {
       onOpen: r => { const i = $('#invLink', r); i.onclick = () => i.select(); },
       actions: [{ label: 'Nouveau lien', onClick: () => { setTimeout(() => shareInvite(true), 60); } },
         { label: 'Copier', icon: I.copy, onClick: () => { navigator.clipboard.writeText(text).then(() => toast('Invitation copiée')).catch(() => toast('Sélectionne le lien et copie-le')); return false; } },
-        ...(navigator.share ? [{ label: 'Envoyer', kind: 'primary', icon: I.share, onClick: () => { navigator.share({ title: 'Clubbo', text }).catch(() => {}); return false; } }] : [])] });
+        ...(navigator.share ? [{ label: 'Envoyer', kind: 'primary', icon: I.share, onClick: () => { navigator.share({ title: AppCfg.name, text }).catch(() => {}); return false; } }] : [])] });
   }
 
   /* ---------- Réglages ---------- */
   const { esc, $, toast, modal } = UI;
   function settingsSection() {
     const admin = Auth.isAdmin(), sync = typeof Sync !== 'undefined' ? Sync.status() : '';
-    return `<section class="card"><h2>${I.share}Le club sur Clubbo</h2>
+    return `<section class="card"><h2>${I.share}${AppCfg.fixed ? 'Serveur du club' : 'Le club sur Clubbo'}</h2>
       <p>${ready() ? `<span class="res res-V">Connecté</span> Code du club : <b>${esc(clubSlug() || '—')}</b>` : '<span class="res res-D">Non connecté</span>'}</p>
       ${sync ? `<p class="muted small">${esc(sync)}</p>` : ''}
       ${admin && ready() ? `<div class="chips"><button class="btn primary" data-cloud="invite">${I.share}<span>Inviter les éducateurs</span></button><button class="btn" data-cloud="test">${I.check}<span>Tester la connexion</span></button></div>
@@ -4537,13 +4558,13 @@ var Results = (() => {
 var Messages = (() => {
   const { esc, $, $$, toast, confirmBox } = UI;
   const S = () => Store.state;
-  const CACHE = 'ea-msgs', READ = 'ea-msg-read';
+  const CACHE = AppCfg.key('msgs'), READ = AppCfg.key('msg-read');
   let msgs = [], last = '1970-01-01T00:00:00Z', timer = null, fast = false, busy = false;
 
-  try { msgs = JSON.parse(localStorage.getItem(CACHE)) || []; if (msgs.length) last = msgs[msgs.length - 1].created_at; } catch (e) {}
+  try { msgs = JSON.parse(localStorage.getItem(CACHE)) || []; if (!Array.isArray(msgs)) msgs = []; if (msgs.length) last = msgs[msgs.length - 1].created_at; } catch (e) { msgs = []; } // a damaged copy: read again from the server
   const reads = () => { try { return JSON.parse(localStorage.getItem(READ)) || {}; } catch (e) { return {}; } };
   // categories whose teams A / B are shown in the list of conversations (this device)
-  const FAMS = 'ea-msg-fams';
+  const FAMS = AppCfg.key('msg-fams');
   const openFams = () => { try { return JSON.parse(localStorage.getItem(FAMS)) || []; } catch (e) { return []; } };
   const saveFams = l => { try { localStorage.setItem(FAMS, JSON.stringify(l)); } catch (e) {} };
   const markRead = ch => { const r = reads(); r[ch] = new Date().toISOString(); try { localStorage.setItem(READ, JSON.stringify(r)); } catch (e) {} };
@@ -6809,7 +6830,7 @@ var ClubLife = (() => {
 var Weather = (() => {
   const { esc } = UI;
   const HOMEOF = () => { const c = Store.state.club; return c.lat != null && c.lon != null ? { name: c.city || 'le club', lat: +c.lat, lon: +c.lon } : null; };
-  const TTL = 2 * 3600e3, KEY = 'ea-weather', GEO = 'ea-geo';
+  const TTL = 2 * 3600e3, KEY = AppCfg.key('weather'), GEO = AppCfg.key('geo');
   const load = k => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch (e) { return {}; } };
   const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
@@ -6951,7 +6972,7 @@ var Notify = (() => {
   const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const prefs = () => Object.assign({ messages: true, planning: true }, S().ui.notifPrefs || {});
   const b64 = s => { const r = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
-  const why = e => e && e.code === 'MISE_A_JOUR' ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes. ().' : (e && e.message) || 'Erreur';
+  const why = e => e && e.code === 'MISE_A_JOUR' ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes.' : (e && e.message) || 'Erreur';
   // the app's service worker (it shows the notifications); null if it does not answer within 4 s
   const ready = () => Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(() => r(null), 4000))]);
   async function current() { if (!supported()) return null; try { const reg = await ready(); return reg ? await reg.pushManager.getSubscription() : null; } catch (e) { return null; } }
@@ -6961,7 +6982,7 @@ var Notify = (() => {
     if (Notification.permission !== 'granted') {
       if (!ask) return null;
       const p = await Notification.requestPermission();
-      if (p !== 'granted') throw new Error('Notifications refusées. Pour les autoriser : réglages du téléphone → Notifications → Clubbo.');
+      if (p !== 'granted') throw new Error('Notifications refusées. Pour les autoriser : réglages du téléphone → Notifications → ' + AppCfg.name + '.');
     }
     const key = await Cloud.pushKey();
     if (!key) throw new Error('Les notifications du club ne sont pas encore activées : le responsable doit le faire une fois (Réglages → Serveur du club → Notifications).');
@@ -7000,7 +7021,7 @@ var Notify = (() => {
     const swOk = supported() && !!(await ready());
     if (supported() && !swOk) text = 'L\'appli n\'est pas encore prête pour les notifications : ferme-la, rouvre-la depuis son icône, puis reviens ici.';
     else if (!supported()) text = ios() && !standalone() ? '📱 Sur iPhone : ajoute d\'abord l\'appli à l\'écran d\'accueil (Partager → « Sur l\'écran d\'accueil »), ouvre-la depuis son icône, puis reviens ici.' : 'Ce navigateur ne reçoit pas de notifications.';
-    else if (perm === 'denied') text = '🚫 Notifications bloquées sur ce téléphone : autorise-les dans les réglages du téléphone (Notifications → Clubbo), puis reviens ici.';
+    else if (perm === 'denied') text = '🚫 Notifications bloquées sur ce téléphone : autorise-les dans les réglages du téléphone (Notifications → ' + AppCfg.name + '), puis reviens ici.';
     else if (sub && S().ui.notifOn) { text = '✅ Activées : tu es prévenu tout de suite, même appli fermée.'; b = `<button class="btn soft" data-notif="test">${I.check}<span>M'envoyer un test</span></button><button class="btn soft" data-notif="off">${I.x}<span>Désactiver</span></button>`; }
     else { text = 'Pas encore activées sur ce téléphone.'; b = `<button class="btn primary" data-notif="on">🔔<span>Activer les notifications</span></button>`; }
     if (!box.isConnected) return;
@@ -7036,10 +7057,11 @@ var Notify = (() => {
 ;
 /* ===== supporters.js ===== */
 /* Supporters: the club's crest turning like a coin (its name and slogan on the back), and the flag with the crest and the slogan,
-   waving above supporters of all ages. Everything comes from the club's settings (crest, colours, slogan), the Clubbo logo by default. */
+   waving above supporters of all ages. Everything comes from the club's settings (crest, colours, slogan), the app's crest by default.
+   A slogan « A : B » is written A around the coin, B in its middle. */
 var Supporters = (() => {
   const club = () => (typeof Store !== 'undefined' && Store.state && Store.state.club) || {};
-  const crest = () => club().crest || 'icons/ea-logo.png';
+  const crest = () => club().crest || AppCfg.crest;
   const slogan = () => club().slogan || '';
   const col = () => ({ a: club().color1 || '#8c1024', b: club().color2 || '#0e1d45' });
   const X = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -7047,13 +7069,19 @@ var Supporters = (() => {
   const wrap = (t, n, max) => { const out = []; String(t || '').split(/\s+/).filter(Boolean).forEach(w => { const l = out[out.length - 1]; if (l && (l + ' ' + w).length <= n) out[out.length - 1] = l + ' ' + w; else out.push(w); }); return out.slice(0, max); };
   let n = 0;
 
-  // The back of the coin: the club's name around the ring, its slogan (or its short name) in the middle
+  // The back of the coin: the club's name around the ring, its slogan (or its short name) in the middle;
+  // a slogan « A : B »: A around the ring (cut in two at its comma when long: over the top, then under the bottom), B in the middle
   function back() {
-    const id = 'coinArc' + (++n), c = col(), name = String(club().name || 'Clubbo').toUpperCase().slice(0, 30);
-    const mid = slogan() ? wrap(slogan().toUpperCase(), 14, 4) : wrap(String(club().short || club().name || 'EA').toUpperCase(), 12, 3);
-    const top = 37.9, y0 = 50 - (mid.length - 1) * 5.2;
+    const id = 'coinArc' + (++n), c = col(), sl = slogan(), cut = sl.indexOf(' : ');
+    const ring = cut > 0 ? sl.slice(0, cut).trim().toUpperCase() : String(club().name || AppCfg.name).toUpperCase().slice(0, 30);
+    const midText = cut > 0 ? sl.slice(cut + 3) : sl;
+    const mid = (midText ? wrap(midText.toUpperCase(), cut > 0 ? 15 : 14, 4) : wrap(String(club().short || club().name || 'EA').toUpperCase(), 12, 3)).map(l => cut > 0 ? l.replace(/[,.;]+$/, '') : l);
+    const half = ring.length > 30 ? (ring.indexOf(', ') > 0 ? ring.indexOf(', ') + 1 : ring.lastIndexOf(' ', Math.ceil(ring.length / 2))) : -1;
+    const [name, under] = half > 0 ? [ring.slice(0, half).trim(), ring.slice(half).trim()] : [ring, ''];
+    const top = 37.9, bot = 42.4, y0 = 50 - (mid.length - 1) * 5.2;
     return `<svg class="coin-svg" viewBox="0 0 100 100" aria-hidden="true">
-      <defs><path id="${id}t" d="M${50 - top},50 A${top},${top} 0 0 1 ${50 + top},50"/></defs>
+      <defs><path id="${id}t" d="M${50 - top},50 A${top},${top} 0 0 1 ${50 + top},50"/><path id="${id}b" d="M${50 - bot},50 A${bot},${bot} 0 0 0 ${50 + bot},50"/></defs>
+      ${under ? `<text font-family="system-ui,sans-serif" font-weight="800" font-size="${under.length > 26 ? 5 : 6}" letter-spacing=".25" fill="#f3e2b5"><textPath href="#${id}b" startOffset="50%" text-anchor="middle">${X(under)}</textPath></text>` : ''}
       <circle cx="50" cy="50" r="49" fill="${c.a}"/><circle cx="50" cy="50" r="46.6" fill="none" stroke="#faf8f8" stroke-width="1.4"/>
       <circle cx="50" cy="50" r="33.5" fill="${c.b}" stroke="#c9a45c" stroke-width="1.2"/>
       <text font-family="system-ui,sans-serif" font-weight="800" font-size="${name.length > 22 ? 5 : 6}" letter-spacing=".25" fill="#f3e2b5"><textPath href="#${id}t" startOffset="50%" text-anchor="middle">${X(name)}</textPath></text>
@@ -7604,7 +7632,7 @@ var Prepa = (() => {
 
   // 4 · the team talk
   function stTalk(m) {
-    const t = P(m).talk || {}, keys = t.keys || ['', '', ''], bs = (() => { try { return JSON.parse(localStorage.getItem('ea-briefings')) || []; } catch (e) { return []; } })();
+    const t = P(m).talk || {}, keys = t.keys || ['', '', ''], bs = (() => { try { return JSON.parse(localStorage.getItem(AppCfg.key('briefings'))) || []; } catch (e) { return []; } })();
     return `<section class="card"><h2>🗣️ La causerie</h2>
       <p class="muted small">5 à 10 minutes, en 3 temps : une accroche pour capter l'attention, le rappel tactique, puis le message de confiance. 3 clés maximum, des phrases courtes.</p>
       <label class="fld"><span>1 · L'accroche (les 30 premières secondes)</span>${area('talk.hook', t.hook, 'ex : Le match aller, on a perdu 2-1 à la dernière minute. Aujourd\'hui on écrit la suite.', 2)}</label>
@@ -7728,7 +7756,7 @@ var Prepa = (() => {
     ov.addEventListener('touchend', e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1)); });
     ov.onclick = e => { const b = e.target.closest('[data-pp]'); if (!b) return; const x = b.dataset.pp;
       if (x === 'close') return end(); if (x === 'next') return go(i + 1); if (x === 'prev') return go(i - 1);
-      if (x === 'video') { let bs = []; try { bs = JSON.parse(localStorage.getItem('ea-briefings')) || []; } catch (e) {} if (!bs.some(b2 => b2.id === t.briefing)) return toast('Ce briefing n\'est pas sur cet appareil', 'err'); end(); location.hash = '#/briefing/' + t.briefing; } };
+      if (x === 'video') { let bs = []; try { bs = JSON.parse(localStorage.getItem(AppCfg.key('briefings'))) || []; } catch (e) {} if (!bs.some(b2 => b2.id === t.briefing)) return toast('Ce briefing n\'est pas sur cet appareil', 'err'); end(); location.hash = '#/briefing/' + t.briefing; } };
     try { const d = document.documentElement, pr = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
     go(0); iv = setInterval(clock, 1000);
     if (!keys.length && !t.objective) toast('Astuce : remplis l\'étape « Causerie » (objectif et 3 clés) pour une causerie complète');
@@ -10713,7 +10741,7 @@ var Analyse = (() => {
     ['cpa', '🚩', 'Coup de pied arrêté', '#7c3aed'], ['defense', '🛡️', 'Bien défendu', '#0d9488'], ['erreur', '⚠️', 'Erreur', '#a16207'], ['autre', '✏️', 'Autre', '#475569']];
   const tagOf = k => TAGS.find(t => t[0] === k) || TAGS[TAGS.length - 1];
   const mmss = t => { t = Math.max(0, Math.floor(t || 0)); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
-  const BRIEF = 'ea-briefings';
+  const BRIEF = AppCfg.key('briefings');
   const briefings = () => { try { return JSON.parse(localStorage.getItem(BRIEF)) || []; } catch (e) { return []; } };
   const saveBriefings = l => { try { localStorage.setItem(BRIEF, JSON.stringify(l)); } catch (e) { toast('Impossible d\'enregistrer le briefing sur cet appareil', 'err'); } };
   const pref = () => Object.assign({ before: 8, after: 4 }, S().ui.clipPref || {});
@@ -11157,7 +11185,7 @@ var Analyse = (() => {
     };
     try {
       if (rec) rec.start(250);
-      await card('#8c1024', `${S().club.name || 'Clubbo'} · Briefing vidéo`, name, `${items.length} séquence${items.length > 1 ? 's' : ''}`, 2200);
+      await card('#8c1024', `${S().club.name || AppCfg.name} · Briefing vidéo`, name, `${items.length} séquence${items.length > 1 ? 's' : ''}`, 2200);
       for (let k = 0; k < items.length; k++) {
         const { rec: m, clip } = items[k], t = tagOf(clip.tag), ps = (clip.players || []).map(pid => Store.get('players', pid)).filter(Boolean);
         bz.progress(k / items.length);
@@ -11195,7 +11223,7 @@ var Analyse = (() => {
             requestAnimationFrame(tick);
           } catch (e) { rej(e); } }; tick(); });
       }
-      await card('#8c1024', S().club.name || 'Clubbo', 'Fin du briefing', '', 1200);
+      await card('#8c1024', S().club.name || AppCfg.name, 'Fin du briefing', '', 1200);
       let blob;
       if (wr) blob = await wr.finish();
       else { rec.stop(); await stopped; blob = new Blob(chunks, { type: (rec.mimeType || mime || 'video/webm').split(';')[0] }); }
@@ -12239,7 +12267,7 @@ var Onboard = (() => {
   /* (1.26) the free version goes up to 3 teams; above, the « Club » plan (15 € a month). A card for the responsables: nothing is blocked. */
   let planAsked = false;
   function planCard() {
-    if (!Auth.isAdmin() || S().club.demo || !Cloud.ready()) return '';
+    if (AppCfg.fixed || !Auth.isAdmin() || S().club.demo || !Cloud.ready()) return '';
     if (!planAsked) { planAsked = true; Cloud.info().then(i => { const p = (i && i.plan) || 'free'; if (S().ui.plan !== p) { S().ui.plan = p; Store.persistNow(); App.route(true); } }).catch(() => {}); }
     const n = S().teams.length;
     if ((S().ui.plan || 'free') !== 'free' || n <= 3) return '';
@@ -12862,7 +12890,7 @@ var Demo = (() => {
   // the bar at the top of every page while the demo is open
   function bar() {
     let b = document.getElementById('demoBar');
-    if (!is()) { if (b) { b.remove(); document.body.classList.remove('demoing'); } return; }
+    if (!is() || AppCfg.fixed) { if (b) { b.remove(); document.body.classList.remove('demoing'); } return; } // never in the app of one club
     if (!b) {
       b = document.createElement('div'); b.id = 'demoBar'; document.body.appendChild(b);
       b.innerHTML = `<span>👀 <b>Club de démonstration</b><span class="lg"> · inventé, rien n'est envoyé</span></span><span class="chips"><button class="btn primary" data-demo-act="create">Créer mon club</button><button class="btn" data-demo-act="quit">Quitter</button></span>`;
@@ -13715,7 +13743,7 @@ var Views = (() => {
         <p class="muted">${Cloud.ready() ? 'Efface les données de cet appareil seulement (elles restent sur le serveur du club et reviennent à la prochaine connexion).' : 'Les données sont enregistrées sur cet appareil uniquement. Pense à envoyer une copie avant d\'effacer.'}</p>
         <button class="btn danger" data-act="reset">${I.trash}<span>Effacer les données de cet appareil</span></button>
       </section>` : ''}
-      <p class="muted small">Clubbo · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
+      <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
     root.onchange = e => { if (e.target.dataset.notifpref) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
@@ -13876,7 +13904,7 @@ var App = (() => {
     } else if (bar) { bar.remove(); document.body.classList.remove('previewing'); }
     Demo.bar();
     document.documentElement.style.setProperty('--accent', UI.accentFor(c.homeBib));
-    document.getElementById('clubName').textContent = c.name || 'Clubbo';
+    document.getElementById('clubName').textContent = c.name || AppCfg.name;
     Supporters.refresh();
     const u = Auth.current(), ru = document.getElementById('railUser');
     // The connected coach: his initials with his favourite club's crest, and « Coach Prénom » (opens Mon compte)
@@ -13886,7 +13914,7 @@ var App = (() => {
         <span class="ru-name">${UI.esc(coach)}</span></a>${Auth.realAdmin() ? '<button class="ru-out" id="rolesBtn" title="Mes rôles">🔀 Rôles</button>' : ''}<button class="ru-out" id="logoutBtn">Sortir</button>` : '';
     const rb = document.getElementById('rolesBtn'); if (rb) rb.onclick = () => Roles.open();
     const lo = document.getElementById('logoutBtn'); if (lo) lo.onclick = () => Auth.logout();
-    document.title = (u ? coach + ' · ' : '') + (c.name || 'Clubbo');
+    document.title = (u ? coach + ' · ' : '') + (c.name || AppCfg.name);
   }
   function renderNav(active) {
     // the responsables also have the club's dashboard (before Réglages)
@@ -13973,7 +14001,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 35, UPD = 'ea-update-tried';
+  const BUILD = 36, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -14005,6 +14033,14 @@ var App = (() => {
     }
     if (manual) { UI.busy('Rechargement de l\'appli…'); forceUpdate(); }
   }
+  // (fusion) the app of one club: the club's settings (name, slogan, town, FFF page…) given by js/config.js when they are missing
+  function fillDefaults() {
+    if (!AppCfg.fixed || !Auth.isAdmin()) return false;
+    const c = Store.state.club, d = AppCfg.defaults; let n = 0;
+    Object.keys(d).forEach(k => { if (c[k] == null || c[k] === '') { c[k] = d[k]; n++; } });
+    if (n) { Store.save(); refreshChrome(); }
+    return n > 0;
+  }
   async function start() {
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -14017,7 +14053,7 @@ var App = (() => {
     window.__appStarted = true; // the data are read: the safety net of index.html is not needed
     Sport.apply();
     // the owner's space of Clubbo: no club account needed (the owner key is asked on the page)
-    if (/^#\/proprietaire/.test(location.hash)) { refreshChrome(); window.addEventListener('hashchange', route); route(); return; }
+    if (!AppCfg.fixed && /^#\/proprietaire/.test(location.hash)) { refreshChrome(); window.addEventListener('hashchange', route); route(); return; }
     // Invitation link sent by the responsable: …#rejoindre=CODE
     const join = (location.hash.match(/^#rejoindre=([A-Za-z0-9]+)/) || [])[1];
     // (3.74) a session received as a link: …#/recevoir/CODE
@@ -14036,7 +14072,7 @@ var App = (() => {
     Sync.start();
     // After the first exchange with the server: categories U6 … Vétérans for the new season
     Promise.resolve(Sync.run()).catch(() => {}).then(() => {
-      let redraw = People.autoCategories();
+      let redraw = fillDefaults() || People.autoCategories();
       // once, on a responsable's device: imported matches go to team A / B from the District team number
       const c = Store.state.club;
       if (Auth.isAdmin() && !c.matchTeamsV1) { if (Importer.reassignImported()) redraw = true; c.matchTeamsV1 = 1; Store.save(); }

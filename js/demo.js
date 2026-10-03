@@ -72,7 +72,7 @@ const Demo = (() => {
   // the bar at the top of every page while the demo is open
   function bar() {
     let b = document.getElementById('demoBar');
-    if (!is()) { if (b) { b.remove(); document.body.classList.remove('demoing'); } return; }
+    if (!is() || AppCfg.fixed) { if (b) { b.remove(); document.body.classList.remove('demoing'); } return; } // never in the app of one club
     if (!b) {
       b = document.createElement('div'); b.id = 'demoBar'; document.body.appendChild(b);
       b.innerHTML = `<span>👀 <b>Club de démonstration</b><span class="lg"> · inventé, rien n'est envoyé</span></span><span class="chips"><button class="btn primary" data-demo-act="create">Créer mon club</button><button class="btn" data-demo-act="quit">Quitter</button></span>`;

@@ -1,6 +1,6 @@
 /* Serveur local pour vérifier l'appli :   node tools/serveur.js   puis ouvrir http://localhost:8790/tools/verif.html
    Il sert les fichiers de l'appli tels quels, et /verif-app.html : la page de l'appli SANS serveur du club
-   (config vide, rien n'est envoyé), avec un relevé des erreurs placé avant l'appli. Port : node tools/serveur.js 8791 */
+   (config sans l'adresse du serveur, rien n'est envoyé), avec un relevé des erreurs placé avant l'appli. Port : node tools/serveur.js 8791 */
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..'), port = +process.argv[2] || 8790;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.pdf': 'application/pdf' };
@@ -11,10 +11,14 @@ addEventListener('unhandledrejection', e => __errs.push(location.hash + ' :: (pr
 window.open = () => null; window.confirm = () => false; window.prompt = () => null; window.alert = () => {}; window.print = () => {};
 try { Object.defineProperty(navigator, 'share', { value: undefined }); } catch (e) {}
 </script>`;
+// js/config.js without the server's address: the app runs alone, but stays this app (one club, its name, its memory names)
+function offline() {
+  return fs.readFileSync(path.join(ROOT, 'js', 'config.js'), 'utf8').replace(/url:\s*'[^']*'/, "url: ''").replace(/key:\s*'[^']*'/, "key: ''");
+}
 function verifApp(query) {
   let s = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   s = s.replace('<head>', '<head>' + COLLECT)
-    .replace(/<script src="js\/config\.js[^"]*"><\/script>/, '<script>const CLUB_SERVER = {};</script>');
+    .replace(/<script src="js\/config\.js[^"]*"><\/script>/, () => '<script>' + offline() + '</script>');
   // Raincy has no demo club of its own: the test one
   if (/demo=1/.test(query)) s = s.replace(/(<script src="js\/app\.bundle\.js[^"]*"><\/script>)/, '$1<script src="tools/demo-test.js"></script>');
   return s;

@@ -1,9 +1,9 @@
 /* Service worker: keeps the app working without internet. Bump VERSION after each update. */
-const VERSION = 'ea-club-manager-v35';
+const VERSION = 'ea-club-manager-v36';
 const JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
-  'js/config.js', 'js/app.bundle.js', 'confidentialite.html', 'moi.html', 'joueurs.html', 'parents.html', 'famille.webmanifest', 'js/member.js', 'js/perso.js', 'js/players-page.js', 'js/parents-page.js', 'decouvrir.html',
+  'js/config.js', 'js/appcfg.js', 'js/app.bundle.js', 'confidentialite.html', 'moi.html', 'joueurs.html', 'parents.html', 'famille.webmanifest', 'js/member.js', 'js/perso.js', 'js/players-page.js', 'js/parents-page.js', 'decouvrir.html',
   'icons/ea-logo.png', 'icons/ea-logo.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 self.addEventListener('install', e => {
@@ -44,7 +44,7 @@ try { importScripts('js/config.js'); } catch (e) {}
 function session() {
   return new Promise(res => {
     try {
-      const rq = indexedDB.open('ea-club-manager', 1);
+      const rq = indexedDB.open((typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER.db) || 'ea-club-manager', 1);
       rq.onerror = () => res(null);
       rq.onsuccess = () => { try { const g = rq.result.transaction('kv').objectStore('kv').get('state'); g.onsuccess = () => { const s = g.result; res(s && s.auth && s.auth.session); }; g.onerror = () => res(null); } catch (e) { res(null); } };
     } catch (e) { res(null); }
@@ -83,9 +83,9 @@ self.addEventListener('push', e => {
     try { list = list.concat(await ownerNews()); } catch (err) {}
     try { list = list.concat(await pending()); } catch (err) {}
     // a phone must always show something when it is woken up
-    if (!list.length) list = [{ title: 'Clubbo', body: 'Nouvelle information du club', url: '#/', tag: 'raincy' }];
+    if (!list.length) list = [{ title: (typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER.app) || 'Clubbo', body: 'Nouvelle information du club', url: '#/', tag: 'raincy' }];
     for (const n of list.slice(0, 4)) {
-      await self.registration.showNotification(n.title || 'Clubbo', {
+      await self.registration.showNotification(n.title || (typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER.app) || 'Clubbo', {
         body: (n.body || '') + (n.n > 1 ? ` (+${n.n - 1})` : ''), tag: n.tag || undefined, renotify: !!n.tag,
         icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: n.url || '#/' } });
     }

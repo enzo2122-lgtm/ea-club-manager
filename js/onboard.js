@@ -143,7 +143,7 @@ const Onboard = (() => {
   /* (1.26) the free version goes up to 3 teams; above, the « Club » plan (15 € a month). A card for the responsables: nothing is blocked. */
   let planAsked = false;
   function planCard() {
-    if (!Auth.isAdmin() || S().club.demo || !Cloud.ready()) return '';
+    if (AppCfg.fixed || !Auth.isAdmin() || S().club.demo || !Cloud.ready()) return '';
     if (!planAsked) { planAsked = true; Cloud.info().then(i => { const p = (i && i.plan) || 'free'; if (S().ui.plan !== p) { S().ui.plan = p; Store.persistNow(); App.route(true); } }).catch(() => {}); }
     const n = S().teams.length;
     if ((S().ui.plan || 'free') !== 'free' || n <= 3) return '';

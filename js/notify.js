@@ -9,7 +9,7 @@ const Notify = (() => {
   const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const prefs = () => Object.assign({ messages: true, planning: true }, S().ui.notifPrefs || {});
   const b64 = s => { const r = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
-  const why = e => e && e.code === 'MISE_A_JOUR' ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes. ().' : (e && e.message) || 'Erreur';
+  const why = e => e && e.code === 'MISE_A_JOUR' ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes.' : (e && e.message) || 'Erreur';
   // the app's service worker (it shows the notifications); null if it does not answer within 4 s
   const ready = () => Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(() => r(null), 4000))]);
   async function current() { if (!supported()) return null; try { const reg = await ready(); return reg ? await reg.pushManager.getSubscription() : null; } catch (e) { return null; } }
@@ -19,7 +19,7 @@ const Notify = (() => {
     if (Notification.permission !== 'granted') {
       if (!ask) return null;
       const p = await Notification.requestPermission();
-      if (p !== 'granted') throw new Error('Notifications refusées. Pour les autoriser : réglages du téléphone → Notifications → Clubbo.');
+      if (p !== 'granted') throw new Error('Notifications refusées. Pour les autoriser : réglages du téléphone → Notifications → ' + AppCfg.name + '.');
     }
     const key = await Cloud.pushKey();
     if (!key) throw new Error('Les notifications du club ne sont pas encore activées : le responsable doit le faire une fois (Réglages → Serveur du club → Notifications).');
@@ -58,7 +58,7 @@ const Notify = (() => {
     const swOk = supported() && !!(await ready());
     if (supported() && !swOk) text = 'L\'appli n\'est pas encore prête pour les notifications : ferme-la, rouvre-la depuis son icône, puis reviens ici.';
     else if (!supported()) text = ios() && !standalone() ? '📱 Sur iPhone : ajoute d\'abord l\'appli à l\'écran d\'accueil (Partager → « Sur l\'écran d\'accueil »), ouvre-la depuis son icône, puis reviens ici.' : 'Ce navigateur ne reçoit pas de notifications.';
-    else if (perm === 'denied') text = '🚫 Notifications bloquées sur ce téléphone : autorise-les dans les réglages du téléphone (Notifications → Clubbo), puis reviens ici.';
+    else if (perm === 'denied') text = '🚫 Notifications bloquées sur ce téléphone : autorise-les dans les réglages du téléphone (Notifications → ' + AppCfg.name + '), puis reviens ici.';
     else if (sub && S().ui.notifOn) { text = '✅ Activées : tu es prévenu tout de suite, même appli fermée.'; b = `<button class="btn soft" data-notif="test">${I.check}<span>M'envoyer un test</span></button><button class="btn soft" data-notif="off">${I.x}<span>Désactiver</span></button>`; }
     else { text = 'Pas encore activées sur ce téléphone.'; b = `<button class="btn primary" data-notif="on">🔔<span>Activer les notifications</span></button>`; }
     if (!box.isConnected) return;

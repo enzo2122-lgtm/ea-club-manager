@@ -1,8 +1,9 @@
 /* Supporters: the club's crest turning like a coin (its name and slogan on the back), and the flag with the crest and the slogan,
-   waving above supporters of all ages. Everything comes from the club's settings (crest, colours, slogan), the Clubbo logo by default. */
+   waving above supporters of all ages. Everything comes from the club's settings (crest, colours, slogan), the app's crest by default.
+   A slogan « A : B » is written A around the coin, B in its middle. */
 const Supporters = (() => {
   const club = () => (typeof Store !== 'undefined' && Store.state && Store.state.club) || {};
-  const crest = () => club().crest || 'icons/ea-logo.png';
+  const crest = () => club().crest || AppCfg.crest;
   const slogan = () => club().slogan || '';
   const col = () => ({ a: club().color1 || '#8c1024', b: club().color2 || '#0e1d45' });
   const X = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -10,13 +11,19 @@ const Supporters = (() => {
   const wrap = (t, n, max) => { const out = []; String(t || '').split(/\s+/).filter(Boolean).forEach(w => { const l = out[out.length - 1]; if (l && (l + ' ' + w).length <= n) out[out.length - 1] = l + ' ' + w; else out.push(w); }); return out.slice(0, max); };
   let n = 0;
 
-  // The back of the coin: the club's name around the ring, its slogan (or its short name) in the middle
+  // The back of the coin: the club's name around the ring, its slogan (or its short name) in the middle;
+  // a slogan « A : B »: A around the ring (cut in two at its comma when long: over the top, then under the bottom), B in the middle
   function back() {
-    const id = 'coinArc' + (++n), c = col(), name = String(club().name || 'Clubbo').toUpperCase().slice(0, 30);
-    const mid = slogan() ? wrap(slogan().toUpperCase(), 14, 4) : wrap(String(club().short || club().name || 'EA').toUpperCase(), 12, 3);
-    const top = 37.9, y0 = 50 - (mid.length - 1) * 5.2;
+    const id = 'coinArc' + (++n), c = col(), sl = slogan(), cut = sl.indexOf(' : ');
+    const ring = cut > 0 ? sl.slice(0, cut).trim().toUpperCase() : String(club().name || AppCfg.name).toUpperCase().slice(0, 30);
+    const midText = cut > 0 ? sl.slice(cut + 3) : sl;
+    const mid = (midText ? wrap(midText.toUpperCase(), cut > 0 ? 15 : 14, 4) : wrap(String(club().short || club().name || 'EA').toUpperCase(), 12, 3)).map(l => cut > 0 ? l.replace(/[,.;]+$/, '') : l);
+    const half = ring.length > 30 ? (ring.indexOf(', ') > 0 ? ring.indexOf(', ') + 1 : ring.lastIndexOf(' ', Math.ceil(ring.length / 2))) : -1;
+    const [name, under] = half > 0 ? [ring.slice(0, half).trim(), ring.slice(half).trim()] : [ring, ''];
+    const top = 37.9, bot = 42.4, y0 = 50 - (mid.length - 1) * 5.2;
     return `<svg class="coin-svg" viewBox="0 0 100 100" aria-hidden="true">
-      <defs><path id="${id}t" d="M${50 - top},50 A${top},${top} 0 0 1 ${50 + top},50"/></defs>
+      <defs><path id="${id}t" d="M${50 - top},50 A${top},${top} 0 0 1 ${50 + top},50"/><path id="${id}b" d="M${50 - bot},50 A${bot},${bot} 0 0 0 ${50 + bot},50"/></defs>
+      ${under ? `<text font-family="system-ui,sans-serif" font-weight="800" font-size="${under.length > 26 ? 5 : 6}" letter-spacing=".25" fill="#f3e2b5"><textPath href="#${id}b" startOffset="50%" text-anchor="middle">${X(under)}</textPath></text>` : ''}
       <circle cx="50" cy="50" r="49" fill="${c.a}"/><circle cx="50" cy="50" r="46.6" fill="none" stroke="#faf8f8" stroke-width="1.4"/>
       <circle cx="50" cy="50" r="33.5" fill="${c.b}" stroke="#c9a45c" stroke-width="1.2"/>
       <text font-family="system-ui,sans-serif" font-weight="800" font-size="${name.length > 22 ? 5 : 6}" letter-spacing=".25" fill="#f3e2b5"><textPath href="#${id}t" startOffset="50%" text-anchor="middle">${X(name)}</textPath></text>

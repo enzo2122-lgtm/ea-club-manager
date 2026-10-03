@@ -204,7 +204,7 @@ const Prepa = (() => {
 
   // 4 · the team talk
   function stTalk(m) {
-    const t = P(m).talk || {}, keys = t.keys || ['', '', ''], bs = (() => { try { return JSON.parse(localStorage.getItem('ea-briefings')) || []; } catch (e) { return []; } })();
+    const t = P(m).talk || {}, keys = t.keys || ['', '', ''], bs = (() => { try { return JSON.parse(localStorage.getItem(AppCfg.key('briefings'))) || []; } catch (e) { return []; } })();
     return `<section class="card"><h2>🗣️ La causerie</h2>
       <p class="muted small">5 à 10 minutes, en 3 temps : une accroche pour capter l'attention, le rappel tactique, puis le message de confiance. 3 clés maximum, des phrases courtes.</p>
       <label class="fld"><span>1 · L'accroche (les 30 premières secondes)</span>${area('talk.hook', t.hook, 'ex : Le match aller, on a perdu 2-1 à la dernière minute. Aujourd\'hui on écrit la suite.', 2)}</label>
@@ -328,7 +328,7 @@ const Prepa = (() => {
     ov.addEventListener('touchend', e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1)); });
     ov.onclick = e => { const b = e.target.closest('[data-pp]'); if (!b) return; const x = b.dataset.pp;
       if (x === 'close') return end(); if (x === 'next') return go(i + 1); if (x === 'prev') return go(i - 1);
-      if (x === 'video') { let bs = []; try { bs = JSON.parse(localStorage.getItem('ea-briefings')) || []; } catch (e) {} if (!bs.some(b2 => b2.id === t.briefing)) return toast('Ce briefing n\'est pas sur cet appareil', 'err'); end(); location.hash = '#/briefing/' + t.briefing; } };
+      if (x === 'video') { let bs = []; try { bs = JSON.parse(localStorage.getItem(AppCfg.key('briefings'))) || []; } catch (e) {} if (!bs.some(b2 => b2.id === t.briefing)) return toast('Ce briefing n\'est pas sur cet appareil', 'err'); end(); location.hash = '#/briefing/' + t.briefing; } };
     try { const d = document.documentElement, pr = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
     go(0); iv = setInterval(clock, 1000);
     if (!keys.length && !t.objective) toast('Astuce : remplis l\'étape « Causerie » (objectif et 3 clés) pour une causerie complète');
