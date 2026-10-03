@@ -83,7 +83,7 @@ const People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="staff">
         <span class="pnum role">${I.whistle}</span>
-        <span class="pmain"><b>${esc(name(p))}</b>${UI.motto(p)}<span class="muted">${esc(p.role || '')}${teamId ? '' : ' · ' + esc(teamNames(p.teamIds) || 'aucune catégorie')}${p.playerId && Store.get('players', p.playerId) ? ' · aussi joueur (' + esc(teamNames(Store.get('players', p.playerId).teamIds)) + ')' : ''}</span></span>
+        <span class="pmain"><b>${esc(name(p))}${p.blocked ? ' 🚫' : p.selfJoined ? ' 🆕' : ''}</b>${UI.motto(p)}<span class="muted">${esc(p.role || '')}${teamId ? '' : ' · ' + esc(teamNames(p.teamIds) || 'aucune catégorie')}${p.playerId && Store.get('players', p.playerId) ? ' · aussi joueur (' + esc(teamNames(Store.get('players', p.playerId).teamIds)) + ')' : ''}</span></span>
       </button>
       ${staffPhone(p) ? `<a class="icon-btn" href="${telHref(p.phone)}" aria-label="Appeler ${esc(name(p))}">${I.phone}</a>` : ''}
       ${teamId ? `<button class="icon-btn" data-unlink="${p.id}" data-kind="staff" aria-label="Retirer ${esc(name(p))} de la catégorie">${I.x}</button>` : ''}
@@ -215,7 +215,8 @@ const People = (() => {
         <label class="fld"><span>Infos (diplôme, licence, disponibilités…)</span><textarea id="sNotes" rows="3">${esc(p.notes || '')}</textarea></label>`,
       onOpen: bindChips,
       actions: [
-        ...(isNew ? [] : [{ label: 'Supprimer', kind: 'danger', icon: I.trash, onClick: () => { setTimeout(() => confirmBox(`Supprimer ${name(p)} ?`).then(ok => { if (ok) { Store.remove('staff', p.id); Auth.forget(p.id); toast('Dirigeant supprimé'); opts.onSave && opts.onSave(); } }), 60); } }]),
+        ...(!isNew && Auth.isAdmin() && Cloud.ready() && !p.blocked ? [{ label: '📲 Envoyer son lien', onClick: () => { setTimeout(() => Cloud.invitePerson(p), 60); } }] : []),
+        ...(isNew ? [] : [{ label: 'Supprimer', kind: 'danger', icon: I.trash, onClick: () => { setTimeout(() => confirmBox(`Supprimer ${name(p)} ? Son compte est supprimé aussi : il est déconnecté de l'appli.`).then(ok => { if (ok) { Store.remove('staff', p.id); Auth.forget(p.id); toast('Dirigeant supprimé'); opts.onSave && opts.onSave(); } }), 60); } }]),
         { label: 'Annuler' },
         { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           const v = id => $('#' + id, r).value.trim();
@@ -225,6 +226,7 @@ const People = (() => {
           if (Auth.isAdmin() || isNew) p.teamIds = pickedTeams(r, p.teamIds || []);
           const sp = $('#sPlayer', r); if (sp) { if (sp.value) p.playerId = sp.value; else delete p.playerId; }
           Store.upsert('staff', p); toast('Enregistré'); opts.onSave && opts.onSave(p);
+          if (isNew && Auth.isAdmin() && Cloud.ready()) setTimeout(() => Cloud.invitePerson(p), 500); // and his link to send
         } },
       ],
     });

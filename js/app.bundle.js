@@ -1953,7 +1953,8 @@ var Auth = (() => {
   }
 
   // Invitation code from the link sent by the responsable
-  function setInvite(code) {
+  function setInvite(code, who) {
+    try { if (who) sessionStorage.setItem('join-who', who); } catch (e) {}
     const c = Store.state.club;
     c.cloud = Object.assign({}, c.cloud || {}, { clubKey: code });
     Store.save();
@@ -1984,14 +1985,16 @@ var Auth = (() => {
       toast(e.message, 'err'); if (!Store.state.staff.length) return loginScreen();
     }
     const reg = new Set(accounts.filter(a => a.has_pw).map(a => a.staff_id));
-    const staff = Store.state.staff.slice().sort(Store.byName);
+    const staff = Store.state.staff.filter(x => !x.blocked).sort(Store.byName); // a dirigeant whose access was removed is not proposed
     const el = frame(`<p class="lead"><b>Première connexion</b> : choisis ton nom, puis crée ton mot de passe.</p>
       ${staff.length ? `<label class="fld"><span>Qui es-tu ?</span><select id="who"><option value="">Choisis ton nom…</option>
       ${staff.map(s => `<option value="${s.id}" ${reg.has(s.id) ? 'disabled' : ''}>${esc(Store.fullName(s))}${reg.has(s.id) ? ' · déjà inscrit' : [s.role, (s.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', ')].filter(Boolean).map(esc).map(x => ' · ' + x).join('')}</option>`).join('')}</select></label>
       <div id="step"></div>` : '<p class="tip">La liste des dirigeants du club est vide : le responsable doit d\'abord les ajouter (Équipes → Dirigeants).</p>'}
-      <p class="muted small">Tu n'es pas dans la liste ? Demande au responsable de t'ajouter dans Équipes → Dirigeants. Déjà inscrit ? Reviens à la connexion.</p>
+      <button class="btn wide" id="notListed" type="button">＋ Je ne suis pas dans la liste</button>
+      <p class="muted small">Déjà inscrit ? Reviens à la connexion.</p>
       <button class="btn wide link" id="back">Retour à la connexion</button>`);
     $('#back', el).onclick = () => loginScreen();
+    $('#notListed', el).onclick = () => selfScreen(staff);
     const who = $('#who', el); if (!who) return;
     who.onchange = () => {
       const s = Store.get('staff', who.value), step = $('#step', el);
@@ -2006,6 +2009,7 @@ var Auth = (() => {
         } catch (e) { toast(e.message, 'err'); }
       };
     };
+    preselect(el);
   }
   // A new club: the activation code given by Clubbo, the name of the club, its code, and its first responsable
   const slugOf = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
@@ -2040,6 +2044,38 @@ var Auth = (() => {
         Store.upsert('staff', s); Store.save();
         await withBusy('Ouverture du club…', () => afterServerLogin(r, pw, keep, s.lastName, s.firstName));
         setTimeout(() => { if (typeof Onboard !== 'undefined') Onboard.start(); }, 400);
+      } catch (e) { toast(e.message, 'err'); }
+    };
+  }
+  function preselect(el) {
+    let id = ''; try { id = sessionStorage.getItem('join-who') || ''; } catch (e) {}
+    const who = el && el.querySelector('#who'); if (!id || !who || !who.querySelector(`option[value="${id}"]:not([disabled])`)) return;
+    who.value = id; who.onchange();
+  }
+  // A coach who is not in the list yet: his name, his role, his password (the responsables see « 🆕 » next to him in Dirigeants)
+  const norm = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  function selfScreen(staff) {
+    const el = frame(`<p class="lead"><b>Première connexion</b> : tu n'es pas encore dans la liste du club ? Inscris-toi.</p>
+      ${nameFields('', '')}
+      <label class="fld"><span>Ton rôle</span><select id="role">${['Éducateur', 'Éducateur adjoint', 'Dirigeant', 'Accompagnateur', 'Entraîneur des gardiens', 'Bénévole'].map(r => `<option>${r}</option>`).join('')}</select></label>
+      ${pwFields('Ton mot de passe')}${keepBox}
+      <button class="btn primary wide" id="go">Créer mon compte</button>
+      <p class="muted small">Le responsable du club voit ton inscription. Ensuite tu choisis tes catégories.</p>
+      <div class="lock-links"><button class="btn wide link" id="back">Retour à la liste</button></div>`);
+    $('#back', el).onclick = () => pickScreen();
+    $('#go', el).onclick = async () => {
+      const ln = $('#ln', el).value.trim(), fn = $('#fn', el).value.trim();
+      if (!ln || !fn) return toast('Écris ton nom et ton prénom', 'err');
+      const same = staff.find(x => norm(x.lastName) === norm(ln) && norm(x.firstName) === norm(fn));
+      if (same) { toast('Tu es déjà dans la liste : choisis ton nom', 'err'); try { sessionStorage.setItem('join-who', same.id); } catch (e) {} return pickScreen(); }
+      const pw = readNewPw(el); if (!pw) return; const keep = $('#keep', el).checked;
+      const s = { id: Store.uid(), lastName: ln.toUpperCase(), firstName: fn, role: $('#role', el).value, phone: '', email: '', notes: '', teamIds: [], selfJoined: Date.now() };
+      try {
+        Store.upsert('staff', s);
+        await withBusy('Inscription au club…', () => Sync.run());
+        const r = await withBusy('Création de ton compte…', async () => Cloud.register(regPayload(s, await proof(lastKeyOf(s), pw), false)));
+        try { sessionStorage.removeItem('join-who'); } catch (e) {}
+        await withBusy('Connexion…', () => afterServerLogin(r, pw, keep, s.lastName, s.firstName));
       } catch (e) { toast(e.message, 'err'); }
     };
   }
@@ -2099,7 +2135,7 @@ var Auth = (() => {
       ${realAdmin() ? (preview() ? `<button class="btn primary" data-auth="stopPreview">${I.whistle}<span>Revenir en responsable</span></button>` : `<button class="btn" data-auth="preview">${I.team}<span>🔀 Mes rôles (coach, bénévole, arbitre, joueur, parent)</span></button>`) : ''}</div></section>`;
     if (!isAdmin()) return me;
     return me + `<section class="card"><h2>${I.team}Comptes des dirigeants</h2>
-      <p class="muted">Un responsable peut réinitialiser le mot de passe d'un dirigeant (il en recréera un avec « Première connexion ») et changer ses catégories. 🔒 : catégories choisies à la première connexion, verrouillées pour l'éducateur.</p>
+      <p class="muted">« Retirer l'accès » déconnecte un dirigeant de partout et l'empêche de se réinscrire. Un responsable peut aussi réinitialiser le mot de passe d'un dirigeant (il en recréera un avec « Première connexion ») et changer ses catégories. 🔒 : catégories choisies à la première connexion, verrouillées pour l'éducateur.</p>
       <div class="acc-list" id="accList">${serverMode() ? '<p class="muted">Chargement des comptes…</p>' : accRows(null)}</div>
       ${serverMode() ? `<button class="btn primary" data-cloud="invite">${I.share}<span>Inviter les éducateurs</span></button>` : `<button class="btn" data-auth="recovery">${I.rotate}<span>Nouveau code de secours</span></button>`}</section>`;
   }
@@ -2110,10 +2146,11 @@ var Auth = (() => {
       const a = list ? byId[s.id] : null, u = U(s.id) || {};
       const has = list ? !!(a && a.has_pw) : !!u.hash, adm = list ? !!(a && a.admin) : !!u.admin, locked = list ? !!(a && a.teams_set) : !!u.teamsSet;
       const cats = (s.teamIds || []).map(t => (Store.get('teams', t) || {}).name).filter(Boolean).join(', ');
-      return `<div class="acc-row"><span class="acc-name"><b>${esc(Store.fullName(s))}</b><span class="muted">${has ? 'Mot de passe créé' : 'Pas encore inscrit'} · ${cats ? esc(cats) : 'aucune catégorie'}${locked ? ' 🔒' : ''}</span></span>
+      return `<div class="acc-row"><span class="acc-name"><b>${esc(Store.fullName(s))}</b><span class="muted">${s.blocked ? '🚫 Accès retiré' : has ? 'Mot de passe créé' : 'Pas encore inscrit'}${s.selfJoined ? ' · 🆕 inscrit lui-même' : ''} · ${cats ? esc(cats) : 'aucune catégorie'}${locked ? ' 🔒' : ''}</span></span>
         <button class="btn" data-auth="cats" data-id="${s.id}">Catégories</button>
         <label class="switch small"><input type="checkbox" data-admin="${s.id}" ${adm ? 'checked' : ''} ${s.id === user.id || (list && !has) ? 'disabled' : ''}><span>Responsable</span></label>
-        <button class="btn" data-reset="${s.id}" ${has && s.id !== user.id ? '' : 'disabled'}>Réinitialiser</button></div>`;
+        <button class="btn" data-reset="${s.id}" ${has && s.id !== user.id && !s.blocked ? '' : 'disabled'}>Réinitialiser</button>
+        <button class="btn ${s.blocked ? 'primary' : 'danger'}" data-revoke="${s.id}" ${s.id === user.id ? 'disabled' : ''}>${s.blocked ? 'Rendre l\'accès' : 'Retirer l\'accès'}</button></div>`;
     }).join('');
     return rows || '<p class="muted">Ajoute les dirigeants dans Équipes → Dirigeants.</p>';
   }
@@ -2161,6 +2198,18 @@ var Auth = (() => {
           if (serverMode() && accOf(s.id).staff_id) Cloud.accountSet({ staff_id: s.id, teams_set: lockIt }).then(rerender).catch(e => toast(e.message, 'err'));
           toast('Catégories enregistrées'); rerender();
         } }] });
+    }
+    if (b.dataset.revoke) {
+      const s = Store.get('staff', b.dataset.revoke); if (!s) return;
+      const back = !!s.blocked;
+      if (!back && !(await confirmBox(`Retirer l'accès de ${Store.fullName(s)} ? Il est déconnecté tout de suite de tous ses appareils et ne peut plus s'inscrire, même avec le lien d'invitation. Sa fiche reste : tu pourras lui rendre l'accès.`, 'Retirer l\'accès'))) return;
+      if (back) delete s.blocked; else s.blocked = Date.now();
+      Store.upsert('staff', s);
+      try {
+        if (serverMode()) await Sync.run(); // the server knows it at once (it refuses a new registration)
+        if (!back) { const u = U(s.id); if (u) { delete u.hash; delete u.salt; } Store.save(); if (serverMode()) await Cloud.accountSet({ staff_id: s.id, delete: true }); }
+      } catch (e) { return toast(e.message, 'err'); }
+      toast(back ? 'Accès rendu : envoie-lui son lien pour qu\'il recrée son mot de passe' : 'Accès retiré : il est déconnecté'); rerender(); return;
     }
     if (b.dataset.reset) {
       const s = Store.get('staff', b.dataset.reset);
@@ -3340,7 +3389,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.26';
+  const VERSION = '1.27';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -3624,6 +3673,7 @@ var Cloud = (() => {
     MOT_DE_PASSE: 'Mot de passe incorrect.',
     BLOQUE: 'Trop d\'essais : attends 5 minutes avant de réessayer.',
     DEJA_INSCRIT: 'Ce dirigeant a déjà un mot de passe : connecte-toi, ou demande au responsable de le réinitialiser.',
+    ACCES_RETIRE: 'Ton accès à l\'appli du club a été retiré par un responsable.',
     SESSION: 'Ta connexion a expiré : reconnecte-toi.',
     DONNEES: 'Informations incomplètes.',
     CRENEAU_PRIS: 'Ce créneau est déjà pris sur cette partie du terrain. Choisis un autre horaire ou l\'autre moitié.',
@@ -3731,6 +3781,19 @@ var Cloud = (() => {
   const clubSlug = () => (session() && session().club && session().club.slug) || (Store.state.club.cloud || {}).slug || '';
   const appUrl = () => `${location.origin}${location.pathname.replace(/index\.html$/, '')}`;
   const inviteLink = code => `${appUrl()}#rejoindre=${encodeURIComponent(code)}`;
+  // (3.69) the link of one person: his name is already chosen when he opens it
+  async function invitePerson(p) {
+    let code;
+    try { code = await api.invite(false); } catch (e) { return toast(e.message, 'err'); }
+    const link = inviteLink(code) + '&qui=' + encodeURIComponent(p.id), first = p.firstName || '';
+    const text = `Bonjour ${first}, voici ton accès à l'appli du club ${Store.state.club.name || ''} : ouvre ce lien, ton nom est déjà choisi, il te reste à créer ton mot de passe. Ensuite, ajoute l'appli à ton écran d'accueil.\n${link}`;
+    const ph = String(p.phone || '').replace(/[^\d+]/g, ''), intl = ph.startsWith('+') ? ph.slice(1) : ph.startsWith('0') ? '33' + ph.slice(1) : ph;
+    modal({ title: `Le lien de ${first || 'ce dirigeant'}`, noFocus: true, body: `<p class="muted small">Envoie-le à lui seulement : en l'ouvrant, son nom est déjà choisi.</p><textarea id="invTxt" rows="6">${esc(text)}</textarea>`,
+      actions: [
+        { label: 'WhatsApp', kind: 'primary', icon: I.share, onClick: (c, r) => { window.open(`https://wa.me/${intl}?text=${encodeURIComponent($('#invTxt', r).value)}`, '_blank'); return false; } },
+        ...(navigator.share ? [{ label: 'Autre appli', icon: I.share, onClick: (c, r) => { navigator.share({ text: $('#invTxt', r).value }).catch(() => {}); return false; } }] : []),
+        { label: 'Copier', icon: I.copy, onClick: (c, r) => { navigator.clipboard.writeText($('#invTxt', r).value).then(() => toast('Message copié')).catch(() => toast('Sélectionne le texte et copie-le')); return false; } }] });
+  }
   async function shareInvite(renew) {
     let code;
     try { code = await api.invite(renew); } catch (e) { return toast(e.message, 'err'); }
@@ -3763,7 +3826,7 @@ var Cloud = (() => {
     if (b.dataset.cloud === 'test') { try { await api.ping(); toast('Connexion OK'); } catch (e) { toast(e.message, 'err'); } }
   }
 
-  return Object.assign(api, { ready, canLogin, cfg, adminKey, token, genKey, settingsSection, onSettingsClick, shareInvite, clubSlug, appUrl });
+  return Object.assign(api, { ready, invitePerson, canLogin, cfg, adminKey, token, genKey, settingsSection, onSettingsClick, shareInvite, clubSlug, appUrl });
 })();
 
 ;
@@ -4767,7 +4830,7 @@ var People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="staff">
         <span class="pnum role">${I.whistle}</span>
-        <span class="pmain"><b>${esc(name(p))}</b>${UI.motto(p)}<span class="muted">${esc(p.role || '')}${teamId ? '' : ' · ' + esc(teamNames(p.teamIds) || 'aucune catégorie')}${p.playerId && Store.get('players', p.playerId) ? ' · aussi joueur (' + esc(teamNames(Store.get('players', p.playerId).teamIds)) + ')' : ''}</span></span>
+        <span class="pmain"><b>${esc(name(p))}${p.blocked ? ' 🚫' : p.selfJoined ? ' 🆕' : ''}</b>${UI.motto(p)}<span class="muted">${esc(p.role || '')}${teamId ? '' : ' · ' + esc(teamNames(p.teamIds) || 'aucune catégorie')}${p.playerId && Store.get('players', p.playerId) ? ' · aussi joueur (' + esc(teamNames(Store.get('players', p.playerId).teamIds)) + ')' : ''}</span></span>
       </button>
       ${staffPhone(p) ? `<a class="icon-btn" href="${telHref(p.phone)}" aria-label="Appeler ${esc(name(p))}">${I.phone}</a>` : ''}
       ${teamId ? `<button class="icon-btn" data-unlink="${p.id}" data-kind="staff" aria-label="Retirer ${esc(name(p))} de la catégorie">${I.x}</button>` : ''}
@@ -4899,7 +4962,8 @@ var People = (() => {
         <label class="fld"><span>Infos (diplôme, licence, disponibilités…)</span><textarea id="sNotes" rows="3">${esc(p.notes || '')}</textarea></label>`,
       onOpen: bindChips,
       actions: [
-        ...(isNew ? [] : [{ label: 'Supprimer', kind: 'danger', icon: I.trash, onClick: () => { setTimeout(() => confirmBox(`Supprimer ${name(p)} ?`).then(ok => { if (ok) { Store.remove('staff', p.id); Auth.forget(p.id); toast('Dirigeant supprimé'); opts.onSave && opts.onSave(); } }), 60); } }]),
+        ...(!isNew && Auth.isAdmin() && Cloud.ready() && !p.blocked ? [{ label: '📲 Envoyer son lien', onClick: () => { setTimeout(() => Cloud.invitePerson(p), 60); } }] : []),
+        ...(isNew ? [] : [{ label: 'Supprimer', kind: 'danger', icon: I.trash, onClick: () => { setTimeout(() => confirmBox(`Supprimer ${name(p)} ? Son compte est supprimé aussi : il est déconnecté de l'appli.`).then(ok => { if (ok) { Store.remove('staff', p.id); Auth.forget(p.id); toast('Dirigeant supprimé'); opts.onSave && opts.onSave(); } }), 60); } }]),
         { label: 'Annuler' },
         { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           const v = id => $('#' + id, r).value.trim();
@@ -4909,6 +4973,7 @@ var People = (() => {
           if (Auth.isAdmin() || isNew) p.teamIds = pickedTeams(r, p.teamIds || []);
           const sp = $('#sPlayer', r); if (sp) { if (sp.value) p.playerId = sp.value; else delete p.playerId; }
           Store.upsert('staff', p); toast('Enregistré'); opts.onSave && opts.onSave(p);
+          if (isNew && Auth.isAdmin() && Cloud.ready()) setTimeout(() => Cloud.invitePerson(p), 500); // and his link to send
         } },
       ],
     });
@@ -13612,7 +13677,7 @@ var Views = (() => {
       if (b.dataset.away) { c.awayBib = b.dataset.away; Store.save(); return settings(root); }
       if (b.dataset.act === 'exportAll') return runExport('Préparation du fichier…', async () => { S().ui.clubFileSent = true; Store.save(); return Exporter.json(await Library.withBackgrounds(Store.exportAll()), `${c.name}-${today()}`); });
       if (b.dataset.notif) return Notify.onClick(b, () => settings(root));
-      if (b.dataset.auth || b.dataset.reset) return Auth.onSettingsClick(b, () => settings(root));
+      if (b.dataset.auth || b.dataset.reset || b.dataset.revoke) return Auth.onSettingsClick(b, () => settings(root));
       if (b.dataset.cloud) return Cloud.onSettingsClick(b, () => settings(root));
       if (b.dataset.act === 'import') return importFile();
       if (b.dataset.act === 'backups') return President.backupDialog();
@@ -13800,7 +13865,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 27, UPD = 'ea-update-tried';
+  const BUILD = 28, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -13836,7 +13901,8 @@ var App = (() => {
     if (/^#\/proprietaire/.test(location.hash)) { refreshChrome(); window.addEventListener('hashchange', route); route(); return; }
     // Invitation link sent by the responsable: …#rejoindre=CODE
     const join = (location.hash.match(/^#rejoindre=([A-Za-z0-9]+)/) || [])[1];
-    if (join) { Auth.setInvite(join); history.replaceState(null, '', location.pathname + location.search); }
+    const who = (location.hash.match(/[#&]qui=([\w-]+)/) || [])[1];
+    if (join) { Auth.setInvite(join, who); history.replaceState(null, '', location.pathname + location.search); }
     refreshChrome();
     await Auth.gate({ joined: !!join });
     try { await Board.preloadBackgrounds(Store.state.schemas); } catch (e) {}

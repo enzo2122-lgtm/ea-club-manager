@@ -849,7 +849,7 @@ const Views = (() => {
       if (b.dataset.away) { c.awayBib = b.dataset.away; Store.save(); return settings(root); }
       if (b.dataset.act === 'exportAll') return runExport('Préparation du fichier…', async () => { S().ui.clubFileSent = true; Store.save(); return Exporter.json(await Library.withBackgrounds(Store.exportAll()), `${c.name}-${today()}`); });
       if (b.dataset.notif) return Notify.onClick(b, () => settings(root));
-      if (b.dataset.auth || b.dataset.reset) return Auth.onSettingsClick(b, () => settings(root));
+      if (b.dataset.auth || b.dataset.reset || b.dataset.revoke) return Auth.onSettingsClick(b, () => settings(root));
       if (b.dataset.cloud) return Cloud.onSettingsClick(b, () => settings(root));
       if (b.dataset.act === 'import') return importFile();
       if (b.dataset.act === 'backups') return President.backupDialog();

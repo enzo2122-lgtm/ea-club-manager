@@ -892,6 +892,23 @@ declare c text := ea_need(k);
 begin return (select jsonb_build_object('id', id, 'slug', slug, 'name', name, 'created', created_at, 'plan', plan) from clubs where id = c); end $;
 revoke all on function ea_owner_votes(text), ea_owner_club_plan(text, text, text) from public;
 grant execute on function ea_owner_votes(text), ea_owner_club_plan(text, text, text) to anon, authenticated;
+-- (1.27) « Retirer l'accès » : un dirigeant marqué « blocked » ne peut plus créer de compte (même avec le lien d'invitation)
+create or replace function club_register(k text, admin_k text, p jsonb) returns jsonb language plpgsql security definer set search_path = public as $
+declare c text := coalesce(ea_club(admin_k), ea_club(k)); is_adm boolean; sid text := p->>'staff_id'; s text := ea_token(); a accounts;
+begin
+  if c is null then raise exception 'CLE_CLUB'; end if;
+  is_adm := ea_admin(admin_k, c);
+  if coalesce(sid, '') = '' or coalesce(p->>'last_key', '') = '' or length(coalesce(p->>'h', '')) < 32 then raise exception 'DONNEES'; end if;
+  if not is_adm and exists (select 1 from items where club = c and col = 'staff' and id = sid and not deleted and coalesce(data->>'blocked', '') not in ('', 'false', 'null')) then raise exception 'ACCES_RETIRE'; end if;
+  select * into a from accounts where club = c and staff_id = sid;
+  if a.pw_hash is not null and not is_adm then raise exception 'DEJA_INSCRIT'; end if;
+  insert into accounts (club, staff_id, last_key, first_keys, display, salt, pw_hash, admin)
+    values (c, sid, p->>'last_key', ea_arr(p->'first_keys'), coalesce(p->>'display', ''), s, ea_hash(s || (p->>'h')), coalesce((p->>'admin')::boolean, false) and is_adm)
+    on conflict (club, staff_id) do update set last_key = excluded.last_key, first_keys = excluded.first_keys, display = excluded.display, salt = excluded.salt,
+      pw_hash = excluded.pw_hash, admin = accounts.admin or excluded.admin, updated_at = now();
+  delete from sessions where club = c and staff_id = sid;
+  return ea_new_session(c, sid);
+end $;
 do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_login', 'club_register', 'club_accounts', 'club_account_set', 'club_me', 'club_teams_done',
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',

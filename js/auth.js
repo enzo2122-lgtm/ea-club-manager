@@ -312,7 +312,8 @@ const Auth = (() => {
   }
 
   // Invitation code from the link sent by the responsable
-  function setInvite(code) {
+  function setInvite(code, who) {
+    try { if (who) sessionStorage.setItem('join-who', who); } catch (e) {}
     const c = Store.state.club;
     c.cloud = Object.assign({}, c.cloud || {}, { clubKey: code });
     Store.save();
@@ -343,14 +344,16 @@ const Auth = (() => {
       toast(e.message, 'err'); if (!Store.state.staff.length) return loginScreen();
     }
     const reg = new Set(accounts.filter(a => a.has_pw).map(a => a.staff_id));
-    const staff = Store.state.staff.slice().sort(Store.byName);
+    const staff = Store.state.staff.filter(x => !x.blocked).sort(Store.byName); // a dirigeant whose access was removed is not proposed
     const el = frame(`<p class="lead"><b>Première connexion</b> : choisis ton nom, puis crée ton mot de passe.</p>
       ${staff.length ? `<label class="fld"><span>Qui es-tu ?</span><select id="who"><option value="">Choisis ton nom…</option>
       ${staff.map(s => `<option value="${s.id}" ${reg.has(s.id) ? 'disabled' : ''}>${esc(Store.fullName(s))}${reg.has(s.id) ? ' · déjà inscrit' : [s.role, (s.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', ')].filter(Boolean).map(esc).map(x => ' · ' + x).join('')}</option>`).join('')}</select></label>
       <div id="step"></div>` : '<p class="tip">La liste des dirigeants du club est vide : le responsable doit d\'abord les ajouter (Équipes → Dirigeants).</p>'}
-      <p class="muted small">Tu n'es pas dans la liste ? Demande au responsable de t'ajouter dans Équipes → Dirigeants. Déjà inscrit ? Reviens à la connexion.</p>
+      <button class="btn wide" id="notListed" type="button">＋ Je ne suis pas dans la liste</button>
+      <p class="muted small">Déjà inscrit ? Reviens à la connexion.</p>
       <button class="btn wide link" id="back">Retour à la connexion</button>`);
     $('#back', el).onclick = () => loginScreen();
+    $('#notListed', el).onclick = () => selfScreen(staff);
     const who = $('#who', el); if (!who) return;
     who.onchange = () => {
       const s = Store.get('staff', who.value), step = $('#step', el);
@@ -365,6 +368,7 @@ const Auth = (() => {
         } catch (e) { toast(e.message, 'err'); }
       };
     };
+    preselect(el);
   }
   // A new club: the activation code given by Clubbo, the name of the club, its code, and its first responsable
   const slugOf = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
@@ -399,6 +403,38 @@ const Auth = (() => {
         Store.upsert('staff', s); Store.save();
         await withBusy('Ouverture du club…', () => afterServerLogin(r, pw, keep, s.lastName, s.firstName));
         setTimeout(() => { if (typeof Onboard !== 'undefined') Onboard.start(); }, 400);
+      } catch (e) { toast(e.message, 'err'); }
+    };
+  }
+  function preselect(el) {
+    let id = ''; try { id = sessionStorage.getItem('join-who') || ''; } catch (e) {}
+    const who = el && el.querySelector('#who'); if (!id || !who || !who.querySelector(`option[value="${id}"]:not([disabled])`)) return;
+    who.value = id; who.onchange();
+  }
+  // A coach who is not in the list yet: his name, his role, his password (the responsables see « 🆕 » next to him in Dirigeants)
+  const norm = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  function selfScreen(staff) {
+    const el = frame(`<p class="lead"><b>Première connexion</b> : tu n'es pas encore dans la liste du club ? Inscris-toi.</p>
+      ${nameFields('', '')}
+      <label class="fld"><span>Ton rôle</span><select id="role">${['Éducateur', 'Éducateur adjoint', 'Dirigeant', 'Accompagnateur', 'Entraîneur des gardiens', 'Bénévole'].map(r => `<option>${r}</option>`).join('')}</select></label>
+      ${pwFields('Ton mot de passe')}${keepBox}
+      <button class="btn primary wide" id="go">Créer mon compte</button>
+      <p class="muted small">Le responsable du club voit ton inscription. Ensuite tu choisis tes catégories.</p>
+      <div class="lock-links"><button class="btn wide link" id="back">Retour à la liste</button></div>`);
+    $('#back', el).onclick = () => pickScreen();
+    $('#go', el).onclick = async () => {
+      const ln = $('#ln', el).value.trim(), fn = $('#fn', el).value.trim();
+      if (!ln || !fn) return toast('Écris ton nom et ton prénom', 'err');
+      const same = staff.find(x => norm(x.lastName) === norm(ln) && norm(x.firstName) === norm(fn));
+      if (same) { toast('Tu es déjà dans la liste : choisis ton nom', 'err'); try { sessionStorage.setItem('join-who', same.id); } catch (e) {} return pickScreen(); }
+      const pw = readNewPw(el); if (!pw) return; const keep = $('#keep', el).checked;
+      const s = { id: Store.uid(), lastName: ln.toUpperCase(), firstName: fn, role: $('#role', el).value, phone: '', email: '', notes: '', teamIds: [], selfJoined: Date.now() };
+      try {
+        Store.upsert('staff', s);
+        await withBusy('Inscription au club…', () => Sync.run());
+        const r = await withBusy('Création de ton compte…', async () => Cloud.register(regPayload(s, await proof(lastKeyOf(s), pw), false)));
+        try { sessionStorage.removeItem('join-who'); } catch (e) {}
+        await withBusy('Connexion…', () => afterServerLogin(r, pw, keep, s.lastName, s.firstName));
       } catch (e) { toast(e.message, 'err'); }
     };
   }
@@ -458,7 +494,7 @@ const Auth = (() => {
       ${realAdmin() ? (preview() ? `<button class="btn primary" data-auth="stopPreview">${I.whistle}<span>Revenir en responsable</span></button>` : `<button class="btn" data-auth="preview">${I.team}<span>🔀 Mes rôles (coach, bénévole, arbitre, joueur, parent)</span></button>`) : ''}</div></section>`;
     if (!isAdmin()) return me;
     return me + `<section class="card"><h2>${I.team}Comptes des dirigeants</h2>
-      <p class="muted">Un responsable peut réinitialiser le mot de passe d'un dirigeant (il en recréera un avec « Première connexion ») et changer ses catégories. 🔒 : catégories choisies à la première connexion, verrouillées pour l'éducateur.</p>
+      <p class="muted">« Retirer l'accès » déconnecte un dirigeant de partout et l'empêche de se réinscrire. Un responsable peut aussi réinitialiser le mot de passe d'un dirigeant (il en recréera un avec « Première connexion ») et changer ses catégories. 🔒 : catégories choisies à la première connexion, verrouillées pour l'éducateur.</p>
       <div class="acc-list" id="accList">${serverMode() ? '<p class="muted">Chargement des comptes…</p>' : accRows(null)}</div>
       ${serverMode() ? `<button class="btn primary" data-cloud="invite">${I.share}<span>Inviter les éducateurs</span></button>` : `<button class="btn" data-auth="recovery">${I.rotate}<span>Nouveau code de secours</span></button>`}</section>`;
   }
@@ -469,10 +505,11 @@ const Auth = (() => {
       const a = list ? byId[s.id] : null, u = U(s.id) || {};
       const has = list ? !!(a && a.has_pw) : !!u.hash, adm = list ? !!(a && a.admin) : !!u.admin, locked = list ? !!(a && a.teams_set) : !!u.teamsSet;
       const cats = (s.teamIds || []).map(t => (Store.get('teams', t) || {}).name).filter(Boolean).join(', ');
-      return `<div class="acc-row"><span class="acc-name"><b>${esc(Store.fullName(s))}</b><span class="muted">${has ? 'Mot de passe créé' : 'Pas encore inscrit'} · ${cats ? esc(cats) : 'aucune catégorie'}${locked ? ' 🔒' : ''}</span></span>
+      return `<div class="acc-row"><span class="acc-name"><b>${esc(Store.fullName(s))}</b><span class="muted">${s.blocked ? '🚫 Accès retiré' : has ? 'Mot de passe créé' : 'Pas encore inscrit'}${s.selfJoined ? ' · 🆕 inscrit lui-même' : ''} · ${cats ? esc(cats) : 'aucune catégorie'}${locked ? ' 🔒' : ''}</span></span>
         <button class="btn" data-auth="cats" data-id="${s.id}">Catégories</button>
         <label class="switch small"><input type="checkbox" data-admin="${s.id}" ${adm ? 'checked' : ''} ${s.id === user.id || (list && !has) ? 'disabled' : ''}><span>Responsable</span></label>
-        <button class="btn" data-reset="${s.id}" ${has && s.id !== user.id ? '' : 'disabled'}>Réinitialiser</button></div>`;
+        <button class="btn" data-reset="${s.id}" ${has && s.id !== user.id && !s.blocked ? '' : 'disabled'}>Réinitialiser</button>
+        <button class="btn ${s.blocked ? 'primary' : 'danger'}" data-revoke="${s.id}" ${s.id === user.id ? 'disabled' : ''}>${s.blocked ? 'Rendre l\'accès' : 'Retirer l\'accès'}</button></div>`;
     }).join('');
     return rows || '<p class="muted">Ajoute les dirigeants dans Équipes → Dirigeants.</p>';
   }
@@ -520,6 +557,18 @@ const Auth = (() => {
           if (serverMode() && accOf(s.id).staff_id) Cloud.accountSet({ staff_id: s.id, teams_set: lockIt }).then(rerender).catch(e => toast(e.message, 'err'));
           toast('Catégories enregistrées'); rerender();
         } }] });
+    }
+    if (b.dataset.revoke) {
+      const s = Store.get('staff', b.dataset.revoke); if (!s) return;
+      const back = !!s.blocked;
+      if (!back && !(await confirmBox(`Retirer l'accès de ${Store.fullName(s)} ? Il est déconnecté tout de suite de tous ses appareils et ne peut plus s'inscrire, même avec le lien d'invitation. Sa fiche reste : tu pourras lui rendre l'accès.`, 'Retirer l\'accès'))) return;
+      if (back) delete s.blocked; else s.blocked = Date.now();
+      Store.upsert('staff', s);
+      try {
+        if (serverMode()) await Sync.run(); // the server knows it at once (it refuses a new registration)
+        if (!back) { const u = U(s.id); if (u) { delete u.hash; delete u.salt; } Store.save(); if (serverMode()) await Cloud.accountSet({ staff_id: s.id, delete: true }); }
+      } catch (e) { return toast(e.message, 'err'); }
+      toast(back ? 'Accès rendu : envoie-lui son lien pour qu\'il recrée son mot de passe' : 'Accès retiré : il est déconnecté'); rerender(); return;
     }
     if (b.dataset.reset) {
       const s = Store.get('staff', b.dataset.reset);

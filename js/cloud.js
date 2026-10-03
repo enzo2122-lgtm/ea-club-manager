@@ -25,6 +25,7 @@ const Cloud = (() => {
     MOT_DE_PASSE: 'Mot de passe incorrect.',
     BLOQUE: 'Trop d\'essais : attends 5 minutes avant de réessayer.',
     DEJA_INSCRIT: 'Ce dirigeant a déjà un mot de passe : connecte-toi, ou demande au responsable de le réinitialiser.',
+    ACCES_RETIRE: 'Ton accès à l\'appli du club a été retiré par un responsable.',
     SESSION: 'Ta connexion a expiré : reconnecte-toi.',
     DONNEES: 'Informations incomplètes.',
     CRENEAU_PRIS: 'Ce créneau est déjà pris sur cette partie du terrain. Choisis un autre horaire ou l\'autre moitié.',
@@ -132,6 +133,19 @@ const Cloud = (() => {
   const clubSlug = () => (session() && session().club && session().club.slug) || (Store.state.club.cloud || {}).slug || '';
   const appUrl = () => `${location.origin}${location.pathname.replace(/index\.html$/, '')}`;
   const inviteLink = code => `${appUrl()}#rejoindre=${encodeURIComponent(code)}`;
+  // (3.69) the link of one person: his name is already chosen when he opens it
+  async function invitePerson(p) {
+    let code;
+    try { code = await api.invite(false); } catch (e) { return toast(e.message, 'err'); }
+    const link = inviteLink(code) + '&qui=' + encodeURIComponent(p.id), first = p.firstName || '';
+    const text = `Bonjour ${first}, voici ton accès à l'appli du club ${Store.state.club.name || ''} : ouvre ce lien, ton nom est déjà choisi, il te reste à créer ton mot de passe. Ensuite, ajoute l'appli à ton écran d'accueil.\n${link}`;
+    const ph = String(p.phone || '').replace(/[^\d+]/g, ''), intl = ph.startsWith('+') ? ph.slice(1) : ph.startsWith('0') ? '33' + ph.slice(1) : ph;
+    modal({ title: `Le lien de ${first || 'ce dirigeant'}`, noFocus: true, body: `<p class="muted small">Envoie-le à lui seulement : en l'ouvrant, son nom est déjà choisi.</p><textarea id="invTxt" rows="6">${esc(text)}</textarea>`,
+      actions: [
+        { label: 'WhatsApp', kind: 'primary', icon: I.share, onClick: (c, r) => { window.open(`https://wa.me/${intl}?text=${encodeURIComponent($('#invTxt', r).value)}`, '_blank'); return false; } },
+        ...(navigator.share ? [{ label: 'Autre appli', icon: I.share, onClick: (c, r) => { navigator.share({ text: $('#invTxt', r).value }).catch(() => {}); return false; } }] : []),
+        { label: 'Copier', icon: I.copy, onClick: (c, r) => { navigator.clipboard.writeText($('#invTxt', r).value).then(() => toast('Message copié')).catch(() => toast('Sélectionne le texte et copie-le')); return false; } }] });
+  }
   async function shareInvite(renew) {
     let code;
     try { code = await api.invite(renew); } catch (e) { return toast(e.message, 'err'); }
@@ -164,5 +178,5 @@ const Cloud = (() => {
     if (b.dataset.cloud === 'test') { try { await api.ping(); toast('Connexion OK'); } catch (e) { toast(e.message, 'err'); } }
   }
 
-  return Object.assign(api, { ready, canLogin, cfg, adminKey, token, genKey, settingsSection, onSettingsClick, shareInvite, clubSlug, appUrl });
+  return Object.assign(api, { ready, invitePerson, canLogin, cfg, adminKey, token, genKey, settingsSection, onSettingsClick, shareInvite, clubSlug, appUrl });
 })();
