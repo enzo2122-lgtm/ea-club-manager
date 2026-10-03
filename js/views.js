@@ -509,7 +509,7 @@ const Views = (() => {
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
         case 'addEx': tr.exercises.push({ id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }); save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
-        case 'share': return runExport('Préparation du fichier…', async () => Exporter.json(await Library.withBackgrounds(Store.exportTraining(tr)), tr.title || 'entrainement'));
+        case 'share': return shareTraining(tr);
         case 'dup': return copyTraining(tr, 'dup');
         case 'use': return copyTraining(tr, 'use');
         case 'model': {
@@ -866,9 +866,61 @@ const Views = (() => {
     catch (err) { console.error(err); toast(err.message || 'Export impossible', 'err'); }
     finally { b.done(); }
   }
+  // (3.74) a session sent by WhatsApp, SMS, mail…: a link that opens the app (the file stays possible)
+  async function shareTraining(tr) {
+    let url = '';
+    try { url = await Exporter.linkOf(Store.exportTraining(tr)); } catch (e) {}
+    const file = () => runExport('Préparation du fichier…', async () => Exporter.json(await Library.withBackgrounds(Store.exportTraining(tr)), tr.title || 'entrainement'));
+    if (!url || url.length > 60000) return file(); // a very big session: the file
+    const title = tr.title || 'Séance', text = `🏃 Séance « ${title} »${tr.exercises.length ? ` (${tr.exercises.length} exercice${tr.exercises.length > 1 ? 's' : ''})` : ''} : touche le lien pour l'ouvrir dans l'appli.\n${url}`;
+    modal({ title: 'Envoyer la séance', noFocus: true, body: `<p>Un <b>lien</b> à envoyer par WhatsApp, SMS ou mail : en le touchant, l'éducateur ouvre l'appli et ajoute la séance (exercices et schémas compris).</p>
+      <p class="muted small">Sur iPhone, le lien s'ouvre d'abord dans le navigateur : l'appli propose alors de le copier pour l'ouvrir depuis son icône.</p>`,
+      actions: [{ label: 'Fichier (.json)', onClick: () => { setTimeout(file, 60); } },
+        { label: navigator.share ? 'Envoyer le lien' : 'Copier le lien', kind: 'primary', icon: I.share, onClick: () => {
+          if (navigator.share) navigator.share({ title, text }).catch(() => {});
+          else navigator.clipboard.writeText(text).then(() => toast('Lien copié : colle-le dans WhatsApp')).catch(() => toast('Copie impossible', 'err'));
+        } }] });
+  }
+  // the link touched: the session is shown, then added (in the category of the coach when the sender's one is not on this device)
+  async function receiveLink(code) {
+    let txt, obj;
+    try { txt = await Exporter.fromLink(code); obj = JSON.parse(txt); } catch (e) { return toast(e.message && !/JSON/.test(e.message) ? e.message : 'Lien illisible : il a peut-être été coupé. Demande-le à nouveau.', 'err'); }
+    const tr = ((obj.data || {}).trainings || [])[0], sc = ((obj.data || {}).schemas || []).length;
+    const what = tr ? `la séance <b>« ${esc(tr.title || 'Séance')} »</b>${(tr.exercises || []).length ? ` · ${tr.exercises.length} exercice${tr.exercises.length > 1 ? 's' : ''}` : ''}${sc ? ` · ${sc} schéma${sc > 1 ? 's' : ''}` : ''}` : 'des données de l\'appli';
+    if (tr && Store.get('trainings', tr.id)) { toast('Cette séance est déjà dans tes séances'); location.hash = '#/entrainement/' + tr.id; return; }
+    modal({ title: '📥 Séance reçue', noFocus: true, body: `<p class="lead">Tu as reçu ${what}.</p><p class="muted small">Elle sera ajoutée à tes séances : tu pourras ensuite la modifier, changer la date ou la catégorie.</p>`,
+      actions: [{ label: 'Non merci' }, { label: 'Ajouter', kind: 'primary', icon: I.plus, onClick: () => {
+        try {
+          Store.importText(txt);
+          const t = tr && Store.get('trainings', tr.id);
+          if (t) { if (!Store.get('teams', t.teamId)) { const mine = (typeof Auth !== 'undefined' && Auth.teams ? Auth.teams() : []).concat(S().teams.map(x => x.id)); t.teamId = mine[0] || null; } Store.upsert('trainings', t); location.hash = '#/entrainement/' + t.id; }
+          else App.route();
+          toast('Séance ajoutée ✓');
+        } catch (e) { toast(e.message || 'Ajout impossible', 'err'); }
+      } }] });
+  }
+  // iPhone: a link opens in the browser, not in the app of the home screen (its data are apart): copy it, open the app, paste
+  function linkGate(code) {
+    return new Promise(done => {
+      const el = document.createElement('div'); el.className = 'link-gate';
+      el.innerHTML = `<div class="lg-box"><h2>📥 Séance reçue</h2>
+        <p>Pour l'ajouter dans <b>ton appli</b> (celle de l'écran d'accueil) :</p>
+        <ol><li>touche <b>Copier le lien</b> ;</li><li>ouvre l'appli depuis son <b>icône</b> ;</li><li>Entraînements → <b>Recevoir</b> → <b>Coller le lien reçu</b>.</li></ol>
+        <button class="btn primary wide" data-lg="copy">${I.copy}<span>Copier le lien</span></button>
+        <button class="btn soft wide" data-lg="here">Je n'ai pas l'appli sur l'écran d'accueil : continuer ici</button></div>`;
+      el.onclick = e => { const b = e.target.closest('[data-lg]'); if (!b) return;
+        if (b.dataset.lg === 'copy') { navigator.clipboard.writeText(location.href.split('#')[0] + '#/recevoir/' + code).then(() => { b.querySelector('span').textContent = 'Lien copié ✓ : ouvre l\'appli'; }).catch(() => toast('Copie impossible', 'err')); return; }
+        el.remove(); done(true); };
+      if (!document.getElementById('lgCss')) { const st = document.createElement('style'); st.id = 'lgCss';
+        st.textContent = '.link-gate{position:fixed;inset:0;z-index:200;background:var(--bg,#0e1d45);display:flex;align-items:center;justify-content:center;padding:16px}.lg-box{background:var(--card,#fff);color:var(--ink,#14172b);border-radius:18px;padding:20px;max-width:440px;width:100%;display:grid;gap:10px}.lg-box ol{margin:0;padding-left:20px;line-height:1.6}';
+        document.head.appendChild(st); }
+      document.body.appendChild(el);
+    });
+  }
   // Receive a .raincy.json file (players, staff, sessions, matches…) from another coach or from the club
   async function receiveText(txt) {
     txt = String(txt).replace(/^\uFEFF/, '');
+    { const l = txt.match(/#\/recevoir\/([\w-]+)/); if (l) { await receiveLink(l[1]); return true; } }
     // a team exported from AssistCoachAI
     if (/"planning"/.test(txt.slice(0, 200000)) && await ACImport.fromText(txt)) return true;
     if (People.isClubList(txt)) {
@@ -893,11 +945,18 @@ const Views = (() => {
     modal({ title: 'Recevoir un fichier', noFocus: true,
       body: `<p>Choisis le fichier <b>.raincy.json</b> ou la liste <b>.txt</b> des licenciés et dirigeants (liste des licenciés, données d'un autre éducateur…). Sur iPhone ou iPad, il doit d'abord être enregistré dans l'app <b>Fichiers</b> ; sur PC ou Android, dans Téléchargements.</p>
         <button class="btn primary wide" id="rcvPick">${I.upload}<span>Choisir le fichier</span></button>
+        <button class="btn wide" id="rcvLink">${I.paste}<span>Coller le lien reçu (séance)</span></button>
         <details class="paste-box"><summary>Le fichier ne se sélectionne pas ?</summary>
           <p class="muted small">Ouvre le fichier dans une autre appli (Fichiers, Mail, Notes…), copie tout son texte, puis colle-le ici.</p>
           <textarea id="rcvText" rows="5" placeholder='{"app":"raincy-coach", …}'></textarea>
           <button class="btn wide" id="rcvPaste">${I.paste}<span>Importer le texte collé</span></button></details>`,
       onOpen: (r, close) => {
+        $('#rcvLink', r).onclick = async () => {
+          let txt = ''; try { txt = await navigator.clipboard.readText(); } catch (e) {}
+          const l = String(txt).match(/#\/recevoir\/([\w-]+)/);
+          if (!l) return toast('Copie d\'abord le lien reçu (appui long sur le lien → Copier), puis touche à nouveau ce bouton.', 'err');
+          close(); receiveLink(l[1]);
+        };
         $('#rcvPick', r).onclick = async () => {
           const [f] = await UI.pickFiles(); if (!f) return;
           const txt = await f.text(); close();
@@ -911,5 +970,5 @@ const Views = (() => {
       } });
   }
 
-  return { home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup };
+  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup };
 })();

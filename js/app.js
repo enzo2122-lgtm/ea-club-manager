@@ -119,7 +119,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 32, UPD = 'ea-update-tried';
+  const BUILD = 33, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -155,6 +155,11 @@ const App = (() => {
     if (/^#\/proprietaire/.test(location.hash)) { refreshChrome(); window.addEventListener('hashchange', route); route(); return; }
     // Invitation link sent by the responsable: …#rejoindre=CODE
     const join = (location.hash.match(/^#rejoindre=([A-Za-z0-9]+)/) || [])[1];
+    // (3.74) a session received as a link: …#/recevoir/CODE
+    const recv = (location.hash.match(/^#\/recevoir\/([\w-]+)/) || [])[1];
+    if (recv) history.replaceState(null, '', location.pathname + location.search + '#/entrainements');
+    const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
+    if (recv && iosTab && !Auth.current()) await Views.linkGate(recv);
     const who = (location.hash.match(/[#&]qui=([\w-]+)/) || [])[1];
     if (join) { Auth.setInvite(join, who); history.replaceState(null, '', location.pathname + location.search); }
     refreshChrome();
@@ -162,6 +167,7 @@ const App = (() => {
     try { await Board.preloadBackgrounds(Store.state.schemas); } catch (e) {}
     window.addEventListener('hashchange', route);
     route();
+    if (recv) Views.receiveLink(recv);
     Sync.start();
     // After the first exchange with the server: categories U6 … Vétérans for the new season
     Promise.resolve(Sync.run()).catch(() => {}).then(() => {

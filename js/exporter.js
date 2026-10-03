@@ -21,6 +21,25 @@ const Exporter = (() => {
     return 'downloaded';
   }
 
+  /* ---------- (3.74) a session sent as a link (WhatsApp…): touching it opens the app, which offers to add it ---------- */
+  // the text is compressed and written in the link after the « # » (it never goes to a server)
+  const appBase = () => location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '');
+  const toB64 = u8 => { let b = ''; for (let i = 0; i < u8.length; i += 0x8000) b += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const fromB64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4)), c => c.charCodeAt(0));
+  async function pipe(u8, stream) { return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(stream)).arrayBuffer()); }
+  async function linkOf(text) {
+    const raw = new TextEncoder().encode(text);
+    const code = typeof CompressionStream !== 'undefined' ? 'z' + toB64(await pipe(raw, new CompressionStream('deflate-raw'))) : 'u' + toB64(raw);
+    return appBase() + '#/recevoir/' + code;
+  }
+  async function fromLink(code) {
+    code = String(code || '').replace(/^.*#\/recevoir\//, '').trim();
+    const k = code[0], u8 = fromB64(code.slice(1));
+    if (k === 'z') { if (typeof DecompressionStream === 'undefined') throw new Error('Ce téléphone est trop ancien pour lire ce lien : demande plutôt le fichier.'); return new TextDecoder().decode(await pipe(u8, new DecompressionStream('deflate-raw'))); }
+    if (k === 'u') return new TextDecoder().decode(u8);
+    throw new Error('Lien incomplet : demande-le à nouveau.');
+  }
+
   /* ---------- frames ---------- */
   function drawCaption(ctx, w, h, ch, sc, k) {
     ctx.fillStyle = '#0e1d45'; ctx.fillRect(0, h - ch, w, ch);
@@ -347,5 +366,5 @@ const Exporter = (() => {
   }
   async function json(text, name) { return deliver(new Blob([text], { type: 'application/json' }), safeName(name) + '.raincy.json'); }
 
-  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, json, deliver };
+  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, json, deliver, linkOf, fromLink };
 })();
