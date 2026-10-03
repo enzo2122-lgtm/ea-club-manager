@@ -43,11 +43,12 @@ const Views = (() => {
 
   function teamSwitch() {
     const t = activeTeam();
-    return `<div class="team-switch" role="tablist" aria-label="Équipe">
+    const many = Auth.teams().length > 8; // a big club: one list instead of a row of buttons
+    return `${many ? '' : `<div class="team-switch" role="tablist" aria-label="Équipe">
       <button class="chip ${!t ? 'on' : ''}" data-team="">${Auth.isAdmin() ? 'Toutes les équipes' : Auth.teams().length > 1 ? 'Mes équipes' : 'Tout'}</button>
       ${Store.teamGroups(Auth.teams()).map(g => `<span class="team-fam">${g.map(x => `<button class="chip ${Store.isSub(x) ? 'sub' : ''} ${x.id === t ? 'on' : ''}" data-team="${x.id}">${esc(x.name)}</button>`).join('')}</span>`).join('')}
-    </div>
-    <label class="team-select"><span>Catégorie</span><select data-teamsel aria-label="Catégorie">
+    </div>`}
+    <label class="team-select ${many ? 'all-sizes' : ''}"><span>Catégorie</span><select data-teamsel aria-label="Catégorie">
       <option value="">${Auth.isAdmin() ? 'Toutes les équipes' : Auth.teams().length > 1 ? 'Mes équipes' : 'Tout'}</option>
       ${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>`;
   }
@@ -112,13 +113,13 @@ const Views = (() => {
     const duty = Vol.mine(2); if (duty.length) box += `<a class="hero-prep hero-vol" href="#/benevoles">🙋 ${duty.map(({ m, t }) => `${t.icon} ${esc(t.label)} ${m.date === now ? 'aujourd\'hui' : 'demain'}`).join(' · ')}</a> `;
     const prepM = todayM[0] || tomorrowM[0]; if (todayM[0]) box += `<a class="hero-prep hero-live" href="#/direct/${todayM[0].id}">📱 Match en direct</a> `; if (prepM) box += `<a class="hero-prep" href="#/jourj/${prepM.id}">🏟️ Jour de match : tout préparer${Prepa.score(prepM) ? ' · ' + Prepa.score(prepM) + ' %' : ''}</a>`;
     const redraw = () => { if (/^#?\/?$/.test(location.hash.replace('#/', '#'))) App.route(true); };
-    return `<header class="hero hero-me" data-wx-time="${esc(firstTime)}">
+    return `<header class="hero hero-me ${todayM.length ? 'matchday' : ''}" data-wx-time="${esc(firstTime)}">
       ${Supporters.coin('hero-crest')}
       <div class="hero-main">
         <p class="eyebrow">Espace de ${esc(coach)}<span class="eb-club"> · ${club}</span></p>
         <h1>${title}</h1>
         <p class="hero-line">${me.motto ? `« ${esc(me.motto)} »` : (Auth.isAdmin() ? 'Tout le club est entre tes mains aujourd\'hui.' : 'Prêt pour la prochaine séance ?')}</p>
-        <div class="hero-chips">${mine.length ? mine.map(t => `<a class="hero-chip" href="#/equipe/${t.id}">${esc(t.name)}</a>`).join('') : Auth.isAdmin() ? '<span class="hero-chip">Responsable du club</span>' : ''}</div>
+        <div class="hero-chips">${mine.length ? mine.slice(0, mine.length > 4 ? 3 : 4).map(t => `<a class="hero-chip" href="#/equipe/${t.id}">${esc(t.name)}</a>`).join('') + (mine.length > 4 ? `<a class="hero-chip more" href="#/equipes">+${mine.length - 3}</a>` : '') : Auth.isAdmin() ? '<span class="hero-chip">Responsable du club</span>' : ''}</div>
         ${box ? `<p class="hero-today">${box}</p>` : ''}
       </div>
       <div class="hero-flag">${Supporters.flag()}</div>
@@ -407,6 +408,8 @@ const Views = (() => {
   function training(root, id) {
     const tr = Store.get('trainings', id); if (!tr || !Auth.sees(tr.teamId)) return (location.hash = '#/entrainements');
     const save = () => Store.upsert('trainings', tr);
+    // (1.37) each exercise is a short card; touched, it opens with all its fields (a new one opens by itself)
+    const openEx = new Set(tr.exercises.length === 1 && !tr.exercises[0].title ? [tr.exercises[0].id] : []);
     const render = () => {
       const tm = teamOf(tr.teamId), total = tr.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
       if (tr.model) return renderModel(total);
@@ -429,10 +432,12 @@ const Views = (() => {
           <p class="muted small">Un toucher par joueur. Le % est sa présence sur la saison (séances où l'appel a été fait).</p>
           ${rosterChips(tm.id, p => `<button class="chip ${(tr.presents || []).includes(p.id) ? 'on' : ''}" data-present="${p.id}">${presChip(p, tm.id)}</button>`)}` : ''}
         <div id="trAnsBox"></div>
+        <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">notes des joueurs, effort, documents, photos et vidéos</span></summary>
         <div id="rateBox"></div>
         <div id="rpeBox"></div>
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('training:' + tr.id, 'Photos et vidéos de la séance')}
+        </details>
         <div class="danger-zone"><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button></div>`;
       const box = $('#rateBox', root); if (box) Ratings.bind(box, tr, save);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
@@ -455,12 +460,15 @@ const Views = (() => {
     // the effort of the players present (RPE), for the training load
     const rpeTr = () => { const box = $('#rpeBox', root); if (box) box.innerHTML = Health.rpeBox(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)).map(p => p.id), 'training'); };
     const exerciseCard = (e, i, n) => {
-      const sc = e.schemaId && Store.get('schemas', e.schemaId);
-      return `<article class="card ex" data-ex="${e.id}">
+      const sc = e.schemaId && Store.get('schemas', e.schemaId), open = openEx.has(e.id);
+      const hint = String(e.consignes || e.org || '').split('\n').map(x => x.trim()).filter(Boolean)[0];
+      return `<article class="card ex ${open ? 'open' : 'closed'}" data-ex="${e.id}">
         <div class="ex-head"><span class="ex-num">${i + 1}</span><input class="ex-title" data-f="title" value="${esc(e.title)}" placeholder="Nom de l'exercice">
           <label class="dur"><input type="number" min="0" max="180" data-f="duration" value="${esc(e.duration)}" aria-label="Durée en minutes"><span>min</span></label>
-          <button class="icon-btn" data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${I.up}</button><button class="icon-btn" data-mv="1" ${i === n - 1 ? 'disabled' : ''} aria-label="Descendre">${I.down}</button>
-          <button class="icon-btn danger" data-delex aria-label="Supprimer l'exercice">${I.trash}</button></div>
+          <span class="ex-tools"><button class="icon-btn" data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${I.up}</button><button class="icon-btn" data-mv="1" ${i === n - 1 ? 'disabled' : ''} aria-label="Descendre">${I.down}</button>
+          <button class="icon-btn danger" data-delex aria-label="Supprimer l'exercice">${I.trash}</button></span>
+          <button class="btn soft ex-tog" data-togex aria-expanded="${open}">${open ? 'Fermer' : 'Ouvrir'}</button></div>
+        ${open ? '' : `<button type="button" class="ex-mini" data-togex><img alt="" src="${UI.thumb(sc || AutoSchema.preview(e), 120, 78)}"><span>${hint ? esc(hint) : '<i>Touche pour l\'organisation, les consignes et le schéma</i>'}</span></button>`}
         <div class="ex-body">
           <div class="ex-fields">
             <label class="fld"><span>Organisation</span><textarea rows="2" data-f="org" placeholder="Taille du terrain, nombre de joueurs, déroulement">${esc(e.org || '')}</textarea></label>
@@ -498,6 +506,7 @@ const Views = (() => {
         if (b.dataset.allpres === '0' && (tr.presents || []).length && !(await confirmBox('Décocher tous les présents de cette séance ?', 'Décocher'))) return;
         tr.presents =b.dataset.allpres === '1' ? squad(tr.teamId).map(p => p.id) : []; save(); return render(); }
       if (b.dataset.unstaff) { tr.staffIds = (tr.staffIds || []).filter(x => x !== b.dataset.unstaff); save(); return render(); }
+      if (b.hasAttribute('data-togex')) { openEx.has(ex.id) ? openEx.delete(ex.id) : openEx.add(ex.id); return render(); }
       if (b.dataset.mv) { const i = tr.exercises.indexOf(ex), j = i + +b.dataset.mv; [tr.exercises[i], tr.exercises[j]] = [tr.exercises[j], tr.exercises[i]]; save(); return render(); }
       if (b.hasAttribute('data-delex')) { if (await confirmBox(`Retirer l'exercice « ${ex.title || 'sans nom'} » ?`, 'Retirer')) { tr.exercises = tr.exercises.filter(x => x !== ex); save(); render(); } return; }
       if (b.hasAttribute('data-big')) return AutoSchema.big(ex, ex.schemaId && Store.get('schemas', ex.schemaId));
@@ -507,7 +516,7 @@ const Views = (() => {
       switch (b.dataset.act) {
         case 'exClub': return Exos.pick(tr.teamId, ex => { tr.exercises.push(ex); save(); render(); toast('Exercice ajouté à la séance'); });
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
-        case 'addEx': tr.exercises.push({ id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }); save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
+        case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'share': return shareTraining(tr);
         case 'dup': return copyTraining(tr, 'dup');
@@ -614,6 +623,8 @@ const Views = (() => {
         <span class="min-q"><button class="chip" data-minset="${p.id}" data-v="full">Tout</button><button class="chip" data-minset="${p.id}" data-v="half">½</button><button class="chip" data-minset="${p.id}" data-v="zero">0</button></span></div>`).join('')}</div>
       <p class="muted small">« Match complet pour les autres » met ${full} min à ceux qui n'ont pas encore de temps. ${total ? `Total saisi : ${total} min.` : ''}</p></section>`;
   }
+  // (1.37) the tab of each match page and its « Modifier » state, kept while the app is open
+  const matchTabs = {}, mEdit = {};
   function match(root, id) {
     const m = Store.get('matches', id); if (!m) return (location.hash = '#/matchs');
     if (!Auth.sees(m.teamId)) return matchView(root, m);
@@ -622,9 +633,14 @@ const Views = (() => {
     const render = () => {
       const t = teamOf(m.teamId), roster = t ? Store.rosterOf(t.id) : [], conv = roster.filter(p => (m.convoked || []).includes(p.id));
       const lineup = m.lineupId && Store.get('schemas', m.lineupId);
+      const tab = matchTabs[m.id] || (m.played ? 'apres' : 'avant'), editOpen = mEdit[m.id] != null ? mEdit[m.id] : !m.opponent;
+      const sum = [m.home ? '🏠 Domicile' : '🚌 Extérieur', m.competition, m.time ? 'début ' + m.time.replace(':', 'h') : '', m.rdv ? 'RDV ' + m.rdv.replace(':', 'h') : '', m.place].filter(Boolean).map(esc).join(' · ');
+      const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
+      const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
         `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button>`)}
-        <section class="card ${side(m)}">
+        <div class="m-sum ${side(m)}"><span>${sum}</span><button class="btn soft" data-editm>${I.edit}<span>${editOpen ? 'Fermer' : 'Modifier'}</span></button></div>
+        <section class="card ${side(m)} m-edit" ${editOpen ? '' : 'hidden'}>
           <div class="row3">
             <label class="fld"><span>Équipe</span><select data-f="teamId">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === m.teamId ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
             <label class="fld"><span>Adversaire</span><input data-f="opponent" value="${esc(m.opponent)}"></label>
@@ -636,17 +652,27 @@ const Views = (() => {
           </div>
           <div class="chips"><button class="chip ch-home ${m.home ? 'on' : ''}" data-home="1">🏠 Domicile</button><button class="chip ch-away ${!m.home ? 'on' : ''}" data-home="0">🚌 Extérieur</button></div>
         </section>
-        ${!m.exempt ? Live.card(m) + Prepa.card(m) + Vol.card(m) : ''}
-        ${m.home && !m.exempt && Cloud.ready() ? '<div id="roomsBox"></div>' : ''}
+        <div class="m-tabs" role="tablist">${TABS.map(([k, l]) => `<button class="m-tab ${tab === k ? 'on' : ''}" role="tab" aria-selected="${tab === k}" data-mtab="${k}">${l}</button>`).join('')}</div>
+        <div ${panel('avant')}>
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2>${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}</div>
         ${t ? rosterChips(t.id, p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`) : '<p class="muted">Choisis une équipe.</p>'}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
         <div id="answersBox"></div>
         ${!m.home && !m.exempt ? '<div id="carpoolBox"></div>' : ''}
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(m.teamId, m.staffIds)}</div>
+        ${!m.exempt ? Prepa.card(m) + Vol.card(m) : ''}
+        ${m.home && !m.exempt && Cloud.ready() ? '<div id="roomsBox"></div>' : ''}
+        </div>
+        <div ${panel('compo')}>
         <h2 class="section">Composition</h2>
         <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
+        </div>
+        <div ${panel('pendant')}>
+        ${!m.exempt ? Live.card(m) : '<p class="muted">Pas de match cette semaine (exempt).</p>'}
+        <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
+        </div>
+        <div ${panel('apres')}>
         <h2 class="section">Score</h2>
         <section class="card">
           <label class="switch"><input type="checkbox" id="mPlayed" ${m.played ? 'checked' : ''}><span>Le match est joué</span></label>
@@ -664,6 +690,7 @@ const Views = (() => {
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('match:' + m.id, 'Photos et vidéos du match')}
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
+        </div>
         <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button></div>`;
       Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m);
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
@@ -680,12 +707,14 @@ const Views = (() => {
     };
     root.onchange = e => {
       if (e.target.dataset.f === 'teamId') { m.teamId = e.target.value; m.teamManual = true; save(); toast('Match rangé dans ' + (teamOf(m.teamId) || {}).name); return render(); }
-      if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; save(); render(); return cheer(before); }
+      if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; matchTabs[m.id] = 'apres'; save(); render(); return cheer(before); }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { m.staffIds = [...new Set([...(m.staffIds || []), e.target.value])]; save(); return render(); }
       root.oninput(e);
     };
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.mtab) { matchTabs[m.id] = b.dataset.mtab; $$('.m-tab', root).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); $$('.m-panel', root).forEach(p => { p.hidden = p.dataset.panel !== b.dataset.mtab; }); return; }
+      if (b.hasAttribute('data-editm')) { mEdit[m.id] = !(mEdit[m.id] != null ? mEdit[m.id] : !m.opponent); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.minset) {
@@ -807,10 +836,17 @@ const Views = (() => {
   function settings(root) {
     const c = S().club;
     const bibs = (key, cur) => `<div class="chips">${Object.entries(Board.BIBS).map(([k, v]) => `<button class="chip bib ${k === cur ? 'on' : ''}" data-${key}="${k}" aria-label="${k}"><i class="sw" style="background:${v[0]}"></i>${k}</button>`).join('')}</div>`;
-    root.innerHTML = `${header('Réglages', '')}
+    const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    root.innerHTML = `${header('Réglages', Auth.isAdmin() ? 'Toi, puis le club' : '')}
+      <h2 class="group-h">👤 Moi</h2>
       ${Auth.settingsSection()}
-      ${Cloud.settingsSection()}
       ${Help.settingsSection()}
+      ${installed ? '' : `<section class="card">
+        <h2>${I.help}Installer l'appli sur le téléphone</h2>
+        <ol class="steps-help"><li>Ouvre cette page dans <b>Safari</b> (iPhone) ou <b>Chrome</b> (Android).</li><li>Touche <b>Partager</b> (le carré avec une flèche) ou le menu <b>⋮</b>.</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li></ol>
+      </section>`}
+      <h2 class="group-h">🏟️ Le club</h2>
+      ${Cloud.settingsSection()}
       ${Auth.isAdmin() ? Onboard.card() : ''}
       ${Auth.isAdmin() ? `<section class="card">
         <h2>${I.team}Tableau tactique</h2>
@@ -823,10 +859,6 @@ const Views = (() => {
         <p class="muted small">« Recevoir un fichier » sert aussi à charger la liste des licenciés ou une sauvegarde. Les listes de joueurs contiennent des numéros de téléphone : envoie-les seulement aux éducateurs du club.</p>
         <div class="chips">${Auth.isAdmin() ? `<button class="btn primary" data-act="exportAll">${I.download}<span>Envoyer toutes mes données</span></button><button class="btn" data-act="backups">${I.shield}<span>Sauvegardes du club</span></button>` : ''}
         <button class="btn" data-act="import">${I.upload}<span>Recevoir un fichier</span></button></div>
-      </section>
-      <section class="card">
-        <h2>${I.help}Installer l'appli sur l'iPad ou l'iPhone</h2>
-        <ol class="steps-help"><li>Ouvre cette page dans <b>Safari</b>.</li><li>Touche le bouton <b>Partager</b> (le carré avec une flèche vers le haut).</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li><li>Lance l'appli depuis son icône : elle marche ensuite sans internet.</li></ol>
       </section>
       ${Auth.isAdmin() && (S().teams.some(t => t.example) || S().schemas.some(s => s.example)) ? `<section class="card">
         <h2>${I.layers}Exemples</h2>

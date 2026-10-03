@@ -6,6 +6,8 @@ const App = (() => {
     ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['resultats', 'Résultats', 'medal'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Stats', 'stats'], ['reglages', 'Réglages', 'settings'],
   ];
   const PHONE_MAIN = 5;
+  // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
+  const MORE_GROUPS = [['Le club', ['planning', 'club', 'resultats', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'stats']], ['Réglages et aide', ['reglages']]];
   const view = () => document.getElementById('view');
 
   function refreshChrome() {
@@ -46,8 +48,8 @@ const App = (() => {
       + `<button class="nav-more ${idx >= PHONE_MAIN ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
     document.getElementById('navMore').onclick = () => {
       const close = UI.modal({ title: 'Plus', noFocus: true,
-        body: `<div class="more-grid">${nav.slice(PHONE_MAIN).map(([h, l, ic]) => `<a class="more-item" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}</div>`,
-        onOpen: r => r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())) });
+        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
+        onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; } });
     };
     Messages.badge();
   }
@@ -119,7 +121,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 37, UPD = AppCfg.key('update-tried');
+  const BUILD = 38, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

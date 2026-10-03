@@ -1816,3 +1816,46 @@ body.modal-top #modal { z-index: 90; }
 .ow-plan.club { background: #fef3c7; color: #92400e; }
 .ow-over { color: var(--bad); }
 .plan-card { border-left: 5px solid #f59e0b; }
+
+/* ---------- 1.37 : plus simple et plus lisible ---------- */
+/* séance : exercices repliés */
+.ex.closed .ex-body, .ex.closed .ex-tools { display: none; }
+.ex .ex-tog { flex: none; min-height: 36px; padding: 0 12px; }
+.ex-mini { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 6px; border: 0; border-radius: 12px; background: var(--surface2); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ex-mini img { width: 84px; height: 55px; object-fit: cover; border-radius: 8px; flex: none; }
+.ex-mini span { font-size: 14px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fold { margin: 22px 0 8px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 4px 14px 10px; }
+.fold > summary { cursor: pointer; list-style: none; padding: 12px 0 8px; font-weight: 800; font-size: 17px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::after { content: '▾'; margin-left: auto; color: var(--muted); }
+.fold[open] > summary::after { content: '▴'; }
+/* match : résumé, onglets */
+.m-sum { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; margin: 0 0 12px; padding: 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-weight: 700; }
+.m-sum > span { flex: 1 1 220px; }
+.m-tabs { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 6px 0 14px; padding: 4px; border-radius: 14px; background: var(--surface2); }
+.m-tab { min-height: 44px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: 800 14px var(--font); cursor: pointer; }
+.m-tab.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 4px rgba(14, 29, 69, .14); }
+@media (max-width: 420px) { .m-tab { font-size: 12.5px; } }
+/* aide : un « ? » à côté du titre */
+.pg-q { margin-left: 10px; vertical-align: middle; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--gold); background: none; color: var(--gold); font: 800 16px/1 var(--font); cursor: pointer; }
+.help-fab { display: none !important; }
+/* menu « Plus » par thèmes */
+.more-h { margin: 14px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.more-h:first-child { margin-top: 0; }
+.more-item { border: 0; font: inherit; color: inherit; cursor: pointer; }
+.more-item.on { outline: 2px solid var(--gold); }
+/* accueil */
+.hero-chip.more { font-weight: 800; }
+@media (max-width: 760px) { .hero-me:not(.matchday) .hero-flag { display: none; } }
+/* exercices : carte compacte */
+.ex-lib .ex-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: start; padding: 10px 12px; }
+.ex-lib .ex-item > .ex-item-head { grid-column: 1; grid-row: 1; }
+.ex-lib .ex-item > .ex-add { grid-column: 2; grid-row: 1; min-height: 40px; padding: 0 12px; }
+.ex-lib .ex-item > .ex-more { grid-column: 1 / -1; }
+@media (max-width: 520px) { .ex-lib .ex-item > .ex-add span { display: none; } .ex-lib .ex-item > .ex-add { width: 44px; padding: 0; justify-content: center; } }
+.ex-more > summary { cursor: pointer; color: var(--muted); font-weight: 700; font-size: 14px; margin-top: 6px; }
+/* réglages : deux parties */
+.group-h { margin: 26px 0 10px; font-size: 15px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 800; }
+.page-head + .group-h { margin-top: 4px; }
+/* titres de section plus marqués, plus d'air entre les blocs */
+h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }

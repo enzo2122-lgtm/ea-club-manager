@@ -2,7 +2,7 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.36';
+  const VERSION = '1.37';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -98,16 +98,16 @@ const Help = (() => {
     vestiaires: ['Vestiaires', ['Une colonne par vestiaire (Vestiaire 1, 2, Karaté 1, Karaté 2) pour le jour choisi. Touche une case vide pour attribuer un vestiaire à une catégorie ou à l\'équipe adverse (🆚).', 'Matchs à domicile : « Attribuer » donne un vestiaire à notre équipe et un à l\'adversaire, du rendez-vous jusqu\'après les douches. « Tous les matchs du jour » le fait pour tous.', '« Chaque semaine » garde le même vestiaire pour les entraînements d\'une catégorie jusqu\'à la fin de la saison.', 'Un vestiaire ne peut pas être donné deux fois en même temps. Touche un vestiaire occupé pour le libérer.']],
     encadrement: ['Qui encadre ?', ['Tous les matchs et séances de la semaine, avec leurs encadrants. ⚠️ Personne : il manque un encadrant.', '« J\'y serai » t\'ajoute comme encadrant, « Je n\'y serai pas » te retire.', '« Déclarer une absence » : tes vacances ou indisponibilités, visibles par les autres dirigeants. Un responsable peut en déclarer pour n\'importe qui.']],
     entrainements: ['Séances', ['Le plus simple : « Générer une séance » (un thème, une catégorie, une durée) ou « Séances par système de jeu » : la séance est prête, avec ses schémas animés.', 'Pour l\'écrire toi-même : « Nouvel entraînement » (un thème, une date, une équipe), puis ajoute les exercices.', 'Une fiche papier ou un PDF : « Importer une fiche PDF » ou « Depuis un fichier » : les exercices sont lus et repris.', '« Séances types du club » : les séances partagées par les coachs. « Utiliser » la copie pour ta catégorie et ta date.']],
-    entrainement: ['Une séance', ['1. Ajoute les exercices : « Ajouter un exercice », « Exercices du club » ou « Depuis un fichier ». Chaque exercice a un schéma animé (« Voir en grand »).', '2. Le jour J : coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles.', '3. « PDF » fait la fiche à imprimer ou à envoyer, avec le schéma de chaque exercice étape par étape. « Envoyer » la transmet à un autre coach.', 'Tu peux joindre des documents et des photos en bas de la séance.']],
+    entrainement: ['Une séance', ['1. Ajoute les exercices : « Ajouter un exercice », « Exercices du club » ou « Depuis un fichier ». Chaque exercice est une carte : touche-la (« Ouvrir ») pour écrire l\'organisation et les consignes, et voir son schéma animé.', '2. Le jour J : coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles.', '3. « PDF » fait la fiche à imprimer ou à envoyer, avec le schéma de chaque exercice étape par étape. « Envoyer » la transmet à un autre coach.', 'Après la séance (en bas) : notes des joueurs, effort, documents, photos et vidéos.']],
     matchs: ['Matchs', ['« Importer » : colle le calendrier copié sur le site de ta fédération ou de ton district (mois par mois), ou choisis un fichier d\'agenda (.ics) ou un tableur (.csv). La catégorie est trouvée toute seule et le terrain peut être réservé pour les matchs à domicile.', '« Nouveau match » : adversaire, date, domicile ou extérieur.', 'Les résultats s\'affichent avec leur smiley.']],
     jourj: ['Jour de match', ['Tout le match en 5 étapes, dans l\'ordre : les convoqués, la composition, la causerie, le match en direct, le résumé aux parents.', 'Touche un prénom pour le convoquer, puis « Envoyer la convocation » (WhatsApp ou la messagerie du club).', 'Pendant le match : « Suivre le match en direct ». Le chrono, les buts et le temps de jeu se notent tout seuls, même sans réseau.', 'À la fin : « Envoyer le résumé aux parents ». Le score et les buteurs sont déjà écrits, ajoute ton mot.']],
-    match: ['Un match', ['Coche les convoqués et choisis les encadrants.', 'Envoie la convocation avec le lien des parents : ils répondent présent ou absent, les réponses s\'affichent sous les convoqués.', 'Match à l\'extérieur : le covoiturage range les enfants dans les voitures des parents, et s\'envoie sur WhatsApp.', 'Match joué : « Temps de jeu » note les minutes de chaque joueur (total sur sa fiche et dans Stats). ⏱️ signale ceux qui ont peu joué cette saison.', '« Relancer les sans réponse » prépare le message WhatsApp pour les parents qui n\'ont pas répondu.', '« Photos pour les parents » : choisis les photos du match à montrer sur leur page (droit à l\'image respecté).', '« Faire la composition » place les joueurs sur le terrain.', 'Coche « Le match est joué », règle le score, les buteurs et les passeurs, puis note les joueurs.', '« Feuille de match » fait le PDF à imprimer.']],
+    match: ['Un match', ['En haut, le résumé du match : « Modifier » pour changer la date, l\'heure, le lieu ou l\'adversaire. Puis 4 onglets : Avant, Compo, Pendant, Après.', 'Avant : coche les convoqués et choisis les encadrants.', 'Envoie la convocation avec le lien des parents : ils répondent présent ou absent, les réponses s\'affichent sous les convoqués.', 'Match à l\'extérieur : le covoiturage range les enfants dans les voitures des parents, et s\'envoie sur WhatsApp.', 'Match joué : « Temps de jeu » note les minutes de chaque joueur (total sur sa fiche et dans Stats). ⏱️ signale ceux qui ont peu joué cette saison.', '« Relancer les sans réponse » prépare le message WhatsApp pour les parents qui n\'ont pas répondu.', '« Photos pour les parents » : choisis les photos du match à montrer sur leur page (droit à l\'image respecté).', '« Faire la composition » place les joueurs sur le terrain.', 'Coche « Le match est joué », règle le score, les buteurs et les passeurs, puis note les joueurs.', '« Feuille de match » fait le PDF à imprimer.']],
     stats: ['Statistiques', ['Bilan de l\'équipe : victoires, nuls, défaites, buts et points.', 'Tableau des joueurs : touche un titre de colonne pour trier (buts, passes, présences, notes).']],
     club: ['Vie du club', ['Événements : organise une réunion, un tournoi ou un déjeuner. Chaque coach répond « Je viens » ou « Je ne viens pas » ; touche l\'événement pour voir qui vient.', 'Signalements : objet perdu, matériel cassé ou souci d\'organisation, avec jusqu\'à 3 photos. Tout le monde peut commenter ; celui qui a signalé (ou un responsable) passe le statut à « En cours » puis « Résolu ».', 'En cochant « Prévenir tous les coachs », un message part aussi dans « Tout le club ».']],
     resultats: ['Résultats du club', ['Tous les matchs joués par toutes les catégories, rangés par week-end, pour toute la saison.', 'Un résultat apparaît ici dès qu\'un éducateur note le score dans Matchs → le match.', '« Partager le dernier week-end » envoie le récapitulatif sur WhatsApp.']],
     planning: ['Planning du terrain', ['« Chaque semaine » réserve ton créneau d\'entraînement toutes les semaines jusqu\'au 30 juin, en une fois. Les semaines déjà prises sont listées.', 'Touche une case vide du planning (ou « Réserver ») pour prendre un créneau : date, heure de début et de fin, grand terrain ou demi-terrain, entraînement ou match.', 'Pas besoin de connaître l\'adversaire : il suffit de l\'horaire.', 'Un grand terrain bloque tout le terrain. Deux demi-terrains peuvent être utilisés en même temps (A et B).', 'L\'appli refuse tout chevauchement, même si deux coachs réservent en même temps.', 'Touche une réservation pour la libérer ou préparer la séance ou la fiche match.', 'Le responsable fixe les créneaux disponibles de la semaine.']],
     messages: ['Messages', ['« Tout le club » : pour tous les éducateurs.', 'Chaque catégorie a sa conversation.', '« Écrire à un éducateur » ouvre une conversation privée.', 'Les nouveaux messages arrivent tout seuls ; le chiffre rouge dans le menu indique ceux que tu n\'as pas lus.', 'Écris @ puis le prénom d\'un coach (une liste s\'ouvre) : il reçoit une notification tout de suite, même s\'il a coupé celles des messages.', 'Accusés de lecture : ✓ envoyé, ✓✓ lu (message privé) ; « Vu par » sous ton dernier message dans une catégorie ou Tout le club.', 'Notifications sur le téléphone : Réglages → Mon compte → Activer les notifications.']],
-    reglages: ['Réglages', ['Recevoir un fichier : licenciés ou données d\'un autre éducateur.', 'Les données se partagent toutes seules par le serveur du club. « Envoyer toutes mes données » fait une sauvegarde.', 'Inviter les éducateurs : un lien à envoyer par WhatsApp pour leur première connexion.', 'Le responsable gère les comptes des dirigeants et l\'e-mail qui reçoit les signalements.', 'Mon compte : ajoute ton téléphone si tu veux, et choisis qui le voit (les responsables, tous les éducateurs, ou aussi les parents de tes catégories).']],
+    reglages: ['Réglages', ['Deux parties : « Moi » (mon compte, mes notifications, l\'aide) et « Le club » (serveur, invitations, fichiers, et pour les responsables : le club, les comptes des dirigeants).', 'Recevoir un fichier : licenciés ou données d\'un autre éducateur.', 'Les données se partagent toutes seules par le serveur du club. « Envoyer toutes mes données » fait une sauvegarde.', 'Inviter les éducateurs : un lien à envoyer par WhatsApp pour leur première connexion.', 'Le responsable gère les comptes des dirigeants et l\'e-mail qui reçoit les signalements.', 'Mon compte : ajoute ton téléphone si tu veux, et choisis qui le voit (les responsables, tous les éducateurs, ou aussi les parents de tes catégories).']],
     bibliotheque: ['Bibliothèque', ['« Importer » : choisis une vidéo, un montage, un PDF ou une image (Fichiers, Photos…).', 'Vidéo : mets sur pause puis « Dessiner sur cette image ».', 'PDF : « Créer une séance » ou « Dessiner sur cette page ».', '« Joindre… » ajoute le fichier à une séance ou à un match.']],
   };
   const pageKey = () => (location.hash || '#/').split('/')[1] || '';
@@ -122,12 +122,12 @@ const Help = (() => {
         </div>`,
       onOpen: (r, close) => $$('[data-h]', r).forEach(b => b.onclick = () => { close(); const h = b.dataset.h; setTimeout(() => h === 'tour' ? tour() : report(h), 60); }) });
   }
-  /* « Comment ça marche ? » at the top of every page: open the first two visits, then a slim bar to touch.
-     « J'ai compris » keeps it closed on this device. */
+  /* « Comment ça marche ? » : open at the first visit of a page; afterwards only a « ? » next to the page's title (1.37).
+     « J'ai compris » closes it. */
   const GUIDE_KEY = 'guide-seen', guideOpen = {};
   const seen = () => { try { return JSON.parse(localStorage.getItem(GUIDE_KEY)) || {}; } catch (e) { return {}; } };
   const setSeen = (k, n) => { const s = seen(); s[k] = n; try { localStorage.setItem(GUIDE_KEY, JSON.stringify(s)); } catch (e) {} };
-  function visit() { const k = pageKey(), n = seen()[k] || 0; if (n < 9) setSeen(k, n + 1); guideOpen[k] = (seen()[k] || 0) <= 2; }
+  function visit() { const k = pageKey(), n = seen()[k] || 0; if (n < 9) setSeen(k, n + 1); guideOpen[k] = (seen()[k] || 0) <= 1; }
   /* (3.67) « Cette page t'aide ? » : one vote per person and per page, kept with the club's messages (the responsables see the totals) */
   const voteId = key => 'avis-' + ((Auth.current() || {}).id || 'x') + '-' + (key || 'accueil');
   const myVote = key => { const r = Store.get('reports', voteId(key)); return r ? r.value : ''; };
@@ -145,7 +145,13 @@ const Help = (() => {
   function guideInto(root) {
     if (!root || document.body.classList.contains('editing') || !Auth.current()) return;
     const key = pageKey(), p = PAGES[key]; if (!p || root.querySelector(':scope > .page-guide, :scope > * > .page-guide')) return;
-    const el = document.createElement('details'); el.className = 'card page-guide'; el.open = !!guideOpen[key];
+    if (!guideOpen[key]) { // a « ? » next to the title opens it
+      const h = root.querySelector(':scope > .page-head h1'); if (!h || h.querySelector('.pg-q')) return;
+      const q = document.createElement('button'); q.type = 'button'; q.className = 'pg-q'; q.textContent = '?'; q.title = 'Comment ça marche ?'; q.setAttribute('aria-label', 'Comment ça marche ?');
+      q.onclick = e => { e.preventDefault(); e.stopPropagation(); q.remove(); guideOpen[key] = true; guideInto(root); };
+      h.appendChild(q); return;
+    }
+    const el = document.createElement('details'); el.className = 'card page-guide'; el.open = true;
     el.innerHTML = `<summary><span class="pg-ic">💡</span><b>Comment ça marche ?</b><span class="muted small">${esc(p[0])}</span></summary>
       <ol>${p[1].map(t => `<li>${esc(t.replace(/^\d\.\s*/, ''))}</li>`).join('')}</ol>
       <div class="pg-vote"><span>Cette page t'aide ?</span>${['up', 'down'].map(v => `<button type="button" class="btn soft ${myVote(key) === v ? 'on' : ''}" data-pg="${v}" aria-label="${v === 'up' ? 'Oui' : 'Non'}">${v === 'up' ? '👍' : '👎'}</button>`).join('')}</div>
@@ -153,13 +159,13 @@ const Help = (() => {
     el.ontoggle = () => { guideOpen[key] = el.open; };
     el.onclick = e => { const b = e.target.closest('[data-pg]'); e.stopPropagation(); if (!b) return;
       if (b.dataset.pg === 'up' || b.dataset.pg === 'down') { vote(key, p[0], b.dataset.pg); el.querySelectorAll('.pg-vote .btn').forEach(x => x.classList.toggle('on', x === b)); return; }
-      if (b.dataset.pg === 'ok') { el.open = false; setSeen(key, 9); } else open(key); };
+      if (b.dataset.pg === 'ok') { setSeen(key, 9); guideOpen[key] = false; el.remove(); guideInto(root); } else open(key); };
     const head = root.querySelector(':scope > .page-head'); if (head) head.after(el); else root.prepend(el);
   }
   function button() {
     let b = document.getElementById('helpFab');
     if (!b) { b = document.createElement('button'); b.id = 'helpFab'; b.className = 'help-fab'; b.setAttribute('aria-label', 'Aide'); b.innerHTML = `${I.help}<span>Aide</span>`; b.onclick = () => open(); document.body.appendChild(b); }
-    b.hidden = document.body.classList.contains('editing') || !Auth.current() || location.hash.startsWith('#/messages/');
+    b.hidden = true; // (1.37) one round button only (« + »): the help is in « Plus » and in the « ? » of each page
     b.innerHTML = `${I.help}<span>Aide · Signaler</span>`;
   }
 

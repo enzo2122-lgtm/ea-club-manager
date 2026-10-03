@@ -3464,7 +3464,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.36';
+  const VERSION = '1.37';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3560,16 +3560,16 @@ var Help = (() => {
     vestiaires: ['Vestiaires', ['Une colonne par vestiaire (Vestiaire 1, 2, Karaté 1, Karaté 2) pour le jour choisi. Touche une case vide pour attribuer un vestiaire à une catégorie ou à l\'équipe adverse (🆚).', 'Matchs à domicile : « Attribuer » donne un vestiaire à notre équipe et un à l\'adversaire, du rendez-vous jusqu\'après les douches. « Tous les matchs du jour » le fait pour tous.', '« Chaque semaine » garde le même vestiaire pour les entraînements d\'une catégorie jusqu\'à la fin de la saison.', 'Un vestiaire ne peut pas être donné deux fois en même temps. Touche un vestiaire occupé pour le libérer.']],
     encadrement: ['Qui encadre ?', ['Tous les matchs et séances de la semaine, avec leurs encadrants. ⚠️ Personne : il manque un encadrant.', '« J\'y serai » t\'ajoute comme encadrant, « Je n\'y serai pas » te retire.', '« Déclarer une absence » : tes vacances ou indisponibilités, visibles par les autres dirigeants. Un responsable peut en déclarer pour n\'importe qui.']],
     entrainements: ['Séances', ['Le plus simple : « Générer une séance » (un thème, une catégorie, une durée) ou « Séances par système de jeu » : la séance est prête, avec ses schémas animés.', 'Pour l\'écrire toi-même : « Nouvel entraînement » (un thème, une date, une équipe), puis ajoute les exercices.', 'Une fiche papier ou un PDF : « Importer une fiche PDF » ou « Depuis un fichier » : les exercices sont lus et repris.', '« Séances types du club » : les séances partagées par les coachs. « Utiliser » la copie pour ta catégorie et ta date.']],
-    entrainement: ['Une séance', ['1. Ajoute les exercices : « Ajouter un exercice », « Exercices du club » ou « Depuis un fichier ». Chaque exercice a un schéma animé (« Voir en grand »).', '2. Le jour J : coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles.', '3. « PDF » fait la fiche à imprimer ou à envoyer, avec le schéma de chaque exercice étape par étape. « Envoyer » la transmet à un autre coach.', 'Tu peux joindre des documents et des photos en bas de la séance.']],
+    entrainement: ['Une séance', ['1. Ajoute les exercices : « Ajouter un exercice », « Exercices du club » ou « Depuis un fichier ». Chaque exercice est une carte : touche-la (« Ouvrir ») pour écrire l\'organisation et les consignes, et voir son schéma animé.', '2. Le jour J : coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles.', '3. « PDF » fait la fiche à imprimer ou à envoyer, avec le schéma de chaque exercice étape par étape. « Envoyer » la transmet à un autre coach.', 'Après la séance (en bas) : notes des joueurs, effort, documents, photos et vidéos.']],
     matchs: ['Matchs', ['« Importer » : colle le calendrier copié sur le site de ta fédération ou de ton district (mois par mois), ou choisis un fichier d\'agenda (.ics) ou un tableur (.csv). La catégorie est trouvée toute seule et le terrain peut être réservé pour les matchs à domicile.', '« Nouveau match » : adversaire, date, domicile ou extérieur.', 'Les résultats s\'affichent avec leur smiley.']],
     jourj: ['Jour de match', ['Tout le match en 5 étapes, dans l\'ordre : les convoqués, la composition, la causerie, le match en direct, le résumé aux parents.', 'Touche un prénom pour le convoquer, puis « Envoyer la convocation » (WhatsApp ou la messagerie du club).', 'Pendant le match : « Suivre le match en direct ». Le chrono, les buts et le temps de jeu se notent tout seuls, même sans réseau.', 'À la fin : « Envoyer le résumé aux parents ». Le score et les buteurs sont déjà écrits, ajoute ton mot.']],
-    match: ['Un match', ['Coche les convoqués et choisis les encadrants.', 'Envoie la convocation avec le lien des parents : ils répondent présent ou absent, les réponses s\'affichent sous les convoqués.', 'Match à l\'extérieur : le covoiturage range les enfants dans les voitures des parents, et s\'envoie sur WhatsApp.', 'Match joué : « Temps de jeu » note les minutes de chaque joueur (total sur sa fiche et dans Stats). ⏱️ signale ceux qui ont peu joué cette saison.', '« Relancer les sans réponse » prépare le message WhatsApp pour les parents qui n\'ont pas répondu.', '« Photos pour les parents » : choisis les photos du match à montrer sur leur page (droit à l\'image respecté).', '« Faire la composition » place les joueurs sur le terrain.', 'Coche « Le match est joué », règle le score, les buteurs et les passeurs, puis note les joueurs.', '« Feuille de match » fait le PDF à imprimer.']],
+    match: ['Un match', ['En haut, le résumé du match : « Modifier » pour changer la date, l\'heure, le lieu ou l\'adversaire. Puis 4 onglets : Avant, Compo, Pendant, Après.', 'Avant : coche les convoqués et choisis les encadrants.', 'Envoie la convocation avec le lien des parents : ils répondent présent ou absent, les réponses s\'affichent sous les convoqués.', 'Match à l\'extérieur : le covoiturage range les enfants dans les voitures des parents, et s\'envoie sur WhatsApp.', 'Match joué : « Temps de jeu » note les minutes de chaque joueur (total sur sa fiche et dans Stats). ⏱️ signale ceux qui ont peu joué cette saison.', '« Relancer les sans réponse » prépare le message WhatsApp pour les parents qui n\'ont pas répondu.', '« Photos pour les parents » : choisis les photos du match à montrer sur leur page (droit à l\'image respecté).', '« Faire la composition » place les joueurs sur le terrain.', 'Coche « Le match est joué », règle le score, les buteurs et les passeurs, puis note les joueurs.', '« Feuille de match » fait le PDF à imprimer.']],
     stats: ['Statistiques', ['Bilan de l\'équipe : victoires, nuls, défaites, buts et points.', 'Tableau des joueurs : touche un titre de colonne pour trier (buts, passes, présences, notes).']],
     club: ['Vie du club', ['Événements : organise une réunion, un tournoi ou un déjeuner. Chaque coach répond « Je viens » ou « Je ne viens pas » ; touche l\'événement pour voir qui vient.', 'Signalements : objet perdu, matériel cassé ou souci d\'organisation, avec jusqu\'à 3 photos. Tout le monde peut commenter ; celui qui a signalé (ou un responsable) passe le statut à « En cours » puis « Résolu ».', 'En cochant « Prévenir tous les coachs », un message part aussi dans « Tout le club ».']],
     resultats: ['Résultats du club', ['Tous les matchs joués par toutes les catégories, rangés par week-end, pour toute la saison.', 'Un résultat apparaît ici dès qu\'un éducateur note le score dans Matchs → le match.', '« Partager le dernier week-end » envoie le récapitulatif sur WhatsApp.']],
     planning: ['Planning du terrain', ['« Chaque semaine » réserve ton créneau d\'entraînement toutes les semaines jusqu\'au 30 juin, en une fois. Les semaines déjà prises sont listées.', 'Touche une case vide du planning (ou « Réserver ») pour prendre un créneau : date, heure de début et de fin, grand terrain ou demi-terrain, entraînement ou match.', 'Pas besoin de connaître l\'adversaire : il suffit de l\'horaire.', 'Un grand terrain bloque tout le terrain. Deux demi-terrains peuvent être utilisés en même temps (A et B).', 'L\'appli refuse tout chevauchement, même si deux coachs réservent en même temps.', 'Touche une réservation pour la libérer ou préparer la séance ou la fiche match.', 'Le responsable fixe les créneaux disponibles de la semaine.']],
     messages: ['Messages', ['« Tout le club » : pour tous les éducateurs.', 'Chaque catégorie a sa conversation.', '« Écrire à un éducateur » ouvre une conversation privée.', 'Les nouveaux messages arrivent tout seuls ; le chiffre rouge dans le menu indique ceux que tu n\'as pas lus.', 'Écris @ puis le prénom d\'un coach (une liste s\'ouvre) : il reçoit une notification tout de suite, même s\'il a coupé celles des messages.', 'Accusés de lecture : ✓ envoyé, ✓✓ lu (message privé) ; « Vu par » sous ton dernier message dans une catégorie ou Tout le club.', 'Notifications sur le téléphone : Réglages → Mon compte → Activer les notifications.']],
-    reglages: ['Réglages', ['Recevoir un fichier : licenciés ou données d\'un autre éducateur.', 'Les données se partagent toutes seules par le serveur du club. « Envoyer toutes mes données » fait une sauvegarde.', 'Inviter les éducateurs : un lien à envoyer par WhatsApp pour leur première connexion.', 'Le responsable gère les comptes des dirigeants et l\'e-mail qui reçoit les signalements.', 'Mon compte : ajoute ton téléphone si tu veux, et choisis qui le voit (les responsables, tous les éducateurs, ou aussi les parents de tes catégories).']],
+    reglages: ['Réglages', ['Deux parties : « Moi » (mon compte, mes notifications, l\'aide) et « Le club » (serveur, invitations, fichiers, et pour les responsables : le club, les comptes des dirigeants).', 'Recevoir un fichier : licenciés ou données d\'un autre éducateur.', 'Les données se partagent toutes seules par le serveur du club. « Envoyer toutes mes données » fait une sauvegarde.', 'Inviter les éducateurs : un lien à envoyer par WhatsApp pour leur première connexion.', 'Le responsable gère les comptes des dirigeants et l\'e-mail qui reçoit les signalements.', 'Mon compte : ajoute ton téléphone si tu veux, et choisis qui le voit (les responsables, tous les éducateurs, ou aussi les parents de tes catégories).']],
     bibliotheque: ['Bibliothèque', ['« Importer » : choisis une vidéo, un montage, un PDF ou une image (Fichiers, Photos…).', 'Vidéo : mets sur pause puis « Dessiner sur cette image ».', 'PDF : « Créer une séance » ou « Dessiner sur cette page ».', '« Joindre… » ajoute le fichier à une séance ou à un match.']],
   };
   const pageKey = () => (location.hash || '#/').split('/')[1] || '';
@@ -3584,12 +3584,12 @@ var Help = (() => {
         </div>`,
       onOpen: (r, close) => $$('[data-h]', r).forEach(b => b.onclick = () => { close(); const h = b.dataset.h; setTimeout(() => h === 'tour' ? tour() : report(h), 60); }) });
   }
-  /* « Comment ça marche ? » at the top of every page: open the first two visits, then a slim bar to touch.
-     « J'ai compris » keeps it closed on this device. */
+  /* « Comment ça marche ? » : open at the first visit of a page; afterwards only a « ? » next to the page's title (1.37).
+     « J'ai compris » closes it. */
   const GUIDE_KEY = 'guide-seen', guideOpen = {};
   const seen = () => { try { return JSON.parse(localStorage.getItem(GUIDE_KEY)) || {}; } catch (e) { return {}; } };
   const setSeen = (k, n) => { const s = seen(); s[k] = n; try { localStorage.setItem(GUIDE_KEY, JSON.stringify(s)); } catch (e) {} };
-  function visit() { const k = pageKey(), n = seen()[k] || 0; if (n < 9) setSeen(k, n + 1); guideOpen[k] = (seen()[k] || 0) <= 2; }
+  function visit() { const k = pageKey(), n = seen()[k] || 0; if (n < 9) setSeen(k, n + 1); guideOpen[k] = (seen()[k] || 0) <= 1; }
   /* (3.67) « Cette page t'aide ? » : one vote per person and per page, kept with the club's messages (the responsables see the totals) */
   const voteId = key => 'avis-' + ((Auth.current() || {}).id || 'x') + '-' + (key || 'accueil');
   const myVote = key => { const r = Store.get('reports', voteId(key)); return r ? r.value : ''; };
@@ -3607,7 +3607,13 @@ var Help = (() => {
   function guideInto(root) {
     if (!root || document.body.classList.contains('editing') || !Auth.current()) return;
     const key = pageKey(), p = PAGES[key]; if (!p || root.querySelector(':scope > .page-guide, :scope > * > .page-guide')) return;
-    const el = document.createElement('details'); el.className = 'card page-guide'; el.open = !!guideOpen[key];
+    if (!guideOpen[key]) { // a « ? » next to the title opens it
+      const h = root.querySelector(':scope > .page-head h1'); if (!h || h.querySelector('.pg-q')) return;
+      const q = document.createElement('button'); q.type = 'button'; q.className = 'pg-q'; q.textContent = '?'; q.title = 'Comment ça marche ?'; q.setAttribute('aria-label', 'Comment ça marche ?');
+      q.onclick = e => { e.preventDefault(); e.stopPropagation(); q.remove(); guideOpen[key] = true; guideInto(root); };
+      h.appendChild(q); return;
+    }
+    const el = document.createElement('details'); el.className = 'card page-guide'; el.open = true;
     el.innerHTML = `<summary><span class="pg-ic">💡</span><b>Comment ça marche ?</b><span class="muted small">${esc(p[0])}</span></summary>
       <ol>${p[1].map(t => `<li>${esc(t.replace(/^\d\.\s*/, ''))}</li>`).join('')}</ol>
       <div class="pg-vote"><span>Cette page t'aide ?</span>${['up', 'down'].map(v => `<button type="button" class="btn soft ${myVote(key) === v ? 'on' : ''}" data-pg="${v}" aria-label="${v === 'up' ? 'Oui' : 'Non'}">${v === 'up' ? '👍' : '👎'}</button>`).join('')}</div>
@@ -3615,13 +3621,13 @@ var Help = (() => {
     el.ontoggle = () => { guideOpen[key] = el.open; };
     el.onclick = e => { const b = e.target.closest('[data-pg]'); e.stopPropagation(); if (!b) return;
       if (b.dataset.pg === 'up' || b.dataset.pg === 'down') { vote(key, p[0], b.dataset.pg); el.querySelectorAll('.pg-vote .btn').forEach(x => x.classList.toggle('on', x === b)); return; }
-      if (b.dataset.pg === 'ok') { el.open = false; setSeen(key, 9); } else open(key); };
+      if (b.dataset.pg === 'ok') { setSeen(key, 9); guideOpen[key] = false; el.remove(); guideInto(root); } else open(key); };
     const head = root.querySelector(':scope > .page-head'); if (head) head.after(el); else root.prepend(el);
   }
   function button() {
     let b = document.getElementById('helpFab');
     if (!b) { b = document.createElement('button'); b.id = 'helpFab'; b.className = 'help-fab'; b.setAttribute('aria-label', 'Aide'); b.innerHTML = `${I.help}<span>Aide</span>`; b.onclick = () => open(); document.body.appendChild(b); }
-    b.hidden = document.body.classList.contains('editing') || !Auth.current() || location.hash.startsWith('#/messages/');
+    b.hidden = true; // (1.37) one round button only (« + »): the help is in « Plus » and in the « ? » of each page
     b.innerHTML = `${I.help}<span>Aide · Signaler</span>`;
   }
 
@@ -8686,8 +8692,9 @@ var Exos = (() => {
       <div class="ex-lib">${list.slice(0, 80).map(e => { const sc = e.schemaId && Store.get('schemas', e.schemaId), th = themeOf(e);
         return `<article class="card ex-item"><div class="ex-item-head">${true ? `<img alt="" src="${UI.thumb(sc || AutoSchema.preview(e), 240, 156)}" data-big="${esc(e.id)}" style="cursor:zoom-in" title="Voir en grand">` : `<span class="ex-noimg">${(TH().find(t => t[0] === th[0]) || ['', '⚽'])[1].split(' ')[0]}</span>`}
           <div><b>${esc(e.title)}</b><span class="muted small">${e.duration} min${e.size ? ' · ' + esc(e.size.replace('x', ' × ')) + ' m' : ''} · ${th.map(k => (TH().find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '')).join(', ') || 'Divers'}${e.club ? ` · ${esc((Store.get('teams', e.from.teamId) || {}).name || 'club')}` : ' · base'}</span></div></div>
-          ${e.org ? `<p class="small">${esc(e.org)}</p>` : ''}${e.consignes ? `<ul class="small ex-cons">${e.consignes.split('\n').filter(Boolean).slice(0, 4).map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
-          <div class="chips"><button class="btn soft" data-big="${esc(e.id)}">🔍<span>Voir en grand</span></button><button class="btn soft" data-addex="${esc(e.id)}">${I.plus}<span>Ajouter à une séance</span></button>${e.club ? `<a class="btn soft" href="#/entrainement/${e.from.id}">Voir la séance</a>` : sc ? `<a class="btn soft" href="#/schema/${sc.id}">${I.board}<span>Le schéma</span></a>` : `<button class="btn soft" data-draw="${esc(e.id)}">✨<span>Créer le schéma animé</span></button>`}</div></article>`; }).join('') || '<p class="muted">Aucun exercice ne correspond.</p>'}</div>`;
+          <button class="btn soft ex-add" data-addex="${esc(e.id)}" aria-label="Ajouter à une séance">${I.plus}<span>Séance</span></button>
+          <details class="ex-more"><summary>Détails</summary>${e.org ? `<p class="small">${esc(e.org)}</p>` : ''}${e.consignes ? `<ul class="small ex-cons">${e.consignes.split('\n').filter(Boolean).slice(0, 4).map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+          <div class="chips"><button class="btn soft" data-big="${esc(e.id)}">🔍<span>Voir en grand</span></button><button class="btn soft" data-addex="${esc(e.id)}">${I.plus}<span>Ajouter à une séance</span></button>${e.club ? `<a class="btn soft" href="#/entrainement/${e.from.id}">Voir la séance</a>` : sc ? `<a class="btn soft" href="#/schema/${sc.id}">${I.board}<span>Le schéma</span></a>` : `<button class="btn soft" data-draw="${esc(e.id)}">✨<span>Créer le schéma animé</span></button>`}</div></details></article>`; }).join('') || '<p class="muted">Aucun exercice ne correspond.</p>'}</div>`;
     const redraw = () => page(root);
     $('#exQ', root).oninput = e => { st.q = e.target.value; clearTimeout(page.t); page.t = setTimeout(() => { const pos = e.target.selectionStart; redraw(); const q = $('#exQ', root); q.focus(); q.setSelectionRange(pos, pos); }, 300); };
     root.onclick = e => {
@@ -12948,11 +12955,12 @@ var Views = (() => {
 
   function teamSwitch() {
     const t = activeTeam();
-    return `<div class="team-switch" role="tablist" aria-label="Équipe">
+    const many = Auth.teams().length > 8; // a big club: one list instead of a row of buttons
+    return `${many ? '' : `<div class="team-switch" role="tablist" aria-label="Équipe">
       <button class="chip ${!t ? 'on' : ''}" data-team="">${Auth.isAdmin() ? 'Toutes les équipes' : Auth.teams().length > 1 ? 'Mes équipes' : 'Tout'}</button>
       ${Store.teamGroups(Auth.teams()).map(g => `<span class="team-fam">${g.map(x => `<button class="chip ${Store.isSub(x) ? 'sub' : ''} ${x.id === t ? 'on' : ''}" data-team="${x.id}">${esc(x.name)}</button>`).join('')}</span>`).join('')}
-    </div>
-    <label class="team-select"><span>Catégorie</span><select data-teamsel aria-label="Catégorie">
+    </div>`}
+    <label class="team-select ${many ? 'all-sizes' : ''}"><span>Catégorie</span><select data-teamsel aria-label="Catégorie">
       <option value="">${Auth.isAdmin() ? 'Toutes les équipes' : Auth.teams().length > 1 ? 'Mes équipes' : 'Tout'}</option>
       ${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>`;
   }
@@ -13017,13 +13025,13 @@ var Views = (() => {
     const duty = Vol.mine(2); if (duty.length) box += `<a class="hero-prep hero-vol" href="#/benevoles">🙋 ${duty.map(({ m, t }) => `${t.icon} ${esc(t.label)} ${m.date === now ? 'aujourd\'hui' : 'demain'}`).join(' · ')}</a> `;
     const prepM = todayM[0] || tomorrowM[0]; if (todayM[0]) box += `<a class="hero-prep hero-live" href="#/direct/${todayM[0].id}">📱 Match en direct</a> `; if (prepM) box += `<a class="hero-prep" href="#/jourj/${prepM.id}">🏟️ Jour de match : tout préparer${Prepa.score(prepM) ? ' · ' + Prepa.score(prepM) + ' %' : ''}</a>`;
     const redraw = () => { if (/^#?\/?$/.test(location.hash.replace('#/', '#'))) App.route(true); };
-    return `<header class="hero hero-me" data-wx-time="${esc(firstTime)}">
+    return `<header class="hero hero-me ${todayM.length ? 'matchday' : ''}" data-wx-time="${esc(firstTime)}">
       ${Supporters.coin('hero-crest')}
       <div class="hero-main">
         <p class="eyebrow">Espace de ${esc(coach)}<span class="eb-club"> · ${club}</span></p>
         <h1>${title}</h1>
         <p class="hero-line">${me.motto ? `« ${esc(me.motto)} »` : (Auth.isAdmin() ? 'Tout le club est entre tes mains aujourd\'hui.' : 'Prêt pour la prochaine séance ?')}</p>
-        <div class="hero-chips">${mine.length ? mine.map(t => `<a class="hero-chip" href="#/equipe/${t.id}">${esc(t.name)}</a>`).join('') : Auth.isAdmin() ? '<span class="hero-chip">Responsable du club</span>' : ''}</div>
+        <div class="hero-chips">${mine.length ? mine.slice(0, mine.length > 4 ? 3 : 4).map(t => `<a class="hero-chip" href="#/equipe/${t.id}">${esc(t.name)}</a>`).join('') + (mine.length > 4 ? `<a class="hero-chip more" href="#/equipes">+${mine.length - 3}</a>` : '') : Auth.isAdmin() ? '<span class="hero-chip">Responsable du club</span>' : ''}</div>
         ${box ? `<p class="hero-today">${box}</p>` : ''}
       </div>
       <div class="hero-flag">${Supporters.flag()}</div>
@@ -13312,6 +13320,8 @@ var Views = (() => {
   function training(root, id) {
     const tr = Store.get('trainings', id); if (!tr || !Auth.sees(tr.teamId)) return (location.hash = '#/entrainements');
     const save = () => Store.upsert('trainings', tr);
+    // (1.37) each exercise is a short card; touched, it opens with all its fields (a new one opens by itself)
+    const openEx = new Set(tr.exercises.length === 1 && !tr.exercises[0].title ? [tr.exercises[0].id] : []);
     const render = () => {
       const tm = teamOf(tr.teamId), total = tr.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
       if (tr.model) return renderModel(total);
@@ -13334,10 +13344,12 @@ var Views = (() => {
           <p class="muted small">Un toucher par joueur. Le % est sa présence sur la saison (séances où l'appel a été fait).</p>
           ${rosterChips(tm.id, p => `<button class="chip ${(tr.presents || []).includes(p.id) ? 'on' : ''}" data-present="${p.id}">${presChip(p, tm.id)}</button>`)}` : ''}
         <div id="trAnsBox"></div>
+        <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">notes des joueurs, effort, documents, photos et vidéos</span></summary>
         <div id="rateBox"></div>
         <div id="rpeBox"></div>
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('training:' + tr.id, 'Photos et vidéos de la séance')}
+        </details>
         <div class="danger-zone"><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button></div>`;
       const box = $('#rateBox', root); if (box) Ratings.bind(box, tr, save);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
@@ -13360,12 +13372,15 @@ var Views = (() => {
     // the effort of the players present (RPE), for the training load
     const rpeTr = () => { const box = $('#rpeBox', root); if (box) box.innerHTML = Health.rpeBox(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)).map(p => p.id), 'training'); };
     const exerciseCard = (e, i, n) => {
-      const sc = e.schemaId && Store.get('schemas', e.schemaId);
-      return `<article class="card ex" data-ex="${e.id}">
+      const sc = e.schemaId && Store.get('schemas', e.schemaId), open = openEx.has(e.id);
+      const hint = String(e.consignes || e.org || '').split('\n').map(x => x.trim()).filter(Boolean)[0];
+      return `<article class="card ex ${open ? 'open' : 'closed'}" data-ex="${e.id}">
         <div class="ex-head"><span class="ex-num">${i + 1}</span><input class="ex-title" data-f="title" value="${esc(e.title)}" placeholder="Nom de l'exercice">
           <label class="dur"><input type="number" min="0" max="180" data-f="duration" value="${esc(e.duration)}" aria-label="Durée en minutes"><span>min</span></label>
-          <button class="icon-btn" data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${I.up}</button><button class="icon-btn" data-mv="1" ${i === n - 1 ? 'disabled' : ''} aria-label="Descendre">${I.down}</button>
-          <button class="icon-btn danger" data-delex aria-label="Supprimer l'exercice">${I.trash}</button></div>
+          <span class="ex-tools"><button class="icon-btn" data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${I.up}</button><button class="icon-btn" data-mv="1" ${i === n - 1 ? 'disabled' : ''} aria-label="Descendre">${I.down}</button>
+          <button class="icon-btn danger" data-delex aria-label="Supprimer l'exercice">${I.trash}</button></span>
+          <button class="btn soft ex-tog" data-togex aria-expanded="${open}">${open ? 'Fermer' : 'Ouvrir'}</button></div>
+        ${open ? '' : `<button type="button" class="ex-mini" data-togex><img alt="" src="${UI.thumb(sc || AutoSchema.preview(e), 120, 78)}"><span>${hint ? esc(hint) : '<i>Touche pour l\'organisation, les consignes et le schéma</i>'}</span></button>`}
         <div class="ex-body">
           <div class="ex-fields">
             <label class="fld"><span>Organisation</span><textarea rows="2" data-f="org" placeholder="Taille du terrain, nombre de joueurs, déroulement">${esc(e.org || '')}</textarea></label>
@@ -13403,6 +13418,7 @@ var Views = (() => {
         if (b.dataset.allpres === '0' && (tr.presents || []).length && !(await confirmBox('Décocher tous les présents de cette séance ?', 'Décocher'))) return;
         tr.presents =b.dataset.allpres === '1' ? squad(tr.teamId).map(p => p.id) : []; save(); return render(); }
       if (b.dataset.unstaff) { tr.staffIds = (tr.staffIds || []).filter(x => x !== b.dataset.unstaff); save(); return render(); }
+      if (b.hasAttribute('data-togex')) { openEx.has(ex.id) ? openEx.delete(ex.id) : openEx.add(ex.id); return render(); }
       if (b.dataset.mv) { const i = tr.exercises.indexOf(ex), j = i + +b.dataset.mv; [tr.exercises[i], tr.exercises[j]] = [tr.exercises[j], tr.exercises[i]]; save(); return render(); }
       if (b.hasAttribute('data-delex')) { if (await confirmBox(`Retirer l'exercice « ${ex.title || 'sans nom'} » ?`, 'Retirer')) { tr.exercises = tr.exercises.filter(x => x !== ex); save(); render(); } return; }
       if (b.hasAttribute('data-big')) return AutoSchema.big(ex, ex.schemaId && Store.get('schemas', ex.schemaId));
@@ -13412,7 +13428,7 @@ var Views = (() => {
       switch (b.dataset.act) {
         case 'exClub': return Exos.pick(tr.teamId, ex => { tr.exercises.push(ex); save(); render(); toast('Exercice ajouté à la séance'); });
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
-        case 'addEx': tr.exercises.push({ id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }); save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
+        case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'share': return shareTraining(tr);
         case 'dup': return copyTraining(tr, 'dup');
@@ -13519,6 +13535,8 @@ var Views = (() => {
         <span class="min-q"><button class="chip" data-minset="${p.id}" data-v="full">Tout</button><button class="chip" data-minset="${p.id}" data-v="half">½</button><button class="chip" data-minset="${p.id}" data-v="zero">0</button></span></div>`).join('')}</div>
       <p class="muted small">« Match complet pour les autres » met ${full} min à ceux qui n'ont pas encore de temps. ${total ? `Total saisi : ${total} min.` : ''}</p></section>`;
   }
+  // (1.37) the tab of each match page and its « Modifier » state, kept while the app is open
+  const matchTabs = {}, mEdit = {};
   function match(root, id) {
     const m = Store.get('matches', id); if (!m) return (location.hash = '#/matchs');
     if (!Auth.sees(m.teamId)) return matchView(root, m);
@@ -13527,9 +13545,14 @@ var Views = (() => {
     const render = () => {
       const t = teamOf(m.teamId), roster = t ? Store.rosterOf(t.id) : [], conv = roster.filter(p => (m.convoked || []).includes(p.id));
       const lineup = m.lineupId && Store.get('schemas', m.lineupId);
+      const tab = matchTabs[m.id] || (m.played ? 'apres' : 'avant'), editOpen = mEdit[m.id] != null ? mEdit[m.id] : !m.opponent;
+      const sum = [m.home ? '🏠 Domicile' : '🚌 Extérieur', m.competition, m.time ? 'début ' + m.time.replace(':', 'h') : '', m.rdv ? 'RDV ' + m.rdv.replace(':', 'h') : '', m.place].filter(Boolean).map(esc).join(' · ');
+      const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
+      const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
         `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button>`)}
-        <section class="card ${side(m)}">
+        <div class="m-sum ${side(m)}"><span>${sum}</span><button class="btn soft" data-editm>${I.edit}<span>${editOpen ? 'Fermer' : 'Modifier'}</span></button></div>
+        <section class="card ${side(m)} m-edit" ${editOpen ? '' : 'hidden'}>
           <div class="row3">
             <label class="fld"><span>Équipe</span><select data-f="teamId">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === m.teamId ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
             <label class="fld"><span>Adversaire</span><input data-f="opponent" value="${esc(m.opponent)}"></label>
@@ -13541,17 +13564,27 @@ var Views = (() => {
           </div>
           <div class="chips"><button class="chip ch-home ${m.home ? 'on' : ''}" data-home="1">🏠 Domicile</button><button class="chip ch-away ${!m.home ? 'on' : ''}" data-home="0">🚌 Extérieur</button></div>
         </section>
-        ${!m.exempt ? Live.card(m) + Prepa.card(m) + Vol.card(m) : ''}
-        ${m.home && !m.exempt && Cloud.ready() ? '<div id="roomsBox"></div>' : ''}
+        <div class="m-tabs" role="tablist">${TABS.map(([k, l]) => `<button class="m-tab ${tab === k ? 'on' : ''}" role="tab" aria-selected="${tab === k}" data-mtab="${k}">${l}</button>`).join('')}</div>
+        <div ${panel('avant')}>
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2>${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}</div>
         ${t ? rosterChips(t.id, p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`) : '<p class="muted">Choisis une équipe.</p>'}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
         <div id="answersBox"></div>
         ${!m.home && !m.exempt ? '<div id="carpoolBox"></div>' : ''}
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(m.teamId, m.staffIds)}</div>
+        ${!m.exempt ? Prepa.card(m) + Vol.card(m) : ''}
+        ${m.home && !m.exempt && Cloud.ready() ? '<div id="roomsBox"></div>' : ''}
+        </div>
+        <div ${panel('compo')}>
         <h2 class="section">Composition</h2>
         <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
+        </div>
+        <div ${panel('pendant')}>
+        ${!m.exempt ? Live.card(m) : '<p class="muted">Pas de match cette semaine (exempt).</p>'}
+        <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
+        </div>
+        <div ${panel('apres')}>
         <h2 class="section">Score</h2>
         <section class="card">
           <label class="switch"><input type="checkbox" id="mPlayed" ${m.played ? 'checked' : ''}><span>Le match est joué</span></label>
@@ -13569,6 +13602,7 @@ var Views = (() => {
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('match:' + m.id, 'Photos et vidéos du match')}
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
+        </div>
         <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button></div>`;
       Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m);
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
@@ -13585,12 +13619,14 @@ var Views = (() => {
     };
     root.onchange = e => {
       if (e.target.dataset.f === 'teamId') { m.teamId = e.target.value; m.teamManual = true; save(); toast('Match rangé dans ' + (teamOf(m.teamId) || {}).name); return render(); }
-      if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; save(); render(); return cheer(before); }
+      if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; matchTabs[m.id] = 'apres'; save(); render(); return cheer(before); }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { m.staffIds = [...new Set([...(m.staffIds || []), e.target.value])]; save(); return render(); }
       root.oninput(e);
     };
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.mtab) { matchTabs[m.id] = b.dataset.mtab; $$('.m-tab', root).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); $$('.m-panel', root).forEach(p => { p.hidden = p.dataset.panel !== b.dataset.mtab; }); return; }
+      if (b.hasAttribute('data-editm')) { mEdit[m.id] = !(mEdit[m.id] != null ? mEdit[m.id] : !m.opponent); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.minset) {
@@ -13712,10 +13748,17 @@ var Views = (() => {
   function settings(root) {
     const c = S().club;
     const bibs = (key, cur) => `<div class="chips">${Object.entries(Board.BIBS).map(([k, v]) => `<button class="chip bib ${k === cur ? 'on' : ''}" data-${key}="${k}" aria-label="${k}"><i class="sw" style="background:${v[0]}"></i>${k}</button>`).join('')}</div>`;
-    root.innerHTML = `${header('Réglages', '')}
+    const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    root.innerHTML = `${header('Réglages', Auth.isAdmin() ? 'Toi, puis le club' : '')}
+      <h2 class="group-h">👤 Moi</h2>
       ${Auth.settingsSection()}
-      ${Cloud.settingsSection()}
       ${Help.settingsSection()}
+      ${installed ? '' : `<section class="card">
+        <h2>${I.help}Installer l'appli sur le téléphone</h2>
+        <ol class="steps-help"><li>Ouvre cette page dans <b>Safari</b> (iPhone) ou <b>Chrome</b> (Android).</li><li>Touche <b>Partager</b> (le carré avec une flèche) ou le menu <b>⋮</b>.</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li></ol>
+      </section>`}
+      <h2 class="group-h">🏟️ Le club</h2>
+      ${Cloud.settingsSection()}
       ${Auth.isAdmin() ? Onboard.card() : ''}
       ${Auth.isAdmin() ? `<section class="card">
         <h2>${I.team}Tableau tactique</h2>
@@ -13728,10 +13771,6 @@ var Views = (() => {
         <p class="muted small">« Recevoir un fichier » sert aussi à charger la liste des licenciés ou une sauvegarde. Les listes de joueurs contiennent des numéros de téléphone : envoie-les seulement aux éducateurs du club.</p>
         <div class="chips">${Auth.isAdmin() ? `<button class="btn primary" data-act="exportAll">${I.download}<span>Envoyer toutes mes données</span></button><button class="btn" data-act="backups">${I.shield}<span>Sauvegardes du club</span></button>` : ''}
         <button class="btn" data-act="import">${I.upload}<span>Recevoir un fichier</span></button></div>
-      </section>
-      <section class="card">
-        <h2>${I.help}Installer l'appli sur l'iPad ou l'iPhone</h2>
-        <ol class="steps-help"><li>Ouvre cette page dans <b>Safari</b>.</li><li>Touche le bouton <b>Partager</b> (le carré avec une flèche vers le haut).</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li><li>Lance l'appli depuis son icône : elle marche ensuite sans internet.</li></ol>
       </section>
       ${Auth.isAdmin() && (S().teams.some(t => t.example) || S().schemas.some(s => s.example)) ? `<section class="card">
         <h2>${I.layers}Exemples</h2>
@@ -13888,6 +13927,8 @@ var App = (() => {
     ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['resultats', 'Résultats', 'medal'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Stats', 'stats'], ['reglages', 'Réglages', 'settings'],
   ];
   const PHONE_MAIN = 5;
+  // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
+  const MORE_GROUPS = [['Le club', ['planning', 'club', 'resultats', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'stats']], ['Réglages et aide', ['reglages']]];
   const view = () => document.getElementById('view');
 
   function refreshChrome() {
@@ -13928,8 +13969,8 @@ var App = (() => {
       + `<button class="nav-more ${idx >= PHONE_MAIN ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
     document.getElementById('navMore').onclick = () => {
       const close = UI.modal({ title: 'Plus', noFocus: true,
-        body: `<div class="more-grid">${nav.slice(PHONE_MAIN).map(([h, l, ic]) => `<a class="more-item" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}</div>`,
-        onOpen: r => r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())) });
+        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
+        onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; } });
     };
     Messages.badge();
   }
@@ -14001,7 +14042,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 37, UPD = AppCfg.key('update-tried');
+  const BUILD = 38, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
