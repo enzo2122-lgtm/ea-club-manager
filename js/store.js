@@ -7,13 +7,31 @@ const Store = (() => {
   const listeners = new Set();
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-  function idb() {
+  // (3.75) on iPhone, after the app reloads itself (update), opening the database sometimes never answers:
+  // the app stayed blank. One connection is kept (closed when the page goes away), and an opening without answer is tried again.
+  let dbP = null;
+  function openDb(ms) {
     return new Promise((res, rej) => {
+      const to = setTimeout(() => rej(new Error('IDB_TIMEOUT')), ms);
       const rq = indexedDB.open(DB, 1);
       rq.onupgradeneeded = () => rq.result.createObjectStore(OS);
-      rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+      rq.onsuccess = () => { clearTimeout(to); const db = rq.result; db.onversionchange = () => { db.close(); dbP = null; }; db.onclose = () => { dbP = null; }; res(db); };
+      rq.onerror = () => { clearTimeout(to); rej(rq.error); };
+      rq.onblocked = () => {};
     });
   }
+  function idb() {
+    if (!dbP) dbP = (async () => {
+      for (let i = 0; i < 3; i++) {
+        try { return await openDb(2000 + i * 1000); }
+        catch (e) { if (e.message !== 'IDB_TIMEOUT') throw e; try { indexedDB.databases && await indexedDB.databases(); } catch (x) {} } // wakes Safari's database
+      }
+      throw new Error('IDB_TIMEOUT');
+    })().catch(e => { dbP = null; throw e; });
+    return dbP;
+  }
+  function closeDb() { const p = dbP; dbP = null; if (p) p.then(db => db.close()).catch(() => {}); }
+  addEventListener('pagehide', closeDb);
   async function idbGet(k) {
     const db = await idb();
     return new Promise((res, rej) => { const t = db.transaction(OS).objectStore(OS).get(k); t.onsuccess = () => res(t.result); t.onerror = () => rej(t.error); });
@@ -84,8 +102,10 @@ const Store = (() => {
   }
 
   async function load() {
-    try { state = await idbGet(KEY); } catch (e) { state = null; }
+    let slow = false;
+    try { state = await idbGet(KEY); } catch (e) { state = null; slow = e && e.message === 'IDB_TIMEOUT'; }
     if (!state) { try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; } }
+    if (!state && slow) throw new Error('IDB_TIMEOUT'); // the app shows « Recharger » (its data are still on the phone)
     if (!state) { state = blank(); persist(); }
     migrate();
     try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
@@ -193,7 +213,7 @@ const Store = (() => {
   const kindOk = m => isFriendly(m) === (matchKind() === 'ami');
 
   return {
-    load, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
+    load, closeDb, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
     playersOf, rosterOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, matchKind, kindOk,
     get state() { return state; }, on: f => listeners.add(f), off: f => listeners.delete(f),
   };

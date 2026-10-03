@@ -667,13 +667,31 @@ var Store = (() => {
   const listeners = new Set();
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-  function idb() {
+  // (3.75) on iPhone, after the app reloads itself (update), opening the database sometimes never answers:
+  // the app stayed blank. One connection is kept (closed when the page goes away), and an opening without answer is tried again.
+  let dbP = null;
+  function openDb(ms) {
     return new Promise((res, rej) => {
+      const to = setTimeout(() => rej(new Error('IDB_TIMEOUT')), ms);
       const rq = indexedDB.open(DB, 1);
       rq.onupgradeneeded = () => rq.result.createObjectStore(OS);
-      rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+      rq.onsuccess = () => { clearTimeout(to); const db = rq.result; db.onversionchange = () => { db.close(); dbP = null; }; db.onclose = () => { dbP = null; }; res(db); };
+      rq.onerror = () => { clearTimeout(to); rej(rq.error); };
+      rq.onblocked = () => {};
     });
   }
+  function idb() {
+    if (!dbP) dbP = (async () => {
+      for (let i = 0; i < 3; i++) {
+        try { return await openDb(2000 + i * 1000); }
+        catch (e) { if (e.message !== 'IDB_TIMEOUT') throw e; try { indexedDB.databases && await indexedDB.databases(); } catch (x) {} } // wakes Safari's database
+      }
+      throw new Error('IDB_TIMEOUT');
+    })().catch(e => { dbP = null; throw e; });
+    return dbP;
+  }
+  function closeDb() { const p = dbP; dbP = null; if (p) p.then(db => db.close()).catch(() => {}); }
+  addEventListener('pagehide', closeDb);
   async function idbGet(k) {
     const db = await idb();
     return new Promise((res, rej) => { const t = db.transaction(OS).objectStore(OS).get(k); t.onsuccess = () => res(t.result); t.onerror = () => rej(t.error); });
@@ -744,8 +762,10 @@ var Store = (() => {
   }
 
   async function load() {
-    try { state = await idbGet(KEY); } catch (e) { state = null; }
+    let slow = false;
+    try { state = await idbGet(KEY); } catch (e) { state = null; slow = e && e.message === 'IDB_TIMEOUT'; }
     if (!state) { try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; } }
+    if (!state && slow) throw new Error('IDB_TIMEOUT'); // the app shows « Recharger » (its data are still on the phone)
     if (!state) { state = blank(); persist(); }
     migrate();
     try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
@@ -853,7 +873,7 @@ var Store = (() => {
   const kindOk = m => isFriendly(m) === (matchKind() === 'ami');
 
   return {
-    load, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
+    load, closeDb, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
     playersOf, rosterOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, matchKind, kindOk,
     get state() { return state; }, on: f => listeners.add(f), off: f => listeners.delete(f),
   };
@@ -3423,7 +3443,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.32';
+  const VERSION = '1.33';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -13951,17 +13971,26 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 33, UPD = 'ea-update-tried';
+  const BUILD = 34, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
   }
   async function forceUpdate() {
     // with notifications on, the service worker is updated rather than removed (removing it would cancel the notifications)
+    // (3.75) …and the new one is waited for (8 s at most) before reloading: reloading in the middle left a blank page on iPhone
+    let kept = false;
     try { const regs = await navigator.serviceWorker.getRegistrations(), keep = Store.state && Store.state.ui && Store.state.ui.notifOn;
-      await Promise.all(regs.map(r => keep ? r.update().catch(() => {}) : r.unregister())); } catch (e) {}
-    try { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } catch (e) {}
-    location.reload();
+      await Promise.all(regs.map(async r => {
+        if (!keep) return r.unregister();
+        kept = true;
+        await r.update().catch(() => {});
+        const w = r.installing || r.waiting;
+        if (w) await new Promise(ok => { const to = setTimeout(ok, 8000); w.addEventListener('statechange', () => { if (w.state === 'activated' || w.state === 'redundant') { clearTimeout(to); ok(); } }); });
+      })); } catch (e) {}
+    if (!kept) { try { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } catch (e) {} }
+    try { Store.persistNow(); } catch (e) {}
+    setTimeout(() => location.reload(), 250); // the page going away closes the database (pagehide)
   }
   async function checkUpdate(manual) {
     let online;
@@ -13981,7 +14010,9 @@ var App = (() => {
       navigator.serviceWorker.addEventListener('message', e => { const u = e.data && e.data.raincyOpen; if (u) { const h = u.slice(u.indexOf('#')); if (h.startsWith('#/')) location.hash = h; } });
     }
     if (location.protocol !== 'file:') { checkUpdate(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); }); }
-    await Store.load();
+    try { await Store.load(); }
+    catch (e) { document.getElementById('app-stuck') || document.body.insertAdjacentHTML('beforeend', `<div id="app-stuck" style="position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;background:#f2f0ee"><div style="max-width:380px;text-align:center;font:16px system-ui;color:#14172b"><p><b>L'appli n'a pas pu s'ouvrir.</b><br>Tes données sont toujours sur le téléphone.</p><button style="font:inherit;padding:12px 18px;border-radius:12px;border:0;background:#8c1024;color:#fff" onclick="location.reload()">Recharger</button></div></div>`); return; }
+    window.__appStarted = true; // the data are read: the safety net of index.html is not needed
     Sport.apply();
     // the owner's space of Clubbo: no club account needed (the owner key is asked on the page)
     if (/^#\/proprietaire/.test(location.hash)) { refreshChrome(); window.addEventListener('hashchange', route); route(); return; }
