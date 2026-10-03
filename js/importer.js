@@ -152,7 +152,7 @@ const Importer = (() => {
     modal({ title: 'Importer des matchs', body: `
       <div class="chips" id="srcTabs"><button class="chip on" data-v="fff">Site FFF / District</button><button class="chip" data-v="ics">Fichier calendrier (.ics)</button><button class="chip" data-v="csv">Tableur (.csv)</button></div>
       <div id="srcFff" class="src">
-        <ol class="wizard small"><li>Ouvre la page de l'équipe sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> (ou le site du District 93), onglet <b>Résultats / Calendrier</b>.</li>
+        <ol class="wizard small"><li>Ouvre la page de l'équipe sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> (ou le site de ton district), onglet <b>Résultats / Calendrier</b>.</li>
         <li>Sélectionne tout le texte des matchs du mois (ou de la page du club), copie-le, puis colle-le ici. Recommence mois par mois, les doublons sont ignorés.</li></ol>
         <textarea id="fffText" rows="6" placeholder="DIM 04 OCT 2026 - 15H30&#10;Seniors D3 - Senior Journée 1&#10;BFC 2&#10;15:30&#10;FC EXEMPLE"></textarea>
       </div>
@@ -171,10 +171,12 @@ const Importer = (() => {
         $$('#srcTabs .chip', r).forEach(b => b.onclick = () => {
           $$('#srcTabs .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); src = b.dataset.v; found = [];
           $('#srcFff', r).hidden = src !== 'fff'; $('#srcFile', r).hidden = src === 'fff';
-          $('#fileHint', r).textContent = src === 'ics' ? 'Exporte ton agenda (Google Agenda, Calendrier iPhone, appli du club…) en fichier .ics, puis choisis-le. Chaque événement devient un match : « Raincy - Bondy » donne l\'adversaire et le domicile.' : 'Un tableau avec au moins les colonnes Date, Heure, Adversaire, et si possible Domicile (oui/non) et Compétition.';
+          $('#fileHint', r).textContent = src === 'ics' ? 'Exporte ton agenda (Google Agenda, Calendrier iPhone, appli du club…) en fichier .ics, puis choisis-le. Chaque événement devient un match : « Mon club - Bondy » donne l\'adversaire et le domicile.' : 'Un tableau avec au moins les colonnes Date, Heure, Adversaire, et si possible Domicile (oui/non) et Compétition.';
           preview();
         });
         $('#fffText', r).oninput = e => { found = parseFFF(e.target.value); preview(); };
+        // (1.28) the FFF website is for football clubs only
+        if (typeof Sport !== 'undefined' && !Sport.isFoot()) { $('#srcTabs [data-v="fff"]', r).hidden = true; $('#srcTabs [data-v="ics"]', r).click(); }
         $('#impTeam', r).onchange = preview;
         $('#pickFile', r).onclick = async () => {
           const [f] = await UI.pickFiles(); if (!f) return;

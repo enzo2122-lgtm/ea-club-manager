@@ -13,6 +13,7 @@ const Prepa = (() => {
     ['transOff', '⚡ À la récupération', ['Première passe vers l\'avant', 'Attaquer vite, 3 joueurs qui partent', 'Si c\'est fermé : on conserve', 'Profiter de leur défense haute']],
     ['transDef', '🔥 À la perte du ballon', ['Contre-pressing 5 secondes', 'Faute tactique si nécessaire', 'Repli immédiat derrière le ballon', 'Fermer l\'axe d\'abord']]];
   const OPP_CHIPS = ['Jeu long', 'Rapides sur les côtés', 'Faibles dans les airs', 'Défense haute : attaquer la profondeur', 'Pressing haut', 'Bloc bas', 'Dangereux sur CPA', 'Fragiles sur CPA', 'Gardien fébrile', 'Physiques', 'Techniques', 'Fin de match difficile pour eux'];
+  // (1.28) the words of football; the other sports get neutral ones (see below: OPP, KEYS, WARM, KITS, MODELS, systemsOf)
   const KEY_CHIPS = ['Gagner les duels et les deuxièmes ballons', 'Rester compacts', 'Presser ensemble', 'Jouer simple et vite', 'Attaquer la profondeur', 'Concentration sur les coups de pied arrêtés', 'Communiquer', 'Ne jamais lâcher', 'Les 10 premières minutes à fond', 'Respect de l\'arbitre et de l\'adversaire'];
   const SYSTEMS = { 11: ['4-4-2', '4-3-3', '4-2-3-1', '4-1-4-1', '3-5-2', '3-4-3', '5-3-2', '4-4-2 losange'], 8: ['3-3-1', '2-3-2', '3-2-2', '2-4-1', '3-1-3'], 5: ['2-2', '1-2-1', '2-1-1'] };
   const WARMUP = [['Activation : footing, mobilité articulaire', 5], ['Gammes athlétiques (montées de genoux, talons-fesses, pas chassés)', 5], ['Conservation / rondos à deux touches', 5], ['Jeu à thème ou finition', 5], ['Accélérations et sprints courts', 3], ['Retour au vestiaire, derniers mots', 2]];
@@ -27,6 +28,25 @@ const Prepa = (() => {
     2: [['Échauffement avec ballon', 15], ['Conservation et transitions', 15], ['Mise en place du plan de jeu contre l\'adversaire', 20], ['Finition : centres et frappes', 15], ['Match à thème', 15]],
     3: [['Échauffement athlétique', 15], ['Jeu réduit 4c4 intense, 4 × 4 min', 20], ['Exercice tactique (thème de la semaine)', 20], ['Match avec consignes', 20]],
     4: [['Échauffement technique', 15], ['Conservation, circulation du ballon', 20], ['Technique par poste', 20], ['Petit match libre', 15]] };
+  const foot = () => typeof Sport === 'undefined' || Sport.isFoot();
+  const MOMENTS_OTHER = [['withBall', '🎯 Avec le ballon', ['Monter le ballon calmement', 'Jouer vite vers l\'avant', 'Écarter le jeu, changer de côté', 'Chercher le meilleur tir', 'Utiliser notre point fort', 'Patience, faire circuler le ballon']],
+    ['withoutBall', '🛡️ Sans le ballon', ['Défense serrée, se parler', 'Presser haut dès la remise en jeu', 'Défendre en reculant, fermer l\'axe', 'Pousser l\'adversaire vers les côtés', 'Rester entre son joueur et le but', 'Se couvrir les uns les autres']],
+    ['transOff', '⚡ À la récupération', ['Première passe vers l\'avant', 'Contre-attaque à plusieurs', 'Si c\'est fermé : on reconstruit', 'Profiter de leur repli lent']],
+    ['transDef', '🔥 À la perte du ballon', ['Gêner tout de suite le porteur', 'Repli immédiat', 'Revenir protéger le but d\'abord', 'Pas de faute inutile']]];
+  const MOM = () => foot() ? MOMENTS : MOMENTS_OTHER;
+  const OPP_OTHER = ['Jeu rapide', 'Défense agressive', 'Défense de zone', 'Très physiques', 'Très techniques', 'Dangereux sur phases arrêtées', 'Fragiles sur phases arrêtées', 'Un joueur clé', 'Peu de remplaçants', 'Fin de match difficile pour eux'];
+  const KEY_OTHER = ['Gagner les duels', 'Défendre ensemble', 'Jouer simple et vite', 'Courir en contre-attaque', 'Concentration sur les phases arrêtées', 'Communiquer', 'Ne jamais lâcher', 'Les premières minutes à fond', 'Respect de l\'arbitre et de l\'adversaire'];
+  const WARM_OTHER = [['Activation : trottinement, mobilité articulaire', 5], ['Gammes athlétiques (montées de genoux, pas chassés)', 5], ['Passes et manipulation du ballon', 5], ['Situations de jeu ou tirs', 5], ['Accélérations courtes', 3], ['Retour au vestiaire, derniers mots', 2]];
+  const KIT_OTHER = ['Maillots, shorts, chaussettes', 'Brassard ou capitaine désigné', 'Ballons', 'Chasubles et plots', 'Trousse de secours, glace', 'Gourdes / eau', 'Licences et feuille de match', 'Sifflet, chrono'];
+  const MODEL_OTHER = {
+    1: [['Activation et vivacité (appuis, réactions)', 10], ['Jeu de passes à effectif réduit', 10], ['Phases arrêtées : nos combinaisons', 10], ['Phases arrêtées : défendre', 10], ['Petit match court et intense, 3 × 3 min', 10], ['Mise en place du plan de jeu sans opposition', 5]],
+    2: [['Échauffement avec ballon', 15], ['Attaque et défense placées', 15], ['Mise en place du plan de jeu contre l\'adversaire', 20], ['Tirs et finitions', 15], ['Match à thème', 15]],
+    3: [['Échauffement athlétique', 15], ['Petit match intense, 4 × 4 min', 20], ['Exercice tactique (thème de la semaine)', 20], ['Match avec consignes', 20]],
+    4: [['Échauffement technique', 15], ['Passes et circulation du ballon', 20], ['Technique par poste', 20], ['Petit match libre', 15]] };
+  const OPP = () => foot() ? OPP_CHIPS : OPP_OTHER, KEYS = () => foot() ? KEY_CHIPS : KEY_OTHER, WARM = () => foot() ? WARMUP : WARM_OTHER;
+  const KITS = () => foot() ? KIT : KIT_OTHER, MODELS = () => foot() ? MODEL : MODEL_OTHER;
+  // the systems of the team's sport and format (the session library's ones for the other sports)
+  const systemsOf = teamId => { if (foot()) return SYSTEMS[fmt(teamId)] || SYSTEMS[11]; const f = fmt(teamId), l = (typeof SesLib !== 'undefined' ? SesLib.systems() : []).filter(x => x.fmt === f).map(x => x.sys); return l.length ? l : (typeof SesLib !== 'undefined' ? [...new Set(SesLib.systems().map(x => x.sys))] : []); };
 
   const P = m => (m.prep = m.prep || {});
   const get = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
@@ -140,7 +160,7 @@ const Prepa = (() => {
         ${chipsAdd('week.theme', ['Pressing et récupération haute', 'Défendre les centres', 'Transitions rapides', 'Coups de pied arrêtés', 'Conservation sous pression', 'Finition'])}</section>`;
   }
   async function newSession(m, date, j) {
-    const ex = (MODEL[j] || MODEL[2]).map(([title, duration]) => ({ id: Store.uid(), title, duration, org: '', consignes: '', materiel: '', schemaId: null }));
+    const ex = (MODELS()[j] || MODELS()[2]).map(([title, duration]) => ({ id: Store.uid(), title, duration, org: '', consignes: '', materiel: '', schemaId: null }));
     const theme = (P(m).week || {}).theme;
     const tr = Store.upsert('trainings', { id: Store.uid(), title: `${DAYS[j] ? DAYS[j][2] : 'Avant match'}${m.opponent ? ' (' + m.opponent + ')' : ''}`, date, time: '', teamId: m.teamId,
       goal: [DAYS[j] && DAYS[j][1], theme && 'Thème : ' + lines(theme).join(', ')].filter(Boolean).join('\n'), exercises: ex, presents: [] });
@@ -154,10 +174,10 @@ const Prepa = (() => {
     const past = S().matches.filter(x => x.id !== m.id && x.played && k && norm(x.opponent) === k).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
     return `<section class="card"><h2>🔎 ${esc(m.opponent || 'L\'adversaire')}</h2>
       ${past.length ? `<div class="prep-past">${past.map(x => { const r = x.gf > x.ga ? 'V' : x.gf < x.ga ? 'D' : 'N'; return `<span class="res-${r}"><b>${r}</b> ${x.gf}-${x.ga} · ${esc(UI.fmtDate(x.date, { day: 'numeric', month: 'short', year: '2-digit' }))}${(teamOf(x) || {}).name ? ' · ' + esc(teamOf(x).name) : ''}</span>`; }).join('')}</div>` : '<p class="muted small">Pas encore de match contre eux dans l\'appli.</p>'}
-      <label class="fld"><span>Leur système</span><select data-p="opp.system"><option value="">Je ne sais pas</option>${(SYSTEMS[fmt(m.teamId)] || SYSTEMS[11]).map(s => `<option ${o.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+      <label class="fld"><span>Leur système</span><select data-p="opp.system"><option value="">Je ne sais pas</option>${systemsOf(m.teamId).map(s => `<option ${o.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
       <div class="row2"><label class="fld"><span>💪 Leurs forces</span>${area('opp.strengths', o.strengths, 'Une par ligne')}</label><label class="fld"><span>🎯 Leurs faiblesses</span>${area('opp.weaknesses', o.weaknesses, 'Une par ligne')}</label></div>
       <p class="lbl">Propositions : touche pour ajouter</p>
-      <div class="prep-two"><div><span class="muted small">Forces</span>${chipsAdd('opp.strengths', OPP_CHIPS)}</div><div><span class="muted small">Faiblesses</span>${chipsAdd('opp.weaknesses', OPP_CHIPS)}</div></div>
+      <div class="prep-two"><div><span class="muted small">Forces</span>${chipsAdd('opp.strengths', OPP())}</div><div><span class="muted small">Faiblesses</span>${chipsAdd('opp.weaknesses', OPP())}</div></div>
       <label class="fld"><span>⭐ Joueurs à surveiller</span>${area('opp.players', o.players, 'ex : n°9, grand et fort de la tête\nn°7, très rapide, pied gauche')}</label>
       <label class="fld"><span>🚩 Leurs coups de pied arrêtés</span>${area('opp.cpa', o.cpa, 'ex : corners rentrants, un joueur sur le gardien', 2)}</label>
       <label class="fld"><span>Notes, vidéo, ce qu'on sait d'eux</span>${area('opp.notes', o.notes, 'Classement, derniers résultats, terrain…', 2)}</label></section>`;
@@ -167,12 +187,12 @@ const Prepa = (() => {
   function stPlan(m) {
     const pl = P(m).plan || {}, lineup = m.lineupId && Store.get('schemas', m.lineupId), conv = (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName);
     return `<section class="card"><h2>🧠 Système et composition</h2>
-      <div class="row2"><label class="fld"><span>Notre système</span><select data-p="plan.system"><option value="">—</option>${(SYSTEMS[fmt(m.teamId)] || SYSTEMS[11]).map(s => `<option ${pl.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+      <div class="row2"><label class="fld"><span>Notre système</span><select data-p="plan.system"><option value="">—</option>${systemsOf(m.teamId).map(s => `<option ${pl.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
         <label class="fld"><span>Capitaine</span><select data-p="plan.captain"><option value="">—</option>${conv.map(x => `<option value="${x.id}" ${pl.captain === x.id ? 'selected' : ''}>${esc(Store.fullName(x))}</option>`).join('')}</select></label></div>
       ${lineup ? `<a class="prep-lineup" href="#/schema/${lineup.id}"><img alt="Composition" src="${UI.thumb(lineup)}"></a>` : `<p class="muted small">La composition se fait sur la page du match (convoqués puis « Faire la composition »).</p><button class="btn soft" data-pa="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
       ${pl.imported ? `<section class="card"><h2>📋 Plan de jeu (AssistCoachAI)</h2><p class="pre">${esc(pl.imported)}</p></section>` : ''}
       <section class="card"><h2>Les 4 moments du match</h2><p class="muted small">1 à 3 consignes par moment, des phrases courtes avec un verbe d'action.</p>
-      ${MOMENTS.map(([k, l, sug]) => `<div class="prep-moment"><label class="fld"><span>${l}</span>${area('plan.' + k, pl[k], 'Une consigne par ligne', 2)}</label>${chipsAdd('plan.' + k, sug)}</div>`).join('')}</section>
+      ${MOM().map(([k, l, sug]) => `<div class="prep-moment"><label class="fld"><span>${l}</span>${area('plan.' + k, pl[k], 'Une consigne par ligne', 2)}</label>${chipsAdd('plan.' + k, sug)}</div>`).join('')}</section>
       <section class="card"><h2>🚩 Coups de pied arrêtés</h2>
         <div class="row2"><label class="fld"><span>Corners pour nous (tireur, placement)</span>${area('plan.cpaFor', pl.cpaFor, 'ex : tireur Adam, rentrant, 2 au premier poteau', 2)}</label>
           <label class="fld"><span>Corners contre nous</span>${area('plan.cpaAgainst', pl.cpaAgainst, 'ex : zone à 6, Karim sur leur n°9', 2)}</label>
@@ -191,7 +211,7 @@ const Prepa = (() => {
       <label class="fld"><span>🎯 L'objectif du match</span><input data-p="talk.objective" value="${esc(t.objective || '')}" placeholder="ex : Gagner et garder la 3e place, ne pas encaisser sur CPA"></label>
       <div class="lbl">2 · Les 3 clés</div>
       ${[0, 1, 2].map(i => `<label class="fld inline prep-key"><b>${i + 1}</b><input data-p="talk.keys.${i}" value="${esc(keys[i] || '')}" placeholder="Clé n°${i + 1}"></label>`).join('')}
-      ${chipsAdd('talk.keys', KEY_CHIPS)}
+      ${chipsAdd('talk.keys', KEYS())}
       <label class="fld"><span>3 · Le mot de la fin</span>${area('talk.final', t.final, Supporters.SLOGAN, 2)}</label>
       <label class="fld"><span>🔗 Lien vidéo pour les joueurs (YouTube, Drive…)</span><input data-p="talk.videoUrl" value="${esc(t.videoUrl || '')}" placeholder="https://youtu.be/…  (visible sur la page des joueurs)" inputmode="url"></label>
       <label class="fld"><span>🎬 Briefing vidéo à montrer (sur cet appareil)</span><select data-p="talk.briefing"><option value="">Aucun</option>${bs.map(b => `<option value="${b.id}" ${t.briefing === b.id ? 'selected' : ''}>${esc(b.name)} (${b.items.length})</option>`).join('')}</select></label>
@@ -215,10 +235,10 @@ const Prepa = (() => {
       <label class="fld inline"><span>Échauffement</span><select data-p="day.warmMin" data-redraw="1">${[15, 20, 25, 30].map(n => `<option value="${n}" ${+(dy.warmMin || 25) === n ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
       <p class="muted small">20 à 25 minutes suffisent chez les adultes (moins pour les jeunes) : plus long, les joueurs arrivent fatigués au coup d'envoi.</p></section>
       <section class="card"><div class="row-head"><h2>🏃 L'échauffement</h2><button class="linkish" data-pa="resetwarm">Tout décocher</button></div>
-      <div class="prep-checks">${WARMUP.map(([l, n], i) => `<label class="prep-check"><input type="checkbox" data-p="day.warm.${i}" ${warm[i] ? 'checked' : ''}><span><b>${Math.max(1, Math.round(n * +(dy.warmMin || 25) / 25))} min</b> · ${esc(l)}</span></label>`).join('')}</div>
+      <div class="prep-checks">${WARM().map(([l, n], i) => `<label class="prep-check"><input type="checkbox" data-p="day.warm.${i}" ${warm[i] ? 'checked' : ''}><span><b>${Math.max(1, Math.round(n * +(dy.warmMin || 25) / 25))} min</b> · ${esc(l)}</span></label>`).join('')}</div>
       <label class="fld"><span>Notes d'échauffement</span>${area('day.warmNotes', dy.warmNotes, 'ex : gardien avec l\'entraîneur des gardiens à part', 2)}</label></section>
       <section class="card"><h2>🎒 Le matériel</h2>
-      <div class="prep-checks">${KIT.map((l, i) => `<label class="prep-check"><input type="checkbox" data-p="day.kit.${i}" ${kit[i] ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>
+      <div class="prep-checks">${KITS().map((l, i) => `<label class="prep-check"><input type="checkbox" data-p="day.kit.${i}" ${kit[i] ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>
       <label class="fld"><span>Autre chose à ne pas oublier</span>${area('day.other', dy.other, 'ex : clés du vestiaire, feuille de covoiturage', 2)}</label></section>`;
   }
 
@@ -286,7 +306,7 @@ const Prepa = (() => {
       o.system || o.strengths || o.weaknesses || o.players ? `<h2>🔎 ${esc(m.opponent || 'L\'adversaire')}${o.system ? ' · ' + esc(o.system) : ''}</h2><div class="pp-cols">
         ${lines(o.strengths).length ? `<div><h3>💪 Leurs forces</h3>${bl(lines(o.strengths), 'bad')}</div>` : ''}${lines(o.weaknesses).length ? `<div><h3>🎯 Leurs faiblesses</h3>${bl(lines(o.weaknesses), 'good')}</div>` : ''}
         ${lines(o.players).length ? `<div><h3>⭐ À surveiller</h3>${bl(lines(o.players))}</div>` : ''}${lines(o.cpa).length ? `<div><h3>🚩 Leurs CPA</h3>${bl(lines(o.cpa))}</div>` : ''}</div>` : '',
-      MOMENTS.some(([k]) => lines(pl[k]).length) ? `<h2>Le plan de jeu</h2><div class="pp-grid">${MOMENTS.map(([k, l]) => `<div><h3>${l}</h3>${bl(lines(pl[k]))}</div>`).join('')}</div>` : '',
+      MOMENTS.some(([k]) => lines(pl[k]).length) ? `<h2>Le plan de jeu</h2><div class="pp-grid">${MOM().map(([k, l]) => `<div><h3>${l}</h3>${bl(lines(pl[k]))}</div>`).join('')}</div>` : '',
       pl.cpaFor || pl.cpaAgainst || pl.freeKicks || pl.penalty ? `<h2>🚩 Coups de pied arrêtés</h2><div class="pp-grid">${[['Corners pour nous', pl.cpaFor], ['Corners contre nous', pl.cpaAgainst], ['Coups francs', pl.freeKicks], ['Penalty', pl.penalty]].filter(([, v]) => v).map(([l, v]) => `<div><h3>${l}</h3>${bl(lines(v))}</div>`).join('')}</div>` : '',
       roles.length ? `<h2>👤 Les rôles</h2><div class="pp-roles">${roles.map(([x, v]) => `<p><b>${esc(Store.shortName(x))}</b><span>${esc(v)}</span></p>`).join('')}</div>` : '',
       keys.length ? `<h2>🔑 Nos 3 clés</h2><div class="pp-keys">${keys.map((k, i) => `<p><b>${i + 1}</b><span>${esc(k)}</span></p>`).join('')}</div>` : '',
@@ -375,7 +395,7 @@ const Prepa = (() => {
       const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = pl.captain && Store.get('players', pl.captain);
       if (lineup) { await Board.ensureBg(lineup); P.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); P.image(Exporter.frameCanvas(lineup, 0, 0, { w: 1500, h: 980, names: true, homeBib: club.homeBib }), P.CW * .85); }
       else if (cap) { P.label('Capitaine'); P.para(Store.fullName(cap)); }
-      if (MOMENTS.some(([k]) => lines(pl[k]).length)) { P.h2('Les 4 moments du match'); MOMENTS.forEach(([k, l]) => text(l.replace(/^\S+\s/, ''), pl[k])); }
+      if (MOMENTS.some(([k]) => lines(pl[k]).length)) { P.h2('Les 4 moments du match'); MOM().forEach(([k, l]) => text(l.replace(/^\S+\s/, ''), pl[k])); }
       const cpa = [['Corners pour nous', pl.cpaFor], ['Corners contre nous', pl.cpaAgainst], ['Coups francs', pl.freeKicks], ['Penalty', pl.penalty]].filter(([, v]) => v);
       if (cpa.length) { P.h2('Coups de pied arrêtés'); cpa.forEach(([l, v]) => text(l, v)); }
       const roles = Object.entries(pl.roles || {}).filter(([, v]) => v).map(([id, v]) => [Store.get('players', id), v]).filter(([x]) => x);
@@ -404,8 +424,8 @@ const Prepa = (() => {
       const tl = timeline(m);
       if (tl.length) { P.label('Le déroulé'); P.table(['Heure', 'Moment'], tl.map(([mn, l]) => [hm(mn), l.replace(/^\S+\s/, '')]), [.2, .8]); }
       const k = +(dy.warmMin || 25) / 25;
-      P.h2(`Échauffement (${dy.warmMin || 25} min)`); ticks(WARMUP.map(([l, n]) => `${Math.max(1, Math.round(n * k))} min · ${l}`)); if (dy.warmNotes) P.para(dy.warmNotes);
-      P.h2('Matériel'); ticks([...KIT, ...lines(dy.other)]);
+      P.h2(`Échauffement (${dy.warmMin || 25} min)`); ticks(WARM().map(([l, n]) => `${Math.max(1, Math.round(n * k))} min · ${l}`)); if (dy.warmNotes) P.para(dy.warmNotes);
+      P.h2('Matériel'); ticks([...KITS(), ...lines(dy.other)]);
       const conv = (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (a.number || 99) - (b.number || 99));
       if (conv.length) { P.h2(`Joueurs convoqués (${conv.length}) · présents`); ticks(conv.map(x => `${x.number ? x.number + '. ' : ''}${Store.fullName(x)}`)); }
     }

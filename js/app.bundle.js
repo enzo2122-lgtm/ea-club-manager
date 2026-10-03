@@ -3279,7 +3279,7 @@ var Importer = (() => {
     modal({ title: 'Importer des matchs', body: `
       <div class="chips" id="srcTabs"><button class="chip on" data-v="fff">Site FFF / District</button><button class="chip" data-v="ics">Fichier calendrier (.ics)</button><button class="chip" data-v="csv">Tableur (.csv)</button></div>
       <div id="srcFff" class="src">
-        <ol class="wizard small"><li>Ouvre la page de l'équipe sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> (ou le site du District 93), onglet <b>Résultats / Calendrier</b>.</li>
+        <ol class="wizard small"><li>Ouvre la page de l'équipe sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> (ou le site de ton district), onglet <b>Résultats / Calendrier</b>.</li>
         <li>Sélectionne tout le texte des matchs du mois (ou de la page du club), copie-le, puis colle-le ici. Recommence mois par mois, les doublons sont ignorés.</li></ol>
         <textarea id="fffText" rows="6" placeholder="DIM 04 OCT 2026 - 15H30&#10;Seniors D3 - Senior Journée 1&#10;BFC 2&#10;15:30&#10;FC EXEMPLE"></textarea>
       </div>
@@ -3298,10 +3298,12 @@ var Importer = (() => {
         $$('#srcTabs .chip', r).forEach(b => b.onclick = () => {
           $$('#srcTabs .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); src = b.dataset.v; found = [];
           $('#srcFff', r).hidden = src !== 'fff'; $('#srcFile', r).hidden = src === 'fff';
-          $('#fileHint', r).textContent = src === 'ics' ? 'Exporte ton agenda (Google Agenda, Calendrier iPhone, appli du club…) en fichier .ics, puis choisis-le. Chaque événement devient un match : « Raincy - Bondy » donne l\'adversaire et le domicile.' : 'Un tableau avec au moins les colonnes Date, Heure, Adversaire, et si possible Domicile (oui/non) et Compétition.';
+          $('#fileHint', r).textContent = src === 'ics' ? 'Exporte ton agenda (Google Agenda, Calendrier iPhone, appli du club…) en fichier .ics, puis choisis-le. Chaque événement devient un match : « Mon club - Bondy » donne l\'adversaire et le domicile.' : 'Un tableau avec au moins les colonnes Date, Heure, Adversaire, et si possible Domicile (oui/non) et Compétition.';
           preview();
         });
         $('#fffText', r).oninput = e => { found = parseFFF(e.target.value); preview(); };
+        // (1.28) the FFF website is for football clubs only
+        if (typeof Sport !== 'undefined' && !Sport.isFoot()) { $('#srcTabs [data-v="fff"]', r).hidden = true; $('#srcTabs [data-v="ics"]', r).click(); }
         $('#impTeam', r).onchange = preview;
         $('#pickFile', r).onclick = async () => {
           const [f] = await UI.pickFiles(); if (!f) return;
@@ -3389,7 +3391,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.27';
+  const VERSION = '1.28';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -3486,7 +3488,7 @@ var Help = (() => {
     encadrement: ['Qui encadre ?', ['Tous les matchs et séances de la semaine, avec leurs encadrants. ⚠️ Personne : il manque un encadrant.', '« J\'y serai » t\'ajoute comme encadrant, « Je n\'y serai pas » te retire.', '« Déclarer une absence » : tes vacances ou indisponibilités, visibles par les autres dirigeants. Un responsable peut en déclarer pour n\'importe qui.']],
     entrainements: ['Séances', ['Le plus simple : « Générer une séance » (un thème, une catégorie, une durée) ou « Séances par système de jeu » : la séance est prête, avec ses schémas animés.', 'Pour l\'écrire toi-même : « Nouvel entraînement » (un thème, une date, une équipe), puis ajoute les exercices.', 'Une fiche papier ou un PDF : « Importer une fiche PDF » ou « Depuis un fichier » : les exercices sont lus et repris.', '« Séances types du club » : les séances partagées par les coachs. « Utiliser » la copie pour ta catégorie et ta date.']],
     entrainement: ['Une séance', ['1. Ajoute les exercices : « Ajouter un exercice », « Exercices du club » ou « Depuis un fichier ». Chaque exercice a un schéma animé (« Voir en grand »).', '2. Le jour J : coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles.', '3. « PDF » fait la fiche à imprimer ou à envoyer, avec le schéma de chaque exercice étape par étape. « Envoyer » la transmet à un autre coach.', 'Tu peux joindre des documents et des photos en bas de la séance.']],
-    matchs: ['Matchs', ['« Importer » : colle le calendrier copié sur le site de la FFF ou du District 93 (mois par mois), ou choisis un fichier d\'agenda (.ics) ou un tableur (.csv). La catégorie est trouvée toute seule et le terrain peut être réservé pour les matchs à domicile.', '« Nouveau match » : adversaire, date, domicile ou extérieur.', 'Les résultats s\'affichent avec leur smiley.']],
+    matchs: ['Matchs', ['« Importer » : colle le calendrier copié sur le site de ta fédération ou de ton district (mois par mois), ou choisis un fichier d\'agenda (.ics) ou un tableur (.csv). La catégorie est trouvée toute seule et le terrain peut être réservé pour les matchs à domicile.', '« Nouveau match » : adversaire, date, domicile ou extérieur.', 'Les résultats s\'affichent avec leur smiley.']],
     jourj: ['Jour de match', ['Tout le match en 5 étapes, dans l\'ordre : les convoqués, la composition, la causerie, le match en direct, le résumé aux parents.', 'Touche un prénom pour le convoquer, puis « Envoyer la convocation » (WhatsApp ou la messagerie du club).', 'Pendant le match : « Suivre le match en direct ». Le chrono, les buts et le temps de jeu se notent tout seuls, même sans réseau.', 'À la fin : « Envoyer le résumé aux parents ». Le score et les buteurs sont déjà écrits, ajoute ton mot.']],
     match: ['Un match', ['Coche les convoqués et choisis les encadrants.', 'Envoie la convocation avec le lien des parents : ils répondent présent ou absent, les réponses s\'affichent sous les convoqués.', 'Match à l\'extérieur : le covoiturage range les enfants dans les voitures des parents, et s\'envoie sur WhatsApp.', 'Match joué : « Temps de jeu » note les minutes de chaque joueur (total sur sa fiche et dans Stats). ⏱️ signale ceux qui ont peu joué cette saison.', '« Relancer les sans réponse » prépare le message WhatsApp pour les parents qui n\'ont pas répondu.', '« Photos pour les parents » : choisis les photos du match à montrer sur leur page (droit à l\'image respecté).', '« Faire la composition » place les joueurs sur le terrain.', 'Coche « Le match est joué », règle le score, les buteurs et les passeurs, puis note les joueurs.', '« Feuille de match » fait le PDF à imprimer.']],
     stats: ['Statistiques', ['Bilan de l\'équipe : victoires, nuls, défaites, buts et points.', 'Tableau des joueurs : touche un titre de colonne pour trier (buts, passes, présences, notes).']],
@@ -6895,7 +6897,6 @@ var Notify = (() => {
   const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const prefs = () => Object.assign({ messages: true, planning: true }, S().ui.notifPrefs || {});
   const b64 = s => { const r = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
-  const fnUrl = () => { const c = Cloud.cfg(); return c ? c.url.replace(/\/+$/, '') + '/functions/v1/raincy-push' : ''; };
   const why = e => e && e.code === 'MISE_A_JOUR' ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes. ().' : (e && e.message) || 'Erreur';
   // the app's service worker (it shows the notifications); null if it does not answer within 4 s
   const ready = () => Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(() => r(null), 4000))]);
@@ -6956,7 +6957,6 @@ var Notify = (() => {
     if (act === 'on') { b.disabled = true; try { await subscribe(true); toast('Notifications activées sur ce téléphone 🔔'); } catch (e) { toast(why(e), 'err'); } rerender(); return; }
     if (act === 'off') { const sub = await current(); if (sub) { try { await Cloud.pushUnsub(sub.endpoint); } catch (e) {} await sub.unsubscribe().catch(() => {}); } S().ui.notifOn = false; Store.persistNow(); toast('Notifications désactivées sur ce téléphone'); rerender(); return; }
     if (act === 'test') { try { const n = await Cloud.pushTest(); toast(n ? 'Test envoyé : la notification arrive dans quelques secondes' : 'Ce téléphone n\'est pas encore inscrit : touche « Activer »', n ? '' : 'err'); } catch (e) { toast(why(e), 'err'); } return; }
-    if (act === 'setup') return setupDialog(rerender);
   }
   async function onChange(t) {
     if (!t.dataset.notifpref) return false;
@@ -6966,44 +6966,16 @@ var Notify = (() => {
   }
 
   /* ---------- responsable: once for the club ---------- */
+  // (1.28) on Clubbo the notifications are set up once for every club (the platform): nothing to do for a club
   function adminCard() {
     return `<div class="notif-admin"><b>🔔 Notifications des coachs</b> <span class="muted small" id="notifSrv"></span>
-      <button class="btn soft" data-notif="setup">${I.settings}<span>Activer / vérifier</span></button></div>`;
+      <span class="muted small">Chaque coach les active sur son téléphone : Réglages → Mon compte.</span></div>`;
   }
   async function mountAdmin(root) {
     const el = $('#notifSrv', root); if (!el) return;
     try { const k = await Cloud.pushKey(); if (el.isConnected) el.textContent = k ? '· activées ✓' : '· pas encore activées'; }
     catch (e) { if (el.isConnected) el.textContent = e.code === 'MISE_A_JOUR' ? '· serveur à mettre à jour' : ''; }
   }
-  function setupDialog(rerender) {
-    modal({ title: 'Activer les notifications du club', body: `
-      <p>Une seule fois, pour tout le club. Ensuite chaque coach active les notifications sur son téléphone (Réglages → Mon compte).</p>
-      <ol class="wizard">
-        <li><b>Mettre à jour le serveur</b> : Réglages → Serveur du club → « Mettre à jour le serveur » (script à coller dans Supabase, comme d'habitude).</li>
-        <li><b>Créer l'envoi des notifications</b> : touche « Copier le programme », puis ouvre <a href="https://supabase.com/dashboard/project/_/functions" target="_blank" rel="noopener">Supabase → Edge Functions</a>.
-          <b>Deploy a new function</b> → <b>Via Editor</b>. Nom : <code>raincy-push</code>. Efface le code d'exemple, colle le programme, puis <b>Deploy</b>.</li>
-        <li>Dans la fonction <code>raincy-push</code> → <b>Details</b> (ou Settings) : désactive <b>Verify JWT</b>, puis enregistre.</li>
-        <li>Reviens ici et touche <b>Vérifier</b>.</li></ol>
-      <p class="muted small">Aucun mot de passe ni clé à recopier : les clés de sécurité sont créées toutes seules et restent sur le serveur du club.</p>`,
-      actions: [
-        { label: 'Copier le programme', icon: I.copy, onClick: () => { fetch('supabase/raincy-push.ts?t=' + Date.now()).then(r => r.text()).then(t => navigator.clipboard.writeText(t)).then(() => toast('Programme copié : colle-le dans Supabase')).catch(() => toast('Copie impossible : ouvre supabase/raincy-push.ts sur GitHub', 'err')); return false; } },
-        { label: 'Vérifier', kind: 'primary', icon: I.check, onClick: (close) => { verify().then(ok => { if (ok) { close(); rerender && rerender(); } }); return false; } }] });
-  }
-  async function verify() {
-    const b = UI.busy('Vérification des notifications…');
-    try {
-      const cfg = await Cloud.pushSetup(fnUrl());
-      let r; try { r = await fetch(fnUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-raincy-secret': cfg.secret }, body: '{"init":true}' }); }
-      catch (e) { toast('La fonction « raincy-push » ne répond pas : vérifie qu\'elle est bien déployée (étape 2).', 'err'); return false; }
-      if (r.status === 401) { toast('La fonction refuse l\'appel : désactive « Verify JWT » (étape 3).', 'err'); return false; }
-      if (r.status === 404) { toast('Fonction introuvable : son nom doit être exactement raincy-push (étape 2).', 'err'); return false; }
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.publicKey) { toast('Erreur de la fonction : ' + (j.error || r.status), 'err'); return false; }
-      toast('Notifications du club activées ✓ Chaque coach peut maintenant les activer sur son téléphone.');
-      return true;
-    } catch (e) { toast(why(e), 'err'); return false; } finally { b.done(); }
-  }
-
   return { refresh, accountSection, mountAccount, onClick, onChange, adminCard, mountAdmin, supported };
 })();
 
@@ -7387,6 +7359,7 @@ var Prepa = (() => {
     ['transOff', '⚡ À la récupération', ['Première passe vers l\'avant', 'Attaquer vite, 3 joueurs qui partent', 'Si c\'est fermé : on conserve', 'Profiter de leur défense haute']],
     ['transDef', '🔥 À la perte du ballon', ['Contre-pressing 5 secondes', 'Faute tactique si nécessaire', 'Repli immédiat derrière le ballon', 'Fermer l\'axe d\'abord']]];
   const OPP_CHIPS = ['Jeu long', 'Rapides sur les côtés', 'Faibles dans les airs', 'Défense haute : attaquer la profondeur', 'Pressing haut', 'Bloc bas', 'Dangereux sur CPA', 'Fragiles sur CPA', 'Gardien fébrile', 'Physiques', 'Techniques', 'Fin de match difficile pour eux'];
+  // (1.28) the words of football; the other sports get neutral ones (see below: OPP, KEYS, WARM, KITS, MODELS, systemsOf)
   const KEY_CHIPS = ['Gagner les duels et les deuxièmes ballons', 'Rester compacts', 'Presser ensemble', 'Jouer simple et vite', 'Attaquer la profondeur', 'Concentration sur les coups de pied arrêtés', 'Communiquer', 'Ne jamais lâcher', 'Les 10 premières minutes à fond', 'Respect de l\'arbitre et de l\'adversaire'];
   const SYSTEMS = { 11: ['4-4-2', '4-3-3', '4-2-3-1', '4-1-4-1', '3-5-2', '3-4-3', '5-3-2', '4-4-2 losange'], 8: ['3-3-1', '2-3-2', '3-2-2', '2-4-1', '3-1-3'], 5: ['2-2', '1-2-1', '2-1-1'] };
   const WARMUP = [['Activation : footing, mobilité articulaire', 5], ['Gammes athlétiques (montées de genoux, talons-fesses, pas chassés)', 5], ['Conservation / rondos à deux touches', 5], ['Jeu à thème ou finition', 5], ['Accélérations et sprints courts', 3], ['Retour au vestiaire, derniers mots', 2]];
@@ -7401,6 +7374,25 @@ var Prepa = (() => {
     2: [['Échauffement avec ballon', 15], ['Conservation et transitions', 15], ['Mise en place du plan de jeu contre l\'adversaire', 20], ['Finition : centres et frappes', 15], ['Match à thème', 15]],
     3: [['Échauffement athlétique', 15], ['Jeu réduit 4c4 intense, 4 × 4 min', 20], ['Exercice tactique (thème de la semaine)', 20], ['Match avec consignes', 20]],
     4: [['Échauffement technique', 15], ['Conservation, circulation du ballon', 20], ['Technique par poste', 20], ['Petit match libre', 15]] };
+  const foot = () => typeof Sport === 'undefined' || Sport.isFoot();
+  const MOMENTS_OTHER = [['withBall', '🎯 Avec le ballon', ['Monter le ballon calmement', 'Jouer vite vers l\'avant', 'Écarter le jeu, changer de côté', 'Chercher le meilleur tir', 'Utiliser notre point fort', 'Patience, faire circuler le ballon']],
+    ['withoutBall', '🛡️ Sans le ballon', ['Défense serrée, se parler', 'Presser haut dès la remise en jeu', 'Défendre en reculant, fermer l\'axe', 'Pousser l\'adversaire vers les côtés', 'Rester entre son joueur et le but', 'Se couvrir les uns les autres']],
+    ['transOff', '⚡ À la récupération', ['Première passe vers l\'avant', 'Contre-attaque à plusieurs', 'Si c\'est fermé : on reconstruit', 'Profiter de leur repli lent']],
+    ['transDef', '🔥 À la perte du ballon', ['Gêner tout de suite le porteur', 'Repli immédiat', 'Revenir protéger le but d\'abord', 'Pas de faute inutile']]];
+  const MOM = () => foot() ? MOMENTS : MOMENTS_OTHER;
+  const OPP_OTHER = ['Jeu rapide', 'Défense agressive', 'Défense de zone', 'Très physiques', 'Très techniques', 'Dangereux sur phases arrêtées', 'Fragiles sur phases arrêtées', 'Un joueur clé', 'Peu de remplaçants', 'Fin de match difficile pour eux'];
+  const KEY_OTHER = ['Gagner les duels', 'Défendre ensemble', 'Jouer simple et vite', 'Courir en contre-attaque', 'Concentration sur les phases arrêtées', 'Communiquer', 'Ne jamais lâcher', 'Les premières minutes à fond', 'Respect de l\'arbitre et de l\'adversaire'];
+  const WARM_OTHER = [['Activation : trottinement, mobilité articulaire', 5], ['Gammes athlétiques (montées de genoux, pas chassés)', 5], ['Passes et manipulation du ballon', 5], ['Situations de jeu ou tirs', 5], ['Accélérations courtes', 3], ['Retour au vestiaire, derniers mots', 2]];
+  const KIT_OTHER = ['Maillots, shorts, chaussettes', 'Brassard ou capitaine désigné', 'Ballons', 'Chasubles et plots', 'Trousse de secours, glace', 'Gourdes / eau', 'Licences et feuille de match', 'Sifflet, chrono'];
+  const MODEL_OTHER = {
+    1: [['Activation et vivacité (appuis, réactions)', 10], ['Jeu de passes à effectif réduit', 10], ['Phases arrêtées : nos combinaisons', 10], ['Phases arrêtées : défendre', 10], ['Petit match court et intense, 3 × 3 min', 10], ['Mise en place du plan de jeu sans opposition', 5]],
+    2: [['Échauffement avec ballon', 15], ['Attaque et défense placées', 15], ['Mise en place du plan de jeu contre l\'adversaire', 20], ['Tirs et finitions', 15], ['Match à thème', 15]],
+    3: [['Échauffement athlétique', 15], ['Petit match intense, 4 × 4 min', 20], ['Exercice tactique (thème de la semaine)', 20], ['Match avec consignes', 20]],
+    4: [['Échauffement technique', 15], ['Passes et circulation du ballon', 20], ['Technique par poste', 20], ['Petit match libre', 15]] };
+  const OPP = () => foot() ? OPP_CHIPS : OPP_OTHER, KEYS = () => foot() ? KEY_CHIPS : KEY_OTHER, WARM = () => foot() ? WARMUP : WARM_OTHER;
+  const KITS = () => foot() ? KIT : KIT_OTHER, MODELS = () => foot() ? MODEL : MODEL_OTHER;
+  // the systems of the team's sport and format (the session library's ones for the other sports)
+  const systemsOf = teamId => { if (foot()) return SYSTEMS[fmt(teamId)] || SYSTEMS[11]; const f = fmt(teamId), l = (typeof SesLib !== 'undefined' ? SesLib.systems() : []).filter(x => x.fmt === f).map(x => x.sys); return l.length ? l : (typeof SesLib !== 'undefined' ? [...new Set(SesLib.systems().map(x => x.sys))] : []); };
 
   const P = m => (m.prep = m.prep || {});
   const get = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
@@ -7514,7 +7506,7 @@ var Prepa = (() => {
         ${chipsAdd('week.theme', ['Pressing et récupération haute', 'Défendre les centres', 'Transitions rapides', 'Coups de pied arrêtés', 'Conservation sous pression', 'Finition'])}</section>`;
   }
   async function newSession(m, date, j) {
-    const ex = (MODEL[j] || MODEL[2]).map(([title, duration]) => ({ id: Store.uid(), title, duration, org: '', consignes: '', materiel: '', schemaId: null }));
+    const ex = (MODELS()[j] || MODELS()[2]).map(([title, duration]) => ({ id: Store.uid(), title, duration, org: '', consignes: '', materiel: '', schemaId: null }));
     const theme = (P(m).week || {}).theme;
     const tr = Store.upsert('trainings', { id: Store.uid(), title: `${DAYS[j] ? DAYS[j][2] : 'Avant match'}${m.opponent ? ' (' + m.opponent + ')' : ''}`, date, time: '', teamId: m.teamId,
       goal: [DAYS[j] && DAYS[j][1], theme && 'Thème : ' + lines(theme).join(', ')].filter(Boolean).join('\n'), exercises: ex, presents: [] });
@@ -7528,10 +7520,10 @@ var Prepa = (() => {
     const past = S().matches.filter(x => x.id !== m.id && x.played && k && norm(x.opponent) === k).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
     return `<section class="card"><h2>🔎 ${esc(m.opponent || 'L\'adversaire')}</h2>
       ${past.length ? `<div class="prep-past">${past.map(x => { const r = x.gf > x.ga ? 'V' : x.gf < x.ga ? 'D' : 'N'; return `<span class="res-${r}"><b>${r}</b> ${x.gf}-${x.ga} · ${esc(UI.fmtDate(x.date, { day: 'numeric', month: 'short', year: '2-digit' }))}${(teamOf(x) || {}).name ? ' · ' + esc(teamOf(x).name) : ''}</span>`; }).join('')}</div>` : '<p class="muted small">Pas encore de match contre eux dans l\'appli.</p>'}
-      <label class="fld"><span>Leur système</span><select data-p="opp.system"><option value="">Je ne sais pas</option>${(SYSTEMS[fmt(m.teamId)] || SYSTEMS[11]).map(s => `<option ${o.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+      <label class="fld"><span>Leur système</span><select data-p="opp.system"><option value="">Je ne sais pas</option>${systemsOf(m.teamId).map(s => `<option ${o.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
       <div class="row2"><label class="fld"><span>💪 Leurs forces</span>${area('opp.strengths', o.strengths, 'Une par ligne')}</label><label class="fld"><span>🎯 Leurs faiblesses</span>${area('opp.weaknesses', o.weaknesses, 'Une par ligne')}</label></div>
       <p class="lbl">Propositions : touche pour ajouter</p>
-      <div class="prep-two"><div><span class="muted small">Forces</span>${chipsAdd('opp.strengths', OPP_CHIPS)}</div><div><span class="muted small">Faiblesses</span>${chipsAdd('opp.weaknesses', OPP_CHIPS)}</div></div>
+      <div class="prep-two"><div><span class="muted small">Forces</span>${chipsAdd('opp.strengths', OPP())}</div><div><span class="muted small">Faiblesses</span>${chipsAdd('opp.weaknesses', OPP())}</div></div>
       <label class="fld"><span>⭐ Joueurs à surveiller</span>${area('opp.players', o.players, 'ex : n°9, grand et fort de la tête\nn°7, très rapide, pied gauche')}</label>
       <label class="fld"><span>🚩 Leurs coups de pied arrêtés</span>${area('opp.cpa', o.cpa, 'ex : corners rentrants, un joueur sur le gardien', 2)}</label>
       <label class="fld"><span>Notes, vidéo, ce qu'on sait d'eux</span>${area('opp.notes', o.notes, 'Classement, derniers résultats, terrain…', 2)}</label></section>`;
@@ -7541,12 +7533,12 @@ var Prepa = (() => {
   function stPlan(m) {
     const pl = P(m).plan || {}, lineup = m.lineupId && Store.get('schemas', m.lineupId), conv = (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName);
     return `<section class="card"><h2>🧠 Système et composition</h2>
-      <div class="row2"><label class="fld"><span>Notre système</span><select data-p="plan.system"><option value="">—</option>${(SYSTEMS[fmt(m.teamId)] || SYSTEMS[11]).map(s => `<option ${pl.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+      <div class="row2"><label class="fld"><span>Notre système</span><select data-p="plan.system"><option value="">—</option>${systemsOf(m.teamId).map(s => `<option ${pl.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
         <label class="fld"><span>Capitaine</span><select data-p="plan.captain"><option value="">—</option>${conv.map(x => `<option value="${x.id}" ${pl.captain === x.id ? 'selected' : ''}>${esc(Store.fullName(x))}</option>`).join('')}</select></label></div>
       ${lineup ? `<a class="prep-lineup" href="#/schema/${lineup.id}"><img alt="Composition" src="${UI.thumb(lineup)}"></a>` : `<p class="muted small">La composition se fait sur la page du match (convoqués puis « Faire la composition »).</p><button class="btn soft" data-pa="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
       ${pl.imported ? `<section class="card"><h2>📋 Plan de jeu (AssistCoachAI)</h2><p class="pre">${esc(pl.imported)}</p></section>` : ''}
       <section class="card"><h2>Les 4 moments du match</h2><p class="muted small">1 à 3 consignes par moment, des phrases courtes avec un verbe d'action.</p>
-      ${MOMENTS.map(([k, l, sug]) => `<div class="prep-moment"><label class="fld"><span>${l}</span>${area('plan.' + k, pl[k], 'Une consigne par ligne', 2)}</label>${chipsAdd('plan.' + k, sug)}</div>`).join('')}</section>
+      ${MOM().map(([k, l, sug]) => `<div class="prep-moment"><label class="fld"><span>${l}</span>${area('plan.' + k, pl[k], 'Une consigne par ligne', 2)}</label>${chipsAdd('plan.' + k, sug)}</div>`).join('')}</section>
       <section class="card"><h2>🚩 Coups de pied arrêtés</h2>
         <div class="row2"><label class="fld"><span>Corners pour nous (tireur, placement)</span>${area('plan.cpaFor', pl.cpaFor, 'ex : tireur Adam, rentrant, 2 au premier poteau', 2)}</label>
           <label class="fld"><span>Corners contre nous</span>${area('plan.cpaAgainst', pl.cpaAgainst, 'ex : zone à 6, Karim sur leur n°9', 2)}</label>
@@ -7565,7 +7557,7 @@ var Prepa = (() => {
       <label class="fld"><span>🎯 L'objectif du match</span><input data-p="talk.objective" value="${esc(t.objective || '')}" placeholder="ex : Gagner et garder la 3e place, ne pas encaisser sur CPA"></label>
       <div class="lbl">2 · Les 3 clés</div>
       ${[0, 1, 2].map(i => `<label class="fld inline prep-key"><b>${i + 1}</b><input data-p="talk.keys.${i}" value="${esc(keys[i] || '')}" placeholder="Clé n°${i + 1}"></label>`).join('')}
-      ${chipsAdd('talk.keys', KEY_CHIPS)}
+      ${chipsAdd('talk.keys', KEYS())}
       <label class="fld"><span>3 · Le mot de la fin</span>${area('talk.final', t.final, Supporters.SLOGAN, 2)}</label>
       <label class="fld"><span>🔗 Lien vidéo pour les joueurs (YouTube, Drive…)</span><input data-p="talk.videoUrl" value="${esc(t.videoUrl || '')}" placeholder="https://youtu.be/…  (visible sur la page des joueurs)" inputmode="url"></label>
       <label class="fld"><span>🎬 Briefing vidéo à montrer (sur cet appareil)</span><select data-p="talk.briefing"><option value="">Aucun</option>${bs.map(b => `<option value="${b.id}" ${t.briefing === b.id ? 'selected' : ''}>${esc(b.name)} (${b.items.length})</option>`).join('')}</select></label>
@@ -7589,10 +7581,10 @@ var Prepa = (() => {
       <label class="fld inline"><span>Échauffement</span><select data-p="day.warmMin" data-redraw="1">${[15, 20, 25, 30].map(n => `<option value="${n}" ${+(dy.warmMin || 25) === n ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
       <p class="muted small">20 à 25 minutes suffisent chez les adultes (moins pour les jeunes) : plus long, les joueurs arrivent fatigués au coup d'envoi.</p></section>
       <section class="card"><div class="row-head"><h2>🏃 L'échauffement</h2><button class="linkish" data-pa="resetwarm">Tout décocher</button></div>
-      <div class="prep-checks">${WARMUP.map(([l, n], i) => `<label class="prep-check"><input type="checkbox" data-p="day.warm.${i}" ${warm[i] ? 'checked' : ''}><span><b>${Math.max(1, Math.round(n * +(dy.warmMin || 25) / 25))} min</b> · ${esc(l)}</span></label>`).join('')}</div>
+      <div class="prep-checks">${WARM().map(([l, n], i) => `<label class="prep-check"><input type="checkbox" data-p="day.warm.${i}" ${warm[i] ? 'checked' : ''}><span><b>${Math.max(1, Math.round(n * +(dy.warmMin || 25) / 25))} min</b> · ${esc(l)}</span></label>`).join('')}</div>
       <label class="fld"><span>Notes d'échauffement</span>${area('day.warmNotes', dy.warmNotes, 'ex : gardien avec l\'entraîneur des gardiens à part', 2)}</label></section>
       <section class="card"><h2>🎒 Le matériel</h2>
-      <div class="prep-checks">${KIT.map((l, i) => `<label class="prep-check"><input type="checkbox" data-p="day.kit.${i}" ${kit[i] ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>
+      <div class="prep-checks">${KITS().map((l, i) => `<label class="prep-check"><input type="checkbox" data-p="day.kit.${i}" ${kit[i] ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>
       <label class="fld"><span>Autre chose à ne pas oublier</span>${area('day.other', dy.other, 'ex : clés du vestiaire, feuille de covoiturage', 2)}</label></section>`;
   }
 
@@ -7660,7 +7652,7 @@ var Prepa = (() => {
       o.system || o.strengths || o.weaknesses || o.players ? `<h2>🔎 ${esc(m.opponent || 'L\'adversaire')}${o.system ? ' · ' + esc(o.system) : ''}</h2><div class="pp-cols">
         ${lines(o.strengths).length ? `<div><h3>💪 Leurs forces</h3>${bl(lines(o.strengths), 'bad')}</div>` : ''}${lines(o.weaknesses).length ? `<div><h3>🎯 Leurs faiblesses</h3>${bl(lines(o.weaknesses), 'good')}</div>` : ''}
         ${lines(o.players).length ? `<div><h3>⭐ À surveiller</h3>${bl(lines(o.players))}</div>` : ''}${lines(o.cpa).length ? `<div><h3>🚩 Leurs CPA</h3>${bl(lines(o.cpa))}</div>` : ''}</div>` : '',
-      MOMENTS.some(([k]) => lines(pl[k]).length) ? `<h2>Le plan de jeu</h2><div class="pp-grid">${MOMENTS.map(([k, l]) => `<div><h3>${l}</h3>${bl(lines(pl[k]))}</div>`).join('')}</div>` : '',
+      MOMENTS.some(([k]) => lines(pl[k]).length) ? `<h2>Le plan de jeu</h2><div class="pp-grid">${MOM().map(([k, l]) => `<div><h3>${l}</h3>${bl(lines(pl[k]))}</div>`).join('')}</div>` : '',
       pl.cpaFor || pl.cpaAgainst || pl.freeKicks || pl.penalty ? `<h2>🚩 Coups de pied arrêtés</h2><div class="pp-grid">${[['Corners pour nous', pl.cpaFor], ['Corners contre nous', pl.cpaAgainst], ['Coups francs', pl.freeKicks], ['Penalty', pl.penalty]].filter(([, v]) => v).map(([l, v]) => `<div><h3>${l}</h3>${bl(lines(v))}</div>`).join('')}</div>` : '',
       roles.length ? `<h2>👤 Les rôles</h2><div class="pp-roles">${roles.map(([x, v]) => `<p><b>${esc(Store.shortName(x))}</b><span>${esc(v)}</span></p>`).join('')}</div>` : '',
       keys.length ? `<h2>🔑 Nos 3 clés</h2><div class="pp-keys">${keys.map((k, i) => `<p><b>${i + 1}</b><span>${esc(k)}</span></p>`).join('')}</div>` : '',
@@ -7749,7 +7741,7 @@ var Prepa = (() => {
       const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = pl.captain && Store.get('players', pl.captain);
       if (lineup) { await Board.ensureBg(lineup); P.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); P.image(Exporter.frameCanvas(lineup, 0, 0, { w: 1500, h: 980, names: true, homeBib: club.homeBib }), P.CW * .85); }
       else if (cap) { P.label('Capitaine'); P.para(Store.fullName(cap)); }
-      if (MOMENTS.some(([k]) => lines(pl[k]).length)) { P.h2('Les 4 moments du match'); MOMENTS.forEach(([k, l]) => text(l.replace(/^\S+\s/, ''), pl[k])); }
+      if (MOMENTS.some(([k]) => lines(pl[k]).length)) { P.h2('Les 4 moments du match'); MOM().forEach(([k, l]) => text(l.replace(/^\S+\s/, ''), pl[k])); }
       const cpa = [['Corners pour nous', pl.cpaFor], ['Corners contre nous', pl.cpaAgainst], ['Coups francs', pl.freeKicks], ['Penalty', pl.penalty]].filter(([, v]) => v);
       if (cpa.length) { P.h2('Coups de pied arrêtés'); cpa.forEach(([l, v]) => text(l, v)); }
       const roles = Object.entries(pl.roles || {}).filter(([, v]) => v).map(([id, v]) => [Store.get('players', id), v]).filter(([x]) => x);
@@ -7778,8 +7770,8 @@ var Prepa = (() => {
       const tl = timeline(m);
       if (tl.length) { P.label('Le déroulé'); P.table(['Heure', 'Moment'], tl.map(([mn, l]) => [hm(mn), l.replace(/^\S+\s/, '')]), [.2, .8]); }
       const k = +(dy.warmMin || 25) / 25;
-      P.h2(`Échauffement (${dy.warmMin || 25} min)`); ticks(WARMUP.map(([l, n]) => `${Math.max(1, Math.round(n * k))} min · ${l}`)); if (dy.warmNotes) P.para(dy.warmNotes);
-      P.h2('Matériel'); ticks([...KIT, ...lines(dy.other)]);
+      P.h2(`Échauffement (${dy.warmMin || 25} min)`); ticks(WARM().map(([l, n]) => `${Math.max(1, Math.round(n * k))} min · ${l}`)); if (dy.warmNotes) P.para(dy.warmNotes);
+      P.h2('Matériel'); ticks([...KITS(), ...lines(dy.other)]);
       const conv = (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (a.number || 99) - (b.number || 99));
       if (conv.length) { P.h2(`Joueurs convoqués (${conv.length}) · présents`); ticks(conv.map(x => `${x.number ? x.number + '. ' : ''}${Store.fullName(x)}`)); }
     }
@@ -13865,7 +13857,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 28, UPD = 'ea-update-tried';
+  const BUILD = 29, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

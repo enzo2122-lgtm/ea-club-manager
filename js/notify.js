@@ -9,7 +9,6 @@ const Notify = (() => {
   const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const prefs = () => Object.assign({ messages: true, planning: true }, S().ui.notifPrefs || {});
   const b64 = s => { const r = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
-  const fnUrl = () => { const c = Cloud.cfg(); return c ? c.url.replace(/\/+$/, '') + '/functions/v1/raincy-push' : ''; };
   const why = e => e && e.code === 'MISE_A_JOUR' ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes. ().' : (e && e.message) || 'Erreur';
   // the app's service worker (it shows the notifications); null if it does not answer within 4 s
   const ready = () => Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(() => r(null), 4000))]);
@@ -70,7 +69,6 @@ const Notify = (() => {
     if (act === 'on') { b.disabled = true; try { await subscribe(true); toast('Notifications activées sur ce téléphone 🔔'); } catch (e) { toast(why(e), 'err'); } rerender(); return; }
     if (act === 'off') { const sub = await current(); if (sub) { try { await Cloud.pushUnsub(sub.endpoint); } catch (e) {} await sub.unsubscribe().catch(() => {}); } S().ui.notifOn = false; Store.persistNow(); toast('Notifications désactivées sur ce téléphone'); rerender(); return; }
     if (act === 'test') { try { const n = await Cloud.pushTest(); toast(n ? 'Test envoyé : la notification arrive dans quelques secondes' : 'Ce téléphone n\'est pas encore inscrit : touche « Activer »', n ? '' : 'err'); } catch (e) { toast(why(e), 'err'); } return; }
-    if (act === 'setup') return setupDialog(rerender);
   }
   async function onChange(t) {
     if (!t.dataset.notifpref) return false;
@@ -80,43 +78,15 @@ const Notify = (() => {
   }
 
   /* ---------- responsable: once for the club ---------- */
+  // (1.28) on Clubbo the notifications are set up once for every club (the platform): nothing to do for a club
   function adminCard() {
     return `<div class="notif-admin"><b>🔔 Notifications des coachs</b> <span class="muted small" id="notifSrv"></span>
-      <button class="btn soft" data-notif="setup">${I.settings}<span>Activer / vérifier</span></button></div>`;
+      <span class="muted small">Chaque coach les active sur son téléphone : Réglages → Mon compte.</span></div>`;
   }
   async function mountAdmin(root) {
     const el = $('#notifSrv', root); if (!el) return;
     try { const k = await Cloud.pushKey(); if (el.isConnected) el.textContent = k ? '· activées ✓' : '· pas encore activées'; }
     catch (e) { if (el.isConnected) el.textContent = e.code === 'MISE_A_JOUR' ? '· serveur à mettre à jour' : ''; }
   }
-  function setupDialog(rerender) {
-    modal({ title: 'Activer les notifications du club', body: `
-      <p>Une seule fois, pour tout le club. Ensuite chaque coach active les notifications sur son téléphone (Réglages → Mon compte).</p>
-      <ol class="wizard">
-        <li><b>Mettre à jour le serveur</b> : Réglages → Serveur du club → « Mettre à jour le serveur » (script à coller dans Supabase, comme d'habitude).</li>
-        <li><b>Créer l'envoi des notifications</b> : touche « Copier le programme », puis ouvre <a href="https://supabase.com/dashboard/project/_/functions" target="_blank" rel="noopener">Supabase → Edge Functions</a>.
-          <b>Deploy a new function</b> → <b>Via Editor</b>. Nom : <code>raincy-push</code>. Efface le code d'exemple, colle le programme, puis <b>Deploy</b>.</li>
-        <li>Dans la fonction <code>raincy-push</code> → <b>Details</b> (ou Settings) : désactive <b>Verify JWT</b>, puis enregistre.</li>
-        <li>Reviens ici et touche <b>Vérifier</b>.</li></ol>
-      <p class="muted small">Aucun mot de passe ni clé à recopier : les clés de sécurité sont créées toutes seules et restent sur le serveur du club.</p>`,
-      actions: [
-        { label: 'Copier le programme', icon: I.copy, onClick: () => { fetch('supabase/raincy-push.ts?t=' + Date.now()).then(r => r.text()).then(t => navigator.clipboard.writeText(t)).then(() => toast('Programme copié : colle-le dans Supabase')).catch(() => toast('Copie impossible : ouvre supabase/raincy-push.ts sur GitHub', 'err')); return false; } },
-        { label: 'Vérifier', kind: 'primary', icon: I.check, onClick: (close) => { verify().then(ok => { if (ok) { close(); rerender && rerender(); } }); return false; } }] });
-  }
-  async function verify() {
-    const b = UI.busy('Vérification des notifications…');
-    try {
-      const cfg = await Cloud.pushSetup(fnUrl());
-      let r; try { r = await fetch(fnUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-raincy-secret': cfg.secret }, body: '{"init":true}' }); }
-      catch (e) { toast('La fonction « raincy-push » ne répond pas : vérifie qu\'elle est bien déployée (étape 2).', 'err'); return false; }
-      if (r.status === 401) { toast('La fonction refuse l\'appel : désactive « Verify JWT » (étape 3).', 'err'); return false; }
-      if (r.status === 404) { toast('Fonction introuvable : son nom doit être exactement raincy-push (étape 2).', 'err'); return false; }
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.publicKey) { toast('Erreur de la fonction : ' + (j.error || r.status), 'err'); return false; }
-      toast('Notifications du club activées ✓ Chaque coach peut maintenant les activer sur son téléphone.');
-      return true;
-    } catch (e) { toast(why(e), 'err'); return false; } finally { b.done(); }
-  }
-
   return { refresh, accountSection, mountAccount, onClick, onChange, adminCard, mountAdmin, supported };
 })();
