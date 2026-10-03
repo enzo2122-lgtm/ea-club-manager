@@ -3443,7 +3443,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.33';
+  const VERSION = '1.34';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -3762,7 +3762,9 @@ var Cloud = (() => {
   }
   // Functions that identify the person otherwise than by the club access (login, club creation, owner of the platform)
   const NO_K = { club_login: 1, club_me: 1, club_teams_done: 1, club_change_pw: 1, club_logout: 1, ea_create_club: 1,
-    ea_owner_init: 1, ea_owner_codes: 1, ea_owner_clubs: 1, ea_owner_club_set: 1, ea_owner_push: 1 };
+    ea_owner_init: 1, ea_owner_codes: 1, ea_owner_clubs: 1, ea_owner_club_set: 1, ea_owner_push: 1,
+    // (1.34) the owner's space: no club login sent (the server refused these four calls)
+    ea_owner_sub: 1, ea_owner_votes: 1, ea_owner_club_plan: 1, ea_owner_requests: 1 };
   function genKey(n = 24) {
     const a = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', r = crypto.getRandomValues(new Uint8Array(n));
     return Array.from(r, x => a[x % a.length]).join('');
@@ -13971,7 +13973,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 34, UPD = 'ea-update-tried';
+  const BUILD = 35, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vérification de l'appli</title>
+<style>
+  :root { --bg: #f4f2ef; --card: #fff; --ink: #14172b; --muted: #5b6075; --ok: #15803d; --bad: #b91c1c; --line: #e3dfda; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0d1226; --card: #161d38; --ink: #eceef6; --muted: #a2a8c0; --ok: #4ade80; --bad: #f87171; --line: #263156; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  h1 { font-size: 22px; margin: 0; } h2 { font-size: 17px; margin: 0 0 6px; }
+  .muted { color: var(--muted); } .ok { color: var(--ok); } .bad { color: var(--bad); }
+  label { margin-right: 14px; white-space: nowrap; } button { font: inherit; padding: 9px 16px; border-radius: 10px; border: 0; background: #8c1024; color: #fff; cursor: pointer; }
+  button[disabled] { opacity: .5; }
+  #frames { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+  iframe { border: 1px solid var(--line); border-radius: 12px; background: #fff; height: 640px; }
+  pre { white-space: pre-wrap; margin: 0; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; } td, th { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>🔎 Vérification de l'appli</h1>
+    <p class="muted">Un club inventé est chargé, puis chaque page est ouverte et ses boutons sont touchés (sauf supprimer, importer, se déconnecter…).
+      Les erreurs de l'appli sont listées à la fin. Rien n'est envoyé au serveur : l'appli tourne ici sans serveur.</p>
+    <div id="opts"></div>
+    <p><button id="go">Lancer la vérification</button> <span id="status" class="muted"></span></p>
+  </div>
+  <div class="card" id="report" hidden><h2>Résultat</h2><div id="out"></div></div>
+  <div id="frames"></div>
+</main>
+<script>
+/* tools/verif.html — servir le dossier de l'appli en local (node tools/serveur.js), puis ouvrir http://localhost:8790/tools/verif.html
+   Le club inventé remplace les données de l'appli DANS CE NAVIGATEUR : la page ne marche donc qu'en local (localhost). */
+(async () => {
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const $ = s => document.querySelector(s), st = t => { $('#status').textContent = t; };
+  if (!local) { $('#go').disabled = true; st('Cette page ne marche qu\'en local (http://localhost:8790/tools/verif.html) : elle remplacerait les données de l\'appli de ce navigateur.'); return; }
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const appJs = await (await fetch('../js/app.js', { cache: 'no-store' })).text();
+  const multi = /sport\.js/.test(await (await fetch('../build.js', { cache: 'no-store' })).text());
+  const SPORTS = multi ? ['foot', 'basket', 'hand', 'rugby', 'volley'] : ['foot'];
+  // the routes of the app (the table in App.route)
+  const routes = [...new Set([...appJs.slice(appJs.indexOf("const fn = { '': Views.home")).split('}[name]')[0].matchAll(/(?:^|[\s,{])(\w+):/g)].map(m => m[1]))].filter(r => r !== 'r' && r !== 'x');
+  $('#opts').innerHTML = `<p>${SPORTS.map(s => `<label><input type="checkbox" name="sp" value="${s}" ${s === 'foot' ? 'checked' : ''}> ${s}</label>`).join('')}</p>
+    <p><label><input type="checkbox" id="roleAdmin" checked> responsable</label><label><input type="checkbox" id="roleCoach" checked> coach d'une catégorie</label>
+    <label><input type="checkbox" id="wDesk" checked> ordinateur</label><label><input type="checkbox" id="wPhone" checked> téléphone</label>
+    <label>boutons par page <select id="max"><option value="8">8 (rapide)</option><option value="25" selected>25</option><option value="60">60 (complet)</option></select></label></p>
+    <p class="muted">${routes.length} pages dans l'appli : ${routes.join(', ')}</p>`;
+
+  // the app page, without its server (tools/serveur.js empties its config and adds the error collector)
+  const DEMO = multi ? '' : 'demo=1';
+  function frame(width) {
+    const f = document.createElement('iframe'); f.style.width = width + 'px'; $('#frames').appendChild(f); return f;
+  }
+  function load(f) {
+    return new Promise(res => { f.onload = () => res(); f.src = '../verif-app.html?' + DEMO + '&t=' + Date.now() + '#/'; });
+  }
+  async function started(w) { for (let i = 0; i < 80 && !w.__appStarted; i++) await wait(100); await wait(600); }
+
+  async function crawl(w, rs, max) {
+    const d = w.document, out = [];
+    w.HTMLAnchorElement.prototype.click = function () {};
+    const T = d.getElementById('toast');
+    if (T) new w.MutationObserver(() => { if (/err|bad/.test(T.className) && T.textContent) w.__toasts.push(w.location.hash + ' :: ' + T.textContent.slice(0, 140)); }).observe(T, { attributes: true, childList: true, subtree: true, characterData: true });
+    const modalOpen = () => { const m = d.getElementById('modal'); return m && !m.hidden; };
+    const closeAll = async () => {
+      for (let k = 0; k < 4 && modalOpen(); k++) {
+        const x = d.querySelector('#modal .x, #modal [aria-label="Fermer"], #modal [data-close]');
+        if (x) x.click(); else d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await wait(80);
+      }
+      const m = d.getElementById('modal'); if (m) m.hidden = true;
+      d.querySelectorAll('.rs-back, .link-gate').forEach(x => x.remove());
+    };
+    const SKIP = /supprim|delete|trash|danger|logout|sortir|déconnect|reset|réinitial|retirer|quitter|quit|vider|effacer|forget|fichier|import|photo|vidéo|video|caméra|micro|recevoir|notif|créer mon club|data-demo-act|mettre à jour l|recharg/;
+    for (const r of rs) {
+      w.location.hash = '#/' + r; await wait(450); let clicked = 0;
+      const sel = '#view button:not([disabled]), #view summary';
+      for (let i = 0; i < max; i++) {
+        if (w.location.hash !== '#/' + r) { w.location.hash = '#/' + r; await wait(350); }
+        const b = [...d.querySelectorAll(sel)][i]; if (!b) break;
+        const t = (b.textContent + ' ' + b.className + ' ' + JSON.stringify(b.dataset)).toLowerCase();
+        if (SKIP.test(t)) continue;
+        try { b.click(); } catch (e) { w.__errs.push(r + ' :: clic ' + e.message); }
+        clicked++; await wait(160);
+        const busy = d.getElementById('busy'); if (busy && !busy.hidden) await wait(1500);
+        await closeAll();
+        if (d.body.classList.contains('editing')) { w.location.hash = '#/' + r; await wait(300); }
+      }
+      out.push([r, clicked]);
+    }
+    return out;
+  }
+
+  async function run(sport, role, width, max) {
+    const f = frame(width); const tag = `${sport} · ${role} · ${width < 600 ? 'téléphone' : 'ordinateur'}`;
+    st(`${tag} : préparation du club inventé…`);
+    await load(f); let w = f.contentWindow; await started(w);
+    // the made-up club (Demo.build), as responsable or as the coach of one category
+    if (multi) { w.Store.state.club.sport = sport; w.Sport.apply(); }
+    const s = (w.Demo || w.eval('Demo')).build(sport);
+    if (role === 'coach') { const me = s.staff.find(x => x.id === 'demo-me'); me.teamIds = [s.teams[0].id]; me.role = 'Éducateur'; s.auth.session.admin = false; }
+    Object.keys(w.Store.state).forEach(k => delete w.Store.state[k]); Object.assign(w.Store.state, s);
+    w.Store.persistNow(); await wait(500);
+    await load(f); w = f.contentWindow; await started(w);
+    if (!w.Auth || !w.Auth.current()) return { tag, error: 'connexion du club inventé impossible', errs: w.__errs || [] };
+    const S = w.Store.state, sees = id => !w.Auth.sees || w.Auth.sees(id);
+    const up = S.matches.find(m => !m.played && sees(m.teamId)), played = S.matches.find(m => m.played && sees(m.teamId));
+    const tr = S.trainings.find(t => sees(t.teamId)), team = S.teams.find(t => sees(t.id)), pl = S.players.find(p => (p.teamIds || []).some(sees));
+    const withId = { equipe: team, joueur: pl, entrainement: tr, match: up, prepa: up, direct: up, jourj: up, codes: team, progression: pl, tests: team, bilan: team };
+    const rs = ['', ...routes.filter(r => r !== 'schema' && r !== 'tableau'), 'tableau/11',
+      ...Object.entries(withId).filter(([, o]) => o).map(([r, o]) => r + '/' + o.id), ...(played ? ['match/' + played.id] : [])];
+    st(`${tag} : ${rs.length} pages…`);
+    const visited = await crawl(w, rs, max);
+    const res = { tag, pages: visited.length, clicks: visited.reduce((a, [, n]) => a + n, 0), errs: [...new Set(w.__errs)], toasts: [...new Set(w.__toasts)] };
+    f.remove(); return res;
+  }
+
+  $('#go').onclick = async () => {
+    $('#go').disabled = true; $('#report').hidden = true;
+    const sports = [...document.querySelectorAll('[name=sp]:checked')].map(x => x.value);
+    const roles = [$('#roleAdmin').checked && 'responsable', $('#roleCoach').checked && 'coach'].filter(Boolean);
+    const widths = [$('#wDesk').checked && 1100, $('#wPhone').checked && 390].filter(Boolean);
+    const max = +$('#max').value, results = [];
+    for (const sp of sports) for (const r of roles) for (const wd of widths) {
+      try { results.push(await run(sp, r, wd, max)); } catch (e) { results.push({ tag: `${sp} · ${r} · ${wd}`, error: e.message, errs: [] }); }
+    }
+    const bad = results.filter(r => r.error || r.errs.length); // the red messages shown to the user are listed, but are often normal (« aucun arbitre… »)
+    $('#out').innerHTML = `<p class="${bad.length ? 'bad' : 'ok'}"><b>${bad.length ? '❌ ' + bad.length + ' essai(s) avec des erreurs' : '✅ Aucune erreur'}</b></p>
+      <table><tr><th>Essai</th><th>Pages</th><th>Boutons</th><th>Erreurs</th></tr>${results.map(r => `<tr><td>${r.tag}</td><td>${r.pages || '-'}</td><td>${r.clicks || '-'}</td>
+      <td>${r.error ? `<span class="bad">${r.error}</span>` : ''}${r.errs.length ? `<pre class="bad">${r.errs.map(e => e.replace(/</g, '&lt;')).join('\n')}</pre>` : ''}${(r.toasts || []).length ? `<pre class="muted">messages en rouge affichés (à relire, souvent normaux) :\n${r.toasts.map(e => e.replace(/</g, '&lt;')).join('\n')}</pre>` : ''}${!r.error && !r.errs.length && !(r.toasts || []).length ? '<span class="ok">aucune</span>' : ''}</td></tr>`).join('')}</table>`;
+    $('#report').hidden = false; $('#go').disabled = false; st('Terminé.');
+    window.__verifResult = results;
+  };
+})();
+</script>
+</body>
+</html>

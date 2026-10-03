@@ -34,6 +34,13 @@ Ensuite, dans cet espace :
 4. Il invite ses éducateurs (**Réglages → Inviter les éducateurs**). Chacun se connecte ensuite partout avec le code du club, son nom, son prénom et son mot de passe.
 5. Il remet un **code personnel** à chaque joueur ou à ses parents (**Codes personnels**), avec les cartes à imprimer et le QR code de chaque catégorie.
 
+## Vérifier avant de publier
+
+1. **Les fichiers et le serveur** : `node tools/verifier.js`. Il contrôle la syntaxe, le fichier `js/app.bundle.js` (sinon : `node build.js`), les appels entre modules, les fichiers de l'appli hors ligne, le numéro de version partout, et chaque fonction du serveur appelée par l'appli (avec de faux codes : le serveur refuse tout, rien n'est écrit). Il doit afficher « ✅ Aucun problème trouvé ».
+2. **Les pages et les boutons** : `node tools/serveur.js`, puis ouvre http://localhost:8790/tools/verif.html et touche **Lancer la vérification**. Un club inventé est chargé (chaque sport coché), chaque page est ouverte et ses boutons touchés (sauf supprimer, importer, se déconnecter…), en responsable et en coach, sur ordinateur et sur téléphone. Rien n'est envoyé au serveur. Cette page ne marche qu'en local : elle remplace les données de l'appli du navigateur.
+
+Depuis que FA Le Raincy est sur ce serveur, une modification du serveur touche tous les clubs : la faire seulement après avoir vérifié, et garder `supabase/ea-schema.sql` à jour.
+
 ## Données personnelles
 
 La plateforme héberge les données de tous les clubs, dont des mineurs. Avant d'accueillir des clubs : une politique de confidentialité, un contrat avec chaque club (qui reste responsable de ses licenciés), et un plan Supabase adapté (le plan gratuit met le projet en pause après une semaine sans activité et limite la taille de la base).
