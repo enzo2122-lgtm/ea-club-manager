@@ -38,6 +38,14 @@ Nom du cache de l'appli hors ligne : `raincy-coach-v…`. Même adresse (`/rainc
 - Clubbo : « réessaie dans quelques minutes. (). » (notify.js).
 - Raincy : `sync.js` remet le compteur à zéro quand l'adresse du serveur change : utile à garder dans Clubbo.
 
+## Étape 3 : le script de fabrication — FAIT (Clubbo 1.36)
+
+`node tools/fabriquer.js ../raincy-coach [version]` : copie le code de Clubbo, applique `club/fabrication.json` du club,
+pose la version, refait le bundle et lance la vérification. Raincy 4.0 (build 117) fabriqué et vérifié (4 essais complets,
+2 484 boutons, aucune erreur) sur la branche git **`raincy-4.0`** du dossier raincy-coach, **pas publiée** : le site reste en 3.76.
+Pour publier (avec le feu vert d'Enzo) : dans raincy-coach, `git checkout main && git merge raincy-4.0 && git push origin main`.
+Retour arrière possible : `git revert` du commit de fusion, puis push (les téléphones reprennent 3.76).
+
 ## Étape 2 : le mode « un seul club » dans Clubbo — FAIT (Clubbo 1.35)
 
 `js/appcfg.js` (chargé en premier par l'appli, les pages des familles et le service worker) lit `js/config.js` :
