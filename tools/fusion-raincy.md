@@ -38,9 +38,25 @@ Nom du cache de l'appli hors ligne : `raincy-coach-v…`. Même adresse (`/rainc
 - Clubbo : « réessaie dans quelques minutes. (). » (notify.js).
 - Raincy : `sync.js` remet le compteur à zéro quand l'adresse du serveur change : utile à garder dans Clubbo.
 
-## Étape 2 : le mode « un seul club » dans Clubbo
+## Étape 2 : le mode « un seul club » dans Clubbo — FAIT (Clubbo 1.35)
 
-Quand `js/config.js` contient `club` (code du club) :
+`js/appcfg.js` (chargé en premier par l'appli, les pages des familles et le service worker) lit `js/config.js` :
+`club`, `app`, `store` (préfixe de la mémoire), `db`, `crest`, `defaults`. Vérifié : écran de connexion sans code du club,
+téléphone sous Raincy 3.76 qui garde sa connexion et ses données, pièce du blason identique, 4 essais complets sans erreur,
+Clubbo inchangé (foot et hand sans erreur).
+
+Le `js/config.js` de Raincy sera :
+
+```js
+const CLUB_SERVER = {
+  url: 'https://mgdyurgsftkjvgbmmgdt.supabase.co', key: 'sb_publishable_…',
+  club: 'fa-le-raincy', app: 'Raincy Coach', store: 'raincy', db: 'raincy-coach', crest: 'icons/crest.png',
+  defaults: { name: 'FA Le Raincy', short: 'Raincy', slogan: "Plus d'un siècle de passion, d'effort et de victoires : Notre Club, Notre Histoire, Notre Fierté.",
+    city: 'Le Raincy', lat: 48.8993, lon: 2.5183, homeBib: 'bordeaux', awayBib: 'blanc' },
+};
+```
+
+Ce que fait le mode « un seul club » quand `js/config.js` contient `club` :
 - connexion sans code du club à taper ;
 - pas de « Créer mon club », de démo, ni d'espace propriétaire ;
 - nom de l'appli, icônes et noms de la mémoire du téléphone pris dans la config ;
