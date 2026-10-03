@@ -22,7 +22,7 @@ const Vol = (() => {
   const needed = m => tasksFor(m).reduce((a, t) => a + t.need, 0);
   const title = m => `${esc((Store.get('teams', m.teamId) || {}).name || '')} ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`;
   const upcoming = (days = 28) => { const t = UI.today(), end = new Date(Date.now() + days * 864e5).toISOString().slice(0, 10);
-    return S().matches.filter(m => !m.exempt && !m.played && m.date >= t && m.date <= end && (Auth.isAdmin() || Auth.sees(m.teamId))).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))); };
+    return S().matches.filter(m => !m.exempt && !m.played && m.date >= t && m.date <= end && (Auth.isAdmin() || !Auth.teams().length || Auth.sees(m.teamId))).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))); };
   // my duties (today / tomorrow / soon), for the home page
   function mine(days = 7) {
     const u = me(); if (!u) return [];

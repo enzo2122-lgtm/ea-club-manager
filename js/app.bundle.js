@@ -1693,7 +1693,8 @@ var Auth = (() => {
   };
   // What a dirigeant may see: a responsable sees every category, a coach only the ones chosen at his first connection
   // (the pitch planning and the club results stay common to everybody)
-  const allTeams = () => !user || isAdmin() || !myIds().some(id => Store.get('teams', id));
+  // (3.70) a coach without any category sees no team (before, he saw the whole club): the responsable gives him his categories
+  const allTeams = () => !user || isAdmin();
   const teams = () => allTeams() ? Store.state.teams : Store.state.teams.filter(t => myIds().includes(t.id));
   const sees = teamId => allTeams() || !teamId || myIds().includes(teamId);
   const seesPerson = p => allTeams() || (p.teamIds || []).some(id => myIds().includes(id)) || (user && p.id === user.id);
@@ -3391,7 +3392,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.28';
+  const VERSION = '1.29';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -9375,7 +9376,7 @@ var Vol = (() => {
   const needed = m => tasksFor(m).reduce((a, t) => a + t.need, 0);
   const title = m => `${esc((Store.get('teams', m.teamId) || {}).name || '')} ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`;
   const upcoming = (days = 28) => { const t = UI.today(), end = new Date(Date.now() + days * 864e5).toISOString().slice(0, 10);
-    return S().matches.filter(m => !m.exempt && !m.played && m.date >= t && m.date <= end && (Auth.isAdmin() || Auth.sees(m.teamId))).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))); };
+    return S().matches.filter(m => !m.exempt && !m.played && m.date >= t && m.date <= end && (Auth.isAdmin() || !Auth.teams().length || Auth.sees(m.teamId))).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))); };
   // my duties (today / tomorrow / soon), for the home page
   function mine(days = 7) {
     const u = me(); if (!u) return [];
@@ -9471,7 +9472,7 @@ var Refs = (() => {
   // a referee taken that day (an official match he referees elsewhere)
   const busy = (r, date) => (r.refGames || []).filter(g => g.date === date);
   const answer = (r, m) => (r.refAvail || {})[m.id] || (busy(r, m.date).length ? 'no' : '');
-  const canChoose = m => Auth.isAdmin() || (Auth.sees(m.teamId) && !mine());
+  const canChoose = m => Auth.isAdmin() || ((Auth.sees(m.teamId) || !Auth.teams().length) && !mine()); // a referee has no category: he sees the club's matches
 
   // home: a referee sees what waits for his answer
   function waiting() { const r = mine(); return r ? homeMatches().filter(m => !answer(r, m)).length : 0; }
@@ -12665,6 +12666,9 @@ var Quick = (() => {
 
   /* ---------- « Demain » : what is coming, what is missing ---------- */
   function tomorrowCard() {
+    // a coach without any category yet: who gives them
+    if (Auth.current() && !Auth.isAdmin() && !Auth.preview() && !Auth.teams().length) return `<section class="card tm-card"><h2>🧢 Tu n'as pas encore de catégorie</h2>
+      <p class="muted">Le responsable du club te les donne : Réglages → Comptes des dirigeants → « Catégories ». Ensuite tu vois les joueurs, les séances et les matchs de tes équipes.</p></section>`;
     const now = UI.today(), tm = addDays(now, 1), is = mine(), rows = [];
     const trs = S().trainings.filter(t => !t.model && is(t) && t.teamId && (t.date === tm || t.date === now)).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
     trs.forEach(t => {
@@ -13857,7 +13861,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 29, UPD = 'ea-update-tried';
+  const BUILD = 30, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -18,7 +18,7 @@ const Refs = (() => {
   // a referee taken that day (an official match he referees elsewhere)
   const busy = (r, date) => (r.refGames || []).filter(g => g.date === date);
   const answer = (r, m) => (r.refAvail || {})[m.id] || (busy(r, m.date).length ? 'no' : '');
-  const canChoose = m => Auth.isAdmin() || (Auth.sees(m.teamId) && !mine());
+  const canChoose = m => Auth.isAdmin() || ((Auth.sees(m.teamId) || !Auth.teams().length) && !mine()); // a referee has no category: he sees the club's matches
 
   // home: a referee sees what waits for his answer
   function waiting() { const r = mine(); return r ? homeMatches().filter(m => !answer(r, m)).length : 0; }

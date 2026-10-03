@@ -52,7 +52,8 @@ const Auth = (() => {
   };
   // What a dirigeant may see: a responsable sees every category, a coach only the ones chosen at his first connection
   // (the pitch planning and the club results stay common to everybody)
-  const allTeams = () => !user || isAdmin() || !myIds().some(id => Store.get('teams', id));
+  // (3.70) a coach without any category sees no team (before, he saw the whole club): the responsable gives him his categories
+  const allTeams = () => !user || isAdmin();
   const teams = () => allTeams() ? Store.state.teams : Store.state.teams.filter(t => myIds().includes(t.id));
   const sees = teamId => allTeams() || !teamId || myIds().includes(teamId);
   const seesPerson = p => allTeams() || (p.teamIds || []).some(id => myIds().includes(id)) || (user && p.id === user.id);
