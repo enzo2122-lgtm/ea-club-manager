@@ -1859,3 +1859,10 @@ body.modal-top #modal { z-index: 90; }
 .page-head + .group-h { margin-top: 4px; }
 /* titres de section plus marqués, plus d'air entre les blocs */
 h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
+
+/* ---------- 1.38 : « Quoi de neuf ? » ---------- */
+.news-e + .news-e { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.news-e h3 { margin: 0 0 10px; font-size: 17px; }
+.news-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.news-list li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.45; }
+.news-ic { font-size: 22px; line-height: 1.2; flex: none; width: 28px; text-align: center; }

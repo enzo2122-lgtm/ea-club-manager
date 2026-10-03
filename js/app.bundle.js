@@ -3464,7 +3464,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.37';
+  const VERSION = '1.38';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -12909,6 +12909,56 @@ var Demo = (() => {
 })();
 
 ;
+/* ===== news.js ===== */
+/* News: « Quoi de neuf ? » after each update. The newest first; « n » goes up by one at each update (one entry per update,
+   whatever the app: Clubbo or the app of one club). Each line: [icon, what changed, said with a smile]. Bugs fixed too.
+   A device that has never seen any news gets the two latest entries once (the phones already in use when this window came, and new installs).
+   RULE: every update of the app adds an entry here (the newest at the top). */
+var News = (() => {
+  const { esc, modal } = UI;
+  const LIST = [
+    { n: 2, date: '2026-10-03', title: 'Le grand rangement d\'automne', items: [
+      ['🎉', 'Nouveau : cette fenêtre ! Après chaque mise à jour, elle te dit ce qui a changé, comme le débrief d\'après-match, en beaucoup plus court. Elle se relit dans « Plus » → « Nouveautés ».'],
+      ['🏃', 'Les exercices d\'une séance font la sieste repliés en petites cartes. Touche « Ouvrir » pour les réveiller : 10 écrans de défilement en moins, ton pouce te dit merci.'],
+      ['📣', 'La fiche d\'un match se range en 4 onglets, Avant, Compo, Pendant, Après, comme un vrai dimanche. Plus besoin de GPS pour retrouver la convocation.'],
+      ['❓', 'L\'encadré « Comment ça marche ? » a compris qu\'il parlait trop : il ne s\'ouvre plus qu\'une fois, puis se cache derrière un petit « ? » à côté du titre.'],
+      ['🧭', 'Le menu « Plus » est rangé par thèmes, comme un vestiaire après le passage de l\'intendant.'],
+      ['🏠', 'L\'accueil va droit au but : « À ne pas oublier » dès le premier écran. Les catégories en trop sont parties s\'échauffer sur le banc (« +33 »).'],
+      ['📚', 'Les exercices du club tiennent sur des cartes compactes, avec un « + » pour les envoyer dans une séance. Un quart de page en moins, zéro exercice en moins.'],
+      ['⚙️', 'Les Réglages se coupent en deux : « Moi » d\'un côté, « Le club » de l\'autre. Chacun son vestiaire.'],
+      ['👋', 'Le bouton rond « Aide » a pris sa retraite : le « + » reste seul capitaine. L\'aide est dans « Plus » et dans le « ? » de chaque page.'],
+    ] },
+    { n: 1, date: '2026-10-03', title: 'Ce qui a changé ces derniers jours', items: [
+      ['🏠', 'L\'appli a déménagé dans une maison plus grande (le serveur Clubbo) sans perdre une seule chaussette : joueurs, matchs, messages et mots de passe ont suivi.'],
+      ['🧊', 'Bug corrigé : sur iPhone, l\'appli faisait parfois la statue après une mise à jour. Elle s\'installe maintenant avant de se relancer, et propose « Recharger » si elle hésite.'],
+      ['🤒', 'Quand un joueur ou un parent répond « absent », le coach de la catégorie est prévenu sur son téléphone, raison comprise. Plus de surprise à l\'appel.'],
+      ['🔗', 'Une séance s\'envoie par un lien WhatsApp : l\'autre coach touche le lien, la séance arrive dans son appli. Plus rapide qu\'une passe en une touche.'],
+      ['📲', 'Bug corrigé : sur iPhone avec Chrome, la page des familles n\'expliquait pas comment recevoir les notifications. Elle le dit maintenant, étape par étape.'],
+      ['🛡️', 'Les sauvegardes de chaque nuit sont maintenant testées : on les remet chaque semaine dans une base d\'essai pour être sûr qu\'elles marchent. Ceinture et bretelles.'],
+    ] },
+  ];
+  const KEY = AppCfg.key('news-seen');
+  const seen = () => { try { return +localStorage.getItem(KEY) || 0; } catch (e) { return 0; } };
+  const setSeen = n => { try { localStorage.setItem(KEY, String(n)); } catch (e) {} };
+  const latest = () => LIST[0].n;
+  const fmt = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const block = e => `<section class="news-e"><h3>${esc(e.title)} <span class="muted small">· ${esc(fmt(e.date))}</span></h3>
+    <ul class="news-list">${e.items.map(([ic, t]) => `<li><span class="news-ic">${ic}</span><span>${esc(t)}</span></li>`).join('')}</ul></section>`;
+  function show(list, title) {
+    modal({ title: title || '🎉 Quoi de neuf ?', noFocus: true, body: list.map(block).join(''), actions: [{ label: 'C\'est parti !', kind: 'primary' }] });
+  }
+  // after an update: the news not seen yet on this device (a new install starts from the latest)
+  function check() {
+    const s = seen();
+    const fresh = s ? LIST.filter(e => e.n > s) : LIST.slice(0, 2);
+    setSeen(latest());
+    if (fresh.length) setTimeout(() => show(fresh), 700);
+  }
+  const all = () => show(LIST, '📰 Les nouveautés');
+  return { check, all, LIST };
+})();
+
+;
 /* ===== views.js ===== */
 /* Views: every screen of the app except the board editor. */
 var Views = (() => {
@@ -13782,7 +13832,7 @@ var Views = (() => {
         <p class="muted">${Cloud.ready() ? 'Efface les données de cet appareil seulement (elles restent sur le serveur du club et reviennent à la prochaine connexion).' : 'Les données sont enregistrées sur cet appareil uniquement. Pense à envoyer une copie avant d\'effacer.'}</p>
         <button class="btn danger" data-act="reset">${I.trash}<span>Effacer les données de cet appareil</span></button>
       </section>` : ''}
-      <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
+      <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="News.all()">Nouveautés</button> · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
     root.onchange = e => { if (e.target.dataset.notifpref) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
@@ -13969,8 +14019,8 @@ var App = (() => {
       + `<button class="nav-more ${idx >= PHONE_MAIN ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
     document.getElementById('navMore').onclick = () => {
       const close = UI.modal({ title: 'Plus', noFocus: true,
-        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
-        onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; } });
+        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
+        onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; const nw = r.querySelector('[data-morenews]'); if (nw) nw.onclick = () => { close(); setTimeout(() => News.all(), 60); }; } });
     };
     Messages.badge();
   }
@@ -14042,7 +14092,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 38, UPD = AppCfg.key('update-tried');
+  const BUILD = 39, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -14110,6 +14160,7 @@ var App = (() => {
     window.addEventListener('hashchange', route);
     route();
     if (recv) Views.receiveLink(recv);
+    else if (Auth.current()) News.check(); // after an update: « Quoi de neuf ? »
     Sync.start();
     // After the first exchange with the server: categories U6 … Vétérans for the new season
     Promise.resolve(Sync.run()).catch(() => {}).then(() => {
