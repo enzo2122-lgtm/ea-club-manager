@@ -7,6 +7,7 @@ const Sport = (() => {
   const SPORTS = {
     foot: {
       label: 'Football', icon: '⚽', ball: '⚽', place: 'terrain', catPrefix: 'U',
+      fed: ['FFF', 'Fédération Française de Football', 'https://epreuves.fff.fr/', 'epreuves.fff.fr'],
       formats: [['11', 'Foot à 11', 11], ['8', 'Foot à 8', 8], ['5', 'Foot à 5', 5]],
       formatOfCat: c => /^U(6|7|8|9)$/.test(c) ? '5' : /^U(10|11|12|13)$/.test(c) ? '8' : '11',
       cats: ['U6', 'U7', 'U8', 'U9', 'U10', 'U11', 'U12', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'Seniors', 'Vétérans'],
@@ -24,6 +25,7 @@ const Sport = (() => {
     },
     basket: {
       label: 'Basket', icon: '🏀', ball: '🏀', place: 'salle', catPrefix: 'U',
+      fed: ['FFBB', 'Fédération Française de Basket-Ball', 'https://competitions.ffbb.com/', 'competitions.ffbb.com'],
       formats: [['b5', 'Basket 5 contre 5', 5], ['b3', 'Basket 3x3', 3]],
       formatOfCat: () => 'b5',
       cats: ['U7', 'U9', 'U11', 'U13', 'U15', 'U17', 'U18', 'U20', 'Seniors', 'Loisirs'],
@@ -39,6 +41,7 @@ const Sport = (() => {
     },
     hand: {
       label: 'Handball', icon: '🤾', ball: '🤾', place: 'salle', catPrefix: 'U',
+      fed: ['FFHB', 'Fédération Française de Handball', 'https://www.ffhandball.fr/competitions/', 'ffhandball.fr'],
       formats: [['h7', 'Hand à 7', 7]],
       formatOfCat: () => 'h7',
       cats: ['U7', 'U9', 'U11', 'U13', 'U15', 'U17', 'U18', 'Seniors', 'Loisirs'],
@@ -54,6 +57,7 @@ const Sport = (() => {
     },
     rugby: {
       label: 'Rugby', icon: '🏉', ball: '🏉', place: 'terrain', catPrefix: 'M',
+      fed: ['FFR', 'Fédération Française de Rugby', 'https://www.ffr.fr/competitions', 'ffr.fr'],
       formats: [['r15', 'Rugby à XV', 15], ['r10', 'Rugby à X (école)', 10], ['r7', 'Rugby à 7', 7]],
       formatOfCat: c => /^M(6|8|10|12)$/.test(c) ? 'r10' : 'r15',
       cats: ['M6', 'M8', 'M10', 'M12', 'M14', 'M16', 'M19', 'Seniors', 'Vétérans'],
@@ -72,6 +76,7 @@ const Sport = (() => {
     },
     volley: {
       label: 'Volley', icon: '🏐', ball: '🏐', place: 'salle', catPrefix: 'M',
+      fed: ['FFVolley', 'Fédération Française de Volley', 'https://www.ffvbbeach.org/ffvbapp/resu/', 'ffvbbeach.org'],
       formats: [['v6', 'Volley 6 contre 6', 6], ['v4', 'Volley 4 contre 4', 4]],
       formatOfCat: c => /^M(9|11|13)$/.test(c) ? 'v4' : 'v6',
       cats: ['M9', 'M11', 'M13', 'M15', 'M18', 'M21', 'Seniors', 'Loisirs'],
@@ -94,6 +99,7 @@ const Sport = (() => {
   const players = f => { for (const k of KEYS) { const x = SPORTS[k].formats.find(y => y[0] === f); if (x) return x[2]; } return 11; };
   const defFormat = () => cur().formats[0][0];
   const isFoot = () => id() === 'foot';
+  const fed = () => cur().fed || SPORTS.foot.fed;
   // live references used by the modules (People, Board…): filled again when the club's sport changes
   const POSTS = [], TYPES = [], LINES = [];
   function apply() {
@@ -114,6 +120,6 @@ const Sport = (() => {
   // the points of the table: win / draw / loss of each sport
   const leaguePts = (V, N, D) => ({ basket: V * 2 + D, hand: V * 3 + N * 2 + D, rugby: V * 4 + N * 2, volley: V * 3 })[id()] ?? V * 3 + N;
   const word = (n, w = cur().unit) => `${n} ${n > 1 ? w[1] : w[0]}`;
-  return { W, leaguePts, SPORTS, KEYS, id, cur, apply, isFoot, sportOfFormat, formatLabel, players, defFormat, POSTS, TYPES, LINES, scoreEv, isScore, scoreOf, word };
+  return { W, leaguePts, SPORTS, KEYS, id, cur, apply, isFoot, fed, sportOfFormat, formatLabel, players, defFormat, POSTS, TYPES, LINES, scoreEv, isScore, scoreOf, word };
 })();
 Sport.apply();

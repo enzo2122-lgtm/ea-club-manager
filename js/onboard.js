@@ -33,9 +33,9 @@ const Onboard = (() => {
       <div class="row2"><label class="fld"><span>Couleur principale</span><input type="color" id="obC1" value="${esc(c.color1 || '#8c1024')}"></label>
       <label class="fld"><span>Couleur secondaire</span><input type="color" id="obC2" value="${esc(c.color2 || '#0e1d45')}"></label></div>
       <label class="fld"><span>Devise du club (facultatif, au dos du blason et sur le drapeau)</span><input id="obSlogan" value="${esc(c.slogan || '')}" maxlength="120" placeholder="ex : Un club, une famille"></label>
-      <details ${Sport.isFoot() ? '' : 'hidden'}><summary class="muted small">Pour l'import des calendriers FFF (facultatif)</summary>
-        <label class="fld"><span>Nom du club sur la FFF (tel qu'il apparaît dans les calendriers)</span><input id="obFff" value="${esc(c.fffName || '')}" placeholder="ex : FC EXEMPLE"></label>
-        <label class="fld"><span>Page du club sur epreuves.fff.fr</span><input id="obFffUrl" value="${esc(c.fffUrl || '')}" placeholder="https://epreuves.fff.fr/competition/club/…"></label></details></div>
+      <details><summary class="muted small">Pour l'import des calendriers ${esc(Sport.fed()[0])} (facultatif)</summary>
+        <label class="fld" ${Sport.isFoot() ? '' : 'hidden'}><span>Nom du club sur la FFF (tel qu'il apparaît dans les calendriers)</span><input id="obFff" value="${esc(c.fffName || '')}" placeholder="ex : FC EXEMPLE"></label>
+        <label class="fld"><span>Page du club sur le site de la ${esc(Sport.fed()[0])}</span><input id="obFffUrl" value="${esc(c.fffUrl || '')}" placeholder="${esc(Sport.fed()[2])}…"></label></details></div>
       <div class="ob-s" data-obs="2"><div class="lbl">Les catégories du club</div>
       <div class="chips" id="obCats">${CATS().map(k => `<button type="button" class="chip ${has(k) ? 'on' : ''}" data-cat="${esc(k)}" ${has(k) ? 'disabled title="Déjà créée"' : ''}>${esc(k)}</button>`).join('')}</div>
       <label class="switch"><input type="checkbox" id="obAB"><span>Créer aussi des équipes A et B dans les catégories choisies</span></label></div></div>`;

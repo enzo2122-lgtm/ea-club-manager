@@ -146,15 +146,23 @@ const Importer = (() => {
   }
 
   /* ---------- import screen for matches ---------- */
+  // (1.30) the official calendar of the club's federation (basket, hand, rugby, volley): opened on its site, then imported as a file
+  function fedSteps() {
+    const [short, name, url, host] = Sport.fed();
+    return `<ol class="wizard small"><li>Ouvre le calendrier de ton équipe sur le site de la <b>${esc(name)}</b> : <a href="${esc(S().club.fffUrl || url)}" target="_blank" rel="noopener">${esc(S().club.fffUrl ? 'page du club' : host)}</a> (championnat, poule, puis ton équipe).</li>
+      <li>S'il propose « Ajouter à mon agenda » ou « Exporter (.ics) », télécharge le fichier puis touche l'onglet <b>Fichier calendrier (.ics)</b>.</li>
+      <li>Sinon, recopie les matchs dans un tableur (Date, Heure, Adversaire, Domicile) et touche l'onglet <b>Tableur (.csv)</b>.</li></ol>
+      <p class="muted small">Astuce : enregistre l'adresse de la page de ton club (Réglages → Le club → « Page du club sur le site de la ${esc(short)} ») pour l'ouvrir directement d'ici.</p>`;
+  }
   function matchesDialog(done) {
     let found = [];
     const teams = S().teams;
     modal({ title: 'Importer des matchs', body: `
-      <div class="chips" id="srcTabs"><button class="chip on" data-v="fff">Site FFF / District</button><button class="chip" data-v="ics">Fichier calendrier (.ics)</button><button class="chip" data-v="csv">Tableur (.csv)</button></div>
+      <div class="chips" id="srcTabs"><button class="chip on" data-v="fff">${Sport.isFoot() ? 'Site FFF / District' : 'Site ' + esc(Sport.fed()[0])}</button><button class="chip" data-v="ics">Fichier calendrier (.ics)</button><button class="chip" data-v="csv">Tableur (.csv)</button></div>
       <div id="srcFff" class="src">
-        <ol class="wizard small"><li>Ouvre la page de l'équipe sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> (ou le site de ton district), onglet <b>Résultats / Calendrier</b>.</li>
-        <li>Sélectionne tout le texte des matchs du mois (ou de la page du club), copie-le, puis colle-le ici. Recommence mois par mois, les doublons sont ignorés.</li></ol>
-        <textarea id="fffText" rows="6" placeholder="DIM 04 OCT 2026 - 15H30&#10;Seniors D3 - Senior Journée 1&#10;BFC 2&#10;15:30&#10;FC EXEMPLE"></textarea>
+        ${Sport.isFoot() ? `<ol class="wizard small"><li>Ouvre la page de l'équipe sur <a href="${esc(S().club.fffUrl || Sport.fed()[2])}" target="_blank" rel="noopener">epreuves.fff.fr</a> (ou le site de ton district), onglet <b>Résultats / Calendrier</b>.</li>
+        <li>Sélectionne tout le texte des matchs du mois (ou de la page du club), copie-le, puis colle-le ici. Recommence mois par mois, les doublons sont ignorés.</li></ol>` : fedSteps()}
+        <textarea id="fffText" ${Sport.isFoot() ? '' : 'hidden'} rows="6" placeholder="DIM 04 OCT 2026 - 15H30&#10;Seniors D3 - Senior Journée 1&#10;BFC 2&#10;15:30&#10;FC EXEMPLE"></textarea>
       </div>
       <div id="srcFile" class="src" hidden><p class="muted" id="fileHint"></p><button class="btn" id="pickFile">${I.upload}<span>Choisir le fichier</span></button></div>
       <label class="fld" style="margin-top:10px"><span>Catégorie</span><select id="impTeam"><option value="auto">Automatique (d'après la compétition)</option>${teams.map(t => `<option value="${t.id}">${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
@@ -175,8 +183,6 @@ const Importer = (() => {
           preview();
         });
         $('#fffText', r).oninput = e => { found = parseFFF(e.target.value); preview(); };
-        // (1.28) the FFF website is for football clubs only
-        if (typeof Sport !== 'undefined' && !Sport.isFoot()) { $('#srcTabs [data-v="fff"]', r).hidden = true; $('#srcTabs [data-v="ics"]', r).click(); }
         $('#impTeam', r).onchange = preview;
         $('#pickFile', r).onclick = async () => {
           const [f] = await UI.pickFiles(); if (!f) return;

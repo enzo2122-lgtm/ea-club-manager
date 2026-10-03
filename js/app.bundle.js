@@ -9,6 +9,7 @@ var Sport = (() => {
   const SPORTS = {
     foot: {
       label: 'Football', icon: '⚽', ball: '⚽', place: 'terrain', catPrefix: 'U',
+      fed: ['FFF', 'Fédération Française de Football', 'https://epreuves.fff.fr/', 'epreuves.fff.fr'],
       formats: [['11', 'Foot à 11', 11], ['8', 'Foot à 8', 8], ['5', 'Foot à 5', 5]],
       formatOfCat: c => /^U(6|7|8|9)$/.test(c) ? '5' : /^U(10|11|12|13)$/.test(c) ? '8' : '11',
       cats: ['U6', 'U7', 'U8', 'U9', 'U10', 'U11', 'U12', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'Seniors', 'Vétérans'],
@@ -26,6 +27,7 @@ var Sport = (() => {
     },
     basket: {
       label: 'Basket', icon: '🏀', ball: '🏀', place: 'salle', catPrefix: 'U',
+      fed: ['FFBB', 'Fédération Française de Basket-Ball', 'https://competitions.ffbb.com/', 'competitions.ffbb.com'],
       formats: [['b5', 'Basket 5 contre 5', 5], ['b3', 'Basket 3x3', 3]],
       formatOfCat: () => 'b5',
       cats: ['U7', 'U9', 'U11', 'U13', 'U15', 'U17', 'U18', 'U20', 'Seniors', 'Loisirs'],
@@ -41,6 +43,7 @@ var Sport = (() => {
     },
     hand: {
       label: 'Handball', icon: '🤾', ball: '🤾', place: 'salle', catPrefix: 'U',
+      fed: ['FFHB', 'Fédération Française de Handball', 'https://www.ffhandball.fr/competitions/', 'ffhandball.fr'],
       formats: [['h7', 'Hand à 7', 7]],
       formatOfCat: () => 'h7',
       cats: ['U7', 'U9', 'U11', 'U13', 'U15', 'U17', 'U18', 'Seniors', 'Loisirs'],
@@ -56,6 +59,7 @@ var Sport = (() => {
     },
     rugby: {
       label: 'Rugby', icon: '🏉', ball: '🏉', place: 'terrain', catPrefix: 'M',
+      fed: ['FFR', 'Fédération Française de Rugby', 'https://www.ffr.fr/competitions', 'ffr.fr'],
       formats: [['r15', 'Rugby à XV', 15], ['r10', 'Rugby à X (école)', 10], ['r7', 'Rugby à 7', 7]],
       formatOfCat: c => /^M(6|8|10|12)$/.test(c) ? 'r10' : 'r15',
       cats: ['M6', 'M8', 'M10', 'M12', 'M14', 'M16', 'M19', 'Seniors', 'Vétérans'],
@@ -74,6 +78,7 @@ var Sport = (() => {
     },
     volley: {
       label: 'Volley', icon: '🏐', ball: '🏐', place: 'salle', catPrefix: 'M',
+      fed: ['FFVolley', 'Fédération Française de Volley', 'https://www.ffvbbeach.org/ffvbapp/resu/', 'ffvbbeach.org'],
       formats: [['v6', 'Volley 6 contre 6', 6], ['v4', 'Volley 4 contre 4', 4]],
       formatOfCat: c => /^M(9|11|13)$/.test(c) ? 'v4' : 'v6',
       cats: ['M9', 'M11', 'M13', 'M15', 'M18', 'M21', 'Seniors', 'Loisirs'],
@@ -96,6 +101,7 @@ var Sport = (() => {
   const players = f => { for (const k of KEYS) { const x = SPORTS[k].formats.find(y => y[0] === f); if (x) return x[2]; } return 11; };
   const defFormat = () => cur().formats[0][0];
   const isFoot = () => id() === 'foot';
+  const fed = () => cur().fed || SPORTS.foot.fed;
   // live references used by the modules (People, Board…): filled again when the club's sport changes
   const POSTS = [], TYPES = [], LINES = [];
   function apply() {
@@ -116,7 +122,7 @@ var Sport = (() => {
   // the points of the table: win / draw / loss of each sport
   const leaguePts = (V, N, D) => ({ basket: V * 2 + D, hand: V * 3 + N * 2 + D, rugby: V * 4 + N * 2, volley: V * 3 })[id()] ?? V * 3 + N;
   const word = (n, w = cur().unit) => `${n} ${n > 1 ? w[1] : w[0]}`;
-  return { W, leaguePts, SPORTS, KEYS, id, cur, apply, isFoot, sportOfFormat, formatLabel, players, defFormat, POSTS, TYPES, LINES, scoreEv, isScore, scoreOf, word };
+  return { W, leaguePts, SPORTS, KEYS, id, cur, apply, isFoot, fed, sportOfFormat, formatLabel, players, defFormat, POSTS, TYPES, LINES, scoreEv, isScore, scoreOf, word };
 })();
 Sport.apply();
 
@@ -3274,15 +3280,23 @@ var Importer = (() => {
   }
 
   /* ---------- import screen for matches ---------- */
+  // (1.30) the official calendar of the club's federation (basket, hand, rugby, volley): opened on its site, then imported as a file
+  function fedSteps() {
+    const [short, name, url, host] = Sport.fed();
+    return `<ol class="wizard small"><li>Ouvre le calendrier de ton équipe sur le site de la <b>${esc(name)}</b> : <a href="${esc(S().club.fffUrl || url)}" target="_blank" rel="noopener">${esc(S().club.fffUrl ? 'page du club' : host)}</a> (championnat, poule, puis ton équipe).</li>
+      <li>S'il propose « Ajouter à mon agenda » ou « Exporter (.ics) », télécharge le fichier puis touche l'onglet <b>Fichier calendrier (.ics)</b>.</li>
+      <li>Sinon, recopie les matchs dans un tableur (Date, Heure, Adversaire, Domicile) et touche l'onglet <b>Tableur (.csv)</b>.</li></ol>
+      <p class="muted small">Astuce : enregistre l'adresse de la page de ton club (Réglages → Le club → « Page du club sur le site de la ${esc(short)} ») pour l'ouvrir directement d'ici.</p>`;
+  }
   function matchesDialog(done) {
     let found = [];
     const teams = S().teams;
     modal({ title: 'Importer des matchs', body: `
-      <div class="chips" id="srcTabs"><button class="chip on" data-v="fff">Site FFF / District</button><button class="chip" data-v="ics">Fichier calendrier (.ics)</button><button class="chip" data-v="csv">Tableur (.csv)</button></div>
+      <div class="chips" id="srcTabs"><button class="chip on" data-v="fff">${Sport.isFoot() ? 'Site FFF / District' : 'Site ' + esc(Sport.fed()[0])}</button><button class="chip" data-v="ics">Fichier calendrier (.ics)</button><button class="chip" data-v="csv">Tableur (.csv)</button></div>
       <div id="srcFff" class="src">
-        <ol class="wizard small"><li>Ouvre la page de l'équipe sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> (ou le site de ton district), onglet <b>Résultats / Calendrier</b>.</li>
-        <li>Sélectionne tout le texte des matchs du mois (ou de la page du club), copie-le, puis colle-le ici. Recommence mois par mois, les doublons sont ignorés.</li></ol>
-        <textarea id="fffText" rows="6" placeholder="DIM 04 OCT 2026 - 15H30&#10;Seniors D3 - Senior Journée 1&#10;BFC 2&#10;15:30&#10;FC EXEMPLE"></textarea>
+        ${Sport.isFoot() ? `<ol class="wizard small"><li>Ouvre la page de l'équipe sur <a href="${esc(S().club.fffUrl || Sport.fed()[2])}" target="_blank" rel="noopener">epreuves.fff.fr</a> (ou le site de ton district), onglet <b>Résultats / Calendrier</b>.</li>
+        <li>Sélectionne tout le texte des matchs du mois (ou de la page du club), copie-le, puis colle-le ici. Recommence mois par mois, les doublons sont ignorés.</li></ol>` : fedSteps()}
+        <textarea id="fffText" ${Sport.isFoot() ? '' : 'hidden'} rows="6" placeholder="DIM 04 OCT 2026 - 15H30&#10;Seniors D3 - Senior Journée 1&#10;BFC 2&#10;15:30&#10;FC EXEMPLE"></textarea>
       </div>
       <div id="srcFile" class="src" hidden><p class="muted" id="fileHint"></p><button class="btn" id="pickFile">${I.upload}<span>Choisir le fichier</span></button></div>
       <label class="fld" style="margin-top:10px"><span>Catégorie</span><select id="impTeam"><option value="auto">Automatique (d'après la compétition)</option>${teams.map(t => `<option value="${t.id}">${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
@@ -3303,8 +3317,6 @@ var Importer = (() => {
           preview();
         });
         $('#fffText', r).oninput = e => { found = parseFFF(e.target.value); preview(); };
-        // (1.28) the FFF website is for football clubs only
-        if (typeof Sport !== 'undefined' && !Sport.isFoot()) { $('#srcTabs [data-v="fff"]', r).hidden = true; $('#srcTabs [data-v="ics"]', r).click(); }
         $('#impTeam', r).onchange = preview;
         $('#pickFile', r).onclick = async () => {
           const [f] = await UI.pickFiles(); if (!f) return;
@@ -3392,7 +3404,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.29';
+  const VERSION = '1.30';
   const TOUR_KEY = 'ea-tour-seen', ERR_KEY = 'ea-errors';
 
   /* ---------- error log ---------- */
@@ -12076,9 +12088,9 @@ var Onboard = (() => {
       <div class="row2"><label class="fld"><span>Couleur principale</span><input type="color" id="obC1" value="${esc(c.color1 || '#8c1024')}"></label>
       <label class="fld"><span>Couleur secondaire</span><input type="color" id="obC2" value="${esc(c.color2 || '#0e1d45')}"></label></div>
       <label class="fld"><span>Devise du club (facultatif, au dos du blason et sur le drapeau)</span><input id="obSlogan" value="${esc(c.slogan || '')}" maxlength="120" placeholder="ex : Un club, une famille"></label>
-      <details ${Sport.isFoot() ? '' : 'hidden'}><summary class="muted small">Pour l'import des calendriers FFF (facultatif)</summary>
-        <label class="fld"><span>Nom du club sur la FFF (tel qu'il apparaît dans les calendriers)</span><input id="obFff" value="${esc(c.fffName || '')}" placeholder="ex : FC EXEMPLE"></label>
-        <label class="fld"><span>Page du club sur epreuves.fff.fr</span><input id="obFffUrl" value="${esc(c.fffUrl || '')}" placeholder="https://epreuves.fff.fr/competition/club/…"></label></details></div>
+      <details><summary class="muted small">Pour l'import des calendriers ${esc(Sport.fed()[0])} (facultatif)</summary>
+        <label class="fld" ${Sport.isFoot() ? '' : 'hidden'}><span>Nom du club sur la FFF (tel qu'il apparaît dans les calendriers)</span><input id="obFff" value="${esc(c.fffName || '')}" placeholder="ex : FC EXEMPLE"></label>
+        <label class="fld"><span>Page du club sur le site de la ${esc(Sport.fed()[0])}</span><input id="obFffUrl" value="${esc(c.fffUrl || '')}" placeholder="${esc(Sport.fed()[2])}…"></label></details></div>
       <div class="ob-s" data-obs="2"><div class="lbl">Les catégories du club</div>
       <div class="chips" id="obCats">${CATS().map(k => `<button type="button" class="chip ${has(k) ? 'on' : ''}" data-cat="${esc(k)}" ${has(k) ? 'disabled title="Déjà créée"' : ''}>${esc(k)}</button>`).join('')}</div>
       <label class="switch"><input type="checkbox" id="obAB"><span>Créer aussi des équipes A et B dans les catégories choisies</span></label></div></div>`;
@@ -13367,7 +13379,7 @@ var Views = (() => {
       return `<a class="list-item ${side(m)}" href="#/match/${m.id}"><div class="date-box"><b>${new Date(m.date + 'T12:00').getDate()}</b><span>${esc(fmtDate(m.date, { month: 'short' }))}</span></div>
       <div class="li-main"><b>${matchTitle(m)}</b><span class="muted">${tm ? `<i class="li-cat" style="background:${Planning.teamColor(tm.id)}">${esc(tm.name)}</i> ` : ''}${m.exempt ? '' : sideTag(m) + (m.time ? ' · ' + esc(m.time) : '')}</span></div>
       ${m.played ? `<span class="score">${scoreTxt(m)}</span>${resPill(m)}` : ''}${I.next}</a>`; };
-    root.innerHTML = `${header('Matchs', 'Agenda et résultats de tout le club', `<button class="btn" data-act="imp">${I.upload}<span>Importer (FFF, agenda…)</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau match</span></button>`)}
+    root.innerHTML = `${header('Matchs', 'Agenda et résultats de tout le club', `<button class="btn" data-act="imp">${I.upload}<span>Importer (${esc(Sport.fed()[0])}, agenda…)</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau match</span></button>`)}
       ${coach && !t ? `<div class="seg"><button class="seg-b ${scope === 'club' ? 'on' : ''}" data-scope="club">🏟️ Tout le club</button><button class="seg-b ${scope === 'mine' ? 'on' : ''}" data-scope="mine">⭐ Mes équipes</button></div>` : ''}
       <label class="team-select all-sizes"><span>Catégorie</span><select data-mteam aria-label="Catégorie"><option value="">Toutes les catégories</option>
         ${S().teams.map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
@@ -13861,7 +13873,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 30, UPD = 'ea-update-tried';
+  const BUILD = 31, UPD = 'ea-update-tried';
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
