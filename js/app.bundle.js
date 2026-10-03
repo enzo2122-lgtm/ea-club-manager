@@ -1327,7 +1327,15 @@ var Clubs = (() => {
     const e = Object.entries(LIST).find(([k, c]) => n(c[0]) === t || n(c[1]) === t || n(c[4]) === t || k === t) || Object.entries(LIST).find(([, c]) => n(c[0]).includes(t) || t.includes(n(c[0])));
     return e ? e[0] : '';
   }
-  return { LIST, crest, shield, options, find, name: k => (LIST[k] || [''])[0] };
+  /* (1.40) the crests of the opponents, from the FFF site (« Résultats FFF » bookmark): club.oppLogos = { « NOM » : FFF club number } */
+  const okey = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  function oppId(name) {
+    const L = (Store.state.club || {}).oppLogos || {}, k = okey(name); if (!k) return '';
+    return L[k] || L[k.replace(/ \d+$/, '')] || (Object.entries(L).find(([n]) => n.replace(/ \d+$/, '') === k.replace(/ \d+$/, '')) || [])[1] || '';
+  }
+  const oppLogo = (name, cls = 'opp-logo') => { const id = oppId(name); return id ? `<img class="${cls}" src="https://cdn-transverse.azureedge.net/phlogos/BC${id}.jpg" alt="" loading="lazy" onerror="this.remove()">` : ''; };
+  function setOppLogos(map) { const c = Store.state.club, L = c.oppLogos = Object.assign({}, c.oppLogos || {}); let n = 0; Object.entries(map || {}).forEach(([name, id]) => { const k = okey(name); if (k && /^\d+$/.test(id) && L[k] !== id) { L[k] = id; n++; } }); return n; }
+  return { LIST, crest, shield, options, find, name: k => (LIST[k] || [''])[0], oppLogo, setOppLogos };
 })();
 
 ;
@@ -3340,6 +3348,20 @@ var Importer = (() => {
   }
 
   /* ---------- import screen for matches ---------- */
+  // (1.40) the matches found (FFF / District page, file): updated when already there (same team, day and opponent), else added
+  function applyFound(found, sel = 'auto', each) {
+    const res = { added: 0, updated: 0, noTeam: 0, scores: 0 };
+    found.forEach(m => {
+      const t = sel === 'auto' ? guessTeam(m.competition, m.ourName || '') : Store.get('teams', sel);
+      if (!t) { res.noTeam++; return; }
+      const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent));
+      const comp = /coupe/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
+      if (ex) { if (m.played && (!ex.played || ex.gf !== m.gf || ex.ga !== m.ga)) res.scores++; Object.assign(ex, { time: m.time || ex.time, played: m.played || ex.played, gf: m.played ? m.gf : ex.gf, ga: m.played ? m.ga : ex.ga }); Store.upsert('matches', ex); res.updated++; }
+      else { Store.upsert('matches', { id: Store.uid(), teamId: t.id, exempt: !!m.exempt, opponent: m.opponent || 'Adversaire', date: m.date, time: m.time || '', home: m.home, competition: comp, place: m.place || m.venue || '', rdv: '', played: m.played, gf: m.played ? m.gf : 0, ga: m.played ? m.ga : 0, convoked: [], lineupId: null, notes: '', imported: true }); res.added++; if (m.played) res.scores++; }
+      each && each(m, t);
+    });
+    return res;
+  }
   // (1.30) the official calendar of the club's federation (basket, hand, rugby, volley): opened on its site, then imported as a file
   function fedSteps() {
     const [short, name, url, host] = Sport.fed();
@@ -3389,16 +3411,8 @@ var Importer = (() => {
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: (close, r) => {
         if (!found.length) { toast('Rien à importer pour l\'instant', 'err'); return false; }
         const sel = $('#impTeam', r).value, book = $('#impBook', r).checked;
-        const res = { added: 0, updated: 0, noTeam: 0 }, toBook = [];
-        found.forEach(m => {
-          const t = sel === 'auto' ? guessTeam(m.competition, m.ourName || '') : Store.get('teams', sel);
-          if (!t) { res.noTeam++; return; }
-          const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent));
-          const comp = /coupe/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
-          if (ex) { Object.assign(ex, { time: m.time || ex.time, played: m.played || ex.played, gf: m.played ? m.gf : ex.gf, ga: m.played ? m.ga : ex.ga }); Store.upsert('matches', ex); res.updated++; }
-          else { Store.upsert('matches', { id: Store.uid(), teamId: t.id, exempt: !!m.exempt, opponent: m.opponent || 'Adversaire', date: m.date, time: m.time || '', home: m.home, competition: comp, place: m.place || m.venue || '', rdv: '', played: m.played, gf: m.gf || 0, ga: m.ga || 0, convoked: [], stats: {}, notes: [m.competition, m.ourName && 'Équipe : ' + m.ourName].filter(Boolean).join('\n') }); res.added++; }
-          if (book && m.home && !m.exempt && m.time && m.date >= UI.today()) toBook.push({ m, t });
-        });
+        const toBook = [];
+        const res = applyFound(found, sel, (m, t) => { if (book && m.home && !m.exempt && m.time && m.date >= UI.today()) toBook.push({ m, t }); });
         close();
         (async () => {
           let booked = 0; const clash = [];
@@ -3455,7 +3469,7 @@ var Importer = (() => {
     return { title: title.slice(0, 120) || 'Exercice', duration: dur ? +dur : 15, org: org.replace(/\n/g, ' ').slice(0, 1500) + (evoList.length ? '\n\nÉvolutions :\n' + evoList.map(e => '+ ' + e).join('\n') : ''), consignes: consList.join('\n'), materiel: mat.replace(/\n/g, ' ') };
   }
 
-  return { parseFFF, parseICS, parseCSV, guessTeam, reassignImported, refileImported, teamNo, levelOf, districtNo, letterNo, matchesDialog, trainingsFromICS, isAssistCoach, parseAssistPage };
+  return { applyFound, parseFFF, parseICS, parseCSV, guessTeam, reassignImported, refileImported, teamNo, levelOf, districtNo, letterNo, matchesDialog, trainingsFromICS, isAssistCoach, parseAssistPage };
 })();
 
 ;
@@ -3464,7 +3478,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.39';
+  const VERSION = '1.40';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10124,7 +10138,16 @@ var Season = (() => {
     });
     return Object.values(T).sort((a, b) => b.pts - a.pts || (b.bp - b.bc) - (a.bp - a.bc) || b.bp - a.bp || b.v - a.v || a.name.localeCompare(b.name));
   }
+  // (1.40) the official table of the FFF / District (Résultats FFF bookmark)
+  function officialCard(t) {
+    const F = t.fffTable, ours = r => !!F.our && r.name.toUpperCase() === F.our.toUpperCase();
+    const when = new Date(F.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    return `<section class="card"><h2>🏆 ${esc(F.name)} <span class="muted small">· classement officiel</span></h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Bp</th><th>Bc</th><th>Diff</th></tr></thead>
+      <tbody>${F.rows.map(r => `<tr class="${ours(r) ? 'own' : ''}"><td>${r.rank}</td><td>${Clubs.oppLogo(r.name)}${esc(r.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.bp}</td><td>${r.bc}</td><td>${r.diff > 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}</tbody></table></div>
+      <p class="muted small">Site de la FFF, mis à jour le ${esc(when)} · sous réserve d'éventuelles procédures. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
+  }
   function leagueCard(t) {
+    if (t.fffTable && (t.fffTable.rows || []).length) return officialCard(t);
     const rows = table(t); if (!rows) return '';
     const up = +((t.league.config || {}).promotion_slots || 0), down = +((t.league.config || {}).relegation_slots || 0);
     return `<section class="card"><h2>🏆 ${esc(t.league.name)}</h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Diff</th></tr></thead>
@@ -12917,6 +12940,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 4, date: '2026-10-04', title: 'Le dimanche soir, c\'est résultats', items: [
+      ['🏆', 'Nouveau favori « Résultats FFF » : sur la page du club du site de la FFF, un geste et les scores de toutes tes équipes arrivent, avec le classement officiel de chaque poule. Même les adversaires sont à jour, sans leur demander leur avis.'],
+      ['🪪', 'Le favori Footclubs ramène maintenant le numéro de licence de chaque joueur. Il sert aussi à reconnaître les joueurs : fini les jumeaux imaginaires.'],
+      ['🛡️', 'Les adversaires ont enfin un visage : leur logo s\'affiche à côté de leur nom, dans les matchs et les classements. Plus d\'excuse pour ne pas reconnaître l\'ennemi.'],
+      ['📊', 'Sur la page d\'une équipe, le classement officiel de la FFF passe devant le classement calculé : c\'est la FFF qui a le dernier mot (et le carton).'],
+    ] },
     { n: 3, date: '2026-10-04', title: 'AssistCoachAI et Footclubs entrent dans le vestiaire', items: [
       ['📥', 'Nouveau (responsables) : deux favoris « AssistCoachAI → l\'appli » et « Footclubs → l\'appli » (Réglages → Le club). Un geste sur le site, et les joueurs, licences, présences et blessures arrivent à jour. Plus de copier-coller, plus de crampes.'],
       ['👀', 'Avant d\'enregistrer, l\'appli montre ce qui change : nouveaux joueurs, licences validées, départs. Comme un arbitre vidéo, mais qui ne refuse jamais un but valable.'],
@@ -12974,7 +13003,7 @@ var News = (() => {
 var Sources = (() => {
   const { esc, toast, modal } = UI;
   const S = () => Store.state;
-  const ALLOWED = ['https://assistcoachai.com', 'https://footclubs.fff.fr'];
+  const ALLOWED = ['https://assistcoachai.com', 'https://footclubs.fff.fr', 'https://epreuves.fff.fr'];
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const appUrl = () => location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '');
 
@@ -13002,12 +13031,27 @@ addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'){re
 const range=()=>{const m=RG.exec(W.document.body.innerText);return m?[+m[1],+m[2],+m[3]]:null;};
 const wait=async s=>{for(let k=0;k<80;k++){await new Promise(r=>setTimeout(r,250));try{const r=range();if(r&&r[0]===s)return true;}catch(e){}}return false;};
 const rows=[],seen={};const grab=()=>{for(const tr of W.document.querySelectorAll('tr')){const c=[...tr.cells].map(x=>x.innerText.trim());const i=c.findIndex(x=>/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(x));
-if(i>0&&/[A-Z]/.test(c[i-1])&&c[i+1]){const k=c[i-1]+c[i]+c[i+1];if(!seen[k]){seen[k]=1;rows.push({name:c[i-1],birth:c[i],cat:c[i+1]||'',date:c[i+2]||'',etat:c[i+3]||''});}}}};
+if(i>0&&/[A-Z]/.test(c[i-1])&&c[i+1]){const k=c[i-1]+c[i]+c[i+1];if(!seen[k]){seen[k]=1;rows.push({name:c[i-1],birth:c[i],cat:c[i+1]||'',date:c[i+2]||'',etat:c[i+3]||'',lic:(tr.innerHTML.match(/selectPersonne\\('(\\d+)'/)||[])[1]||''});}}}};
 let r=range();if(r&&r[0]!==1){W.otherlist(W.firstlist,W.name,'F');await wait(1);}
 for(let p=0;p<80;p++){grab();r=range();if(!r||r[1]>=r[2])break;const nx=r[1]+1;W.otherlist(W.nextlist,W.name,'N');if(!await wait(nx))break;}
 data={rows,total:(range()||[0,0,rows.length])[2]};send();})()`;
     const link = code => 'javascript:' + encodeURIComponent(code.replace(/\n/g, ''));
-    return { ac: link(ac), fc: link(fc) };
+    // (1.40) the club's page on epreuves.fff.fr (public): the results shown and the official table of each of our divisions
+    const ff = `(async()=>{const A=${A};const cm=/\\/competition\\/club\\/(\\d+)/.exec(location.pathname);
+if(!/epreuves\\.fff\\.fr$/.test(location.host)||!cm){alert('Ouvre la page de ton club sur epreuves.fff.fr (Équipes, le mois du week-end), puis touche ce favori.');return;}
+const w=window.open(A+'#/recevoir-source','clubimport');let ready=false,data=null;
+const send=()=>{if(ready&&data){w.postMessage({type:'club-import',source:'fff',payload:data},new URL(A).origin);data=null;}};
+addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'){ready=true;send();}});
+const main=document.querySelector('main')||document.body,as=[...main.querySelectorAll('a[href]')],pou={},logos={};
+const addLogos=r=>{for(const a of r.querySelectorAll('a[href*="/competition/club/"]')){const m=/\\/competition\\/club\\/(\\d+)/.exec(a.getAttribute('href'));const n=a.innerText.trim();if(m&&n&&m[1]!==cm[1]&&!/[\\n]|favoris|lien vers/i.test(n)&&!logos[n])logos[n]=m[1];}};addLogos(main);
+as.forEach((a,i)=>{const m=/^\\/competition\\/engagement\\/\\d+[^/]*\\/phase\\/\\d+\\/\\d+/.exec(a.getAttribute('href')||'');if(!m||pou[m[0]])return;let our='';
+for(let j=i+1;j<Math.min(as.length,i+7);j++){if((as[j].getAttribute('href')||'').indexOf('/competition/club/'+cm[1])===0){our=as[j].innerText.trim();break;}}
+pou[m[0]]={url:m[0],comp:a.innerText.trim().replace(/\\s+(Journée|TOUR)\\b.*$/i,''),our};});
+const poules=[];for(const p of Object.values(pou)){try{const d=new DOMParser().parseFromString(await (await fetch(p.url+'/classement')).text(),'text/html');let best=[];
+for(const tb of d.querySelectorAll('table')){const rs=[...tb.querySelectorAll('tr')].map(tr=>[...tr.cells].map(c=>c.innerText.trim()));if(rs[0]&&rs[0].includes('Bp.')&&rs.length>best.length)best=rs;}
+addLogos(d);p.rows=best;poules.push(p);}catch(e){}}
+data={club:cm[1],calendar:main.innerText,poules,logos};send();})()`;
+    return { ac: link(ac), fc: link(fc), ff: link(ff) };
   }
   function card() {
     if (!Auth.isAdmin()) return '';
@@ -13015,8 +13059,9 @@ data={rows,total:(range()||[0,0,rows.length])[2]};send();})()`;
     return `<section class="card src-card"><h2>📥 Mise à jour depuis AssistCoachAI et Footclubs</h2>
       <p class="muted small">Un geste, sans mot de passe enregistré : les joueurs à jour (licences, catégories, dates de naissance) et, depuis AssistCoachAI, le planning, les présences, les blessures et le bien-être. L'appli te montre ce qui change avant d'enregistrer, sans doublon.</p>
       <ol class="steps-help"><li><b>Une seule fois, sur l'ordinateur :</b> fais glisser ces deux boutons dans la barre des favoris de ton navigateur.
-        <div class="chips src-bm"><a class="btn" href="${esc(b.ac)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 AssistCoachAI → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.fc)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 Footclubs → ${esc(AppCfg.name)}</a></div></li>
+        <div class="chips src-bm"><a class="btn" href="${esc(b.ac)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 AssistCoachAI → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.fc)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 Footclubs → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.ff)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">🏆 Résultats FFF → ${esc(AppCfg.name)}</a></div></li>
         <li><b>AssistCoachAI :</b> connecte-toi, puis touche le favori « AssistCoachAI ».</li>
+        <li><b>Résultats du week-end</b> (le dimanche soir) : ouvre la page de ton club sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> (onglet Équipes, le mois du week-end), puis touche le favori « Résultats FFF » : scores de toutes tes équipes et classements officiels de leurs poules.</li>
         <li><b>Footclubs :</b> connecte-toi, ouvre <b>Licences → Liste</b>, touche « Afficher », puis le favori « Footclubs ».</li>
         <li>L'appli s'ouvre et te montre les changements : touche <b>Importer</b>.</li></ol>
       <p class="muted small">À refaire quand tu veux (une fois par semaine, ou après une vague de licences). Rien n'est envoyé ailleurs que dans l'appli du club.</p></section>`;
@@ -13033,7 +13078,7 @@ data={rows,total:(range()||[0,0,rows.length])[2]};send();})()`;
       if (got || !ALLOWED.includes(e.origin) || !e.data || e.data.type !== 'club-import') return;
       got = true; clearInterval(ping); clearTimeout(stop); b.done();
       if (!Auth.isAdmin()) return toast('Réservé à un responsable du club.', 'err');
-      try { e.data.source === 'footclubs' ? footclubs(e.data.payload) : assist(e.data.payload); } catch (err) { console.error(err); toast(err.message || 'Données illisibles', 'err'); }
+      try { e.data.source === 'footclubs' ? footclubs(e.data.payload) : e.data.source === 'fff' ? fff(e.data.payload) : assist(e.data.payload); } catch (err) { console.error(err); toast(err.message || 'Données illisibles', 'err'); }
     });
   }
 
@@ -13042,26 +13087,27 @@ data={rows,total:(range()||[0,0,rows.length])[2]};send();})()`;
   const LIC = e => /valid|renouvel/i.test(e) && !/non valid/i.test(e) ? 'ok' : /non valid|incompl|non factur/i.test(e) ? 'attente' : '';
   function footclubs(P) {
     const rows = (P.rows || []).filter(r => PLAYER_CAT.test(r.cat) && !/supprim/i.test(r.etat))
-      .map(r => Object.assign(People.parseLines(`${r.name}\t${r.birth}\t${r.cat}`)[0] || {}, { etat: r.etat, depart: /d[ée]part/i.test(r.etat) })).filter(x => x.lastName);
+      .map(r => Object.assign(People.parseLines(`${r.name}\t${r.birth}\t${r.cat}`)[0] || {}, { etat: r.etat, depart: /d[ée]part/i.test(r.etat), licence: r.lic || '' })).filter(x => x.lastName);
     const ours = S().players;
-    const find = x => ours.find(p => (p.lastName || '').toUpperCase() === x.lastName && norm(p.firstName) === norm(x.firstName) && (!p.birth || p.birth === x.birth))
+    const digits = s => String(s || '').replace(/\D/g, '');
+    const find = x => (x.licence && ours.find(p => digits(p.licence) === x.licence)) || ours.find(p => (p.lastName || '').toUpperCase() === x.lastName && norm(p.firstName) === norm(x.firstName) && (!p.birth || p.birth === x.birth))
       || ours.find(p => norm(`${p.firstName} ${p.lastName}`) === norm(`${x.firstName} ${x.lastName}`) && p.birth === x.birth);
     const plan = rows.map(x => ({ x, p: find(x) }));
     const fresh = plan.filter(r => !r.p && !r.x.depart), known = plan.filter(r => r.p), gone = known.filter(r => r.x.depart);
-    const upd = known.filter(r => (!r.p.birth && r.x.birth) || (LIC(r.x.etat) && ((r.p.adm || {}).lic || '') !== LIC(r.x.etat)));
+    const upd = known.filter(r => (!r.p.birth && r.x.birth) || (r.x.licence && !r.p.licence) || (LIC(r.x.etat) && ((r.p.adm || {}).lic || '') !== LIC(r.x.etat)));
     const names = list => list.slice(0, 40).map(r => esc(`${r.x.firstName} ${r.x.lastName}`)).join(', ') + (list.length > 40 ? ` et ${list.length - 40} autres` : '');
     const all = (P.rows || []).length, miss = P.total && all < P.total;
     modal({ title: '📥 Footclubs : ce qui change', noFocus: true, body: `<p class="lead">${all} licence${all > 1 ? 's' : ''} lue${all > 1 ? 's' : ''} dans Footclubs${P.total ? ` sur ${P.total}` : ''}, dont ${rows.length} joueur${rows.length > 1 ? 's' : ''} (les dirigeants, éducateurs et arbitres sont laissés de côté).</p>
       ${miss ? '<p class="tip">⚠️ Toutes les pages de la liste n\'ont pas pu être lues : vérifie ta connexion à Footclubs et touche à nouveau le favori. Tu peux quand même importer ce qui a été lu.</p>' : ''}
       <ul class="src-sum"><li>🆕 <b>${fresh.length}</b> nouveau${fresh.length > 1 ? 'x' : ''} joueur${fresh.length > 1 ? 's' : ''}, rangé${fresh.length > 1 ? 's' : ''} dans ${fresh.length > 1 ? 'leur' : 'sa'} catégorie${fresh.length ? ` : <span class="muted small">${names(fresh)}</span>` : ''}</li>
-      <li>✏️ <b>${upd.length}</b> joueur${upd.length > 1 ? 's' : ''} complété${upd.length > 1 ? 's' : ''} (date de naissance, état de la licence)</li>
+      <li>✏️ <b>${upd.length}</b> joueur${upd.length > 1 ? 's' : ''} complété${upd.length > 1 ? 's' : ''} (numéro de licence, date de naissance, état de la licence)</li>
       <li>✅ <b>${known.length - upd.length}</b> déjà à jour, sans doublon</li>
       ${gone.length ? `<li>👋 <b>${gone.length}</b> marqué${gone.length > 1 ? 's' : ''} « Départ » dans Footclubs (gardé${gone.length > 1 ? 's' : ''} dans l'appli, à retirer à la main si besoin) : <span class="muted small">${names(gone)}</span></li>` : ''}</ul>
       <p class="muted small">Les joueurs déjà dans l'appli ne changent pas de catégorie (un joueur surclassé reste où tu l'as mis).</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: () => {
         fresh.forEach(({ x }) => { const cat = People.catOf(x), t = cat ? People.ageTeam(cat) : null;
-          Store.upsert('players', { id: Store.uid(), firstName: x.firstName, lastName: x.lastName, birth: x.birth, subcat: x.subcat, number: '', pos: '', phone: '', email: '', parents: [], notes: '', teamIds: t ? [t.id] : [], adm: LIC(x.etat) ? { lic: LIC(x.etat) } : {} }); });
-        upd.forEach(({ x, p }) => { if (!p.birth && x.birth) p.birth = x.birth; if (LIC(x.etat)) p.adm = Object.assign({}, p.adm, { lic: LIC(x.etat) }); if (x.subcat && !p.subcat) p.subcat = x.subcat; Store.upsert('players', p); });
+          Store.upsert('players', { id: Store.uid(), firstName: x.firstName, lastName: x.lastName, birth: x.birth, subcat: x.subcat, licence: x.licence || '', number: '', pos: '', phone: '', email: '', parents: [], notes: '', teamIds: t ? [t.id] : [], adm: LIC(x.etat) ? { lic: LIC(x.etat) } : {} }); });
+        upd.forEach(({ x, p }) => { if (!p.birth && x.birth) p.birth = x.birth; if (x.licence && !p.licence) p.licence = x.licence; if (LIC(x.etat)) p.adm = Object.assign({}, p.adm, { lic: LIC(x.etat) }); if (x.subcat && !p.subcat) p.subcat = x.subcat; Store.upsert('players', p); });
         Store.sortTeams(); Store.save(); App.route();
         toast(`Footclubs : ${fresh.length} ajouté${fresh.length > 1 ? 's' : ''}, ${upd.length} complété${upd.length > 1 ? 's' : ''}`);
       } }] });
@@ -13079,6 +13125,31 @@ data={rows,total:(range()||[0,0,rows.length])[2]};send();})()`;
       <li>🚑 ${((D.medical || {}).cases || []).length} blessures · 💚 ${((D.wellness || {}).logs || []).length} questionnaires de bien-être · 🏆 ${Object.keys(D.champDetail || {}).length} championnat${Object.keys(D.champDetail || {}).length > 1 ? 's' : ''}</li></ul>
       <p class="muted small">Ce qui existe déjà est mis à jour, rien n'est ajouté deux fois (chaque chose garde son lien avec AssistCoachAI).</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: () => { setTimeout(() => ACImport.fromText(JSON.stringify(D)), 60); } }] });
+  }
+  /* ---------- (1.40) the FFF / District site: results and official tables ---------- */
+  const num = v => { const n = parseInt(String(v || '').replace(/[^\d-]/g, ''), 10); return isNaN(n) ? 0 : n; };
+  function tableOf(rows) {
+    const H = rows[0] || [], ix = k => H.indexOf(k);
+    const iT = ix('Equipe'), cols = { pts: ix('Pts'), j: ix('J.'), v: ix('G.'), n: ix('N.'), d: ix('P.'), f: ix('F.'), bp: ix('Bp.'), bc: ix('Bc.'), diff: ix('Diff.') };
+    if (iT < 0 || cols.pts < 0) return [];
+    return rows.slice(1).filter(r => r[iT]).map(r => Object.assign({ rank: num(r[0]), name: r[iT] }, Object.fromEntries(Object.entries(cols).map(([k, i]) => [k, i < 0 ? 0 : num(r[i])]))));
+  }
+  function fff(P) {
+    if (P.club) S().club.fffClub = P.club;
+    const found = Importer.parseFFF(P.calendar || '').filter(m => m.date);
+    const played = found.filter(m => m.played);
+    const tables = (P.poules || []).map(p => ({ p, t: Importer.guessTeam(p.comp, p.our || ''), rows: tableOf(p.rows || []) })).filter(x => x.t && x.rows.length);
+    modal({ title: '🏆 Résultats FFF : ce qui change', noFocus: true, body: `<ul class="src-sum">
+      <li>⚽ <b>${played.length}</b> résultat${played.length > 1 ? 's' : ''} lu${played.length > 1 ? 's' : ''} sur la page (${found.length} match${found.length > 1 ? 's' : ''} du mois en tout) : scores mis à jour sans doublon</li>
+      <li>🛡️ <b>${Object.keys(P.logos || {}).length}</b> logos de clubs (adversaires de toutes les poules)</li>
+      <li>🏆 <b>${tables.length}</b> classement${tables.length > 1 ? 's' : ''} officiel${tables.length > 1 ? 's' : ''} : ${tables.map(x => esc(x.t.name + ' (' + x.p.comp + ')')).join(', ') || 'aucun'}</li></ul>
+      <p class="muted small">Les classements viennent du site de la FFF : tous les adversaires de chaque poule, « sous réserve d'éventuelles procédures ».</p>`,
+      actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: () => {
+        const res = Importer.applyFound(found); Clubs.setOppLogos(P.logos);
+        tables.forEach(({ p, t, rows }) => { t.fffTable = { name: p.comp, url: 'https://epreuves.fff.fr' + p.url + '/classement', our: p.our, rows, at: Date.now() }; Store.upsert('teams', t); });
+        Store.save(); App.route();
+        toast(`FFF : ${res.scores} score${res.scores > 1 ? 's' : ''} mis à jour, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${tables.length} classement${tables.length > 1 ? 's' : ''}`);
+      } }] });
   }
   return { card, receive, bookmarks };
 })();
@@ -13116,7 +13187,8 @@ var Views = (() => {
   const result = m => !m.played ? null : m.gf > m.ga ? 'V' : m.gf < m.ga ? 'D' : 'N';
   const resPill = m => { const r = result(m); return r ? `<span class="res-smiley" aria-hidden="true">${Ratings.smiley(m)}</span><span class="res res-${r}">${r === 'V' ? 'Gagné' : r === 'D' ? 'Perdu' : 'Nul'}</span>` : ''; };
   const scoreTxt = m => m.home ? `${m.gf} – ${m.ga}` : `${m.ga} – ${m.gf}`;
-  const matchTitle = m => m.exempt ? `${esc(S().club.name)} <i>exempt · pas de match</i>` : m.home ? `${esc(S().club.name)} <i>contre</i> ${esc(m.opponent || '?')}` : `${esc(m.opponent || '?')} <i>contre</i> ${esc(S().club.name)}`;
+  const opp = m => `${Clubs.oppLogo(m.opponent)}${esc(m.opponent || '?')}`; // (1.40) with its crest when known
+  const matchTitle = m => m.exempt ? `${esc(S().club.name)} <i>exempt · pas de match</i>` : m.home ? `${esc(S().club.name)} <i>contre</i> ${opp(m)}` : `${opp(m)} <i>contre</i> ${esc(S().club.name)}`;
   // « U13 · Raincy – Aulnaysienne » : our category, then the two teams in the order of the score (home first)
   const usShort = () => String(S().club.name || 'Nous').replace(/^(FA|AS|US|FC|ES|CS|SC|JS|RC)\s+/i, '').replace(/^(Le|La|Les|L')\s*/i, '') || S().club.name;
   // Home (green) or away (blue) tint of a match, the same everywhere in the app
@@ -14218,7 +14290,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 40, UPD = AppCfg.key('update-tried');
+  const BUILD = 41, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

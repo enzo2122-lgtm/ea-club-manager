@@ -146,6 +146,20 @@ const Importer = (() => {
   }
 
   /* ---------- import screen for matches ---------- */
+  // (1.40) the matches found (FFF / District page, file): updated when already there (same team, day and opponent), else added
+  function applyFound(found, sel = 'auto', each) {
+    const res = { added: 0, updated: 0, noTeam: 0, scores: 0 };
+    found.forEach(m => {
+      const t = sel === 'auto' ? guessTeam(m.competition, m.ourName || '') : Store.get('teams', sel);
+      if (!t) { res.noTeam++; return; }
+      const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent));
+      const comp = /coupe/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
+      if (ex) { if (m.played && (!ex.played || ex.gf !== m.gf || ex.ga !== m.ga)) res.scores++; Object.assign(ex, { time: m.time || ex.time, played: m.played || ex.played, gf: m.played ? m.gf : ex.gf, ga: m.played ? m.ga : ex.ga }); Store.upsert('matches', ex); res.updated++; }
+      else { Store.upsert('matches', { id: Store.uid(), teamId: t.id, exempt: !!m.exempt, opponent: m.opponent || 'Adversaire', date: m.date, time: m.time || '', home: m.home, competition: comp, place: m.place || m.venue || '', rdv: '', played: m.played, gf: m.played ? m.gf : 0, ga: m.played ? m.ga : 0, convoked: [], lineupId: null, notes: '', imported: true }); res.added++; if (m.played) res.scores++; }
+      each && each(m, t);
+    });
+    return res;
+  }
   // (1.30) the official calendar of the club's federation (basket, hand, rugby, volley): opened on its site, then imported as a file
   function fedSteps() {
     const [short, name, url, host] = Sport.fed();
@@ -195,16 +209,8 @@ const Importer = (() => {
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: (close, r) => {
         if (!found.length) { toast('Rien à importer pour l\'instant', 'err'); return false; }
         const sel = $('#impTeam', r).value, book = $('#impBook', r).checked;
-        const res = { added: 0, updated: 0, noTeam: 0 }, toBook = [];
-        found.forEach(m => {
-          const t = sel === 'auto' ? guessTeam(m.competition, m.ourName || '') : Store.get('teams', sel);
-          if (!t) { res.noTeam++; return; }
-          const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent));
-          const comp = /coupe/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
-          if (ex) { Object.assign(ex, { time: m.time || ex.time, played: m.played || ex.played, gf: m.played ? m.gf : ex.gf, ga: m.played ? m.ga : ex.ga }); Store.upsert('matches', ex); res.updated++; }
-          else { Store.upsert('matches', { id: Store.uid(), teamId: t.id, exempt: !!m.exempt, opponent: m.opponent || 'Adversaire', date: m.date, time: m.time || '', home: m.home, competition: comp, place: m.place || m.venue || '', rdv: '', played: m.played, gf: m.gf || 0, ga: m.ga || 0, convoked: [], stats: {}, notes: [m.competition, m.ourName && 'Équipe : ' + m.ourName].filter(Boolean).join('\n') }); res.added++; }
-          if (book && m.home && !m.exempt && m.time && m.date >= UI.today()) toBook.push({ m, t });
-        });
+        const toBook = [];
+        const res = applyFound(found, sel, (m, t) => { if (book && m.home && !m.exempt && m.time && m.date >= UI.today()) toBook.push({ m, t }); });
         close();
         (async () => {
           let booked = 0; const clash = [];
@@ -261,5 +267,5 @@ const Importer = (() => {
     return { title: title.slice(0, 120) || 'Exercice', duration: dur ? +dur : 15, org: org.replace(/\n/g, ' ').slice(0, 1500) + (evoList.length ? '\n\nÉvolutions :\n' + evoList.map(e => '+ ' + e).join('\n') : ''), consignes: consList.join('\n'), materiel: mat.replace(/\n/g, ' ') };
   }
 
-  return { parseFFF, parseICS, parseCSV, guessTeam, reassignImported, refileImported, teamNo, levelOf, districtNo, letterNo, matchesDialog, trainingsFromICS, isAssistCoach, parseAssistPage };
+  return { applyFound, parseFFF, parseICS, parseCSV, guessTeam, reassignImported, refileImported, teamNo, levelOf, districtNo, letterNo, matchesDialog, trainingsFromICS, isAssistCoach, parseAssistPage };
 })();

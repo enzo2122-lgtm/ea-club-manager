@@ -106,5 +106,13 @@ const Clubs = (() => {
     const e = Object.entries(LIST).find(([k, c]) => n(c[0]) === t || n(c[1]) === t || n(c[4]) === t || k === t) || Object.entries(LIST).find(([, c]) => n(c[0]).includes(t) || t.includes(n(c[0])));
     return e ? e[0] : '';
   }
-  return { LIST, crest, shield, options, find, name: k => (LIST[k] || [''])[0] };
+  /* (1.40) the crests of the opponents, from the FFF site (« Résultats FFF » bookmark): club.oppLogos = { « NOM » : FFF club number } */
+  const okey = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  function oppId(name) {
+    const L = (Store.state.club || {}).oppLogos || {}, k = okey(name); if (!k) return '';
+    return L[k] || L[k.replace(/ \d+$/, '')] || (Object.entries(L).find(([n]) => n.replace(/ \d+$/, '') === k.replace(/ \d+$/, '')) || [])[1] || '';
+  }
+  const oppLogo = (name, cls = 'opp-logo') => { const id = oppId(name); return id ? `<img class="${cls}" src="https://cdn-transverse.azureedge.net/phlogos/BC${id}.jpg" alt="" loading="lazy" onerror="this.remove()">` : ''; };
+  function setOppLogos(map) { const c = Store.state.club, L = c.oppLogos = Object.assign({}, c.oppLogos || {}); let n = 0; Object.entries(map || {}).forEach(([name, id]) => { const k = okey(name); if (k && /^\d+$/.test(id) && L[k] !== id) { L[k] = id; n++; } }); return n; }
+  return { LIST, crest, shield, options, find, name: k => (LIST[k] || [''])[0], oppLogo, setOppLogos };
 })();
