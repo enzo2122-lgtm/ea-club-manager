@@ -121,7 +121,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 39, UPD = AppCfg.key('update-tried');
+  const BUILD = 40, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -178,6 +178,9 @@ const App = (() => {
     const join = (location.hash.match(/^#rejoindre=([A-Za-z0-9]+)/) || [])[1];
     // (3.74) a session received as a link: …#/recevoir/CODE
     const recv = (location.hash.match(/^#\/recevoir\/([\w-]+)/) || [])[1];
+    // (1.39) opened by the « AssistCoachAI / Footclubs → app » bookmark: the data arrive from the site
+    const fromSite = /^#\/recevoir-source/.test(location.hash);
+    if (fromSite) history.replaceState(null, '', location.pathname + location.search + '#/');
     if (recv) history.replaceState(null, '', location.pathname + location.search + '#/entrainements');
     const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
     if (recv && iosTab && !Auth.current()) await Views.linkGate(recv);
@@ -189,6 +192,7 @@ const App = (() => {
     window.addEventListener('hashchange', route);
     route();
     if (recv) Views.receiveLink(recv);
+    else if (fromSite) Sources.receive();
     else if (Auth.current()) News.check(); // after an update: « Quoi de neuf ? »
     Sync.start();
     // After the first exchange with the server: categories U6 … Vétérans for the new season

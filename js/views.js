@@ -848,6 +848,7 @@ const Views = (() => {
       <h2 class="group-h">🏟️ Le club</h2>
       ${Cloud.settingsSection()}
       ${Auth.isAdmin() ? Onboard.card() : ''}
+      ${Sources.card()}
       ${Auth.isAdmin() ? `<section class="card">
         <h2>${I.team}Tableau tactique</h2>
         <div class="lbl">Couleur de nos maillots</div>${bibs('home', c.homeBib)}

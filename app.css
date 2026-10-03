@@ -1866,3 +1866,8 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 .news-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .news-list li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.45; }
 .news-ic { font-size: 22px; line-height: 1.2; flex: none; width: 28px; text-align: center; }
+
+/* ---------- 1.39 : mise à jour depuis AssistCoachAI et Footclubs ---------- */
+.src-bm { margin: 8px 0 4px; }
+.src-bm .btn { cursor: grab; }
+.src-sum { margin: 8px 0 12px; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
