@@ -233,12 +233,19 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
           c.fffClNo = cl;
         }
         const teams = members(await getJ(`/api/clubs/${cl}/equipes`)), logos = {}, found = [];
+        // (1.58) every poule read 4 at a time (≈ 4 times faster than one after the other), then filed one by one
+        const fetched = {}, queue = [];
+        for (const eq of teams) for (const en of eq.engagements || []) {
+          const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number, k = `${cp}/${ph}/${gp}`;
+          if (cp && ph && gp && !fetched[k]) { const b = `/api/compets/${cp}/phases/${ph}/poules/${gp}`; fetched[k] = null; queue.push([k, () => Promise.all([pages(b + '/matchs'), getJ(b + '/classement_journees').catch(() => null)])]); }
+        }
+        await Promise.all([0, 1, 2, 3].map(async () => { while (queue.length) { const [k, f] = queue.shift(); try { fetched[k] = await f(); } catch (e) { fetched[k] = null; } } }));
         for (const eq of teams) for (const en of eq.engagements || []) {
           const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number; if (!cp || !ph || !gp) continue;
           const our = teamName(eq), comp = `${en.competition.name} - ${eq.category_label || ''}`, t = Importer.guessTeam(comp, our);
           if (!t) { res.skipped = (res.skipped || 0) + 1; (res.skippedNames = res.skippedNames || []).push(`${en.competition.name} (${our})`); continue; }
           const base = `/api/compets/${cp}/phases/${ph}/poules/${gp}`, key = `${cp}/${ph}/${gp}`, url = `https://epreuves.fff.fr/competition/engagement/${cp}/phase/${ph}/${gp}`;
-          let ms = []; try { ms = await pages(base + '/matchs'); } catch (e) { continue; }
+          const got = fetched[key]; if (!got) continue; const [ms, cjJ] = got;
           res.poules++;
           // every match of the poule (kept and completed), our matches for the calendar and the scores
           const all = t.fffPoules = t.fffPoules || {}, R = all[key] = all[key] || { name: en.competition.name, url, list: [] }; R.our = our; R.url = R.url || url;
@@ -259,7 +266,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
           R.list.sort((x, y) => x.date.localeCompare(y.date) || String(x.time).localeCompare(String(y.time))); R.at = Date.now();
           // the official table (the last matchday of each team)
           try {
-            const cj = members(await getJ(base + '/classement_journees')), last = {};
+            const cj = cjJ ? members(cjJ) : [], last = {};
             cj.forEach(r => { const n = teamName(r.equipe); if (n && (!last[n] || (+r.cj_no || 0) >= (+last[n].cj_no || 0))) last[n] = r; });
             const rows = Object.values(last).sort((x, y) => (+x.rank || 99) - (+y.rank || 99)).map(r => ({ rank: +r.rank || 0, name: teamName(r.equipe), pts: +r.point_count || 0, j: +r.total_games_count || 0, v: +r.won_games_count || 0, n: +r.draw_games_count || 0, d: +r.lost_games_count || 0, f: +r.forfeits_games_count || 0, bp: +r.goals_for_count || 0, bc: +r.goals_against_count || 0, diff: +r.goals_diff || 0 }));
             // no table published yet by the District: computed from the results of the poule (3 / 1 / 0), and said so

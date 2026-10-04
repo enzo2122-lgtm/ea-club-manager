@@ -12,7 +12,10 @@ const Messages = (() => {
   const FAMS = AppCfg.key('msg-fams');
   const openFams = () => { try { return JSON.parse(localStorage.getItem(FAMS)) || []; } catch (e) { return []; } };
   const saveFams = l => { try { localStorage.setItem(FAMS, JSON.stringify(l)); } catch (e) {} };
-  const markRead = ch => { const r = reads(); r[ch] = new Date().toISOString(); try { localStorage.setItem(READ, JSON.stringify(r)); } catch (e) {} };
+  // (1.58) a conversation read: its notifications still on the phone go away (they open « #/messages/<conversation> »)
+  const clearNotifs = ch => { try { if (!('serviceWorker' in navigator)) return; navigator.serviceWorker.getRegistration().then(reg => reg && reg.getNotifications && reg.getNotifications().then(ns => ns.forEach(n => {
+    const u = String((n.data || {}).url || ''); if (u === '#/messages' || u.endsWith('#/messages/' + encodeURIComponent(ch)) || u.endsWith('#/messages/' + ch)) n.close(); }))).catch(() => {}); } catch (e) {} };
+  const markRead = ch => { const r = reads(); r[ch] = new Date().toISOString(); try { localStorage.setItem(READ, JSON.stringify(r)); } catch (e) {} clearNotifs(ch); };
   const me = () => Auth.current();
   const dmKey = (a, b) => 'dm:' + [a, b].sort().join(':');
   const isMineDm = ch => ch.startsWith('dm:') && me() && ch.split(':').includes(me().id);
@@ -124,9 +127,25 @@ const Messages = (() => {
       }
     } finally { reminding = false; }
   }
+  /* (1.58) a message read on another device (the phone) is read here too: the server keeps when each dirigeant last read
+     each conversation (read receipts). For the conversations that look unread on this device, that time is taken back. */
+  let syncedAt = 0;
+  async function syncReads() {
+    if (!Cloud.token() || !me() || Date.now() - syncedAt < 60000) return false;
+    syncedAt = Date.now();
+    const chs = [...new Set(msgs.map(m => m.channel))].filter(ch => visible(ch) && unread(ch)).slice(0, 15);
+    if (!chs.length) return false;
+    const r = reads(); let changed = false;
+    await Promise.all(chs.map(async ch => { try {
+      const mine = ((await Cloud.reads(ch)) || []).filter(x => x.staff_id === me().id).map(x => x.at).sort().pop();
+      if (mine && mine > (r[ch] || '')) { r[ch] = mine; changed = true; }
+    } catch (e) {} }));
+    if (changed) { try { localStorage.setItem(READ, JSON.stringify(r)); } catch (e) {} }
+    return changed;
+  }
   function start() {
     clearInterval(timer);
-    const tick = async () => { const changed = await fetchNew(); await matchReminders(); badge(); if (changed && fast && onNew) onNew(); if (fast && onTick) onTick(); };
+    const tick = async () => { const changed = await fetchNew(); const readElsewhere = await syncReads(); await matchReminders(); badge(); if (readElsewhere && location.hash.startsWith('#/messages')) App.route(true); if (changed && fast && onNew) onNew(); if (fast && onTick) onTick(); };
     tick(); timer = setInterval(tick, fast ? 6000 : 45000);
   }
   let onNew = null, onTick = null;

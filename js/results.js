@@ -56,6 +56,7 @@ const Results = (() => {
 
     root.innerHTML = `<header class="page-head"><div><h1>Résultats du club</h1><p class="sub">Tous les matchs de toutes les catégories · saison ${label(season)}</p></div>
       <div class="head-actions">${weekKeys.length ? `<button class="btn primary" data-act="share">${I.share}<span>Partager le dernier week-end</span></button>` : ''}</div></header>
+      ${seg('club')}
       ${seasons.length > 1 ? `<div class="chips filter">${seasons.map(y => `<button class="chip ${y === season ? 'on' : ''}" data-season="${y}">${label(y)}</button>`).join('')}</div>` : ''}
       ${UI.kindSeg({ off: all0.filter(m => m.played && !Store.isFriendly(m)).length, ami: all0.filter(m => m.played && Store.isFriendly(m)).length })}
       <section class="card rs-season">
@@ -99,5 +100,7 @@ const Results = (() => {
       <a class="btn soft" href="#/resultats" style="margin-top:8px">${I.medal}<span>Tous les résultats de la saison</span></a></section>`;
   }
 
-  return { page, homeCard };
+  // (1.58) « Résultats et stats »: one entry in the menu, two tabs (the whole club weekend by weekend / one team in detail)
+  const seg = on => `<div class="seg rs-switch" role="tablist"><a class="seg-b ${on === 'club' ? 'on' : ''}" href="#/resultats">🏟️ Tout le club</a><a class="seg-b ${on === 'team' ? 'on' : ''}" href="#/stats">📊 Par équipe</a></div>`;
+  return { page, homeCard, seg };
 })();

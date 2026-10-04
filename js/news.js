@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 22, date: '2026-10-04', title: 'Deux pages en une', items: [
+      ['🔀', 'Résultats et Stats fusionnent : une seule entrée « Résultats et stats », avec deux onglets en haut, « Tout le club » (les week-ends de toutes les catégories) et « Par équipe » (classement, poule, coupes, joueurs). Un bouton de moins dans le menu.'],
+      ['⚡', 'La mise à jour FFF lit 4 poules à la fois : 4 secondes au lieu de 17. Le temps de dire « hors-jeu ».'],
+      ['✉️', 'Un message lu sur le téléphone n\'apparaît plus comme non lu sur l\'ordinateur (et inversement). Et ouvrir une conversation efface ses notifications restées sur le téléphone.'],
+      ['🔍', 'Grand tour de contrôle : 51 pages, plus de 2 000 boutons touchés, en responsable et en coach, sur téléphone et ordinateur. Aucune erreur. Les bugs sont partis en vacances.'],
+    ] },
     { n: 21, date: '2026-10-04', title: 'La coupe, c\'est la coupe', items: [
       ['🥇', 'Dans Stats, une petite partie « Coupes » à part : chaque tour, le score, et où on en est (1er tour, qualifiés, éliminés). Les compteurs du haut ne comptent plus que le championnat.'],
       ['🏆', 'La District Cup (et toutes les coupes) est rangée en « Coupe » : élimination directe, pas de classement, et elle ne compte plus dans les points de championnat ni dans la forme de l\'adversaire. Un match de coupe gagné ne rapporte pas 3 points, désolé.'],

@@ -3527,7 +3527,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.57';
+  const VERSION = '1.58';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3627,9 +3627,9 @@ var Help = (() => {
     matchs: ['Matchs', ['« Importer » : colle le calendrier copié sur le site de ta fédération ou de ton district (mois par mois), ou choisis un fichier d\'agenda (.ics) ou un tableur (.csv). La catégorie est trouvée toute seule et le terrain peut être réservé pour les matchs à domicile.', '« Nouveau match » : adversaire, date, domicile ou extérieur.', 'Les résultats s\'affichent avec leur smiley.']],
     jourj: ['Jour de match', ['Tout le match en 5 étapes, dans l\'ordre : les convoqués, la composition, la causerie, le match en direct, le résumé aux parents.', 'Touche un prénom pour le convoquer, puis « Envoyer la convocation » (WhatsApp ou la messagerie du club).', 'Pendant le match : « Suivre le match en direct ». Le chrono, les buts et le temps de jeu se notent tout seuls, même sans réseau.', 'À la fin : « Envoyer le résumé aux parents ». Le score et les buteurs sont déjà écrits, ajoute ton mot.']],
     match: ['Un match', ['En haut, le résumé du match : « Modifier » pour changer la date, l\'heure, le lieu ou l\'adversaire. Puis 4 onglets : Avant, Compo, Pendant, Après.', 'Avant : coche les convoqués et choisis les encadrants.', 'Envoie la convocation avec le lien des parents : ils répondent présent ou absent, les réponses s\'affichent sous les convoqués.', 'Match à l\'extérieur : le covoiturage range les enfants dans les voitures des parents, et s\'envoie sur WhatsApp.', 'Match joué : « Temps de jeu » note les minutes de chaque joueur (total sur sa fiche et dans Stats). ⏱️ signale ceux qui ont peu joué cette saison.', '« Relancer les sans réponse » prépare le message WhatsApp pour les parents qui n\'ont pas répondu.', '« Photos pour les parents » : choisis les photos du match à montrer sur leur page (droit à l\'image respecté).', '« Faire la composition » place les joueurs sur le terrain.', 'Coche « Le match est joué », règle le score, les buteurs et les passeurs, puis note les joueurs.', '« Feuille de match » fait le PDF à imprimer.']],
-    stats: ['Statistiques', ['Bilan de l\'équipe : victoires, nuls, défaites, buts et points.', 'Tableau des joueurs : touche un titre de colonne pour trier (buts, passes, présences, notes).']],
+    stats: ['Résultats et stats', ['En haut, deux onglets : « Tout le club » (les résultats de toutes les catégories, week-end par week-end) et « Par équipe ».', 'Par équipe : classement officiel, résultats et agenda de la poule, coupes à part, puis le tableau des joueurs (touche un titre de colonne pour trier).']],
     club: ['Vie du club', ['Événements : organise une réunion, un tournoi ou un déjeuner. Chaque coach répond « Je viens » ou « Je ne viens pas » ; touche l\'événement pour voir qui vient.', 'Signalements : objet perdu, matériel cassé ou souci d\'organisation, avec jusqu\'à 3 photos. Tout le monde peut commenter ; celui qui a signalé (ou un responsable) passe le statut à « En cours » puis « Résolu ».', 'En cochant « Prévenir tous les coachs », un message part aussi dans « Tout le club ».']],
-    resultats: ['Résultats du club', ['Tous les matchs joués par toutes les catégories, rangés par week-end, pour toute la saison.', 'Un résultat apparaît ici dès qu\'un éducateur note le score dans Matchs → le match.', '« Partager le dernier week-end » envoie le récapitulatif sur WhatsApp.']],
+    resultats: ['Résultats du club', ['Tous les matchs joués par toutes les catégories, rangés par week-end, pour toute la saison.', 'Les scores officiels arrivent tout seuls de la FFF ; un éducateur peut aussi noter un score dans Matchs → le match.', 'L\'onglet « Par équipe » donne le détail : classement, poule, coupes, joueurs.', '« Partager le dernier week-end » envoie le récapitulatif sur WhatsApp.']],
     planning: ['Planning du terrain', ['« Chaque semaine » réserve ton créneau d\'entraînement toutes les semaines jusqu\'au 30 juin, en une fois. Les semaines déjà prises sont listées.', 'Touche une case vide du planning (ou « Réserver ») pour prendre un créneau : date, heure de début et de fin, grand terrain ou demi-terrain, entraînement ou match.', 'Pas besoin de connaître l\'adversaire : il suffit de l\'horaire.', 'Un grand terrain bloque tout le terrain. Deux demi-terrains peuvent être utilisés en même temps (A et B).', 'L\'appli refuse tout chevauchement, même si deux coachs réservent en même temps.', 'Touche une réservation pour la libérer ou préparer la séance ou la fiche match.', 'Le responsable fixe les créneaux disponibles de la semaine.']],
     messages: ['Messages', ['« Tout le club » : pour tous les éducateurs.', 'Chaque catégorie a sa conversation.', '« Écrire à un éducateur » ouvre une conversation privée.', 'Les nouveaux messages arrivent tout seuls ; le chiffre rouge dans le menu indique ceux que tu n\'as pas lus.', 'Écris @ puis le prénom d\'un coach (une liste s\'ouvre) : il reçoit une notification tout de suite, même s\'il a coupé celles des messages.', 'Accusés de lecture : ✓ envoyé, ✓✓ lu (message privé) ; « Vu par » sous ton dernier message dans une catégorie ou Tout le club.', 'Notifications sur le téléphone : Réglages → Mon compte → Activer les notifications.']],
     reglages: ['Réglages', ['Deux parties : « Moi » (mon compte, mes notifications, l\'aide) et « Le club » (serveur, invitations, fichiers, et pour les responsables : le club, les comptes des dirigeants).', 'Recevoir un fichier : licenciés ou données d\'un autre éducateur.', 'Les données se partagent toutes seules par le serveur du club. « Envoyer toutes mes données » fait une sauvegarde.', 'Inviter les éducateurs : un lien à envoyer par WhatsApp pour leur première connexion.', 'Le responsable gère les comptes des dirigeants et l\'e-mail qui reçoit les signalements.', 'Mon compte : ajoute ton téléphone si tu veux, et choisis qui le voit (les responsables, tous les éducateurs, ou aussi les parents de tes catégories).']],
@@ -4574,6 +4574,7 @@ var Results = (() => {
 
     root.innerHTML = `<header class="page-head"><div><h1>Résultats du club</h1><p class="sub">Tous les matchs de toutes les catégories · saison ${label(season)}</p></div>
       <div class="head-actions">${weekKeys.length ? `<button class="btn primary" data-act="share">${I.share}<span>Partager le dernier week-end</span></button>` : ''}</div></header>
+      ${seg('club')}
       ${seasons.length > 1 ? `<div class="chips filter">${seasons.map(y => `<button class="chip ${y === season ? 'on' : ''}" data-season="${y}">${label(y)}</button>`).join('')}</div>` : ''}
       ${UI.kindSeg({ off: all0.filter(m => m.played && !Store.isFriendly(m)).length, ami: all0.filter(m => m.played && Store.isFriendly(m)).length })}
       <section class="card rs-season">
@@ -4617,7 +4618,9 @@ var Results = (() => {
       <a class="btn soft" href="#/resultats" style="margin-top:8px">${I.medal}<span>Tous les résultats de la saison</span></a></section>`;
   }
 
-  return { page, homeCard };
+  // (1.58) « Résultats et stats »: one entry in the menu, two tabs (the whole club weekend by weekend / one team in detail)
+  const seg = on => `<div class="seg rs-switch" role="tablist"><a class="seg-b ${on === 'club' ? 'on' : ''}" href="#/resultats">🏟️ Tout le club</a><a class="seg-b ${on === 'team' ? 'on' : ''}" href="#/stats">📊 Par équipe</a></div>`;
+  return { page, homeCard, seg };
 })();
 
 ;
@@ -4636,7 +4639,10 @@ var Messages = (() => {
   const FAMS = AppCfg.key('msg-fams');
   const openFams = () => { try { return JSON.parse(localStorage.getItem(FAMS)) || []; } catch (e) { return []; } };
   const saveFams = l => { try { localStorage.setItem(FAMS, JSON.stringify(l)); } catch (e) {} };
-  const markRead = ch => { const r = reads(); r[ch] = new Date().toISOString(); try { localStorage.setItem(READ, JSON.stringify(r)); } catch (e) {} };
+  // (1.58) a conversation read: its notifications still on the phone go away (they open « #/messages/<conversation> »)
+  const clearNotifs = ch => { try { if (!('serviceWorker' in navigator)) return; navigator.serviceWorker.getRegistration().then(reg => reg && reg.getNotifications && reg.getNotifications().then(ns => ns.forEach(n => {
+    const u = String((n.data || {}).url || ''); if (u === '#/messages' || u.endsWith('#/messages/' + encodeURIComponent(ch)) || u.endsWith('#/messages/' + ch)) n.close(); }))).catch(() => {}); } catch (e) {} };
+  const markRead = ch => { const r = reads(); r[ch] = new Date().toISOString(); try { localStorage.setItem(READ, JSON.stringify(r)); } catch (e) {} clearNotifs(ch); };
   const me = () => Auth.current();
   const dmKey = (a, b) => 'dm:' + [a, b].sort().join(':');
   const isMineDm = ch => ch.startsWith('dm:') && me() && ch.split(':').includes(me().id);
@@ -4748,9 +4754,25 @@ var Messages = (() => {
       }
     } finally { reminding = false; }
   }
+  /* (1.58) a message read on another device (the phone) is read here too: the server keeps when each dirigeant last read
+     each conversation (read receipts). For the conversations that look unread on this device, that time is taken back. */
+  let syncedAt = 0;
+  async function syncReads() {
+    if (!Cloud.token() || !me() || Date.now() - syncedAt < 60000) return false;
+    syncedAt = Date.now();
+    const chs = [...new Set(msgs.map(m => m.channel))].filter(ch => visible(ch) && unread(ch)).slice(0, 15);
+    if (!chs.length) return false;
+    const r = reads(); let changed = false;
+    await Promise.all(chs.map(async ch => { try {
+      const mine = ((await Cloud.reads(ch)) || []).filter(x => x.staff_id === me().id).map(x => x.at).sort().pop();
+      if (mine && mine > (r[ch] || '')) { r[ch] = mine; changed = true; }
+    } catch (e) {} }));
+    if (changed) { try { localStorage.setItem(READ, JSON.stringify(r)); } catch (e) {} }
+    return changed;
+  }
   function start() {
     clearInterval(timer);
-    const tick = async () => { const changed = await fetchNew(); await matchReminders(); badge(); if (changed && fast && onNew) onNew(); if (fast && onTick) onTick(); };
+    const tick = async () => { const changed = await fetchNew(); const readElsewhere = await syncReads(); await matchReminders(); badge(); if (readElsewhere && location.hash.startsWith('#/messages')) App.route(true); if (changed && fast && onNew) onNew(); if (fast && onTick) onTick(); };
     tick(); timer = setInterval(tick, fast ? 6000 : 45000);
   }
   let onNew = null, onTick = null;
@@ -13082,6 +13104,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 22, date: '2026-10-04', title: 'Deux pages en une', items: [
+      ['🔀', 'Résultats et Stats fusionnent : une seule entrée « Résultats et stats », avec deux onglets en haut, « Tout le club » (les week-ends de toutes les catégories) et « Par équipe » (classement, poule, coupes, joueurs). Un bouton de moins dans le menu.'],
+      ['⚡', 'La mise à jour FFF lit 4 poules à la fois : 4 secondes au lieu de 17. Le temps de dire « hors-jeu ».'],
+      ['✉️', 'Un message lu sur le téléphone n\'apparaît plus comme non lu sur l\'ordinateur (et inversement). Et ouvrir une conversation efface ses notifications restées sur le téléphone.'],
+      ['🔍', 'Grand tour de contrôle : 51 pages, plus de 2 000 boutons touchés, en responsable et en coach, sur téléphone et ordinateur. Aucune erreur. Les bugs sont partis en vacances.'],
+    ] },
     { n: 21, date: '2026-10-04', title: 'La coupe, c\'est la coupe', items: [
       ['🥇', 'Dans Stats, une petite partie « Coupes » à part : chaque tour, le score, et où on en est (1er tour, qualifiés, éliminés). Les compteurs du haut ne comptent plus que le championnat.'],
       ['🏆', 'La District Cup (et toutes les coupes) est rangée en « Coupe » : élimination directe, pas de classement, et elle ne compte plus dans les points de championnat ni dans la forme de l\'adversaire. Un match de coupe gagné ne rapporte pas 3 points, désolé.'],
@@ -13441,12 +13469,19 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
           c.fffClNo = cl;
         }
         const teams = members(await getJ(`/api/clubs/${cl}/equipes`)), logos = {}, found = [];
+        // (1.58) every poule read 4 at a time (≈ 4 times faster than one after the other), then filed one by one
+        const fetched = {}, queue = [];
+        for (const eq of teams) for (const en of eq.engagements || []) {
+          const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number, k = `${cp}/${ph}/${gp}`;
+          if (cp && ph && gp && !fetched[k]) { const b = `/api/compets/${cp}/phases/${ph}/poules/${gp}`; fetched[k] = null; queue.push([k, () => Promise.all([pages(b + '/matchs'), getJ(b + '/classement_journees').catch(() => null)])]); }
+        }
+        await Promise.all([0, 1, 2, 3].map(async () => { while (queue.length) { const [k, f] = queue.shift(); try { fetched[k] = await f(); } catch (e) { fetched[k] = null; } } }));
         for (const eq of teams) for (const en of eq.engagements || []) {
           const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number; if (!cp || !ph || !gp) continue;
           const our = teamName(eq), comp = `${en.competition.name} - ${eq.category_label || ''}`, t = Importer.guessTeam(comp, our);
           if (!t) { res.skipped = (res.skipped || 0) + 1; (res.skippedNames = res.skippedNames || []).push(`${en.competition.name} (${our})`); continue; }
           const base = `/api/compets/${cp}/phases/${ph}/poules/${gp}`, key = `${cp}/${ph}/${gp}`, url = `https://epreuves.fff.fr/competition/engagement/${cp}/phase/${ph}/${gp}`;
-          let ms = []; try { ms = await pages(base + '/matchs'); } catch (e) { continue; }
+          const got = fetched[key]; if (!got) continue; const [ms, cjJ] = got;
           res.poules++;
           // every match of the poule (kept and completed), our matches for the calendar and the scores
           const all = t.fffPoules = t.fffPoules || {}, R = all[key] = all[key] || { name: en.competition.name, url, list: [] }; R.our = our; R.url = R.url || url;
@@ -13467,7 +13502,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
           R.list.sort((x, y) => x.date.localeCompare(y.date) || String(x.time).localeCompare(String(y.time))); R.at = Date.now();
           // the official table (the last matchday of each team)
           try {
-            const cj = members(await getJ(base + '/classement_journees')), last = {};
+            const cj = cjJ ? members(cjJ) : [], last = {};
             cj.forEach(r => { const n = teamName(r.equipe); if (n && (!last[n] || (+r.cj_no || 0) >= (+last[n].cj_no || 0))) last[n] = r; });
             const rows = Object.values(last).sort((x, y) => (+x.rank || 99) - (+y.rank || 99)).map(r => ({ rank: +r.rank || 0, name: teamName(r.equipe), pts: +r.point_count || 0, j: +r.total_games_count || 0, v: +r.won_games_count || 0, n: +r.draw_games_count || 0, d: +r.lost_games_count || 0, f: +r.forfeits_games_count || 0, bp: +r.goals_for_count || 0, bc: +r.goals_against_count || 0, diff: +r.goals_diff || 0 }));
             // no table published yet by the District: computed from the results of the poule (3 / 1 / 0), and said so
@@ -14430,7 +14465,8 @@ var Views = (() => {
       return { p, post: People.postsLabel(p, true), played, g, a: as, pr, min, yc, rc, cards: yc + rc * 3, rate:trs.length ? Math.round(pr / trs.length * 100) : null, nm: Ratings.average(p.id, 'match') || 0, nt: Ratings.average(p.id, 'training') || 0 };
     }).filter(r => ownIds.has(r.p.id) || !ownIds.size || r.played || r.pr).sort((a, b) => sortKey === 'post' ? People.sortPlayers([a.p, b.p], 'post')[0] === a.p ? -1 : 1 : sortKey === 'name' ? Store.byName(a.p, b.p) : sortKey === 'num' ? (+a.p.number || 99) - (+b.p.number || 99) : (b[sortKey] || 0) - (a[sortKey] || 0));
     const th = (k, l) => `<th><button class="th ${sortKey === k ? 'on' : ''}" data-sort="${k}">${l}</button></th>`;
-    root.innerHTML = `${header('Statistiques', esc(t.name), `<a class="btn" href="#/bilan/${t.id}">🏆<span>Bilan de saison</span></a><button class="btn" data-act="excel">${I.download}<span>Excel</span></button>`)}
+    root.innerHTML = `${header('Résultats et stats', esc(t.name), `<a class="btn" href="#/bilan/${t.id}">🏆<span>Bilan de saison</span></a><button class="btn" data-act="excel">${I.download}<span>Excel</span></button>`)}
+      ${Results.seg('team')}
       ${teamSwitch()}
       ${UI.kindSeg({ off: ms0.filter(m => m.played && !Store.isFriendly(m)).length, ami: ms0.filter(m => m.played && Store.isFriendly(m)).length })}
       ${!ms0.length ? `<section class="card"><h2>📭 Aucun match joué pour l'instant</h2><p class="muted small">Les statistiques se remplissent avec les matchs marqués « joué ». Pour reprendre ceux d'AssistCoachAI (buts, passes, minutes) et de la FFF (scores, classement, cartons, remplacements), lance les favoris de ${Auth.isAdmin() ? '<a href="#/reglages">Réglages → Le club</a>' : 'Réglages → Le club (administrateur du club)'} sur ton ordinateur. Tu peux aussi saisir un score dans la page d'un match.</p></section>` : ''}
@@ -14643,11 +14679,11 @@ var App = (() => {
   // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
     ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
-    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['resultats', 'Résultats', 'medal'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Stats', 'stats'], ['reglages', 'Réglages', 'settings'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['reglages', 'Réglages', 'settings'],
   ];
   const PHONE_MAIN = 5;
   // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
-  const MORE_GROUPS = [['Le club', ['planning', 'club', 'resultats', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'stats']], ['Réglages et aide', ['reglages']]];
+  const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque']], ['Réglages et aide', ['reglages']]];
   const view = () => document.getElementById('view');
 
   function refreshChrome() {
@@ -14709,7 +14745,7 @@ var App = (() => {
     document.body.dataset.page = name;
     const full = name === 'schema' || name === 'tableau';
     document.body.classList.toggle('editing', full);
-    const navKey = { equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
+    const navKey = { equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
     renderNav(navKey);
     Quick.fab();
     // Whiteboard: a blank board, never saved (id = format of the pitch)
@@ -14761,7 +14797,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 58, UPD = AppCfg.key('update-tried');
+  const BUILD = 59, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
