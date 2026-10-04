@@ -3523,7 +3523,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.48';
+  const VERSION = '1.49';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8780,7 +8780,7 @@ var Exos = (() => {
     };
   }
   // free official resources (FFF): opened on their site, or kept in the Bibliothèque
-  const RES = [['U6-U13', 'Guide interactif du football des enfants (GIFE) : séances, vidéos, fiches par catégorie', 'https://lfpl.fff.fr/video/guide-interactif-du-football-des-enfants-gife/'],
+  const RES = [['U6-U13', 'Guide interactif du football des enfants (GIFE) : séances, vidéos, fiches par catégorie', 'https://districtvaldemarne.fff.fr/simple/gife-des-u7-u9-u11-u13/'], // (1.49) Ligue Paris Île-de-France
     ['U6-U9', 'Guide de la pratique du foot à 5 (FFF, édition 2025, PDF)', 'https://media.fff.fr/uploads/documents/guide-de-la-pratique-fff_foot5_e-dition-2025.pdf'],
     ['U6-U19', 'Programme éducatif fédéral : fiches et actions terrain', 'https://pef.fff.fr/fiches/'],
     ['Tous', 'L\'échauffement d\'avant-match (FFF, PDF)', 'https://lgef.fff.fr/wp-content/uploads/sites/14/2017/11/1-LEchauffement-dAvant-Match.pdf'],
@@ -13036,6 +13036,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 13, date: '2026-10-04', title: 'Retour en Île-de-France', items: [
+      ['🧭', 'Le lien du guide du football des enfants (GIFE), dans les ressources des exercices, part maintenant chez nos voisins du District du Val-de-Marne (Ligue Paris Île-de-France) au lieu des Pays de la Loire. Même guide, moins de bouchons sur le périph\'.'],
+    ] },
     { n: 12, date: '2026-10-04', title: 'On espionne toute la poule', items: [
       ['📅', 'Le favori « Résultats FFF » rapporte maintenant les résultats de tous les matchs de nos poules, adversaires compris. Ils s\'ajoutent chaque semaine aux précédents, rien n\'est effacé. À voir dans Stats, sous le classement.'],
       ['🔎', 'Dans l\'onglet « Avant » du match : la forme du moment de l\'adversaire (ses 5 derniers résultats). Tu sauras s\'il arrive en confiance ou en crise.'],
@@ -14547,7 +14550,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 49, UPD = AppCfg.key('update-tried');
+  const BUILD = 50, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

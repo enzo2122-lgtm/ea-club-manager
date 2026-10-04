@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 13, date: '2026-10-04', title: 'Retour en Île-de-France', items: [
+      ['🧭', 'Le lien du guide du football des enfants (GIFE), dans les ressources des exercices, part maintenant chez nos voisins du District du Val-de-Marne (Ligue Paris Île-de-France) au lieu des Pays de la Loire. Même guide, moins de bouchons sur le périph\'.'],
+    ] },
     { n: 12, date: '2026-10-04', title: 'On espionne toute la poule', items: [
       ['📅', 'Le favori « Résultats FFF » rapporte maintenant les résultats de tous les matchs de nos poules, adversaires compris. Ils s\'ajoutent chaque semaine aux précédents, rien n\'est effacé. À voir dans Stats, sous le classement.'],
       ['🔎', 'Dans l\'onglet « Avant » du match : la forme du moment de l\'adversaire (ses 5 derniers résultats). Tu sauras s\'il arrive en confiance ou en crise.'],

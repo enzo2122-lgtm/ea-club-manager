@@ -141,7 +141,7 @@ const Exos = (() => {
     };
   }
   // free official resources (FFF): opened on their site, or kept in the Bibliothèque
-  const RES = [['U6-U13', 'Guide interactif du football des enfants (GIFE) : séances, vidéos, fiches par catégorie', 'https://lfpl.fff.fr/video/guide-interactif-du-football-des-enfants-gife/'],
+  const RES = [['U6-U13', 'Guide interactif du football des enfants (GIFE) : séances, vidéos, fiches par catégorie', 'https://districtvaldemarne.fff.fr/simple/gife-des-u7-u9-u11-u13/'], // (1.49) Ligue Paris Île-de-France
     ['U6-U9', 'Guide de la pratique du foot à 5 (FFF, édition 2025, PDF)', 'https://media.fff.fr/uploads/documents/guide-de-la-pratique-fff_foot5_e-dition-2025.pdf'],
     ['U6-U19', 'Programme éducatif fédéral : fiches et actions terrain', 'https://pef.fff.fr/fiches/'],
     ['Tous', 'L\'échauffement d\'avant-match (FFF, PDF)', 'https://lgef.fff.fr/wp-content/uploads/sites/14/2017/11/1-LEchauffement-dAvant-Match.pdf'],
