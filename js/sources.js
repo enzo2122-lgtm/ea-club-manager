@@ -222,7 +222,16 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       const res = { scores: 0, added: 0, tables: 0, results: 0, poules: 0 };
       try {
         let cl = c.fffClNo;
-        if (!cl) { const j = await getJ('/api/clubs?cl_cod=' + encodeURIComponent(aff)); cl = (members(j).find(x => String(x.affiliation_number) === aff) || {}).cl_no; if (!cl) throw new Error('Club introuvable à la FFF (n° ' + aff + ')'); c.fffClNo = cl; }
+        // (1.55) the number kept can be the affiliation number (552176, the club's page) or the FFF's own one (162203): both work
+        if (!cl) {
+          const nums = [...new Set([aff, (/club\/(\d+)/.exec(c.fffUrl || '') || [])[1]].filter(Boolean).map(String))];
+          for (const n of nums) {
+            try { const x = members(await getJ('/api/clubs?cl_cod=' + encodeURIComponent(n))).find(y => String(y.affiliation_number) === n); if (x) { cl = x.cl_no; c.fffClub = n; break; } } catch (e) {}
+            try { const x = await getJ('/api/clubs/' + encodeURIComponent(n)); if (x && x.cl_no) { cl = x.cl_no; if (x.affiliation_number) c.fffClub = String(x.affiliation_number); break; } } catch (e) {}
+          }
+          if (!cl) throw new Error('Club introuvable à la FFF (n° ' + nums.join(' ou ') + ')');
+          c.fffClNo = cl;
+        }
         const teams = members(await getJ(`/api/clubs/${cl}/equipes`)), logos = {}, found = [];
         for (const eq of teams) for (const en of eq.engagements || []) {
           const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number; if (!cp || !ph || !gp) continue;

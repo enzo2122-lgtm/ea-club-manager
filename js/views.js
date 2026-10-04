@@ -843,7 +843,8 @@ const Views = (() => {
       ${teamSwitch()}
       ${UI.kindSeg({ off: ms0.filter(m => m.played && !Store.isFriendly(m)).length, ami: ms0.filter(m => m.played && Store.isFriendly(m)).length })}
       ${!ms0.length ? `<section class="card"><h2>📭 Aucun match joué pour l'instant</h2><p class="muted small">Les statistiques se remplissent avec les matchs marqués « joué ». Pour reprendre ceux d'AssistCoachAI (buts, passes, minutes) et de la FFF (scores, classement, cartons, remplacements), lance les favoris de ${Auth.isAdmin() ? '<a href="#/reglages">Réglages → Le club</a>' : 'Réglages → Le club (administrateur du club)'} sur ton ordinateur. Tu peux aussi saisir un score dans la page d'un match.</p></section>` : ''}
-      ${Store.matchKind() !== 'ami' && Sport.isFoot() && !Object.keys(t.fffTables || {}).length ? `<div class="tip fff-tip">🏆 Pas encore le classement et les résultats officiels de la FFF pour cette équipe. <button class="btn primary" data-fff="now">🔄<span>Les chercher maintenant</span></button></div>` : ''}
+      ${Sport.isFoot() ? (() => { const has = Object.keys(t.fffTables || {}).length, at = +S().club.fffAutoAt ? new Date(+S().club.fffAutoAt).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+        return `<div class="tip fff-tip"><span>🏆 ${has ? `Résultats et classements FFF${at ? ` · mis à jour ${esc(at)}` : ''}` : 'Pas encore le classement et les résultats officiels de la FFF pour cette équipe.'}</span><button class="btn ${has ? '' : 'primary'}" data-fff="now">🔄<span>${has ? 'Mettre à jour (toutes les équipes)' : 'Les chercher maintenant'}</span></button></div>`; })() : ''}
       ${Store.matchKind() === 'ami' ? '' : Season.leagueCard(t)}
       ${Season.advanced(t)}
       <div class="tiles">

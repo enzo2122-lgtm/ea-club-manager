@@ -3525,7 +3525,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.54';
+  const VERSION = '1.55';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13067,6 +13067,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 19, date: '2026-10-04', title: 'Le bon numéro', items: [
+      ['🐛', 'Bug réparé : « Club introuvable à la FFF ». L\'appli avait gardé le numéro interne de la FFF (162203) au lieu du numéro d\'affiliation (552176) : elle accepte maintenant les deux. Deux numéros pour un seul club, la FFF aime l\'administratif.'],
+      ['🔄', 'Le bouton « Mettre à jour » est dans Stats pour toutes les catégories : un clic met à jour toutes les équipes, avec l\'heure de la dernière mise à jour.'],
+    ] },
     { n: 18, date: '2026-10-04', title: 'Le bouton qui dit tout', items: [
       ['🔄', 'Dans Stats, une équipe sans classement officiel a maintenant son bouton « Les chercher maintenant ». Et le compte-rendu reste affiché : ce qui a été trouvé à la FFF, ou la vraie raison si ça coince. Fini les messages qui jouent à cache-cache.'],
     ] },
@@ -13404,7 +13408,16 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       const res = { scores: 0, added: 0, tables: 0, results: 0, poules: 0 };
       try {
         let cl = c.fffClNo;
-        if (!cl) { const j = await getJ('/api/clubs?cl_cod=' + encodeURIComponent(aff)); cl = (members(j).find(x => String(x.affiliation_number) === aff) || {}).cl_no; if (!cl) throw new Error('Club introuvable à la FFF (n° ' + aff + ')'); c.fffClNo = cl; }
+        // (1.55) the number kept can be the affiliation number (552176, the club's page) or the FFF's own one (162203): both work
+        if (!cl) {
+          const nums = [...new Set([aff, (/club\/(\d+)/.exec(c.fffUrl || '') || [])[1]].filter(Boolean).map(String))];
+          for (const n of nums) {
+            try { const x = members(await getJ('/api/clubs?cl_cod=' + encodeURIComponent(n))).find(y => String(y.affiliation_number) === n); if (x) { cl = x.cl_no; c.fffClub = n; break; } } catch (e) {}
+            try { const x = await getJ('/api/clubs/' + encodeURIComponent(n)); if (x && x.cl_no) { cl = x.cl_no; if (x.affiliation_number) c.fffClub = String(x.affiliation_number); break; } } catch (e) {}
+          }
+          if (!cl) throw new Error('Club introuvable à la FFF (n° ' + nums.join(' ou ') + ')');
+          c.fffClNo = cl;
+        }
         const teams = members(await getJ(`/api/clubs/${cl}/equipes`)), logos = {}, found = [];
         for (const eq of teams) for (const en of eq.engagements || []) {
           const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number; if (!cp || !ph || !gp) continue;
@@ -14384,7 +14397,8 @@ var Views = (() => {
       ${teamSwitch()}
       ${UI.kindSeg({ off: ms0.filter(m => m.played && !Store.isFriendly(m)).length, ami: ms0.filter(m => m.played && Store.isFriendly(m)).length })}
       ${!ms0.length ? `<section class="card"><h2>📭 Aucun match joué pour l'instant</h2><p class="muted small">Les statistiques se remplissent avec les matchs marqués « joué ». Pour reprendre ceux d'AssistCoachAI (buts, passes, minutes) et de la FFF (scores, classement, cartons, remplacements), lance les favoris de ${Auth.isAdmin() ? '<a href="#/reglages">Réglages → Le club</a>' : 'Réglages → Le club (administrateur du club)'} sur ton ordinateur. Tu peux aussi saisir un score dans la page d'un match.</p></section>` : ''}
-      ${Store.matchKind() !== 'ami' && Sport.isFoot() && !Object.keys(t.fffTables || {}).length ? `<div class="tip fff-tip">🏆 Pas encore le classement et les résultats officiels de la FFF pour cette équipe. <button class="btn primary" data-fff="now">🔄<span>Les chercher maintenant</span></button></div>` : ''}
+      ${Sport.isFoot() ? (() => { const has = Object.keys(t.fffTables || {}).length, at = +S().club.fffAutoAt ? new Date(+S().club.fffAutoAt).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+        return `<div class="tip fff-tip"><span>🏆 ${has ? `Résultats et classements FFF${at ? ` · mis à jour ${esc(at)}` : ''}` : 'Pas encore le classement et les résultats officiels de la FFF pour cette équipe.'}</span><button class="btn ${has ? '' : 'primary'}" data-fff="now">🔄<span>${has ? 'Mettre à jour (toutes les équipes)' : 'Les chercher maintenant'}</span></button></div>`; })() : ''}
       ${Store.matchKind() === 'ami' ? '' : Season.leagueCard(t)}
       ${Season.advanced(t)}
       <div class="tiles">
@@ -14709,7 +14723,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 55, UPD = AppCfg.key('update-tried');
+  const BUILD = 56, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

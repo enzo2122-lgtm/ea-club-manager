@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 19, date: '2026-10-04', title: 'Le bon numéro', items: [
+      ['🐛', 'Bug réparé : « Club introuvable à la FFF ». L\'appli avait gardé le numéro interne de la FFF (162203) au lieu du numéro d\'affiliation (552176) : elle accepte maintenant les deux. Deux numéros pour un seul club, la FFF aime l\'administratif.'],
+      ['🔄', 'Le bouton « Mettre à jour » est dans Stats pour toutes les catégories : un clic met à jour toutes les équipes, avec l\'heure de la dernière mise à jour.'],
+    ] },
     { n: 18, date: '2026-10-04', title: 'Le bouton qui dit tout', items: [
       ['🔄', 'Dans Stats, une équipe sans classement officiel a maintenant son bouton « Les chercher maintenant ». Et le compte-rendu reste affiché : ce qui a été trouvé à la FFF, ou la vraie raison si ça coince. Fini les messages qui jouent à cache-cache.'],
     ] },
