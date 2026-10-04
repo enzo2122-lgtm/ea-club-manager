@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 21, date: '2026-10-04', title: 'La coupe, c\'est la coupe', items: [
+      ['🥇', 'Dans Stats, une petite partie « Coupes » à part : chaque tour, le score, et où on en est (1er tour, qualifiés, éliminés). Les compteurs du haut ne comptent plus que le championnat.'],
+      ['🏆', 'La District Cup (et toutes les coupes) est rangée en « Coupe » : élimination directe, pas de classement, et elle ne compte plus dans les points de championnat ni dans la forme de l\'adversaire. Un match de coupe gagné ne rapporte pas 3 points, désolé.'],
+    ] },
     { n: 20, date: '2026-10-04', title: 'L\'agenda de la poule', items: [
       ['🗓️', 'Dans Stats, sous les résultats : l\'agenda de la poule, avec la prochaine journée (tous les matchs, adversaires compris, avec l\'heure) et les suivantes repliées. Pour les coupes, seulement les nôtres. Tes matchs à venir arrivent aussi tout seuls dans Matchs.'],
     ] },

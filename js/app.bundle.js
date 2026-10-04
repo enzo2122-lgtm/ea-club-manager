@@ -3402,7 +3402,9 @@ var Importer = (() => {
       // (1.51) « F.C. Bourget 2 » (AssistCoachAI) = « BOURGET FC 2 » (FFF): the same match, never a second one
       const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent))
         || S().matches.find(x => x.teamId === t.id && x.date === m.date && !x.exempt && ACImport.sameOpp(x.opponent, m.opponent) > 0);
-      const comp = /coupe/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
+      // (1.57) « DISTRICT CUP » is a cup (knock-out), never the championship
+      const comp = /coupe|\bcup\b/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
+      if (ex && comp === 'Coupe' && ex.competition !== 'Coupe') ex.competition = 'Coupe'; // a cup match filed before as championship
       if (ex) { if (m.played && (!ex.played || ex.gf !== m.gf || ex.ga !== m.ga)) res.scores++; Object.assign(ex, { time: m.time || ex.time, played: m.played || ex.played, gf: m.played ? m.gf : ex.gf, ga: m.played ? m.ga : ex.ga }); Store.upsert('matches', ex); res.updated++; }
       else { Store.upsert('matches', { id: Store.uid(), teamId: t.id, exempt: !!m.exempt, opponent: m.opponent || 'Adversaire', date: m.date, time: m.time || '', home: m.home, competition: comp, place: m.place || m.venue || '', rdv: '', played: m.played, gf: m.played ? m.gf : 0, ga: m.played ? m.ga : 0, convoked: [], lineupId: null, notes: '', imported: true }); res.added++; if (m.played) res.scores++; }
       each && each(m, t);
@@ -3525,7 +3527,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.56';
+  const VERSION = '1.57';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10206,6 +10208,8 @@ var Season = (() => {
   }
   // (1.48) the results of the whole poule (every opponent), the last weekend first; the older ones folded
   const okey = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  // (1.57) a cup (knock-out) is never the championship: no table, not in the form of the moment
+  const isCupR = R => !!R.cup || /coupe|cup/i.test(R.name || '');
   function pouleCard(R) {
     const played = R.list.filter(x => x.hs != null);
     // (1.56) the agenda: the next matchdays of the poule (every match, the opponents' too)
@@ -10217,13 +10221,13 @@ var Season = (() => {
       const block = d => `<div class="lbl">${esc(fdn(d))}</div><table class="pr-table"><tbody>${next.filter(x => x.date === d).map(rowN).join('')}</tbody></table>`;
       return `<h3 class="pr-h3">🗓️ Agenda · prochaine journée</h3>${block(nextDays[0])}${nextDays.length > 1 ? `<details class="pr-more"><summary>Les ${nextDays.length - 1} journée${nextDays.length > 2 ? 's' : ''} suivante${nextDays.length > 2 ? 's' : ''}</summary>${nextDays.slice(1).map(block).join('')}</details>` : ''}`; })() : '';
     if (!played.length && !agenda) return '';
-    if (!played.length) return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· agenda de la poule</span></h2>${agenda}</section>`;
+    if (!played.length) return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· ${isCupR(R) ? 'coupe (élimination directe, hors championnat)' : 'agenda de la poule'}</span></h2>${agenda}</section>`;
     const days = [...new Set(played.map(x => x.date))].sort().reverse(), our = okey(R.our);
     const fd = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
     const row = x => { const us = our && (okey(x.home) === our || okey(x.away) === our), w = x.hs > x.as ? 'h' : x.hs < x.as ? 'a' : '';
       return `<tr class="${us ? 'own' : ''}"><td class="pr-h ${w === 'h' ? 'win' : ''}">${esc(x.home)}${Clubs.oppLogo(x.home)}</td><td class="pr-s">${x.hs} - ${x.as}</td><td class="pr-a ${w === 'a' ? 'win' : ''}">${Clubs.oppLogo(x.away)}${esc(x.away)}</td></tr>`; };
     const day = d => `<div class="lbl">${esc(fd(d))}</div><table class="pr-table"><tbody>${played.filter(x => x.date === d).map(row).join('')}</tbody></table>`;
-    return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· tous les résultats de la poule</span></h2>${days.slice(0, 1).map(day).join('')}
+    return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· ${isCupR(R) ? 'coupe (élimination directe, hors championnat)' : 'tous les résultats de la poule'}</span></h2>${days.slice(0, 1).map(day).join('')}
       ${days.length > 1 ? `<details class="pr-more"><summary>${days.length > 2 ? `Les ${days.length - 1} journées d'avant` : 'La journée d\'avant'}</summary>${days.slice(1).map(day).join('')}</details>` : ''}
       ${agenda}
       <p class="muted small">${R.src ? `Championnat repris d'${esc(R.src)} (mis à jour à chaque import). Le favori « Résultats FFF » y ajoutera les résultats officiels.` : `${R.both ? 'Site de la FFF et AssistCoachAI réunis (le score officiel de la FFF passe en premier)' : 'Site de la FFF'}, gardés à chaque import. <a href="${esc(R.url)}" target="_blank" rel="noopener">Voir sur le site</a>`}</p></section>`;
@@ -10242,7 +10246,7 @@ var Season = (() => {
   function poules(t) {
     const F = Object.values(t.fffPoules || {}), L = leaguePoule(t);
     if (!L) return F; if (!F.length) return [L];
-    const target = F.find(R => lvl(R.name) && lvl(R.name) === lvl(L.name)) || (F.length === 1 ? F[0] : null);
+    const target = F.filter(R => !isCupR(R)).find(R => lvl(R.name) && lvl(R.name) === lvl(L.name)) || (F.filter(R => !isCupR(R)).length === 1 ? F.filter(R => !isCupR(R))[0] : null);
     if (!target) return [...F, L];
     const ourF = okey(target.our), ourL = okey(L.our), isOurs = n => okey(n) === ourF || okey(n) === ourL;
     const same = (a, b) => isOurs(a) || isOurs(b) ? isOurs(a) && isOurs(b) : okey(a) === okey(b) || ACImport.sameOpp(a, b) > 0;
@@ -10260,13 +10264,13 @@ var Season = (() => {
   function formOf(t, name) {
     const k = okey(name); if (!t || !k) return [];
     // « PLAINE 2 » (FFF) = « La Plaine 2 » (AssistCoachAI), never « La Plaine » (team 1)
-    const is = n => okey(n) === k || ACImport.sameOpp(n, name) > 0, all = poules(t).flatMap(R => R.list).filter(x => x.hs != null && (is(x.home) || is(x.away)));
+    const is = n => okey(n) === k || ACImport.sameOpp(n, name) > 0, all = poules(t).filter(R => !isCupR(R)).flatMap(R => R.list).filter(x => x.hs != null && (is(x.home) || is(x.away)));
     return all.sort((a, b) => a.date.localeCompare(b.date)).slice(-5).map(x => { const home = is(x.home), f = home ? x.hs : x.as, a = home ? x.as : x.hs;
       return { r: f > a ? 'V' : f < a ? 'D' : 'N', x }; });
   }
   function leagueCard(t) {
     const tabs = Object.values(t.fffTables || {}).filter(F => (F.rows || []).length);
-    const pr = poules(t).map(pouleCard).join('');
+    const pr = poules(t).filter(R => !isCupR(R)).map(pouleCard).join(''); // the cups have their own card (Stats → Coupes)
     if (tabs.length) return tabs.map(F => officialCard(t, F)).join('') + pr;
     if (t.fffTable && (t.fffTable.rows || []).length) return officialCard(t) + pr;
     const rows = table(t); if (!rows) return pr;
@@ -13078,6 +13082,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 21, date: '2026-10-04', title: 'La coupe, c\'est la coupe', items: [
+      ['🥇', 'Dans Stats, une petite partie « Coupes » à part : chaque tour, le score, et où on en est (1er tour, qualifiés, éliminés). Les compteurs du haut ne comptent plus que le championnat.'],
+      ['🏆', 'La District Cup (et toutes les coupes) est rangée en « Coupe » : élimination directe, pas de classement, et elle ne compte plus dans les points de championnat ni dans la forme de l\'adversaire. Un match de coupe gagné ne rapporte pas 3 points, désolé.'],
+    ] },
     { n: 20, date: '2026-10-04', title: 'L\'agenda de la poule', items: [
       ['🗓️', 'Dans Stats, sous les résultats : l\'agenda de la poule, avec la prochaine journée (tous les matchs, adversaires compris, avec l\'heure) et les suivantes repliées. Pour les coupes, seulement les nôtres. Tes matchs à venir arrivent aussi tout seuls dans Matchs.'],
     ] },
@@ -13464,7 +13472,10 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
             const rows = Object.values(last).sort((x, y) => (+x.rank || 99) - (+y.rank || 99)).map(r => ({ rank: +r.rank || 0, name: teamName(r.equipe), pts: +r.point_count || 0, j: +r.total_games_count || 0, v: +r.won_games_count || 0, n: +r.draw_games_count || 0, d: +r.lost_games_count || 0, f: +r.forfeits_games_count || 0, bp: +r.goals_for_count || 0, bc: +r.goals_against_count || 0, diff: +r.goals_diff || 0 }));
             // no table published yet by the District: computed from the results of the poule (3 / 1 / 0), and said so
             let computed = false;
-            if (!rows.length && en.competition.type !== 'CP' && R.list.some(x => x.hs != null)) {
+            // (1.57) a cup (knock-out: « DISTRICT CUP », « COUPE 93 ») has no table and never counts in the championship
+            const isCup = en.competition.type !== 'CH' || /coupe|\bcup\b/i.test(en.competition.name); R.cup = isCup;
+            if (isCup) { rows.length = 0; if (t.fffTables) delete t.fffTables[key]; }
+            if (!rows.length && !isCup && R.list.some(x => x.hs != null)) {
               const T = {}; const row = n => T[n] = T[n] || { name: n, pts: 0, j: 0, v: 0, n: 0, d: 0, f: 0, bp: 0, bc: 0, diff: 0 };
               R.list.forEach(x => { if (/exempt/i.test(x.home + x.away)) return; row(x.home); row(x.away); if (x.hs == null) return; const H = T[x.home], A = T[x.away];
                 H.j++; A.j++; H.bp += x.hs; H.bc += x.as; A.bp += x.as; A.bc += x.hs; if (x.hs > x.as) { H.v++; A.d++; H.pts += 3; } else if (x.hs < x.as) { A.v++; H.d++; A.pts += 3; } else { H.n++; A.n++; H.pts++; A.pts++; } });
@@ -13472,7 +13483,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
               Object.values(T).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.bp - a.bp || a.name.localeCompare(b.name)).forEach((x, i) => { x.rank = i + 1; rows.push(x); });
               computed = true;
             }
-            if (rows.length && en.competition.type !== 'CP') { const T = { name: en.competition.name, url: url + '/classement', our, rows, at: Date.now(), computed }; t.fffTables = Object.assign({}, t.fffTables || {}, { [key]: T }); t.fffTable = T; res.tables++; }
+            if (rows.length && !isCup) { const T = { name: en.competition.name, url: url + '/classement', our, rows, at: Date.now(), computed }; t.fffTables = Object.assign({}, t.fffTables || {}, { [key]: T }); t.fffTable = T; res.tables++; }
           } catch (e) {}
           Store.upsert('teams', t);
         }
@@ -14391,8 +14402,20 @@ var Views = (() => {
     S().ui.teamId = tid;
     const ms0 = S().matches.filter(m => m.teamId === t.id && m.played), ms = ms0.filter(Store.kindOk).sort((a, b) => b.date.localeCompare(a.date));
     const trs = S().trainings.filter(x => x.teamId === t.id && (x.presents || []).length);
-    const V = ms.filter(m => result(m) === 'V').length, N = ms.filter(m => result(m) === 'N').length, D = ms.filter(m => result(m) === 'D').length;
-    const bp = ms.reduce((a, m) => a + (+m.gf || 0), 0), bc = ms.reduce((a, m) => a + (+m.ga || 0), 0);
+    // (1.57) the cups (knock-out) apart: the tiles count the championship (or the friendlies), the cups have their own card
+    const isCupM = m => m.competition === 'Coupe', msL = ms.filter(m => !isCupM(m));
+    const V = msL.filter(m => result(m) === 'V').length, N = msL.filter(m => result(m) === 'N').length, D = msL.filter(m => result(m) === 'D').length;
+    const bp = msL.reduce((a, m) => a + (+m.gf || 0), 0), bc = msL.reduce((a, m) => a + (+m.ga || 0), 0);
+    const cupCard = () => {
+      if (Store.matchKind() === 'ami') return '';
+      const all = S().matches.filter(m => m.teamId === t.id && isCupM(m) && !m.exempt).sort((a, b) => a.date.localeCompare(b.date)); if (!all.length) return '';
+      const done = all.filter(m => m.played), next = all.find(m => !m.played && m.date >= UI.today()), last = done[done.length - 1];
+      const status = last && result(last) === 'D' && !next ? `<span class="pill d">Éliminés</span>` : next ? `<span class="pill ${done.length ? 'v' : ''}">${done.length ? 'Qualifiés · prochain tour' : '1er tour'} le ${esc(fmtDate(next.date))}${next.opponent ? ' contre ' + esc(next.opponent) : ''}</span>` : done.length ? '<span class="pill">En attente du tirage</span>' : '';
+      const w = done.filter(m => result(m) === 'V').length, gf = done.reduce((a, m) => a + (+m.gf || 0), 0), ga = done.reduce((a, m) => a + (+m.ga || 0), 0);
+      return `<section class="card cup-card"><h2>🏆 Coupes <span class="muted small">· élimination directe, hors championnat</span></h2>
+        <p>${status} <span class="muted small">${done.length} match${done.length > 1 ? 's' : ''} joué${done.length > 1 ? 's' : ''} · ${w} victoire${w > 1 ? 's' : ''} · ${gf} - ${ga}</span></p>
+        <div class="table-wrap"><table class="tbl"><tbody>${all.map(m => `<tr><td>${esc(fmtDate(m.date))}</td><td><a href="#/match/${m.id}">${matchTitle(m)}</a></td><td class="num">${m.played ? scoreTxt(m) : esc(m.time || 'à venir')}</td><td>${m.played ? resPill(m) : ''}</td></tr>`).join('')}</tbody></table></div></section>`;
+    };
     const sortKey = S().ui.statSort || 'g';
     // the team's players, plus the category's players who played or trained with it (team A / B)
     const ownIds = new Set(Store.playersOf(t.id).map(p => p.id));
@@ -14416,7 +14439,7 @@ var Views = (() => {
       ${Store.matchKind() === 'ami' ? '' : Season.leagueCard(t)}
       ${Season.advanced(t)}
       <div class="tiles">
-        <div class="tile"><b>${ms.length}</b><span>Matchs</span></div>
+        <div class="tile"><b>${msL.length}</b><span>Matchs${Store.matchKind() === 'ami' ? '' : ' de championnat'}</span></div>
         <div class="tile v"><b>${V}</b><span>Gagnés</span></div>
         <div class="tile n"><b>${N}</b><span>Nuls</span></div>
         <div class="tile d"><b>${D}</b><span>Perdus</span></div>
@@ -14424,6 +14447,7 @@ var Views = (() => {
         <div class="tile"><b>${bc}</b><span>${Sport.W().Units} encaissés</span></div>
         <div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>
       </div>
+      ${cupCard()}
       ${(() => { const low = People.lowPlaytime(t.id); return low.length ? `<section class="card playtime-card"><h2>⏱️ Temps de jeu à surveiller</h2><p class="muted small">Joueurs qui ont joué moins de la moitié de la moyenne de l'équipe (${low[0].avg} min) sur les matchs où le temps de jeu est noté.</p><ul class="alerts">${low.map(x => `<li><a href="#/joueur/${x.p.id}"><b>${esc(pName(x.p))}</b></a> : ${x.min} min${x.conv ? ` · ${x.conv} convocation${x.conv > 1 ? 's' : ''}` : ' · jamais convoqué'}</li>`).join('')}</ul></section>` : ''; })()}
       <h2 class="section">Joueurs</h2>
       <div class="table-wrap"><table class="tbl">
@@ -14737,7 +14761,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 57, UPD = AppCfg.key('update-tried');
+  const BUILD = 58, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -138,6 +138,8 @@ const Season = (() => {
   }
   // (1.48) the results of the whole poule (every opponent), the last weekend first; the older ones folded
   const okey = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  // (1.57) a cup (knock-out) is never the championship: no table, not in the form of the moment
+  const isCupR = R => !!R.cup || /coupe|cup/i.test(R.name || '');
   function pouleCard(R) {
     const played = R.list.filter(x => x.hs != null);
     // (1.56) the agenda: the next matchdays of the poule (every match, the opponents' too)
@@ -149,13 +151,13 @@ const Season = (() => {
       const block = d => `<div class="lbl">${esc(fdn(d))}</div><table class="pr-table"><tbody>${next.filter(x => x.date === d).map(rowN).join('')}</tbody></table>`;
       return `<h3 class="pr-h3">🗓️ Agenda · prochaine journée</h3>${block(nextDays[0])}${nextDays.length > 1 ? `<details class="pr-more"><summary>Les ${nextDays.length - 1} journée${nextDays.length > 2 ? 's' : ''} suivante${nextDays.length > 2 ? 's' : ''}</summary>${nextDays.slice(1).map(block).join('')}</details>` : ''}`; })() : '';
     if (!played.length && !agenda) return '';
-    if (!played.length) return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· agenda de la poule</span></h2>${agenda}</section>`;
+    if (!played.length) return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· ${isCupR(R) ? 'coupe (élimination directe, hors championnat)' : 'agenda de la poule'}</span></h2>${agenda}</section>`;
     const days = [...new Set(played.map(x => x.date))].sort().reverse(), our = okey(R.our);
     const fd = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
     const row = x => { const us = our && (okey(x.home) === our || okey(x.away) === our), w = x.hs > x.as ? 'h' : x.hs < x.as ? 'a' : '';
       return `<tr class="${us ? 'own' : ''}"><td class="pr-h ${w === 'h' ? 'win' : ''}">${esc(x.home)}${Clubs.oppLogo(x.home)}</td><td class="pr-s">${x.hs} - ${x.as}</td><td class="pr-a ${w === 'a' ? 'win' : ''}">${Clubs.oppLogo(x.away)}${esc(x.away)}</td></tr>`; };
     const day = d => `<div class="lbl">${esc(fd(d))}</div><table class="pr-table"><tbody>${played.filter(x => x.date === d).map(row).join('')}</tbody></table>`;
-    return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· tous les résultats de la poule</span></h2>${days.slice(0, 1).map(day).join('')}
+    return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· ${isCupR(R) ? 'coupe (élimination directe, hors championnat)' : 'tous les résultats de la poule'}</span></h2>${days.slice(0, 1).map(day).join('')}
       ${days.length > 1 ? `<details class="pr-more"><summary>${days.length > 2 ? `Les ${days.length - 1} journées d'avant` : 'La journée d\'avant'}</summary>${days.slice(1).map(day).join('')}</details>` : ''}
       ${agenda}
       <p class="muted small">${R.src ? `Championnat repris d'${esc(R.src)} (mis à jour à chaque import). Le favori « Résultats FFF » y ajoutera les résultats officiels.` : `${R.both ? 'Site de la FFF et AssistCoachAI réunis (le score officiel de la FFF passe en premier)' : 'Site de la FFF'}, gardés à chaque import. <a href="${esc(R.url)}" target="_blank" rel="noopener">Voir sur le site</a>`}</p></section>`;
@@ -174,7 +176,7 @@ const Season = (() => {
   function poules(t) {
     const F = Object.values(t.fffPoules || {}), L = leaguePoule(t);
     if (!L) return F; if (!F.length) return [L];
-    const target = F.find(R => lvl(R.name) && lvl(R.name) === lvl(L.name)) || (F.length === 1 ? F[0] : null);
+    const target = F.filter(R => !isCupR(R)).find(R => lvl(R.name) && lvl(R.name) === lvl(L.name)) || (F.filter(R => !isCupR(R)).length === 1 ? F.filter(R => !isCupR(R))[0] : null);
     if (!target) return [...F, L];
     const ourF = okey(target.our), ourL = okey(L.our), isOurs = n => okey(n) === ourF || okey(n) === ourL;
     const same = (a, b) => isOurs(a) || isOurs(b) ? isOurs(a) && isOurs(b) : okey(a) === okey(b) || ACImport.sameOpp(a, b) > 0;
@@ -192,13 +194,13 @@ const Season = (() => {
   function formOf(t, name) {
     const k = okey(name); if (!t || !k) return [];
     // « PLAINE 2 » (FFF) = « La Plaine 2 » (AssistCoachAI), never « La Plaine » (team 1)
-    const is = n => okey(n) === k || ACImport.sameOpp(n, name) > 0, all = poules(t).flatMap(R => R.list).filter(x => x.hs != null && (is(x.home) || is(x.away)));
+    const is = n => okey(n) === k || ACImport.sameOpp(n, name) > 0, all = poules(t).filter(R => !isCupR(R)).flatMap(R => R.list).filter(x => x.hs != null && (is(x.home) || is(x.away)));
     return all.sort((a, b) => a.date.localeCompare(b.date)).slice(-5).map(x => { const home = is(x.home), f = home ? x.hs : x.as, a = home ? x.as : x.hs;
       return { r: f > a ? 'V' : f < a ? 'D' : 'N', x }; });
   }
   function leagueCard(t) {
     const tabs = Object.values(t.fffTables || {}).filter(F => (F.rows || []).length);
-    const pr = poules(t).map(pouleCard).join('');
+    const pr = poules(t).filter(R => !isCupR(R)).map(pouleCard).join(''); // the cups have their own card (Stats → Coupes)
     if (tabs.length) return tabs.map(F => officialCard(t, F)).join('') + pr;
     if (t.fffTable && (t.fffTable.rows || []).length) return officialCard(t) + pr;
     const rows = table(t); if (!rows) return pr;

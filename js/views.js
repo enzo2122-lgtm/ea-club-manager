@@ -823,8 +823,20 @@ const Views = (() => {
     S().ui.teamId = tid;
     const ms0 = S().matches.filter(m => m.teamId === t.id && m.played), ms = ms0.filter(Store.kindOk).sort((a, b) => b.date.localeCompare(a.date));
     const trs = S().trainings.filter(x => x.teamId === t.id && (x.presents || []).length);
-    const V = ms.filter(m => result(m) === 'V').length, N = ms.filter(m => result(m) === 'N').length, D = ms.filter(m => result(m) === 'D').length;
-    const bp = ms.reduce((a, m) => a + (+m.gf || 0), 0), bc = ms.reduce((a, m) => a + (+m.ga || 0), 0);
+    // (1.57) the cups (knock-out) apart: the tiles count the championship (or the friendlies), the cups have their own card
+    const isCupM = m => m.competition === 'Coupe', msL = ms.filter(m => !isCupM(m));
+    const V = msL.filter(m => result(m) === 'V').length, N = msL.filter(m => result(m) === 'N').length, D = msL.filter(m => result(m) === 'D').length;
+    const bp = msL.reduce((a, m) => a + (+m.gf || 0), 0), bc = msL.reduce((a, m) => a + (+m.ga || 0), 0);
+    const cupCard = () => {
+      if (Store.matchKind() === 'ami') return '';
+      const all = S().matches.filter(m => m.teamId === t.id && isCupM(m) && !m.exempt).sort((a, b) => a.date.localeCompare(b.date)); if (!all.length) return '';
+      const done = all.filter(m => m.played), next = all.find(m => !m.played && m.date >= UI.today()), last = done[done.length - 1];
+      const status = last && result(last) === 'D' && !next ? `<span class="pill d">Éliminés</span>` : next ? `<span class="pill ${done.length ? 'v' : ''}">${done.length ? 'Qualifiés · prochain tour' : '1er tour'} le ${esc(fmtDate(next.date))}${next.opponent ? ' contre ' + esc(next.opponent) : ''}</span>` : done.length ? '<span class="pill">En attente du tirage</span>' : '';
+      const w = done.filter(m => result(m) === 'V').length, gf = done.reduce((a, m) => a + (+m.gf || 0), 0), ga = done.reduce((a, m) => a + (+m.ga || 0), 0);
+      return `<section class="card cup-card"><h2>🏆 Coupes <span class="muted small">· élimination directe, hors championnat</span></h2>
+        <p>${status} <span class="muted small">${done.length} match${done.length > 1 ? 's' : ''} joué${done.length > 1 ? 's' : ''} · ${w} victoire${w > 1 ? 's' : ''} · ${gf} - ${ga}</span></p>
+        <div class="table-wrap"><table class="tbl"><tbody>${all.map(m => `<tr><td>${esc(fmtDate(m.date))}</td><td><a href="#/match/${m.id}">${matchTitle(m)}</a></td><td class="num">${m.played ? scoreTxt(m) : esc(m.time || 'à venir')}</td><td>${m.played ? resPill(m) : ''}</td></tr>`).join('')}</tbody></table></div></section>`;
+    };
     const sortKey = S().ui.statSort || 'g';
     // the team's players, plus the category's players who played or trained with it (team A / B)
     const ownIds = new Set(Store.playersOf(t.id).map(p => p.id));
@@ -848,7 +860,7 @@ const Views = (() => {
       ${Store.matchKind() === 'ami' ? '' : Season.leagueCard(t)}
       ${Season.advanced(t)}
       <div class="tiles">
-        <div class="tile"><b>${ms.length}</b><span>Matchs</span></div>
+        <div class="tile"><b>${msL.length}</b><span>Matchs${Store.matchKind() === 'ami' ? '' : ' de championnat'}</span></div>
         <div class="tile v"><b>${V}</b><span>Gagnés</span></div>
         <div class="tile n"><b>${N}</b><span>Nuls</span></div>
         <div class="tile d"><b>${D}</b><span>Perdus</span></div>
@@ -856,6 +868,7 @@ const Views = (() => {
         <div class="tile"><b>${bc}</b><span>${Sport.W().Units} encaissés</span></div>
         <div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>
       </div>
+      ${cupCard()}
       ${(() => { const low = People.lowPlaytime(t.id); return low.length ? `<section class="card playtime-card"><h2>⏱️ Temps de jeu à surveiller</h2><p class="muted small">Joueurs qui ont joué moins de la moitié de la moyenne de l'équipe (${low[0].avg} min) sur les matchs où le temps de jeu est noté.</p><ul class="alerts">${low.map(x => `<li><a href="#/joueur/${x.p.id}"><b>${esc(pName(x.p))}</b></a> : ${x.min} min${x.conv ? ` · ${x.conv} convocation${x.conv > 1 ? 's' : ''}` : ' · jamais convoqué'}</li>`).join('')}</ul></section>` : ''; })()}
       <h2 class="section">Joueurs</h2>
       <div class="table-wrap"><table class="tbl">

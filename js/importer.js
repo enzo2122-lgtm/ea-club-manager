@@ -155,7 +155,9 @@ const Importer = (() => {
       // (1.51) « F.C. Bourget 2 » (AssistCoachAI) = « BOURGET FC 2 » (FFF): the same match, never a second one
       const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent))
         || S().matches.find(x => x.teamId === t.id && x.date === m.date && !x.exempt && ACImport.sameOpp(x.opponent, m.opponent) > 0);
-      const comp = /coupe/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
+      // (1.57) « DISTRICT CUP » is a cup (knock-out), never the championship
+      const comp = /coupe|\bcup\b/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
+      if (ex && comp === 'Coupe' && ex.competition !== 'Coupe') ex.competition = 'Coupe'; // a cup match filed before as championship
       if (ex) { if (m.played && (!ex.played || ex.gf !== m.gf || ex.ga !== m.ga)) res.scores++; Object.assign(ex, { time: m.time || ex.time, played: m.played || ex.played, gf: m.played ? m.gf : ex.gf, ga: m.played ? m.ga : ex.ga }); Store.upsert('matches', ex); res.updated++; }
       else { Store.upsert('matches', { id: Store.uid(), teamId: t.id, exempt: !!m.exempt, opponent: m.opponent || 'Adversaire', date: m.date, time: m.time || '', home: m.home, competition: comp, place: m.place || m.venue || '', rdv: '', played: m.played, gf: m.played ? m.gf : 0, ga: m.played ? m.ga : 0, convoked: [], lineupId: null, notes: '', imported: true }); res.added++; if (m.played) res.scores++; }
       each && each(m, t);

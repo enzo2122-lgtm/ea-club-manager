@@ -264,7 +264,10 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
             const rows = Object.values(last).sort((x, y) => (+x.rank || 99) - (+y.rank || 99)).map(r => ({ rank: +r.rank || 0, name: teamName(r.equipe), pts: +r.point_count || 0, j: +r.total_games_count || 0, v: +r.won_games_count || 0, n: +r.draw_games_count || 0, d: +r.lost_games_count || 0, f: +r.forfeits_games_count || 0, bp: +r.goals_for_count || 0, bc: +r.goals_against_count || 0, diff: +r.goals_diff || 0 }));
             // no table published yet by the District: computed from the results of the poule (3 / 1 / 0), and said so
             let computed = false;
-            if (!rows.length && en.competition.type !== 'CP' && R.list.some(x => x.hs != null)) {
+            // (1.57) a cup (knock-out: « DISTRICT CUP », « COUPE 93 ») has no table and never counts in the championship
+            const isCup = en.competition.type !== 'CH' || /coupe|\bcup\b/i.test(en.competition.name); R.cup = isCup;
+            if (isCup) { rows.length = 0; if (t.fffTables) delete t.fffTables[key]; }
+            if (!rows.length && !isCup && R.list.some(x => x.hs != null)) {
               const T = {}; const row = n => T[n] = T[n] || { name: n, pts: 0, j: 0, v: 0, n: 0, d: 0, f: 0, bp: 0, bc: 0, diff: 0 };
               R.list.forEach(x => { if (/exempt/i.test(x.home + x.away)) return; row(x.home); row(x.away); if (x.hs == null) return; const H = T[x.home], A = T[x.away];
                 H.j++; A.j++; H.bp += x.hs; H.bc += x.as; A.bp += x.as; A.bc += x.hs; if (x.hs > x.as) { H.v++; A.d++; H.pts += 3; } else if (x.hs < x.as) { A.v++; H.d++; A.pts += 3; } else { H.n++; A.n++; H.pts++; A.pts++; } });
@@ -272,7 +275,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
               Object.values(T).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.bp - a.bp || a.name.localeCompare(b.name)).forEach((x, i) => { x.rank = i + 1; rows.push(x); });
               computed = true;
             }
-            if (rows.length && en.competition.type !== 'CP') { const T = { name: en.competition.name, url: url + '/classement', our, rows, at: Date.now(), computed }; t.fffTables = Object.assign({}, t.fffTables || {}, { [key]: T }); t.fffTable = T; res.tables++; }
+            if (rows.length && !isCup) { const T = { name: en.competition.name, url: url + '/classement', our, rows, at: Date.now(), computed }; t.fffTables = Object.assign({}, t.fffTables || {}, { [key]: T }); t.fffTable = T; res.tables++; }
           } catch (e) {}
           Store.upsert('teams', t);
         }
