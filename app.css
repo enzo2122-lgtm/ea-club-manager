@@ -1875,3 +1875,10 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 /* ---------- 1.40 : logos des adversaires ---------- */
 .opp-logo { width: 1.15em; height: 1.15em; object-fit: contain; vertical-align: -0.18em; margin-right: 5px; border-radius: 4px; background: #fff; }
 .lg-table .opp-logo { width: 20px; height: 20px; }
+
+/* ---------- 1.41 : « Qui joue où ? » ---------- */
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.slot { display: flex; align-items: center; gap: 8px; }
+.slot select { flex: 1; min-width: 0; }
+.slot-tag { flex: none; min-width: 44px; height: 34px; padding: 0 6px; display: grid; place-items: center; border-radius: 17px; background: var(--navy); color: #fff; font-weight: 800; font-size: 13px; }
+.slot-tag.gk { background: #eab308; color: #14172b; }

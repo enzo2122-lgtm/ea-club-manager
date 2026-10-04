@@ -624,6 +624,28 @@ const Views = (() => {
         <span class="min-q"><button class="chip" data-minset="${p.id}" data-v="full">Tout</button><button class="chip" data-minset="${p.id}" data-v="half">½</button><button class="chip" data-minset="${p.id}" data-v="zero">0</button></span></div>`).join('')}</div>
       <p class="muted small">« Match complet pour les autres » met ${full} min à ceux qui n'ont pas encore de temps. ${total ? `Total saisi : ${total} min.` : ''}</p></section>`;
   }
+  // (1.41) « Qui joue où ? » : each position of the lineup gets a player called up (his name goes on the drawing and the match sheet)
+  function slotsCard(sc, conv) {
+    const st = (sc.steps || [])[0] || { pos: {} };
+    const slots = sc.objects.filter(o => o.type === 'player' && st.pos[o.id])
+      .sort((a, b) => (b.gk - a.gk) || (st.pos[a.id][0] - st.pos[b.id][0]) || (st.pos[a.id][1] - st.pos[b.id][1]));
+    if (!slots.length) return '';
+    const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
+    return `<section class="card slots-card"><h2>👕 Qui joue où ?</h2>
+      <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur choisi ailleurs quitte son ancien poste.</p>
+      <div class="slots">${slots.map((o, i) => `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}">${o.gk ? '🧤' : esc(o.post || o.label || String(i + 1))}</span>
+        <select data-slot="${o.id}"><option value="">— personne —</option>${players.map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`).join('')}</div></section>`;
+  }
+  function setSlot(sc, slotId, pid) {
+    const o = sc.objects.find(x => x.id === slotId); if (!o) return;
+    if (!o.post && o.label && !/^\d+$/.test(o.label)) o.post = o.label; // the position (« DC », « MOC »…) is kept when a number takes its place
+    if (pid) sc.objects.forEach(x => { if (x !== o && x.playerId === pid) { delete x.playerId; x.name = ''; x.label = x.post || ''; } });
+    const p = pid && Store.get('players', pid);
+    if (p) { o.playerId = p.id; o.name = Store.shortName(p); o.label = p.number ? String(p.number) : (o.post || o.label); }
+    else { delete o.playerId; o.name = ''; o.label = o.post || o.label; }
+    sc.overlays = Object.assign({}, sc.overlays, { names: true });
+    Store.upsert('schemas', sc);
+  }
   // (1.37) the tab of each match page and its « Modifier » state, kept while the app is open
   const matchTabs = {}, mEdit = {};
   function match(root, id) {
@@ -668,6 +690,7 @@ const Views = (() => {
         <h2 class="section">Composition</h2>
         <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
+        ${lineup ? slotsCard(lineup, conv) : ''}
         </div>
         <div ${panel('pendant')}>
         ${!m.exempt ? Live.card(m) : '<p class="muted">Pas de match cette semaine (exempt).</p>'}
@@ -708,6 +731,7 @@ const Views = (() => {
     };
     root.onchange = e => {
       if (e.target.dataset.f === 'teamId') { m.teamId = e.target.value; m.teamManual = true; save(); toast('Match rangé dans ' + (teamOf(m.teamId) || {}).name); return render(); }
+      if (e.target.dataset.slot) { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (sc) { setSlot(sc, e.target.dataset.slot, e.target.value); toast(e.target.value ? 'Placé sur le schéma ✓' : 'Poste libéré'); render(); } return; }
       if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; matchTabs[m.id] = 'apres'; save(); render(); return cheer(before); }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { m.staffIds = [...new Set([...(m.staffIds || []), e.target.value])]; save(); return render(); }
       root.oninput(e);
