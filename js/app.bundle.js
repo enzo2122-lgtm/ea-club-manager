@@ -3478,7 +3478,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.44';
+  const VERSION = '1.45';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10400,7 +10400,8 @@ var ACImport = (() => {
       }
       const pt = e.pt;
       if (pt && pt.plan && Object.values(pt.plan).some(Boolean)) { m.prep = m.prep || {}; m.prep.plan = Object.assign({}, m.prep.plan || {}, { imported: Object.entries(pt.plan).filter(([, v]) => v).map(([k, v]) => `${k === 'jeu' ? '' : k + ' : '}${v}`).join('\n\n') }); }
-      if (pt && pt.done) {
+      // (1.45) a past match with goals, substitutions or stats counts as played even when the coach did not press « terminé » on AssistCoachAI
+      if (pt && (pt.done || (date < UI.today() && ((pt.goalsFor || []).length || (pt.goalsAgainst || []).length || (pt.subs || []).length || Object.keys(pt.stats || {}).length)))) {
         const dur = +pt.dur || 90, half = dur / 2, gFor = pt.goalsFor || [], gAg = pt.goalsAgainst && pt.goalsAgainst.length ? pt.goalsAgainst : ((pt.opp || {}).gmins || []).map(min => ({ min }));
         m.played = true; m.gf = gFor.length; m.ga = gAg.length || +(pt.opp || {}).g || 0; m.duration = dur;
         // scorers and assists; the minutes of the goals come from the player's stats when the goal has none
@@ -12940,6 +12941,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 9, date: '2026-10-04', title: 'Le match oublié', items: [
+      ['🐛', 'Bug réparé : un match passé sur AssistCoachAI sans le bouton « terminé » était ignoré, même avec ses buts et ses remplacements. Il compte maintenant : on ne punit pas un match pour un clic oublié.'],
+      ['🟨', 'Les cartons notés sur AssistCoachAI arrivent aussi dans la colonne « Cartons ». Aucun carton ne passe entre les mailles.'],
+    ] },
     { n: 8, date: '2026-10-04', title: 'Les cartons au grand jour', items: [
       ['🟨', 'Nouvelle colonne « Cartons » dans le tableau des joueurs de la page Stats. Un clic dessus et les plus chauds du vestiaire passent en tête.'],
       ['📭', 'Une équipe sans match joué ne montre plus une page de zéros muette : elle explique d\'où viennent les stats et quoi faire pour les remplir.'],
@@ -14063,7 +14068,9 @@ var Views = (() => {
       const g = ms.reduce((a, m) => a + (((m.stats || {})[p.id] || {}).g || 0), 0), as = ms.reduce((a, m) => a + (((m.stats || {})[p.id] || {}).a || 0), 0);
       const pr = trs.filter(x => x.presents.includes(p.id)).length;
       const min = ms.reduce((a, m) => a + (+((m.minutes || {})[p.id]) || 0), 0);
-      const yc = ms.reduce((a, m) => a + (+(((m.stats || {})[p.id] || {}).yc) || 0), 0), rc = ms.reduce((a, m) => a + (+(((m.stats || {})[p.id] || {}).rc) || 0), 0);
+      // cards: from the FFF sheet (m.stats) or AssistCoachAI (m.detail), the bigger of the two for a match that has both
+      const card = (m, k) => Math.max(+(((m.stats || {})[p.id] || {})[k]) || 0, +(((m.detail || {})[p.id] || {})[k]) || 0);
+      const yc = ms.reduce((a, m) => a + card(m, 'yc'), 0), rc = ms.reduce((a, m) => a + card(m, 'rc'), 0);
       return { p, post: People.postsLabel(p, true), played, g, a: as, pr, min, yc, rc, cards: yc + rc * 3, rate:trs.length ? Math.round(pr / trs.length * 100) : null, nm: Ratings.average(p.id, 'match') || 0, nt: Ratings.average(p.id, 'training') || 0 };
     }).filter(r => ownIds.has(r.p.id) || !ownIds.size || r.played || r.pr).sort((a, b) => sortKey === 'post' ? People.sortPlayers([a.p, b.p], 'post')[0] === a.p ? -1 : 1 : sortKey === 'name' ? Store.byName(a.p, b.p) : sortKey === 'num' ? (+a.p.number || 99) - (+b.p.number || 99) : (b[sortKey] || 0) - (a[sortKey] || 0));
     const th = (k, l) => `<th><button class="th ${sortKey === k ? 'on' : ''}" data-sort="${k}">${l}</button></th>`;
@@ -14395,7 +14402,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 45, UPD = AppCfg.key('update-tried');
+  const BUILD = 46, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

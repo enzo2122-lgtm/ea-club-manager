@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 9, date: '2026-10-04', title: 'Le match oublié', items: [
+      ['🐛', 'Bug réparé : un match passé sur AssistCoachAI sans le bouton « terminé » était ignoré, même avec ses buts et ses remplacements. Il compte maintenant : on ne punit pas un match pour un clic oublié.'],
+      ['🟨', 'Les cartons notés sur AssistCoachAI arrivent aussi dans la colonne « Cartons ». Aucun carton ne passe entre les mailles.'],
+    ] },
     { n: 8, date: '2026-10-04', title: 'Les cartons au grand jour', items: [
       ['🟨', 'Nouvelle colonne « Cartons » dans le tableau des joueurs de la page Stats. Un clic dessus et les plus chauds du vestiaire passent en tête.'],
       ['📭', 'Une équipe sans match joué ne montre plus une page de zéros muette : elle explique d\'où viennent les stats et quoi faire pour les remplir.'],

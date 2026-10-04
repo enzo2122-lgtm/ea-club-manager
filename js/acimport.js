@@ -94,7 +94,8 @@ const ACImport = (() => {
       }
       const pt = e.pt;
       if (pt && pt.plan && Object.values(pt.plan).some(Boolean)) { m.prep = m.prep || {}; m.prep.plan = Object.assign({}, m.prep.plan || {}, { imported: Object.entries(pt.plan).filter(([, v]) => v).map(([k, v]) => `${k === 'jeu' ? '' : k + ' : '}${v}`).join('\n\n') }); }
-      if (pt && pt.done) {
+      // (1.45) a past match with goals, substitutions or stats counts as played even when the coach did not press « terminé » on AssistCoachAI
+      if (pt && (pt.done || (date < UI.today() && ((pt.goalsFor || []).length || (pt.goalsAgainst || []).length || (pt.subs || []).length || Object.keys(pt.stats || {}).length)))) {
         const dur = +pt.dur || 90, half = dur / 2, gFor = pt.goalsFor || [], gAg = pt.goalsAgainst && pt.goalsAgainst.length ? pt.goalsAgainst : ((pt.opp || {}).gmins || []).map(min => ({ min }));
         m.played = true; m.gf = gFor.length; m.ga = gAg.length || +(pt.opp || {}).g || 0; m.duration = dur;
         // scorers and assists; the minutes of the goals come from the player's stats when the goal has none

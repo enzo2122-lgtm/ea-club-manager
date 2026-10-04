@@ -828,7 +828,9 @@ const Views = (() => {
       const g = ms.reduce((a, m) => a + (((m.stats || {})[p.id] || {}).g || 0), 0), as = ms.reduce((a, m) => a + (((m.stats || {})[p.id] || {}).a || 0), 0);
       const pr = trs.filter(x => x.presents.includes(p.id)).length;
       const min = ms.reduce((a, m) => a + (+((m.minutes || {})[p.id]) || 0), 0);
-      const yc = ms.reduce((a, m) => a + (+(((m.stats || {})[p.id] || {}).yc) || 0), 0), rc = ms.reduce((a, m) => a + (+(((m.stats || {})[p.id] || {}).rc) || 0), 0);
+      // cards: from the FFF sheet (m.stats) or AssistCoachAI (m.detail), the bigger of the two for a match that has both
+      const card = (m, k) => Math.max(+(((m.stats || {})[p.id] || {})[k]) || 0, +(((m.detail || {})[p.id] || {})[k]) || 0);
+      const yc = ms.reduce((a, m) => a + card(m, 'yc'), 0), rc = ms.reduce((a, m) => a + card(m, 'rc'), 0);
       return { p, post: People.postsLabel(p, true), played, g, a: as, pr, min, yc, rc, cards: yc + rc * 3, rate:trs.length ? Math.round(pr / trs.length * 100) : null, nm: Ratings.average(p.id, 'match') || 0, nt: Ratings.average(p.id, 'training') || 0 };
     }).filter(r => ownIds.has(r.p.id) || !ownIds.size || r.played || r.pr).sort((a, b) => sortKey === 'post' ? People.sortPlayers([a.p, b.p], 'post')[0] === a.p ? -1 : 1 : sortKey === 'name' ? Store.byName(a.p, b.p) : sortKey === 'num' ? (+a.p.number || 99) - (+b.p.number || 99) : (b[sortKey] || 0) - (a[sortKey] || 0));
     const th = (k, l) => `<th><button class="th ${sortKey === k ? 'on' : ''}" data-sort="${k}">${l}</button></th>`;
