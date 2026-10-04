@@ -3523,7 +3523,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.49';
+  const VERSION = '1.50';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10182,7 +10182,7 @@ var Season = (() => {
   function table(t) {
     const L = t.league; if (!L) return null;
     const pts = Object.assign({ win: 3, draw: 1, loss: 0 }, (L.config || {}).points || {}), T = {};
-    L.teams.forEach(x => { T[x.id] = { id: x.id, name: x.own ? `${S().club.name} · ${t.name}` : x.name, own: x.own, j: 0, v: 0, n: 0, d: 0, bp: 0, bc: 0, pts: -(x.pen || 0) }; });
+    L.teams.filter(x => !/^exempt$/i.test(String(x.name || '').trim())).forEach(x => { T[x.id] = { id: x.id, name: x.own ? `${S().club.name} · ${t.name}` : x.name, own: x.own, j: 0, v: 0, n: 0, d: 0, bp: 0, bc: 0, pts: -(x.pen || 0) }; });
     const own = L.teams.find(x => x.own), ours = S().matches.filter(m => m.teamId === t.id && m.played);
     L.fixtures.forEach(f => {
       let hs = f.hs, as = f.as;
@@ -10212,26 +10212,55 @@ var Season = (() => {
       return `<tr class="${us ? 'own' : ''}"><td class="pr-h ${w === 'h' ? 'win' : ''}">${esc(x.home)}${Clubs.oppLogo(x.home)}</td><td class="pr-s">${x.hs} - ${x.as}</td><td class="pr-a ${w === 'a' ? 'win' : ''}">${Clubs.oppLogo(x.away)}${esc(x.away)}</td></tr>`; };
     const day = d => `<div class="lbl">${esc(fd(d))}</div><table class="pr-table"><tbody>${played.filter(x => x.date === d).map(row).join('')}</tbody></table>`;
     return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· tous les résultats de la poule</span></h2>${days.slice(0, 1).map(day).join('')}
-      ${days.length > 1 ? `<details class="pr-more"><summary>Les ${days.length - 1} journée${days.length > 2 ? 's' : ''} d'avant</summary>${days.slice(1).map(day).join('')}</details>` : ''}
-      <p class="muted small">Site de la FFF, gardés à chaque import du favori « Résultats FFF ». <a href="${esc(R.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
+      ${days.length > 1 ? `<details class="pr-more"><summary>${days.length > 2 ? `Les ${days.length - 1} journées d'avant` : 'La journée d\'avant'}</summary>${days.slice(1).map(day).join('')}</details>` : ''}
+      <p class="muted small">${R.src ? `Championnat repris d'${esc(R.src)} (mis à jour à chaque import). Le favori « Résultats FFF » y ajoutera les résultats officiels.` : `${R.both ? 'Site de la FFF et AssistCoachAI réunis (le score officiel de la FFF passe en premier)' : 'Site de la FFF'}, gardés à chaque import. <a href="${esc(R.url)}" target="_blank" rel="noopener">Voir sur le site</a>`}</p></section>`;
+  }
+  // (1.50) the poule from AssistCoachAI (its championship has every match of the poule), until the FFF bookmark brings its own
+  function leaguePoule(t) {
+    const L = t.league; if (!L || !(L.fixtures || []).length) return null;
+    const nm = id => { const x = L.teams.find(y => y.id === id); return x ? (x.own ? `${S().club.name} · ${t.name}` : x.name) : ''; };
+    const list = L.fixtures.map(f => ({ date: f.d, time: '', home: nm(f.h), away: nm(f.a), hs: f.hs == null ? null : +f.hs, as: f.as == null ? null : +f.as }))
+      .filter(x => x.date && x.home && x.away && !/^exempt$/i.test(x.home) && !/^exempt$/i.test(x.away));
+    return { name: L.name, url: '', our: `${S().club.name} · ${t.name}`, list, src: 'AssistCoachAI' };
+  }
+  // (1.50) AssistCoachAI and the FFF together: the poule of the same level (« D4 ») gets the matches of both, each match once
+  // (same day ±1, same two teams), the FFF score first (official), else AssistCoachAI's; a match only one of them knows is kept
+  const lvl = s => ((okey(s).match(/\b[RD] ?\d\b/) || [''])[0]).replace(' ', '');
+  function poules(t) {
+    const F = Object.values(t.fffPoules || {}), L = leaguePoule(t);
+    if (!L) return F; if (!F.length) return [L];
+    const target = F.find(R => lvl(R.name) && lvl(R.name) === lvl(L.name)) || (F.length === 1 ? F[0] : null);
+    if (!target) return [...F, L];
+    const ourF = okey(target.our), ourL = okey(L.our), isOurs = n => okey(n) === ourF || okey(n) === ourL;
+    const same = (a, b) => isOurs(a) || isOurs(b) ? isOurs(a) && isOurs(b) : okey(a) === okey(b) || ACImport.sameOpp(a, b) > 0;
+    const near = (a, b) => Math.abs(new Date(a) - new Date(b)) <= 864e5;
+    const list = target.list.map(x => Object.assign({}, x));
+    L.list.forEach(a => {
+      const x = list.find(y => near(y.date, a.date) && same(y.home, a.home) && same(y.away, a.away));
+      if (x) { if (x.hs == null && a.hs != null) { x.hs = a.hs; x.as = a.as; } return; }
+      list.push(Object.assign({}, a, { home: isOurs(a.home) && target.our ? target.our : a.home, away: isOurs(a.away) && target.our ? target.our : a.away }));
+    });
+    list.sort((a, b) => a.date.localeCompare(b.date) || String(a.time).localeCompare(String(b.time)));
+    return F.map(R => R === target ? Object.assign({}, R, { list, both: true }) : R);
   }
   // the last results of a team of the poule (« forme du moment »): V / N / D, the most recent last
   function formOf(t, name) {
     const k = okey(name); if (!t || !k) return [];
-    const strip = s => s.replace(/ \d+$/, ''), all = Object.values(t.fffPoules || {}).flatMap(R => R.list).filter(x => x.hs != null && [x.home, x.away].some(n => okey(n) === k || strip(okey(n)) === strip(k)));
-    return all.sort((a, b) => a.date.localeCompare(b.date)).slice(-5).map(x => { const home = okey(x.home) === k || strip(okey(x.home)) === strip(k), f = home ? x.hs : x.as, a = home ? x.as : x.hs;
+    // « PLAINE 2 » (FFF) = « La Plaine 2 » (AssistCoachAI), never « La Plaine » (team 1)
+    const is = n => okey(n) === k || ACImport.sameOpp(n, name) > 0, all = poules(t).flatMap(R => R.list).filter(x => x.hs != null && (is(x.home) || is(x.away)));
+    return all.sort((a, b) => a.date.localeCompare(b.date)).slice(-5).map(x => { const home = is(x.home), f = home ? x.hs : x.as, a = home ? x.as : x.hs;
       return { r: f > a ? 'V' : f < a ? 'D' : 'N', x }; });
   }
   function leagueCard(t) {
     const tabs = Object.values(t.fffTables || {}).filter(F => (F.rows || []).length);
-    const pr = Object.values(t.fffPoules || {}).map(pouleCard).join('');
+    const pr = poules(t).map(pouleCard).join('');
     if (tabs.length) return tabs.map(F => officialCard(t, F)).join('') + pr;
     if (t.fffTable && (t.fffTable.rows || []).length) return officialCard(t) + pr;
     const rows = table(t); if (!rows) return pr;
     const up = +((t.league.config || {}).promotion_slots || 0), down = +((t.league.config || {}).relegation_slots || 0);
     return `<section class="card"><h2>🏆 ${esc(t.league.name)}</h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Diff</th></tr></thead>
       <tbody>${rows.map((r, i) => `<tr class="${r.own ? 'own' : ''} ${i < up ? 'up' : ''} ${down && i >= rows.length - down ? 'down' : ''}"><td>${i + 1}</td><td>${esc(r.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.bp - r.bc > 0 ? '+' : ''}${r.bp - r.bc}</td></tr>`).join('')}</tbody></table></div>
-      <p class="muted small">${up ? `En vert : ${up} place${up > 1 ? 's' : ''} de montée. ` : ''}Nos scores saisis dans l'appli sont pris en compte.</p></section>`;
+      <p class="muted small">${up ? `En vert : ${up} place${up > 1 ? 's' : ''} de montée. ` : ''}Nos scores saisis dans l'appli sont pris en compte.</p></section>` + pr;
   }
   return { page, pdf, data, advanced, detailCard, playerDetail, table, leagueCard, formOf };
 })();
@@ -13036,6 +13065,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 14, date: '2026-10-04', title: 'Les résultats sortent du placard', items: [
+      ['📅', 'Les résultats de toute la poule s\'affichent maintenant dans Stats, même sans le favori FFF : le championnat d\'AssistCoachAI les contenait déjà, ils dormaient. La forme de l\'adversaire en profite aussi.'],
+      ['🤝', 'AssistCoachAI et la FFF fusionnent : une seule liste par poule, chaque match une seule fois, le score officiel de la FFF d\'abord, et ce qu\'une seule des deux sources connaît est gardé. « PLAINE 2 » et « La Plaine 2 », c\'est enfin la même équipe.'],
+      ['🐛', '« Exempt » ne figure plus dans le classement. C\'était le seul club à ne jamais perdre, c\'était louche.'],
+    ] },
     { n: 13, date: '2026-10-04', title: 'Retour en Île-de-France', items: [
       ['🧭', 'Le lien du guide du football des enfants (GIFE), dans les ressources des exercices, part maintenant chez nos voisins du District du Val-de-Marne (Ligue Paris Île-de-France) au lieu des Pays de la Loire. Même guide, moins de bouchons sur le périph\'.'],
     ] },
@@ -14550,7 +14584,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 50, UPD = AppCfg.key('update-tried');
+  const BUILD = 51, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
