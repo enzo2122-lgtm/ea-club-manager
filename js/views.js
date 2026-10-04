@@ -828,12 +828,14 @@ const Views = (() => {
       const g = ms.reduce((a, m) => a + (((m.stats || {})[p.id] || {}).g || 0), 0), as = ms.reduce((a, m) => a + (((m.stats || {})[p.id] || {}).a || 0), 0);
       const pr = trs.filter(x => x.presents.includes(p.id)).length;
       const min = ms.reduce((a, m) => a + (+((m.minutes || {})[p.id]) || 0), 0);
-      return { p, post: People.postsLabel(p, true), played, g, a: as, pr, min, rate:trs.length ? Math.round(pr / trs.length * 100) : null, nm: Ratings.average(p.id, 'match') || 0, nt: Ratings.average(p.id, 'training') || 0 };
+      const yc = ms.reduce((a, m) => a + (+(((m.stats || {})[p.id] || {}).yc) || 0), 0), rc = ms.reduce((a, m) => a + (+(((m.stats || {})[p.id] || {}).rc) || 0), 0);
+      return { p, post: People.postsLabel(p, true), played, g, a: as, pr, min, yc, rc, cards: yc + rc * 3, rate:trs.length ? Math.round(pr / trs.length * 100) : null, nm: Ratings.average(p.id, 'match') || 0, nt: Ratings.average(p.id, 'training') || 0 };
     }).filter(r => ownIds.has(r.p.id) || !ownIds.size || r.played || r.pr).sort((a, b) => sortKey === 'post' ? People.sortPlayers([a.p, b.p], 'post')[0] === a.p ? -1 : 1 : sortKey === 'name' ? Store.byName(a.p, b.p) : sortKey === 'num' ? (+a.p.number || 99) - (+b.p.number || 99) : (b[sortKey] || 0) - (a[sortKey] || 0));
     const th = (k, l) => `<th><button class="th ${sortKey === k ? 'on' : ''}" data-sort="${k}">${l}</button></th>`;
     root.innerHTML = `${header('Statistiques', esc(t.name), `<a class="btn" href="#/bilan/${t.id}">🏆<span>Bilan de saison</span></a><button class="btn" data-act="excel">${I.download}<span>Excel</span></button>`)}
       ${teamSwitch()}
       ${UI.kindSeg({ off: ms0.filter(m => m.played && !Store.isFriendly(m)).length, ami: ms0.filter(m => m.played && Store.isFriendly(m)).length })}
+      ${!ms0.length ? `<section class="card"><h2>📭 Aucun match joué pour l'instant</h2><p class="muted small">Les statistiques se remplissent avec les matchs marqués « joué ». Pour reprendre ceux d'AssistCoachAI (buts, passes, minutes) et de la FFF (scores, classement, cartons, remplacements), lance les favoris de ${Auth.isAdmin() ? '<a href="#/reglages">Réglages → Le club</a>' : 'Réglages → Le club (administrateur du club)'} sur ton ordinateur. Tu peux aussi saisir un score dans la page d'un match.</p></section>` : ''}
       ${Store.matchKind() === 'ami' ? '' : Season.leagueCard(t)}
       ${Season.advanced(t)}
       <div class="tiles">
@@ -848,8 +850,8 @@ const Views = (() => {
       ${(() => { const low = People.lowPlaytime(t.id); return low.length ? `<section class="card playtime-card"><h2>⏱️ Temps de jeu à surveiller</h2><p class="muted small">Joueurs qui ont joué moins de la moitié de la moyenne de l'équipe (${low[0].avg} min) sur les matchs où le temps de jeu est noté.</p><ul class="alerts">${low.map(x => `<li><a href="#/joueur/${x.p.id}"><b>${esc(pName(x.p))}</b></a> : ${x.min} min${x.conv ? ` · ${x.conv} convocation${x.conv > 1 ? 's' : ''}` : ' · jamais convoqué'}</li>`).join('')}</ul></section>` : ''; })()}
       <h2 class="section">Joueurs</h2>
       <div class="table-wrap"><table class="tbl">
-        <thead><tr>${th('num', 'N°')}${th('name', 'Joueur')}${th('post', 'Poste')}${th('played', 'Matchs')}${th('min', 'Minutes')}${th('g', Sport.W().Units)}${th('a', Sport.W().Assists)}${th('pr', 'Entraînements')}${th('nm', 'Note matchs')}${th('nt', 'Note entr.')}</tr></thead>
-        <tbody>${rows.map(r => `<tr><td class="num">${esc(r.p.number)}</td><td><a href="#/joueur/${r.p.id}">${esc(pName(r.p))}</a></td><td class="muted">${esc(r.post) || '–'}</td><td>${r.played}</td><td>${r.min ? r.min + "'" : '–'}</td><td><b>${r.g}</b></td><td>${r.a}</td><td>${r.rate === null ? '–' : `${r.pr} <span class="muted">(${r.rate} %)</span>`}</td><td>${r.nm ? '⭐ ' + Ratings.fr(r.nm) : '–'}</td><td>${r.nt ? '⭐ ' + Ratings.fr(r.nt) : '–'}</td></tr>`).join('')}</tbody>
+        <thead><tr>${th('num', 'N°')}${th('name', 'Joueur')}${th('post', 'Poste')}${th('played', 'Matchs')}${th('min', 'Minutes')}${th('g', Sport.W().Units)}${th('a', Sport.W().Assists)}${th('cards', 'Cartons')}${th('pr', 'Entraînements')}${th('nm', 'Note matchs')}${th('nt', 'Note entr.')}</tr></thead>
+        <tbody>${rows.map(r => `<tr><td class="num">${esc(r.p.number)}</td><td><a href="#/joueur/${r.p.id}">${esc(pName(r.p))}</a></td><td class="muted">${esc(r.post) || '–'}</td><td>${r.played}</td><td>${r.min ? r.min + "'" : '–'}</td><td><b>${r.g}</b></td><td>${r.a}</td><td>${r.yc || r.rc ? `${r.yc ? '🟨 ' + r.yc : ''}${r.yc && r.rc ? ' ' : ''}${r.rc ? '🟥 ' + r.rc : ''}` : '–'}</td><td>${r.rate === null ? '–' : `${r.pr} <span class="muted">(${r.rate} %)</span>`}</td><td>${r.nm ? '⭐ ' + Ratings.fr(r.nm) : '–'}</td><td>${r.nt ? '⭐ ' + Ratings.fr(r.nt) : '–'}</td></tr>`).join('')}</tbody>
       </table></div>
       <h2 class="section">Résultats</h2>
       ${ms.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Match</th><th>Score</th><th>Résultat</th></tr></thead>

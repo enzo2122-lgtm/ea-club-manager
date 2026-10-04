@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 8, date: '2026-10-04', title: 'Les cartons au grand jour', items: [
+      ['🟨', 'Nouvelle colonne « Cartons » dans le tableau des joueurs de la page Stats. Un clic dessus et les plus chauds du vestiaire passent en tête.'],
+      ['📭', 'Une équipe sans match joué ne montre plus une page de zéros muette : elle explique d\'où viennent les stats et quoi faire pour les remplir.'],
+    ] },
     { n: 7, date: '2026-10-04', title: 'Un joueur, un poste', items: [
       ['👕', 'Dans « Qui joue où ? », un joueur déjà placé disparaît des autres listes. Les listes raccourcissent à mesure que l\'équipe se remplit : plus facile de voir qui reste sur le banc.'],
     ] },
