@@ -1893,3 +1893,16 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 .report-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .report-card h2 { margin-bottom: 2px; }
 .report-card > div { flex: 1 1 220px; }
+
+/* ---------- 1.48 : résultats de toute la poule, forme de l'adversaire ---------- */
+.pr-table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; font-size: 14px; }
+.pr-table td { padding: 5px 4px; border-bottom: 1px solid var(--line, #e5e7eb); }
+.pr-table .pr-h { text-align: right; width: 44%; }
+.pr-table .pr-a { width: 44%; }
+.pr-table .pr-s { text-align: center; font-weight: 800; white-space: nowrap; }
+.pr-table .win { font-weight: 700; }
+.pr-table tr.own td { background: rgba(140, 16, 36, .07); }
+.pr-more summary { cursor: pointer; font-weight: 600; margin: 4px 0 8px; }
+.form-dots { display: flex; gap: 6px; margin: 4px 0 6px; }
+.form-dots .fd { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; color: #fff; }
+.form-dots .fd.V { background: #15803d; } .form-dots .fd.N { background: #a16207; } .form-dots .fd.D { background: #b91c1c; }

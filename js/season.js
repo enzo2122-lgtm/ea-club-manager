@@ -129,20 +129,43 @@ const Season = (() => {
     return Object.values(T).sort((a, b) => b.pts - a.pts || (b.bp - b.bc) - (a.bp - a.bc) || b.bp - a.bp || b.v - a.v || a.name.localeCompare(b.name));
   }
   // (1.40) the official table of the FFF / District (Résultats FFF bookmark)
-  function officialCard(t) {
-    const F = t.fffTable, ours = r => !!F.our && r.name.toUpperCase() === F.our.toUpperCase();
+  function officialCard(t, F = t.fffTable) {
+    const ours = r => !!F.our && r.name.toUpperCase() === F.our.toUpperCase();
     const when = new Date(F.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
     return `<section class="card"><h2>🏆 ${esc(F.name)} <span class="muted small">· classement officiel</span></h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Bp</th><th>Bc</th><th>Diff</th></tr></thead>
       <tbody>${F.rows.map(r => `<tr class="${ours(r) ? 'own' : ''}"><td>${r.rank}</td><td>${Clubs.oppLogo(r.name)}${esc(r.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.bp}</td><td>${r.bc}</td><td>${r.diff > 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}</tbody></table></div>
       <p class="muted small">Site de la FFF, mis à jour le ${esc(when)} · sous réserve d'éventuelles procédures. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
   }
+  // (1.48) the results of the whole poule (every opponent), the last weekend first; the older ones folded
+  const okey = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  function pouleCard(R) {
+    const played = R.list.filter(x => x.hs != null); if (!played.length) return '';
+    const days = [...new Set(played.map(x => x.date))].sort().reverse(), our = okey(R.our);
+    const fd = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    const row = x => { const us = our && (okey(x.home) === our || okey(x.away) === our), w = x.hs > x.as ? 'h' : x.hs < x.as ? 'a' : '';
+      return `<tr class="${us ? 'own' : ''}"><td class="pr-h ${w === 'h' ? 'win' : ''}">${esc(x.home)}${Clubs.oppLogo(x.home)}</td><td class="pr-s">${x.hs} - ${x.as}</td><td class="pr-a ${w === 'a' ? 'win' : ''}">${Clubs.oppLogo(x.away)}${esc(x.away)}</td></tr>`; };
+    const day = d => `<div class="lbl">${esc(fd(d))}</div><table class="pr-table"><tbody>${played.filter(x => x.date === d).map(row).join('')}</tbody></table>`;
+    return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· tous les résultats de la poule</span></h2>${days.slice(0, 1).map(day).join('')}
+      ${days.length > 1 ? `<details class="pr-more"><summary>Les ${days.length - 1} journée${days.length > 2 ? 's' : ''} d'avant</summary>${days.slice(1).map(day).join('')}</details>` : ''}
+      <p class="muted small">Site de la FFF, gardés à chaque import du favori « Résultats FFF ». <a href="${esc(R.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
+  }
+  // the last results of a team of the poule (« forme du moment »): V / N / D, the most recent last
+  function formOf(t, name) {
+    const k = okey(name); if (!t || !k) return [];
+    const strip = s => s.replace(/ \d+$/, ''), all = Object.values(t.fffPoules || {}).flatMap(R => R.list).filter(x => x.hs != null && [x.home, x.away].some(n => okey(n) === k || strip(okey(n)) === strip(k)));
+    return all.sort((a, b) => a.date.localeCompare(b.date)).slice(-5).map(x => { const home = okey(x.home) === k || strip(okey(x.home)) === strip(k), f = home ? x.hs : x.as, a = home ? x.as : x.hs;
+      return { r: f > a ? 'V' : f < a ? 'D' : 'N', x }; });
+  }
   function leagueCard(t) {
-    if (t.fffTable && (t.fffTable.rows || []).length) return officialCard(t);
-    const rows = table(t); if (!rows) return '';
+    const tabs = Object.values(t.fffTables || {}).filter(F => (F.rows || []).length);
+    const pr = Object.values(t.fffPoules || {}).map(pouleCard).join('');
+    if (tabs.length) return tabs.map(F => officialCard(t, F)).join('') + pr;
+    if (t.fffTable && (t.fffTable.rows || []).length) return officialCard(t) + pr;
+    const rows = table(t); if (!rows) return pr;
     const up = +((t.league.config || {}).promotion_slots || 0), down = +((t.league.config || {}).relegation_slots || 0);
     return `<section class="card"><h2>🏆 ${esc(t.league.name)}</h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Diff</th></tr></thead>
       <tbody>${rows.map((r, i) => `<tr class="${r.own ? 'own' : ''} ${i < up ? 'up' : ''} ${down && i >= rows.length - down ? 'down' : ''}"><td>${i + 1}</td><td>${esc(r.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.bp - r.bc > 0 ? '+' : ''}${r.bp - r.bc}</td></tr>`).join('')}</tbody></table></div>
       <p class="muted small">${up ? `En vert : ${up} place${up > 1 ? 's' : ''} de montée. ` : ''}Nos scores saisis dans l'appli sont pris en compte.</p></section>`;
   }
-  return { page, pdf, data, advanced, detailCard, playerDetail, table, leagueCard };
+  return { page, pdf, data, advanced, detailCard, playerDetail, table, leagueCard, formOf };
 })();

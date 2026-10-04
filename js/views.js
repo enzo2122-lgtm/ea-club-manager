@@ -678,6 +678,9 @@ const Views = (() => {
         </section>
         <div class="m-tabs" role="tablist">${TABS.map(([k, l]) => `<button class="m-tab ${tab === k ? 'on' : ''}" role="tab" aria-selected="${tab === k}" data-mtab="${k}">${l}</button>`).join('')}</div>
         <div ${panel('avant')}>
+        ${(() => { const f = !m.played && Season.formOf(t, m.opponent); return f && f.length ? `<section class="card opp-form"><h2>🔎 ${Clubs.oppLogo(m.opponent)}${esc(m.opponent)} : sa forme du moment</h2>
+          <div class="form-dots">${f.map(({ r, x }) => `<span class="fd ${r}" title="${esc(`${x.home} ${x.hs} - ${x.as} ${x.away}`)}">${r}</span>`).join('')}</div>
+          <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2>${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}</div>
         ${t ? rosterChips(t.id, p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`) : '<p class="muted">Choisis une équipe.</p>'}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}

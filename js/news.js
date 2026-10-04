@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 12, date: '2026-10-04', title: 'On espionne toute la poule', items: [
+      ['📅', 'Le favori « Résultats FFF » rapporte maintenant les résultats de tous les matchs de nos poules, adversaires compris. Ils s\'ajoutent chaque semaine aux précédents, rien n\'est effacé. À voir dans Stats, sous le classement.'],
+      ['🔎', 'Dans l\'onglet « Avant » du match : la forme du moment de l\'adversaire (ses 5 derniers résultats). Tu sauras s\'il arrive en confiance ou en crise.'],
+      ['🅰️', 'AssistCoachAI range enfin chaque match dans la bonne équipe : le championnat le plus haut (D3) va à l\'équipe A, le suivant (D4) à la B. Les matchs mal rangés avant sont déménagés tout seuls.'],
+      ['🐛', 'Bug réparé : une équipe engagée dans deux poules perdait le classement de la première. Les deux restent maintenant.'],
+    ] },
     { n: 11, date: '2026-10-04', title: 'Le compte-rendu qui part tout seul', items: [
       ['📄', 'Nouveau dans l\'onglet « Après » du match : « Envoyer le PDF ». Score, buteurs, passeurs, temps forts, minutes, cartons, notes, commentaires et le mot du coach, dans un joli PDF prêt pour WhatsApp. Les parents vont croire que tu as un attaché de presse.'],
       ['🤝', 'Le match suivi en direct, la feuille de la FFF et AssistCoachAI se complètent au lieu de s\'écraser : un carton noté deux fois compte une fois, un changement oublié en direct est repris de la feuille, tes buteurs restent. Trois sources, une seule vérité.'],

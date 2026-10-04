@@ -70,13 +70,21 @@ const ACImport = (() => {
     (D.planning.convocations || []).forEach(c => { (convBy[c.event_id] = convBy[c.event_id] || []).push(c); });
     (D.planning.attendances || []).forEach(a => { (attBy[a.event_id] = attBy[a.event_id] || []).push(a); });
     const teamOfChamp = {};
+    // (1.48) one AssistCoachAI team can play two championships (« Senior D3/D4 »): the club's A team always plays the highest
+    // level (R1 > R2 > … > D1 > D2 …), so the championships sorted by level go to A, B, C… (a match shared with the FFF import still decides)
+    const rank = s => { const n = norm(s), r = n.match(/\br ?(\d)\b/), d = n.match(/\bd ?(\d)\b/); return /coupe|cup|ancien|veteran|cdm/.test(n) ? 0 : r ? +r[1] : d ? 10 + +d[1] : 0; };
+    const lettered = group.filter(t => /\s[A-E]$/i.test(String(t.name || '').trim())).sort((a, b) => String(a.name).trim().slice(-1).localeCompare(String(b.name).trim().slice(-1)));
+    Object.values(champs).map(c => ({ id: c.championship.id, r: rank(c.championship.name) })).filter(x => x.r).sort((a, b) => a.r - b.r)
+      .forEach((x, i) => { if (lettered[i]) teamOfChamp[x.id] = lettered[i].id; });
+    const byLevel = Object.assign({}, teamOfChamp);
     evs.filter(e => e.type === 'match').forEach(e => {
       const g = msgOf(e), date = day(e.date), opp = e.adversaire || g.opp || '';
       if (/^exempt$/i.test(opp.trim())) return;
       const cands = S().matches.filter(m => m.date === date && groupIds.includes(m.teamId) && !m.acId);
       let m = S().matches.find(x => x.acId === e.id) || cands.map(x => [x, sameOpp(x.opponent, opp)]).filter(x => x[1]).sort((a, b) => b[1] - a[1]).map(x => x[0])[0];
       const cid = champOfEvent[e.id];
-      if (m) { st.matches[1]++; if (cid) teamOfChamp[cid] = m.teamId; }
+      // a match AssistCoachAI created before in the wrong team (A instead of B) goes to the team of its level
+      if (m) { st.matches[1]++; if (cid) { if (byLevel[cid] && m.acId === e.id && !m.imported && !m.teamManual && !m.fffSheet) m.teamId = byLevel[cid]; teamOfChamp[cid] = m.teamId; } }
       else { m = { id: Store.uid(), teamId: (cid && teamOfChamp[cid]) || main.id, date, opponent: opp, home: !!g.home, competition: g.type === 'amical' ? 'Amical' : g.type === 'coupe' ? 'Coupe' : 'Championnat', convoked: [], played: false, gf: 0, ga: 0 }; st.matches[0]++; }
       m.acId = e.id; m.time = m.time || g.time || ''; m.home = typeof m.home === 'boolean' ? m.home : !!g.home;
       const convMsg = e.convocation_msg || g.convocMsg || '';

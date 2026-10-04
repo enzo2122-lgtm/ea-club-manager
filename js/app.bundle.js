@@ -3523,7 +3523,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.47';
+  const VERSION = '1.48';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10195,22 +10195,45 @@ var Season = (() => {
     return Object.values(T).sort((a, b) => b.pts - a.pts || (b.bp - b.bc) - (a.bp - a.bc) || b.bp - a.bp || b.v - a.v || a.name.localeCompare(b.name));
   }
   // (1.40) the official table of the FFF / District (Résultats FFF bookmark)
-  function officialCard(t) {
-    const F = t.fffTable, ours = r => !!F.our && r.name.toUpperCase() === F.our.toUpperCase();
+  function officialCard(t, F = t.fffTable) {
+    const ours = r => !!F.our && r.name.toUpperCase() === F.our.toUpperCase();
     const when = new Date(F.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
     return `<section class="card"><h2>🏆 ${esc(F.name)} <span class="muted small">· classement officiel</span></h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Bp</th><th>Bc</th><th>Diff</th></tr></thead>
       <tbody>${F.rows.map(r => `<tr class="${ours(r) ? 'own' : ''}"><td>${r.rank}</td><td>${Clubs.oppLogo(r.name)}${esc(r.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.bp}</td><td>${r.bc}</td><td>${r.diff > 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}</tbody></table></div>
       <p class="muted small">Site de la FFF, mis à jour le ${esc(when)} · sous réserve d'éventuelles procédures. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
   }
+  // (1.48) the results of the whole poule (every opponent), the last weekend first; the older ones folded
+  const okey = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  function pouleCard(R) {
+    const played = R.list.filter(x => x.hs != null); if (!played.length) return '';
+    const days = [...new Set(played.map(x => x.date))].sort().reverse(), our = okey(R.our);
+    const fd = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    const row = x => { const us = our && (okey(x.home) === our || okey(x.away) === our), w = x.hs > x.as ? 'h' : x.hs < x.as ? 'a' : '';
+      return `<tr class="${us ? 'own' : ''}"><td class="pr-h ${w === 'h' ? 'win' : ''}">${esc(x.home)}${Clubs.oppLogo(x.home)}</td><td class="pr-s">${x.hs} - ${x.as}</td><td class="pr-a ${w === 'a' ? 'win' : ''}">${Clubs.oppLogo(x.away)}${esc(x.away)}</td></tr>`; };
+    const day = d => `<div class="lbl">${esc(fd(d))}</div><table class="pr-table"><tbody>${played.filter(x => x.date === d).map(row).join('')}</tbody></table>`;
+    return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· tous les résultats de la poule</span></h2>${days.slice(0, 1).map(day).join('')}
+      ${days.length > 1 ? `<details class="pr-more"><summary>Les ${days.length - 1} journée${days.length > 2 ? 's' : ''} d'avant</summary>${days.slice(1).map(day).join('')}</details>` : ''}
+      <p class="muted small">Site de la FFF, gardés à chaque import du favori « Résultats FFF ». <a href="${esc(R.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
+  }
+  // the last results of a team of the poule (« forme du moment »): V / N / D, the most recent last
+  function formOf(t, name) {
+    const k = okey(name); if (!t || !k) return [];
+    const strip = s => s.replace(/ \d+$/, ''), all = Object.values(t.fffPoules || {}).flatMap(R => R.list).filter(x => x.hs != null && [x.home, x.away].some(n => okey(n) === k || strip(okey(n)) === strip(k)));
+    return all.sort((a, b) => a.date.localeCompare(b.date)).slice(-5).map(x => { const home = okey(x.home) === k || strip(okey(x.home)) === strip(k), f = home ? x.hs : x.as, a = home ? x.as : x.hs;
+      return { r: f > a ? 'V' : f < a ? 'D' : 'N', x }; });
+  }
   function leagueCard(t) {
-    if (t.fffTable && (t.fffTable.rows || []).length) return officialCard(t);
-    const rows = table(t); if (!rows) return '';
+    const tabs = Object.values(t.fffTables || {}).filter(F => (F.rows || []).length);
+    const pr = Object.values(t.fffPoules || {}).map(pouleCard).join('');
+    if (tabs.length) return tabs.map(F => officialCard(t, F)).join('') + pr;
+    if (t.fffTable && (t.fffTable.rows || []).length) return officialCard(t) + pr;
+    const rows = table(t); if (!rows) return pr;
     const up = +((t.league.config || {}).promotion_slots || 0), down = +((t.league.config || {}).relegation_slots || 0);
     return `<section class="card"><h2>🏆 ${esc(t.league.name)}</h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Diff</th></tr></thead>
       <tbody>${rows.map((r, i) => `<tr class="${r.own ? 'own' : ''} ${i < up ? 'up' : ''} ${down && i >= rows.length - down ? 'down' : ''}"><td>${i + 1}</td><td>${esc(r.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.bp - r.bc > 0 ? '+' : ''}${r.bp - r.bc}</td></tr>`).join('')}</tbody></table></div>
       <p class="muted small">${up ? `En vert : ${up} place${up > 1 ? 's' : ''} de montée. ` : ''}Nos scores saisis dans l'appli sont pris en compte.</p></section>`;
   }
-  return { page, pdf, data, advanced, detailCard, playerDetail, table, leagueCard };
+  return { page, pdf, data, advanced, detailCard, playerDetail, table, leagueCard, formOf };
 })();
 
 ;
@@ -10432,13 +10455,21 @@ var ACImport = (() => {
     (D.planning.convocations || []).forEach(c => { (convBy[c.event_id] = convBy[c.event_id] || []).push(c); });
     (D.planning.attendances || []).forEach(a => { (attBy[a.event_id] = attBy[a.event_id] || []).push(a); });
     const teamOfChamp = {};
+    // (1.48) one AssistCoachAI team can play two championships (« Senior D3/D4 »): the club's A team always plays the highest
+    // level (R1 > R2 > … > D1 > D2 …), so the championships sorted by level go to A, B, C… (a match shared with the FFF import still decides)
+    const rank = s => { const n = norm(s), r = n.match(/\br ?(\d)\b/), d = n.match(/\bd ?(\d)\b/); return /coupe|cup|ancien|veteran|cdm/.test(n) ? 0 : r ? +r[1] : d ? 10 + +d[1] : 0; };
+    const lettered = group.filter(t => /\s[A-E]$/i.test(String(t.name || '').trim())).sort((a, b) => String(a.name).trim().slice(-1).localeCompare(String(b.name).trim().slice(-1)));
+    Object.values(champs).map(c => ({ id: c.championship.id, r: rank(c.championship.name) })).filter(x => x.r).sort((a, b) => a.r - b.r)
+      .forEach((x, i) => { if (lettered[i]) teamOfChamp[x.id] = lettered[i].id; });
+    const byLevel = Object.assign({}, teamOfChamp);
     evs.filter(e => e.type === 'match').forEach(e => {
       const g = msgOf(e), date = day(e.date), opp = e.adversaire || g.opp || '';
       if (/^exempt$/i.test(opp.trim())) return;
       const cands = S().matches.filter(m => m.date === date && groupIds.includes(m.teamId) && !m.acId);
       let m = S().matches.find(x => x.acId === e.id) || cands.map(x => [x, sameOpp(x.opponent, opp)]).filter(x => x[1]).sort((a, b) => b[1] - a[1]).map(x => x[0])[0];
       const cid = champOfEvent[e.id];
-      if (m) { st.matches[1]++; if (cid) teamOfChamp[cid] = m.teamId; }
+      // a match AssistCoachAI created before in the wrong team (A instead of B) goes to the team of its level
+      if (m) { st.matches[1]++; if (cid) { if (byLevel[cid] && m.acId === e.id && !m.imported && !m.teamManual && !m.fffSheet) m.teamId = byLevel[cid]; teamOfChamp[cid] = m.teamId; } }
       else { m = { id: Store.uid(), teamId: (cid && teamOfChamp[cid]) || main.id, date, opponent: opp, home: !!g.home, competition: g.type === 'amical' ? 'Amical' : g.type === 'coupe' ? 'Coupe' : 'Championnat', convoked: [], played: false, gf: 0, ga: 0 }; st.matches[0]++; }
       m.acId = e.id; m.time = m.time || g.time || ''; m.home = typeof m.home === 'boolean' ? m.home : !!g.home;
       const convMsg = e.convocation_msg || g.convocMsg || '';
@@ -13005,6 +13036,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 12, date: '2026-10-04', title: 'On espionne toute la poule', items: [
+      ['📅', 'Le favori « Résultats FFF » rapporte maintenant les résultats de tous les matchs de nos poules, adversaires compris. Ils s\'ajoutent chaque semaine aux précédents, rien n\'est effacé. À voir dans Stats, sous le classement.'],
+      ['🔎', 'Dans l\'onglet « Avant » du match : la forme du moment de l\'adversaire (ses 5 derniers résultats). Tu sauras s\'il arrive en confiance ou en crise.'],
+      ['🅰️', 'AssistCoachAI range enfin chaque match dans la bonne équipe : le championnat le plus haut (D3) va à l\'équipe A, le suivant (D4) à la B. Les matchs mal rangés avant sont déménagés tout seuls.'],
+      ['🐛', 'Bug réparé : une équipe engagée dans deux poules perdait le classement de la première. Les deux restent maintenant.'],
+    ] },
     { n: 11, date: '2026-10-04', title: 'Le compte-rendu qui part tout seul', items: [
       ['📄', 'Nouveau dans l\'onglet « Après » du match : « Envoyer le PDF ». Score, buteurs, passeurs, temps forts, minutes, cartons, notes, commentaires et le mot du coach, dans un joli PDF prêt pour WhatsApp. Les parents vont croire que tu as un attaché de presse.'],
       ['🤝', 'Le match suivi en direct, la feuille de la FFF et AssistCoachAI se complètent au lieu de s\'écraser : un carton noté deux fois compte une fois, un changement oublié en direct est repris de la feuille, tes buteurs restent. Trois sources, une seule vérité.'],
@@ -13142,7 +13179,11 @@ for(let j=i+1;j<Math.min(as.length,i+7);j++){if((as[j].getAttribute('href')||'')
 pou[m[0]]={url:m[0],comp:a.innerText.trim().replace(/\\s+(Journée|TOUR)\\b.*$/i,''),our};});
 const poules=[];for(const p of Object.values(pou)){try{const d=new DOMParser().parseFromString(await (await fetch(p.url+'/classement')).text(),'text/html');let best=[];
 for(const tb of d.querySelectorAll('table')){const rs=[...tb.querySelectorAll('tr')].map(tr=>[...tr.cells].map(c=>c.innerText.trim()));if(rs[0]&&rs[0].includes('Bp.')&&rs.length>best.length)best=rs;}
-addLogos(d);p.rows=best;poules.push(p);}catch(e){}}
+addLogos(d);p.rows=best;
+try{const wd=new DOMParser().parseFromString(await (await fetch(p.url)).text(),'text/html'),week=[];let cur=null;
+for(const s of wd.querySelectorAll('span.schedule-match,span.equipe-name,span.digit')){const c=String(s.className);if(/schedule-match/.test(c)){cur={when:s.textContent.trim(),teams:[],sc:[]};week.push(cur);}else if(cur){if(/equipe-name/.test(c))cur.teams.push(s.textContent.trim());else cur.sc.push(s.textContent.trim());}}
+p.week=week.filter(x=>x.teams.length===2);}catch(e){}
+poules.push(p);}catch(e){}}
 const sheets=[],RGD=/(LUN|MAR|MER|JEU|VEN|SAM|DIM)\\s+\\d{2}\\s+[A-ZÉÛ]+\\s+\\d{4}/;
 for(const a of main.querySelectorAll('a[href*="/competition/match/"]')){if(!/^\\d+\\s+\\d+$/.test(a.innerText.trim()))continue;let el=a,dt='';for(let k=0;k<6&&el;k++){el=el.parentElement;const m=el&&RGD.exec(el.innerText);if(m){dt=m[0];break;}}
 try{const href=a.getAttribute('href').replace(/\\/match$/,''),d=new DOMParser().parseFromString(await (await fetch(href)).text(),'text/html');
@@ -13244,16 +13285,41 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
     modal({ title: '🏆 Résultats FFF : ce qui change', noFocus: true, body: `<ul class="src-sum">
       <li>⚽ <b>${played.length}</b> résultat${played.length > 1 ? 's' : ''} lu${played.length > 1 ? 's' : ''} sur la page (${found.length} match${found.length > 1 ? 's' : ''} du mois en tout) : scores mis à jour sans doublon</li>
       ${sheetsPlan.length ? `<li>📋 <b>${sheetsPlan.length}</b> feuille${sheetsPlan.length > 1 ? 's' : ''} de match : ${sheetsPlan.reduce((a, s) => a + s.cards, 0)} carton${sheetsPlan.reduce((a, s) => a + s.cards, 0) > 1 ? 's' : ''}, ${sheetsPlan.reduce((a, s) => a + s.nsubs, 0)} remplacement${sheetsPlan.reduce((a, s) => a + s.nsubs, 0) > 1 ? 's' : ''}, temps de jeu de ${sheetsPlan.reduce((a, s) => a + s.known, 0)} joueur${sheetsPlan.reduce((a, s) => a + s.known, 0) > 1 ? 's' : ''}${sheetsPlan.some(s => s.unknown.length) ? `<br><span class="muted small">Noms de la feuille non reconnus dans l'appli (vérifie leur prénom) : ${esc([...new Set(sheetsPlan.flatMap(s => s.unknown))].slice(0, 20).join(', '))}</span>` : ''}</li>` : ''}
+      <li>📅 <b>${(P.poules || []).reduce((a, p) => a + (p.week || []).length, 0)}</b> matchs de la semaine dans nos poules (tous les adversaires), ajoutés à ceux déjà gardés</li>
       <li>🛡️ <b>${Object.keys(P.logos || {}).length}</b> logos de clubs (adversaires de toutes les poules)</li>
       <li>🏆 <b>${tables.length}</b> classement${tables.length > 1 ? 's' : ''} officiel${tables.length > 1 ? 's' : ''} : ${tables.map(x => esc(x.t.name + ' (' + x.p.comp + ')')).join(', ') || 'aucun'}</li></ul>
       <p class="muted small">Les classements viennent du site de la FFF : tous les adversaires de chaque poule, « sous réserve d'éventuelles procédures ».</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: () => {
         const res = Importer.applyFound(found); Clubs.setOppLogos(P.logos);
         const sh = (P.sheets || []).map(s => sheetPlan(s)).filter(Boolean); sh.forEach(applySheet);
-        tables.forEach(({ p, t, rows }) => { t.fffTable = { name: p.comp, url: 'https://epreuves.fff.fr' + p.url + '/classement', our: p.our, rows, at: Date.now() }; Store.upsert('teams', t); });
+        // (1.48) one table per poule: a team playing two poules keeps both
+        tables.forEach(({ p, t, rows }) => { const T = { name: p.comp, url: 'https://epreuves.fff.fr' + p.url + '/classement', our: p.our, rows, at: Date.now() };
+          t.fffTables = Object.assign({}, t.fffTables || (t.fffTable ? { [t.fffTable.url]: t.fffTable } : {}), { [T.url]: T }); t.fffTable = T; Store.upsert('teams', t); });
+        pouleWeeks(P.poules);
         Store.save(); App.route();
         toast(`FFF : ${res.scores} score${res.scores > 1 ? 's' : ''} mis à jour, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${tables.length} classement${tables.length > 1 ? 's' : ''}`);
       } }] });
+  }
+  /* ---------- (1.48) the results of every match of our poules (all the opponents), week after week ----------
+     t.fffPoules[competition] = { name, url, our, list: [{ date, time, home, away, hs, as }] }: kept and completed at each import
+     (a match is found again by its date and its two teams; its score is updated, nothing is removed; one team can play two poules) */
+  function pouleWeeks(poules) {
+    let n = 0;
+    (poules || []).forEach(p => {
+      const t = p.week && p.week.length && Importer.guessTeam(p.comp, p.our || ''); if (!t) return;
+      const all = t.fffPoules = t.fffPoules || {}, R = all[p.url] = all[p.url] || { name: p.comp, url: 'https://epreuves.fff.fr' + p.url, list: [] };
+      if (p.our) R.our = p.our;
+      p.week.forEach(w => {
+        const date = dayOf(w.when), time = (/(\d{1,2})h(\d{2})/.exec(w.when) || []).slice(1).map(x => x.padStart(2, '0')).join(':'); if (!date) return;
+        const [home, away] = w.teams, sc = w.sc.length === 2 ? w.sc.map(Number) : null; if (/EXEMPT/i.test(home + ' ' + away)) return;
+        const ex = R.list.find(x => x.date === date && x.home === home && x.away === away);
+        if (ex) { if (sc && (ex.hs !== sc[0] || ex.as !== sc[1])) { ex.hs = sc[0]; ex.as = sc[1]; n++; } if (time) ex.time = time; }
+        else { R.list.push({ date, time, home, away, hs: sc ? sc[0] : null, as: sc ? sc[1] : null }); n++; }
+      });
+      R.list.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)); R.at = Date.now();
+      Store.upsert('teams', t);
+    });
+    return n;
   }
   /* ---------- (1.42) the match sheets of the FFF site: cards, substitutions, line-ups, playing time ---------- */
   const MONTHS = { JAN: 1, FEV: 2, MAR: 3, AVR: 4, MAI: 5, JUN: 6, JUI: 7, AOU: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
@@ -13992,6 +14058,9 @@ var Views = (() => {
         </section>
         <div class="m-tabs" role="tablist">${TABS.map(([k, l]) => `<button class="m-tab ${tab === k ? 'on' : ''}" role="tab" aria-selected="${tab === k}" data-mtab="${k}">${l}</button>`).join('')}</div>
         <div ${panel('avant')}>
+        ${(() => { const f = !m.played && Season.formOf(t, m.opponent); return f && f.length ? `<section class="card opp-form"><h2>🔎 ${Clubs.oppLogo(m.opponent)}${esc(m.opponent)} : sa forme du moment</h2>
+          <div class="form-dots">${f.map(({ r, x }) => `<span class="fd ${r}" title="${esc(`${x.home} ${x.hs} - ${x.as} ${x.away}`)}">${r}</span>`).join('')}</div>
+          <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2>${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}</div>
         ${t ? rosterChips(t.id, p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`) : '<p class="muted">Choisis une équipe.</p>'}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
@@ -14478,7 +14547,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 48, UPD = AppCfg.key('update-tried');
+  const BUILD = 49, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

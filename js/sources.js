@@ -53,7 +53,11 @@ for(let j=i+1;j<Math.min(as.length,i+7);j++){if((as[j].getAttribute('href')||'')
 pou[m[0]]={url:m[0],comp:a.innerText.trim().replace(/\\s+(Journée|TOUR)\\b.*$/i,''),our};});
 const poules=[];for(const p of Object.values(pou)){try{const d=new DOMParser().parseFromString(await (await fetch(p.url+'/classement')).text(),'text/html');let best=[];
 for(const tb of d.querySelectorAll('table')){const rs=[...tb.querySelectorAll('tr')].map(tr=>[...tr.cells].map(c=>c.innerText.trim()));if(rs[0]&&rs[0].includes('Bp.')&&rs.length>best.length)best=rs;}
-addLogos(d);p.rows=best;poules.push(p);}catch(e){}}
+addLogos(d);p.rows=best;
+try{const wd=new DOMParser().parseFromString(await (await fetch(p.url)).text(),'text/html'),week=[];let cur=null;
+for(const s of wd.querySelectorAll('span.schedule-match,span.equipe-name,span.digit')){const c=String(s.className);if(/schedule-match/.test(c)){cur={when:s.textContent.trim(),teams:[],sc:[]};week.push(cur);}else if(cur){if(/equipe-name/.test(c))cur.teams.push(s.textContent.trim());else cur.sc.push(s.textContent.trim());}}
+p.week=week.filter(x=>x.teams.length===2);}catch(e){}
+poules.push(p);}catch(e){}}
 const sheets=[],RGD=/(LUN|MAR|MER|JEU|VEN|SAM|DIM)\\s+\\d{2}\\s+[A-ZÉÛ]+\\s+\\d{4}/;
 for(const a of main.querySelectorAll('a[href*="/competition/match/"]')){if(!/^\\d+\\s+\\d+$/.test(a.innerText.trim()))continue;let el=a,dt='';for(let k=0;k<6&&el;k++){el=el.parentElement;const m=el&&RGD.exec(el.innerText);if(m){dt=m[0];break;}}
 try{const href=a.getAttribute('href').replace(/\\/match$/,''),d=new DOMParser().parseFromString(await (await fetch(href)).text(),'text/html');
@@ -155,16 +159,41 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
     modal({ title: '🏆 Résultats FFF : ce qui change', noFocus: true, body: `<ul class="src-sum">
       <li>⚽ <b>${played.length}</b> résultat${played.length > 1 ? 's' : ''} lu${played.length > 1 ? 's' : ''} sur la page (${found.length} match${found.length > 1 ? 's' : ''} du mois en tout) : scores mis à jour sans doublon</li>
       ${sheetsPlan.length ? `<li>📋 <b>${sheetsPlan.length}</b> feuille${sheetsPlan.length > 1 ? 's' : ''} de match : ${sheetsPlan.reduce((a, s) => a + s.cards, 0)} carton${sheetsPlan.reduce((a, s) => a + s.cards, 0) > 1 ? 's' : ''}, ${sheetsPlan.reduce((a, s) => a + s.nsubs, 0)} remplacement${sheetsPlan.reduce((a, s) => a + s.nsubs, 0) > 1 ? 's' : ''}, temps de jeu de ${sheetsPlan.reduce((a, s) => a + s.known, 0)} joueur${sheetsPlan.reduce((a, s) => a + s.known, 0) > 1 ? 's' : ''}${sheetsPlan.some(s => s.unknown.length) ? `<br><span class="muted small">Noms de la feuille non reconnus dans l'appli (vérifie leur prénom) : ${esc([...new Set(sheetsPlan.flatMap(s => s.unknown))].slice(0, 20).join(', '))}</span>` : ''}</li>` : ''}
+      <li>📅 <b>${(P.poules || []).reduce((a, p) => a + (p.week || []).length, 0)}</b> matchs de la semaine dans nos poules (tous les adversaires), ajoutés à ceux déjà gardés</li>
       <li>🛡️ <b>${Object.keys(P.logos || {}).length}</b> logos de clubs (adversaires de toutes les poules)</li>
       <li>🏆 <b>${tables.length}</b> classement${tables.length > 1 ? 's' : ''} officiel${tables.length > 1 ? 's' : ''} : ${tables.map(x => esc(x.t.name + ' (' + x.p.comp + ')')).join(', ') || 'aucun'}</li></ul>
       <p class="muted small">Les classements viennent du site de la FFF : tous les adversaires de chaque poule, « sous réserve d'éventuelles procédures ».</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: () => {
         const res = Importer.applyFound(found); Clubs.setOppLogos(P.logos);
         const sh = (P.sheets || []).map(s => sheetPlan(s)).filter(Boolean); sh.forEach(applySheet);
-        tables.forEach(({ p, t, rows }) => { t.fffTable = { name: p.comp, url: 'https://epreuves.fff.fr' + p.url + '/classement', our: p.our, rows, at: Date.now() }; Store.upsert('teams', t); });
+        // (1.48) one table per poule: a team playing two poules keeps both
+        tables.forEach(({ p, t, rows }) => { const T = { name: p.comp, url: 'https://epreuves.fff.fr' + p.url + '/classement', our: p.our, rows, at: Date.now() };
+          t.fffTables = Object.assign({}, t.fffTables || (t.fffTable ? { [t.fffTable.url]: t.fffTable } : {}), { [T.url]: T }); t.fffTable = T; Store.upsert('teams', t); });
+        pouleWeeks(P.poules);
         Store.save(); App.route();
         toast(`FFF : ${res.scores} score${res.scores > 1 ? 's' : ''} mis à jour, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${tables.length} classement${tables.length > 1 ? 's' : ''}`);
       } }] });
+  }
+  /* ---------- (1.48) the results of every match of our poules (all the opponents), week after week ----------
+     t.fffPoules[competition] = { name, url, our, list: [{ date, time, home, away, hs, as }] }: kept and completed at each import
+     (a match is found again by its date and its two teams; its score is updated, nothing is removed; one team can play two poules) */
+  function pouleWeeks(poules) {
+    let n = 0;
+    (poules || []).forEach(p => {
+      const t = p.week && p.week.length && Importer.guessTeam(p.comp, p.our || ''); if (!t) return;
+      const all = t.fffPoules = t.fffPoules || {}, R = all[p.url] = all[p.url] || { name: p.comp, url: 'https://epreuves.fff.fr' + p.url, list: [] };
+      if (p.our) R.our = p.our;
+      p.week.forEach(w => {
+        const date = dayOf(w.when), time = (/(\d{1,2})h(\d{2})/.exec(w.when) || []).slice(1).map(x => x.padStart(2, '0')).join(':'); if (!date) return;
+        const [home, away] = w.teams, sc = w.sc.length === 2 ? w.sc.map(Number) : null; if (/EXEMPT/i.test(home + ' ' + away)) return;
+        const ex = R.list.find(x => x.date === date && x.home === home && x.away === away);
+        if (ex) { if (sc && (ex.hs !== sc[0] || ex.as !== sc[1])) { ex.hs = sc[0]; ex.as = sc[1]; n++; } if (time) ex.time = time; }
+        else { R.list.push({ date, time, home, away, hs: sc ? sc[0] : null, as: sc ? sc[1] : null }); n++; }
+      });
+      R.list.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)); R.at = Date.now();
+      Store.upsert('teams', t);
+    });
+    return n;
   }
   /* ---------- (1.42) the match sheets of the FFF site: cards, substitutions, line-ups, playing time ---------- */
   const MONTHS = { JAN: 1, FEV: 2, MAR: 3, AVR: 4, MAI: 5, JUN: 6, JUI: 7, AOU: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
