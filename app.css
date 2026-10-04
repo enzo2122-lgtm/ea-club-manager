@@ -1906,3 +1906,6 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 .form-dots { display: flex; gap: 6px; margin: 4px 0 6px; }
 .form-dots .fd { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; color: #fff; }
 .form-dots .fd.V { background: #15803d; } .form-dots .fd.N { background: #a16207; } .form-dots .fd.D { background: #b91c1c; }
+
+/* ---------- 1.54 : bouton FFF dans Stats ---------- */
+.fff-tip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; }

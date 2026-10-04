@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 18, date: '2026-10-04', title: 'Le bouton qui dit tout', items: [
+      ['🔄', 'Dans Stats, une équipe sans classement officiel a maintenant son bouton « Les chercher maintenant ». Et le compte-rendu reste affiché : ce qui a été trouvé à la FFF, ou la vraie raison si ça coince. Fini les messages qui jouent à cache-cache.'],
+    ] },
     { n: 17, date: '2026-10-04', title: 'Moins de boutons, moins de pièges', items: [
       ['🧹', 'Réglages → Le club : le favori « Résultats FFF » est rangé dans « Facultatif » (il ne sert plus qu\'aux cartons et remplacements des feuilles de match). Les résultats, eux, arrivent tout seuls.'],
       ['🐛', 'Un bouton-favori touché dans l\'appli au lieu d\'être glissé affichait un message qui s\'enfuyait plus vite qu\'un ailier : il reste maintenant affiché jusqu\'à ce que tu le fermes.'],

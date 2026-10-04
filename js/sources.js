@@ -213,7 +213,10 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
   });
   function autoFFF(o = {}) {
     const c = S().club, aff = affOf(c);
-    if (!aff || !Sport.isFoot() || !Auth.isAdmin() || c.demo) return Promise.resolve(null);
+    if (!aff || !Sport.isFoot() || c.demo || (!Auth.isAdmin() && !o.force)) {
+      if (o.verbose) modal({ title: '⚠️ Mise à jour FFF', body: `<p>${!aff ? 'Le numéro FFF du club n\'est pas renseigné : Réglages → Le club → « Résultats FFF automatiques », colle l\'adresse de la page du club sur epreuves.fff.fr.' : 'Disponible pour le football seulement.'}</p>`, actions: [{ label: 'OK', kind: 'primary' }] });
+      return Promise.resolve(null);
+    }
     if (!o.force && Date.now() - (+c.fffAutoAt || 0) < 3 * 3600e3) return Promise.resolve(null);
     return running = running || (async () => {
       const res = { scores: 0, added: 0, tables: 0, results: 0, poules: 0 };
@@ -223,7 +226,8 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
         const teams = members(await getJ(`/api/clubs/${cl}/equipes`)), logos = {}, found = [];
         for (const eq of teams) for (const en of eq.engagements || []) {
           const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number; if (!cp || !ph || !gp) continue;
-          const our = teamName(eq), comp = `${en.competition.name} - ${eq.category_label || ''}`, t = Importer.guessTeam(comp, our); if (!t) continue;
+          const our = teamName(eq), comp = `${en.competition.name} - ${eq.category_label || ''}`, t = Importer.guessTeam(comp, our);
+          if (!t) { res.skipped = (res.skipped || 0) + 1; (res.skippedNames = res.skippedNames || []).push(`${en.competition.name} (${our})`); continue; }
           const base = `/api/compets/${cp}/phases/${ph}/poules/${gp}`, key = `${cp}/${ph}/${gp}`, url = `https://epreuves.fff.fr/competition/engagement/${cp}/phase/${ph}/${gp}`;
           let ms = []; try { ms = await pages(base + '/matchs'); } catch (e) { continue; }
           res.poules++;
@@ -266,10 +270,11 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
         const r = Importer.applyFound(found.filter(f => !f.exempt || f.date >= UI.today())); res.scores = r.scores; res.added = r.added;
         Clubs.setOppLogos(logos);
         c.fffAutoAt = Date.now(); c.fffClub = aff; Store.save();
-        if (o.verbose || res.scores || res.added) toast(`FFF à jour : ${res.scores} score${res.scores > 1 ? 's' : ''}, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${res.tables} classement${res.tables > 1 ? 's' : ''}`);
+        if (o.verbose) modal({ title: '🏆 Mise à jour FFF', body: `<ul class="src-sum"><li>Club n° <b>${esc(aff)}</b> trouvé à la FFF</li><li>📅 <b>${res.poules}</b> poule${res.poules > 1 ? 's' : ''} lue${res.poules > 1 ? 's' : ''} (${res.results} résultat${res.results > 1 ? 's' : ''} nouveaux ou changés, adversaires compris)</li><li>🏆 <b>${res.tables}</b> classement${res.tables > 1 ? 's' : ''}</li><li>⚽ <b>${res.scores}</b> score${res.scores > 1 ? 's' : ''} de nos matchs, <b>${res.added}</b> match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''} au calendrier</li>${res.skipped ? `<li class="muted">${res.skipped} engagement${res.skipped > 1 ? 's' : ''} sans équipe correspondante dans l'appli : ${esc(res.skippedNames.slice(0, 8).join(', '))}</li>` : ''}</ul>`, actions: [{ label: 'OK', kind: 'primary' }] });
+        else if (res.scores || res.added) toast(`FFF à jour : ${res.scores} score${res.scores > 1 ? 's' : ''}, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${res.tables} classement${res.tables > 1 ? 's' : ''}`);
         if (res.scores || res.added || res.results || res.tables) App.route();
         return res;
-      } catch (e) { if (o.verbose) toast(e.message || 'FFF injoignable', 'err'); return null; }
+      } catch (e) { c.fffAutoErr = String(e && e.message || e); if (o.verbose) modal({ title: '⚠️ Mise à jour FFF impossible', body: `<p>${esc(c.fffAutoErr)}</p><p class="muted small">Vérifie la connexion internet, puis réessaie. Si ça continue, envoie une capture de ce message.</p>`, actions: [{ label: 'OK', kind: 'primary' }] }); return null; }
       finally { running = null; }
     })();
   }
