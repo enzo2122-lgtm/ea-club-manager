@@ -1909,3 +1909,4 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 
 /* ---------- 1.54 : bouton FFF dans Stats ---------- */
 .fff-tip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; }
+.pr-h3 { font-size: 15px; margin: 14px 0 4px; }

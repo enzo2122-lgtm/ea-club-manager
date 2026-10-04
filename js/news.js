@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 20, date: '2026-10-04', title: 'L\'agenda de la poule', items: [
+      ['🗓️', 'Dans Stats, sous les résultats : l\'agenda de la poule, avec la prochaine journée (tous les matchs, adversaires compris, avec l\'heure) et les suivantes repliées. Pour les coupes, seulement les nôtres. Tes matchs à venir arrivent aussi tout seuls dans Matchs.'],
+    ] },
     { n: 19, date: '2026-10-04', title: 'Le bon numéro', items: [
       ['🐛', 'Bug réparé : « Club introuvable à la FFF ». L\'appli avait gardé le numéro interne de la FFF (162203) au lieu du numéro d\'affiliation (552176) : elle accepte maintenant les deux. Deux numéros pour un seul club, la FFF aime l\'administratif.'],
       ['🔄', 'Le bouton « Mettre à jour » est dans Stats pour toutes les catégories : un clic met à jour toutes les équipes, avec l\'heure de la dernière mise à jour.'],

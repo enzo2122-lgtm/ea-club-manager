@@ -3525,7 +3525,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.55';
+  const VERSION = '1.56';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10207,7 +10207,17 @@ var Season = (() => {
   // (1.48) the results of the whole poule (every opponent), the last weekend first; the older ones folded
   const okey = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
   function pouleCard(R) {
-    const played = R.list.filter(x => x.hs != null); if (!played.length) return '';
+    const played = R.list.filter(x => x.hs != null);
+    // (1.56) the agenda: the next matchdays of the poule (every match, the opponents' too)
+    // (in a cup, only our matches: the whole draw is too long)
+    const cup = /coupe|cup/i.test(R.name), oursOnly = x => !cup || (okey(R.our) && (okey(x.home) === okey(R.our) || okey(x.away) === okey(R.our)));
+    const today = UI.today(), next = R.list.filter(x => x.hs == null && x.date >= today && oursOnly(x)), nextDays = [...new Set(next.map(x => x.date))].sort();
+    const fdn = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    const agenda = nextDays.length ? (() => { const ourA = okey(R.our), rowN = x => `<tr class="${ourA && (okey(x.home) === ourA || okey(x.away) === ourA) ? 'own' : ''}"><td class="pr-h">${esc(x.home)}${Clubs.oppLogo(x.home)}</td><td class="pr-s">${esc(x.time || '-')}</td><td class="pr-a">${Clubs.oppLogo(x.away)}${esc(x.away)}</td></tr>`;
+      const block = d => `<div class="lbl">${esc(fdn(d))}</div><table class="pr-table"><tbody>${next.filter(x => x.date === d).map(rowN).join('')}</tbody></table>`;
+      return `<h3 class="pr-h3">🗓️ Agenda · prochaine journée</h3>${block(nextDays[0])}${nextDays.length > 1 ? `<details class="pr-more"><summary>Les ${nextDays.length - 1} journée${nextDays.length > 2 ? 's' : ''} suivante${nextDays.length > 2 ? 's' : ''}</summary>${nextDays.slice(1).map(block).join('')}</details>` : ''}`; })() : '';
+    if (!played.length && !agenda) return '';
+    if (!played.length) return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· agenda de la poule</span></h2>${agenda}</section>`;
     const days = [...new Set(played.map(x => x.date))].sort().reverse(), our = okey(R.our);
     const fd = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
     const row = x => { const us = our && (okey(x.home) === our || okey(x.away) === our), w = x.hs > x.as ? 'h' : x.hs < x.as ? 'a' : '';
@@ -10215,6 +10225,7 @@ var Season = (() => {
     const day = d => `<div class="lbl">${esc(fd(d))}</div><table class="pr-table"><tbody>${played.filter(x => x.date === d).map(row).join('')}</tbody></table>`;
     return `<section class="card"><h2>📅 ${esc(R.name)} <span class="muted small">· tous les résultats de la poule</span></h2>${days.slice(0, 1).map(day).join('')}
       ${days.length > 1 ? `<details class="pr-more"><summary>${days.length > 2 ? `Les ${days.length - 1} journées d'avant` : 'La journée d\'avant'}</summary>${days.slice(1).map(day).join('')}</details>` : ''}
+      ${agenda}
       <p class="muted small">${R.src ? `Championnat repris d'${esc(R.src)} (mis à jour à chaque import). Le favori « Résultats FFF » y ajoutera les résultats officiels.` : `${R.both ? 'Site de la FFF et AssistCoachAI réunis (le score officiel de la FFF passe en premier)' : 'Site de la FFF'}, gardés à chaque import. <a href="${esc(R.url)}" target="_blank" rel="noopener">Voir sur le site</a>`}</p></section>`;
   }
   // (1.50) the poule from AssistCoachAI (its championship has every match of the poule), until the FFF bookmark brings its own
@@ -13067,6 +13078,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 20, date: '2026-10-04', title: 'L\'agenda de la poule', items: [
+      ['🗓️', 'Dans Stats, sous les résultats : l\'agenda de la poule, avec la prochaine journée (tous les matchs, adversaires compris, avec l\'heure) et les suivantes repliées. Pour les coupes, seulement les nôtres. Tes matchs à venir arrivent aussi tout seuls dans Matchs.'],
+    ] },
     { n: 19, date: '2026-10-04', title: 'Le bon numéro', items: [
       ['🐛', 'Bug réparé : « Club introuvable à la FFF ». L\'appli avait gardé le numéro interne de la FFF (162203) au lieu du numéro d\'affiliation (552176) : elle accepte maintenant les deux. Deux numéros pour un seul club, la FFF aime l\'administratif.'],
       ['🔄', 'Le bouton « Mettre à jour » est dans Stats pour toutes les catégories : un clic met à jour toutes les équipes, avec l\'heure de la dernière mise à jour.'],
@@ -14723,7 +14737,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 56, UPD = AppCfg.key('update-tried');
+  const BUILD = 57, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
