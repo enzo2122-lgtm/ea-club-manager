@@ -3525,7 +3525,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.51';
+  const VERSION = '1.52';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13067,6 +13067,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 16, date: '2026-10-04', title: 'Footclubs en un clic', items: [
+      ['🪪', 'Le favori Footclubs ouvre maintenant la liste des licences tout seul : connecte-toi, touche le favori depuis n\'importe quelle page, c\'est tout. Fini le tour du menu Licences → Liste → Afficher.'],
+      ['⚠️', 'Le favori a changé : refais-le glisser une fois depuis Réglages → Le club (l\'ancien marche encore, mais seulement depuis la liste).'],
+    ] },
     { n: 15, date: '2026-10-04', title: 'La FFF vient toute seule', items: [
       ['🪄', 'Plus de favori à glisser pour les résultats : l\'appli va chercher elle-même, sur le service officiel de la FFF, les scores de toutes tes équipes, le calendrier, les classements et les résultats de tous les adversaires. À chaque ouverture, au plus toutes les 3 heures. Le dimanche soir, ouvre l\'appli, c\'est tout.'],
       ['🧮', 'Le District n\'a pas encore publié un classement ? L\'appli le calcule à partir des résultats officiels, et le dit.'],
@@ -13197,10 +13201,13 @@ let n=0;const send=()=>{try{w.postMessage({type:'club-import',source:'assistcoac
 addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'&&!n++)send();});}catch(e){alert('Lecture impossible : '+e.message);}})()`;
     // Footclubs shows the list 30 by 30 (« De 1 à 30 sur 361 »): the bookmark reads every page (« page suivante », reading only)
     const fc = `(async()=>{const A=${A};const RG=/De (\\d+) à (\\d+) sur (\\d+)/;
-const wins=[window];for(const f of document.querySelectorAll('frame,iframe')){try{if(f.contentWindow&&f.contentWindow.document)wins.push(f.contentWindow);}catch(e){}}
-const W=wins.find(x=>{try{return RG.test(x.document.body.innerText);}catch(e){return false;}});
-if(!W){alert('Dans Footclubs, ouvre Licences → Liste (touche « Afficher »), puis touche ce favori.');return;}
-const w=window.open(A+'#/recevoir-source','clubimport');let ready=false,data=null;
+if(!/footclubs\\.fff\\.fr$/.test(location.host)){alert('Ouvre Footclubs (connecté), puis touche ce favori.');return;}
+const w=window.open(A+'#/recevoir-source','clubimport');const T=window.top;
+const find=()=>{const wins=[T];for(const f of T.document.querySelectorAll('frame,iframe')){try{if(f.contentWindow&&f.contentWindow.document)wins.push(f.contentWindow);}catch(e){}}return wins.find(x=>{try{return RG.test(x.document.body.innerText);}catch(e){return false;}});};
+let W=find();
+if(!W){try{const M=T.frames['menu'],a=[...M.document.querySelectorAll('a')].find(x=>/'LILIST'/.test(x.getAttribute('onclick')||''));M.gestOpen(a,'2',1,'LILIST');}catch(e){}for(let k=0;k<80&&!W;k++){await new Promise(r=>setTimeout(r,250));W=find();}}
+if(!W){try{w.close();}catch(e){}alert('Connecte-toi à Footclubs (page d\\'accueil du club), puis touche à nouveau ce favori.');return;}
+let ready=false,data=null;
 const send=()=>{if(ready&&data){w.postMessage({type:'club-import',source:'footclubs',payload:data},new URL(A).origin);data=null;}};
 addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'){ready=true;send();}});
 const range=()=>{const m=RG.exec(W.document.body.innerText);return m?[+m[1],+m[2],+m[3]]:null;};
@@ -13253,7 +13260,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
         <div class="chips src-bm"><a class="btn" href="${esc(b.ac)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 AssistCoachAI → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.fc)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 Footclubs → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.ff)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">🏆 Résultats FFF → ${esc(AppCfg.name)}</a></div></li>
         <li><b>AssistCoachAI :</b> connecte-toi, puis touche le favori « AssistCoachAI ».</li>
         <li><b>Facultatif, feuilles de match</b> (cartons, remplacements) : les résultats arrivent déjà tout seuls (carte du dessus). Pour les feuilles, ouvre la page de ton club sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> et touche le favori « Résultats FFF ».</li>
-        <li><b>Footclubs :</b> connecte-toi, ouvre <b>Licences → Liste</b>, touche « Afficher », puis le favori « Footclubs ».</li>
+        <li><b>Footclubs :</b> connecte-toi, puis touche le favori « Footclubs » (depuis n'importe quelle page : il ouvre la liste des licences tout seul).</li>
         <li>L'appli s'ouvre et te montre les changements : touche <b>Importer</b>.</li></ol>
       <p class="muted small">À refaire quand tu veux (une fois par semaine, ou après une vague de licences). Rien n'est envoyé ailleurs que dans l'appli du club.</p></section>`;
   }
@@ -14685,7 +14692,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 52, UPD = AppCfg.key('update-tried');
+  const BUILD = 53, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

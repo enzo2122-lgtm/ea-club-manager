@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 16, date: '2026-10-04', title: 'Footclubs en un clic', items: [
+      ['🪪', 'Le favori Footclubs ouvre maintenant la liste des licences tout seul : connecte-toi, touche le favori depuis n\'importe quelle page, c\'est tout. Fini le tour du menu Licences → Liste → Afficher.'],
+      ['⚠️', 'Le favori a changé : refais-le glisser une fois depuis Réglages → Le club (l\'ancien marche encore, mais seulement depuis la liste).'],
+    ] },
     { n: 15, date: '2026-10-04', title: 'La FFF vient toute seule', items: [
       ['🪄', 'Plus de favori à glisser pour les résultats : l\'appli va chercher elle-même, sur le service officiel de la FFF, les scores de toutes tes équipes, le calendrier, les classements et les résultats de tous les adversaires. À chaque ouverture, au plus toutes les 3 heures. Le dimanche soir, ouvre l\'appli, c\'est tout.'],
       ['🧮', 'Le District n\'a pas encore publié un classement ? L\'appli le calcule à partir des résultats officiels, et le dit.'],
