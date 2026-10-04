@@ -15,6 +15,7 @@ var AppCfg = (() => {
     key: s => pre + '-' + s,            // the other names of its memory on the phone (« ea-msgs », « raincy-msgs »…)
     crest: c.crest || 'icons/ea-logo.png',
     defaults: c.defaults || {},
+    demo: c.club ? '' : (c.demo || ''), // (1.46) a demo page of one sport (demo/<sport>/, made by build.js): opens straight on its demo club
   };
 })();
 
@@ -1868,12 +1869,12 @@ var Auth = (() => {
   // The server refused our login (password reset by a responsable, session expired…)
   let checking = false;
   async function expired() {
-    if (checking || !sess() || !user) return; checking = true;
+    if (checking || !sess() || sess().demo || !user) return; checking = true; // (1.46) the demo club has no login on the server
     try { const r = await Cloud.me(); if (r && r.error) logout('Ta connexion a expiré : reconnecte-toi.'); } catch (e) {} finally { checking = false; }
   }
   // Admin rights or locked categories may have changed on the server
   async function refreshMe() {
-    if (!sess()) return;
+    if (!sess() || sess().demo) return;
     try {
       const r = await Cloud.me(); if (!r) return;
       if (r.error) return logout('Ta connexion a expiré : reconnecte-toi.');
@@ -2172,11 +2173,11 @@ var Auth = (() => {
         if (restore()) { res(); return; }
       }
       resolveGate = res;
-      const want = AppCfg.fixed ? '' : (location.hash.match(/^#(demo|creer)$/) || [])[1];
+      const want = AppCfg.fixed ? '' : AppCfg.demo ? 'demo' : (location.hash.match(/^#(demo|creer)$/) || [])[1];
       if (want) history.replaceState(null, '', location.pathname + location.search);
       if (s && s.token && Store.get('staff', s.staff_id) && needsTeams(s.staff_id)) teamsScreen(s.staff_id, !s.temp);
       else if (opts.joined) pickScreen(); else if (want === 'creer') createClubScreen(); else loginScreen();
-      if (want === 'demo' && !Store.state.staff.length) setTimeout(() => Demo.start(), 200);
+      if (want === 'demo' && !Store.state.staff.length) setTimeout(() => AppCfg.demo ? Demo.launch(AppCfg.demo) : Demo.start(), 200);
       else if (!Help.tourSeen() && !opts.joined && !want) Help.tour();
     });
   }
@@ -3478,7 +3479,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.45';
+  const VERSION = '1.46';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -12902,16 +12903,17 @@ var Demo = (() => {
     modal({ title: '👀 Essayer Clubbo', noFocus: true,
       body: `<p>Un club inventé, déjà rempli (équipes, joueurs, séances, matchs), pour tout essayer. Il reste sur ce téléphone : <b>rien n'est envoyé</b>, et tu le quittes quand tu veux.</p>
         <div class="lbl">Quel sport ?</div><div class="quick-menu">${Sport.KEYS.map(k => `<button class="quick-item" data-demo="${k}"><b>${Sport.SPORTS[k].icon}</b><span>${esc(Sport.SPORTS[k].label)}</span></button>`).join('')}</div>`,
-      onOpen: r => r.querySelectorAll('[data-demo]').forEach(b => b.onclick = async () => {
-        const bz = UI.busy('Préparation du club de démonstration…');
-        try {
-          S().club.sport = b.dataset.demo; Sport.apply();
-          const st = build(b.dataset.demo);
-          Object.keys(S()).forEach(k => delete S()[k]); Object.assign(S(), st);
-          Store.save(); await new Promise(res => setTimeout(res, 500));
-          location.hash = '#/'; location.reload();
-        } catch (e) { bz.done(); toast(e.message || 'Démonstration impossible', 'err'); }
-      }) });
+      onOpen: r => r.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => launch(b.dataset.demo)) });
+  }
+  async function launch(sport) {
+    const bz = UI.busy('Préparation du club de démonstration…');
+    try {
+      S().club.sport = sport; Sport.apply();
+      const st = build(sport);
+      Object.keys(S()).forEach(k => delete S()[k]); Object.assign(S(), st);
+      Store.save(); await new Promise(res => setTimeout(res, 500));
+      location.hash = '#/'; location.reload();
+    } catch (e) { bz.done(); toast(e.message || 'Démonstration impossible', 'err'); }
   }
   async function quit(then) {
     const bz = UI.busy('Fermeture de la démonstration…');
@@ -12925,11 +12927,12 @@ var Demo = (() => {
     if (!b) {
       b = document.createElement('div'); b.id = 'demoBar'; document.body.appendChild(b);
       b.innerHTML = `<span>👀 <b>Club de démonstration</b><span class="lg"> · inventé, rien n'est envoyé</span></span><span class="chips"><button class="btn primary" data-demo-act="create">Créer mon club</button><button class="btn" data-demo-act="quit">Quitter</button></span>`;
-      b.onclick = e => { const x = e.target.closest('[data-demo-act]'); if (!x) return; quit(x.dataset.demoAct === 'create' ? '#creer' : ''); };
+      // (1.46) on a demo page of one sport, « Créer mon club » goes to the real app; « Quitter » gives a fresh demo club
+      b.onclick = e => { const x = e.target.closest('[data-demo-act]'); if (!x) return; if (AppCfg.demo && x.dataset.demoAct === 'create') { location.href = './#creer'; return; } quit(x.dataset.demoAct === 'create' ? '#creer' : ''); };
     }
     document.body.classList.add('demoing'); document.body.style.setProperty('--dmh', b.offsetHeight + 'px');
   }
-  return { is, start, quit, bar, build };
+  return { is, start, launch, quit, bar, build };
 })();
 
 ;
@@ -12941,6 +12944,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 10, date: '2026-10-04', title: 'Une démo par sport', items: [
+      ['📱', 'Chaque sport a maintenant sa propre adresse de démonstration, qui s\'installe comme une appli à part sur le téléphone : foot, basket, hand, rugby, volley. Cinq clubs dans la poche, zéro cotisation.'],
+      ['🐛', 'Bug réparé : le club de démonstration se faisait parfois mettre à la porte au démarrage (« connexion expirée »). Il avait pourtant sa licence.'],
+    ] },
     { n: 9, date: '2026-10-04', title: 'Le match oublié', items: [
       ['🐛', 'Bug réparé : un match passé sur AssistCoachAI sans le bouton « terminé » était ignoré, même avec ses buts et ses remplacements. Il compte maintenant : on ne punit pas un match pour un clic oublié.'],
       ['🟨', 'Les cartons notés sur AssistCoachAI arrivent aussi dans la colonne « Cartons ». Aucun carton ne passe entre les mailles.'],
@@ -14402,7 +14409,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 46, UPD = AppCfg.key('update-tried');
+  const BUILD = 47, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

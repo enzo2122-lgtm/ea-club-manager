@@ -153,12 +153,12 @@ const Auth = (() => {
   // The server refused our login (password reset by a responsable, session expired…)
   let checking = false;
   async function expired() {
-    if (checking || !sess() || !user) return; checking = true;
+    if (checking || !sess() || sess().demo || !user) return; checking = true; // (1.46) the demo club has no login on the server
     try { const r = await Cloud.me(); if (r && r.error) logout('Ta connexion a expiré : reconnecte-toi.'); } catch (e) {} finally { checking = false; }
   }
   // Admin rights or locked categories may have changed on the server
   async function refreshMe() {
-    if (!sess()) return;
+    if (!sess() || sess().demo) return;
     try {
       const r = await Cloud.me(); if (!r) return;
       if (r.error) return logout('Ta connexion a expiré : reconnecte-toi.');
@@ -457,11 +457,11 @@ const Auth = (() => {
         if (restore()) { res(); return; }
       }
       resolveGate = res;
-      const want = AppCfg.fixed ? '' : (location.hash.match(/^#(demo|creer)$/) || [])[1];
+      const want = AppCfg.fixed ? '' : AppCfg.demo ? 'demo' : (location.hash.match(/^#(demo|creer)$/) || [])[1];
       if (want) history.replaceState(null, '', location.pathname + location.search);
       if (s && s.token && Store.get('staff', s.staff_id) && needsTeams(s.staff_id)) teamsScreen(s.staff_id, !s.temp);
       else if (opts.joined) pickScreen(); else if (want === 'creer') createClubScreen(); else loginScreen();
-      if (want === 'demo' && !Store.state.staff.length) setTimeout(() => Demo.start(), 200);
+      if (want === 'demo' && !Store.state.staff.length) setTimeout(() => AppCfg.demo ? Demo.launch(AppCfg.demo) : Demo.start(), 200);
       else if (!Help.tourSeen() && !opts.joined && !want) Help.tour();
     });
   }

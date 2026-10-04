@@ -13,5 +13,6 @@ const AppCfg = (() => {
     key: s => pre + '-' + s,            // the other names of its memory on the phone (« ea-msgs », « raincy-msgs »…)
     crest: c.crest || 'icons/ea-logo.png',
     defaults: c.defaults || {},
+    demo: c.club ? '' : (c.demo || ''), // (1.46) a demo page of one sport (demo/<sport>/, made by build.js): opens straight on its demo club
   };
 })();

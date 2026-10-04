@@ -53,16 +53,17 @@ const Demo = (() => {
     modal({ title: '👀 Essayer Clubbo', noFocus: true,
       body: `<p>Un club inventé, déjà rempli (équipes, joueurs, séances, matchs), pour tout essayer. Il reste sur ce téléphone : <b>rien n'est envoyé</b>, et tu le quittes quand tu veux.</p>
         <div class="lbl">Quel sport ?</div><div class="quick-menu">${Sport.KEYS.map(k => `<button class="quick-item" data-demo="${k}"><b>${Sport.SPORTS[k].icon}</b><span>${esc(Sport.SPORTS[k].label)}</span></button>`).join('')}</div>`,
-      onOpen: r => r.querySelectorAll('[data-demo]').forEach(b => b.onclick = async () => {
-        const bz = UI.busy('Préparation du club de démonstration…');
-        try {
-          S().club.sport = b.dataset.demo; Sport.apply();
-          const st = build(b.dataset.demo);
-          Object.keys(S()).forEach(k => delete S()[k]); Object.assign(S(), st);
-          Store.save(); await new Promise(res => setTimeout(res, 500));
-          location.hash = '#/'; location.reload();
-        } catch (e) { bz.done(); toast(e.message || 'Démonstration impossible', 'err'); }
-      }) });
+      onOpen: r => r.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => launch(b.dataset.demo)) });
+  }
+  async function launch(sport) {
+    const bz = UI.busy('Préparation du club de démonstration…');
+    try {
+      S().club.sport = sport; Sport.apply();
+      const st = build(sport);
+      Object.keys(S()).forEach(k => delete S()[k]); Object.assign(S(), st);
+      Store.save(); await new Promise(res => setTimeout(res, 500));
+      location.hash = '#/'; location.reload();
+    } catch (e) { bz.done(); toast(e.message || 'Démonstration impossible', 'err'); }
   }
   async function quit(then) {
     const bz = UI.busy('Fermeture de la démonstration…');
@@ -76,9 +77,10 @@ const Demo = (() => {
     if (!b) {
       b = document.createElement('div'); b.id = 'demoBar'; document.body.appendChild(b);
       b.innerHTML = `<span>👀 <b>Club de démonstration</b><span class="lg"> · inventé, rien n'est envoyé</span></span><span class="chips"><button class="btn primary" data-demo-act="create">Créer mon club</button><button class="btn" data-demo-act="quit">Quitter</button></span>`;
-      b.onclick = e => { const x = e.target.closest('[data-demo-act]'); if (!x) return; quit(x.dataset.demoAct === 'create' ? '#creer' : ''); };
+      // (1.46) on a demo page of one sport, « Créer mon club » goes to the real app; « Quitter » gives a fresh demo club
+      b.onclick = e => { const x = e.target.closest('[data-demo-act]'); if (!x) return; if (AppCfg.demo && x.dataset.demoAct === 'create') { location.href = './#creer'; return; } quit(x.dataset.demoAct === 'create' ? '#creer' : ''); };
     }
     document.body.classList.add('demoing'); document.body.style.setProperty('--dmh', b.offsetHeight + 'px');
   }
-  return { is, start, quit, bar, build };
+  return { is, start, launch, quit, bar, build };
 })();
