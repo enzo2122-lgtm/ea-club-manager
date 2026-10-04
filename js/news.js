@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 6, date: '2026-10-04', title: 'La feuille de match débarque', items: [
+      ['📋', 'Le favori « Résultats FFF » lit aussi la feuille de match de chaque match joué : cartons, remplacements, compositions. Elle s\'affiche dans l\'onglet « Après » du match.'],
+      ['⏱️', 'Le temps de jeu se calcule tout seul : un titulaire joue jusqu\'à sa sortie, un remplaçant depuis son entrée. Fini le chronomètre sur la ligne de touche.'],
+      ['🟨', 'Les cartons jaunes et rouges arrivent dans les stats de chaque joueur. Les récidivistes ne pourront plus dire « c\'était pas moi ».'],
+    ] },
     { n: 5, date: '2026-10-04', title: 'Chacun à son poste', items: [
       ['👕', 'Nouveau dans l\'onglet « Compo » du match : « Qui joue où ? ». Choisis le joueur de chaque poste dans une liste, son nom s\'écrit sur le schéma et sur la feuille de match. Plus besoin de deviner qui est le numéro 7.'],
       ['🔁', 'Un joueur choisi à un nouveau poste quitte l\'ancien tout seul : pas de clone sur le terrain, l\'arbitre aurait compté.'],

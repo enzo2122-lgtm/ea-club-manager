@@ -1882,3 +1882,9 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 .slot select { flex: 1; min-width: 0; }
 .slot-tag { flex: none; min-width: 44px; height: 34px; padding: 0 6px; display: grid; place-items: center; border-radius: 17px; background: var(--navy); color: #fff; font-weight: 800; font-size: 13px; }
 .slot-tag.gk { background: #eab308; color: #14172b; }
+
+/* ---------- 1.42 : feuille de match FFF ---------- */
+.sheet-ev { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sheet-teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.sheet-teams h3 { margin: 0 0 6px; font-size: 15px; }
+.sheet-teams ol { margin: 0; padding-left: 22px; font-size: 14px; line-height: 1.5; }

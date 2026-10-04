@@ -3478,7 +3478,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.41';
+  const VERSION = '1.42';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -12940,6 +12940,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 6, date: '2026-10-04', title: 'La feuille de match débarque', items: [
+      ['📋', 'Le favori « Résultats FFF » lit aussi la feuille de match de chaque match joué : cartons, remplacements, compositions. Elle s\'affiche dans l\'onglet « Après » du match.'],
+      ['⏱️', 'Le temps de jeu se calcule tout seul : un titulaire joue jusqu\'à sa sortie, un remplaçant depuis son entrée. Fini le chronomètre sur la ligne de touche.'],
+      ['🟨', 'Les cartons jaunes et rouges arrivent dans les stats de chaque joueur. Les récidivistes ne pourront plus dire « c\'était pas moi ».'],
+    ] },
     { n: 5, date: '2026-10-04', title: 'Chacun à son poste', items: [
       ['👕', 'Nouveau dans l\'onglet « Compo » du match : « Qui joue où ? ». Choisis le joueur de chaque poste dans une liste, son nom s\'écrit sur le schéma et sur la feuille de match. Plus besoin de deviner qui est le numéro 7.'],
       ['🔁', 'Un joueur choisi à un nouveau poste quitte l\'ancien tout seul : pas de clone sur le terrain, l\'arbitre aurait compté.'],
@@ -13054,7 +13059,14 @@ pou[m[0]]={url:m[0],comp:a.innerText.trim().replace(/\\s+(Journée|TOUR)\\b.*$/i
 const poules=[];for(const p of Object.values(pou)){try{const d=new DOMParser().parseFromString(await (await fetch(p.url+'/classement')).text(),'text/html');let best=[];
 for(const tb of d.querySelectorAll('table')){const rs=[...tb.querySelectorAll('tr')].map(tr=>[...tr.cells].map(c=>c.innerText.trim()));if(rs[0]&&rs[0].includes('Bp.')&&rs.length>best.length)best=rs;}
 addLogos(d);p.rows=best;poules.push(p);}catch(e){}}
-data={club:cm[1],calendar:main.innerText,poules,logos};send();})()`;
+const sheets=[],RGD=/(LUN|MAR|MER|JEU|VEN|SAM|DIM)\\s+\\d{2}\\s+[A-ZÉÛ]+\\s+\\d{4}/;
+for(const a of main.querySelectorAll('a[href*="/competition/match/"]')){if(!/^\\d+\\s+\\d+$/.test(a.innerText.trim()))continue;let el=a,dt='';for(let k=0;k<6&&el;k++){el=el.parentElement;const m=el&&RGD.exec(el.innerText);if(m){dt=m[0];break;}}
+try{const href=a.getAttribute('href').replace(/\\/match$/,''),d=new DOMParser().parseFromString(await (await fetch(href)).text(),'text/html');
+const moments=[...d.querySelectorAll('app-moment-fort')].map(x=>{const ac=x.querySelector('.action'),sp=[...x.querySelectorAll('span')].map(s=>s.textContent.trim()).filter(Boolean);return {min:parseInt(sp[0],10)||0,side:ac&&/visiteur/.test(ac.className)?'away':'home',type:(sp[1]||'').split(' ')[0],names:sp.slice(4)};});
+const teams=[...d.querySelectorAll('.compo-team')].map(c=>{const tb=[...c.querySelectorAll('table')].map(t=>[...t.querySelectorAll('tr.player')].map(tr=>{const v=[...tr.cells].map(z=>z.textContent.trim());return {n:v[0],name:v[1]};}));
+const name=(c.querySelector('h1,h2,h3,h4,[class*=name]')||{}).textContent;return {name:(name||'').trim(),starters:tb[0]||[],subs:tb.slice(1).flat()};});
+if(teams.length)sheets.push({date:dt,title:d.title,url:href,moments,teams});}catch(e){}}
+data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
     return { ac: link(ac), fc: link(fc), ff: link(ff) };
   }
   function card() {
@@ -13142,20 +13154,74 @@ data={club:cm[1],calendar:main.innerText,poules,logos};send();})()`;
     if (P.club) S().club.fffClub = P.club;
     const found = Importer.parseFFF(P.calendar || '').filter(m => m.date);
     const played = found.filter(m => m.played);
+    const sheetsPlan = []; // filled once the scores are known (see below)
     const tables = (P.poules || []).map(p => ({ p, t: Importer.guessTeam(p.comp, p.our || ''), rows: tableOf(p.rows || []) })).filter(x => x.t && x.rows.length);
+    (P.sheets || []).forEach(s => { const x = sheetPlan(s, found); if (x) sheetsPlan.push(x); });
     modal({ title: '🏆 Résultats FFF : ce qui change', noFocus: true, body: `<ul class="src-sum">
       <li>⚽ <b>${played.length}</b> résultat${played.length > 1 ? 's' : ''} lu${played.length > 1 ? 's' : ''} sur la page (${found.length} match${found.length > 1 ? 's' : ''} du mois en tout) : scores mis à jour sans doublon</li>
+      ${sheetsPlan.length ? `<li>📋 <b>${sheetsPlan.length}</b> feuille${sheetsPlan.length > 1 ? 's' : ''} de match : ${sheetsPlan.reduce((a, s) => a + s.cards, 0)} carton${sheetsPlan.reduce((a, s) => a + s.cards, 0) > 1 ? 's' : ''}, ${sheetsPlan.reduce((a, s) => a + s.nsubs, 0)} remplacement${sheetsPlan.reduce((a, s) => a + s.nsubs, 0) > 1 ? 's' : ''}, temps de jeu de ${sheetsPlan.reduce((a, s) => a + s.known, 0)} joueur${sheetsPlan.reduce((a, s) => a + s.known, 0) > 1 ? 's' : ''}${sheetsPlan.some(s => s.unknown.length) ? `<br><span class="muted small">Noms de la feuille non reconnus dans l'appli (vérifie leur prénom) : ${esc([...new Set(sheetsPlan.flatMap(s => s.unknown))].slice(0, 20).join(', '))}</span>` : ''}</li>` : ''}
       <li>🛡️ <b>${Object.keys(P.logos || {}).length}</b> logos de clubs (adversaires de toutes les poules)</li>
       <li>🏆 <b>${tables.length}</b> classement${tables.length > 1 ? 's' : ''} officiel${tables.length > 1 ? 's' : ''} : ${tables.map(x => esc(x.t.name + ' (' + x.p.comp + ')')).join(', ') || 'aucun'}</li></ul>
       <p class="muted small">Les classements viennent du site de la FFF : tous les adversaires de chaque poule, « sous réserve d'éventuelles procédures ».</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: () => {
         const res = Importer.applyFound(found); Clubs.setOppLogos(P.logos);
+        const sh = (P.sheets || []).map(s => sheetPlan(s)).filter(Boolean); sh.forEach(applySheet);
         tables.forEach(({ p, t, rows }) => { t.fffTable = { name: p.comp, url: 'https://epreuves.fff.fr' + p.url + '/classement', our: p.our, rows, at: Date.now() }; Store.upsert('teams', t); });
         Store.save(); App.route();
         toast(`FFF : ${res.scores} score${res.scores > 1 ? 's' : ''} mis à jour, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${tables.length} classement${tables.length > 1 ? 's' : ''}`);
       } }] });
   }
-  return { card, receive, bookmarks };
+  /* ---------- (1.42) the match sheets of the FFF site: cards, substitutions, line-ups, playing time ---------- */
+  const MONTHS = { JAN: 1, FEV: 2, MAR: 3, AVR: 4, MAI: 5, JUN: 6, JUI: 7, AOU: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+  function dayOf(s) { const m = /(\d{2})\s+([A-ZÉÛ]+)\s+(\d{4})/.exec(String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()); if (!m) return ''; const mo = m[2] === 'JUIL' ? 7 : m[2].startsWith('JUIN') ? 6 : MONTHS[m[2].slice(0, 3)]; return mo ? `${m[3]}-${String(mo).padStart(2, '0')}-${m[1]}` : ''; }
+  // the sheet → our match in the app, our side, and each name of our side → one of our players
+  function sheetPlan(s) {
+    const date = dayOf(s.date), parts = String(s.title || '').split(' | '), [home, away] = (parts[1] || '').split(' - ').map(x => x.trim());
+    if (!date || !home || !away) return null;
+    const word = norm(S().club.fffName || S().club.short || S().club.name).split(' ')[0].toUpperCase();
+    const ourHome = norm(home).toUpperCase().includes(word), ourName = ourHome ? home : away, oppName = ourHome ? away : home;
+    const t = Importer.guessTeam(parts[2] || '', ourName); if (!t) return null;
+    const m = S().matches.find(x => x.teamId === t.id && x.date === date && (norm(x.opponent) === norm(oppName) || ACImport.sameOpp(x.opponent, oppName)));
+    if (!m) return null;
+    const side = ourHome ? 'home' : 'away', team = (s.teams || []).find(x => norm(x.name) === norm(ourName)) || (s.teams || [])[ourHome ? 0 : 1] || { starters: [], subs: [] };
+    const roster = Store.rosterOf(t.id), pool = roster.length ? roster : S().players, unknown = [];
+    const who = name => { const w = String(name || '').trim().split(/\s+/), ini = (w.length > 1 ? w[w.length - 1] : '').replace('.', ''), first = norm(w.slice(0, -1).join(' ') || w[0]);
+      let c = pool.filter(p => norm(p.firstName) === first && (!ini || norm(p.lastName).toUpperCase().startsWith(ini.toUpperCase())));
+      if (c.length !== 1) c = pool.filter(p => norm(p.firstName) === first);
+      if (c.length === 1) return c[0]; if (name && !/anonyme/i.test(name)) unknown.push(name); return null; };
+    const starters = team.starters.map(x => who(x.name)), subs = team.subs.map(x => who(x.name));
+    const ours = (s.moments || []).filter(x => x.side === side);
+    return { s, m, t, side, starters, subs, ours, who, unknown, cards: ours.filter(x => /^(Avertissement|Exclusion)/.test(x.type)).length, nsubs: ours.filter(x => /^Changement/.test(x.type)).length, known: [...starters, ...subs].filter(Boolean).length };
+  }
+  function applySheet(x) {
+    const { s, m, starters, subs, ours, who } = x, len = People.matchLength(m), start = {}, end = {};
+    starters.forEach(p => { if (p) { start[p.id] = 0; end[p.id] = len; } });
+    const stats = m.stats = m.stats || {}, cards = {};
+    ours.forEach(e => {
+      if (/^Changement/.test(e.type)) { const pin = who(e.names[0]), pout = who(e.names[1]); if (pout && start[pout.id] != null) end[pout.id] = Math.min(end[pout.id], e.min); if (pin) { start[pin.id] = e.min; end[pin.id] = len; } }
+      if (/^Avertissement/.test(e.type)) { const p = who(e.names[0]); if (p) (cards[p.id] = cards[p.id] || { yc: 0, rc: 0 }).yc++; }
+      if (/^Exclusion/.test(e.type)) { const p = who(e.names[0]); if (p) { (cards[p.id] = cards[p.id] || { yc: 0, rc: 0 }).rc++; if (start[p.id] != null) end[p.id] = Math.min(end[p.id], e.min); } }
+    });
+    // the sheet is the reference for the cards and for the minutes it gives (a second import changes nothing)
+    Object.entries(cards).forEach(([pid, c]) => { stats[pid] = Object.assign({}, stats[pid], { yc: c.yc, rc: c.rc }); });
+    const mm = m.minutes = m.minutes || {};
+    Object.keys(start).forEach(pid => { mm[pid] = Math.max(0, end[pid] - start[pid]); });
+    m.convoked = [...new Set([...(m.convoked || []), ...[...starters, ...subs].filter(Boolean).map(p => p.id)])];
+    m.played = true;
+    m.fffSheet = { url: 'https://epreuves.fff.fr' + s.url, moments: s.moments, teams: s.teams, at: Date.now() };
+    Store.upsert('matches', m);
+  }
+  // the sheet on the match page (tab « Après »)
+  function sheetCard(m) {
+    const F = m.fffSheet; if (!F) return '';
+    const ic = t => /^Avertissement/.test(t) ? '🟨' : /^Exclusion/.test(t) ? '🟥' : /^Changement/.test(t) ? '🔁' : /^But/.test(t) ? '⚽' : '•';
+    const line = e => `<li><b>${e.min}’</b> ${ic(e.type)} ${esc(e.type === 'Changement' ? `${e.names[0] || ''} remplace ${e.names[1] || ''}` : (e.names[0] || ''))} <span class="muted small">${e.side === 'home' ? '(domicile)' : '(extérieur)'}</span></li>`;
+    return `<section class="card sheet-card"><h2>📋 Feuille de match (FFF)</h2>
+      ${(F.moments || []).length ? `<ul class="sheet-ev">${F.moments.map(line).join('')}</ul>` : '<p class="muted small">Pas de faits de match saisis sur la feuille.</p>'}
+      <div class="sheet-teams">${(F.teams || []).map(t => `<div><h3>${esc(t.name)}</h3><ol>${t.starters.map(p => `<li>${esc(p.name)}</li>`).join('')}</ol>${t.subs.length ? `<p class="muted small">Remplaçants : ${t.subs.map(p => esc(p.name)).join(', ')}</p>` : ''}</div>`).join('')}</div>
+      <p class="muted small">Cartons et temps de jeu repris de la feuille. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site de la FFF</a></p></section>`;
+  }
+  return { card, receive, bookmarks, sheetCard };
 })();
 
 ;
@@ -13859,6 +13925,7 @@ var Views = (() => {
         <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
         </div>
         <div ${panel('apres')}>
+        ${Sources.sheetCard(m)}
         <h2 class="section">Score</h2>
         <section class="card">
           <label class="switch"><input type="checkbox" id="mPlayed" ${m.played ? 'checked' : ''}><span>Le match est joué</span></label>
@@ -14318,7 +14385,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 42, UPD = AppCfg.key('update-tried');
+  const BUILD = 43, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
