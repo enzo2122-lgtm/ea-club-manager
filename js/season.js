@@ -132,9 +132,9 @@ const Season = (() => {
   function officialCard(t, F = t.fffTable) {
     const ours = r => !!F.our && r.name.toUpperCase() === F.our.toUpperCase();
     const when = new Date(F.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-    return `<section class="card"><h2>🏆 ${esc(F.name)} <span class="muted small">· classement officiel</span></h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Bp</th><th>Bc</th><th>Diff</th></tr></thead>
+    return `<section class="card"><h2>🏆 ${esc(F.name)} <span class="muted small">· ${F.computed ? 'classement calculé' : 'classement officiel'}</span></h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Bp</th><th>Bc</th><th>Diff</th></tr></thead>
       <tbody>${F.rows.map(r => `<tr class="${ours(r) ? 'own' : ''}"><td>${r.rank}</td><td>${Clubs.oppLogo(r.name)}${esc(r.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.bp}</td><td>${r.bc}</td><td>${r.diff > 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}</tbody></table></div>
-      <p class="muted small">Site de la FFF, mis à jour le ${esc(when)} · sous réserve d'éventuelles procédures. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
+      <p class="muted small">${F.computed ? `Le District n'a pas encore publié de classement : calculé par l'appli à partir des résultats officiels (3 pts la victoire, 1 le nul), mis à jour le ${esc(when)}.` : `Site de la FFF, mis à jour le ${esc(when)} · sous réserve d'éventuelles procédures.`} <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
   }
   // (1.48) the results of the whole poule (every opponent), the last weekend first; the older ones folded
   const okey = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();

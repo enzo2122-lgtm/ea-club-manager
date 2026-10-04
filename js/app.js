@@ -121,7 +121,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 51, UPD = AppCfg.key('update-tried');
+  const BUILD = 52, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -204,6 +204,8 @@ const App = (() => {
       // (3.11) « RAINCY F.A. 2 » was read as team 1, and « U14 D4 - U15 - U14 » as U15: imported matches are put back in their team, once
       if (Auth.isAdmin() && !c.matchTeamsV2) { const n = Importer.refileImported(); c.matchTeamsV2 = 1; Store.save(); if (n) { redraw = true; UI.toast(`${n} match${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''} rangé${n > 1 ? 's' : ''} dans la bonne équipe (A / B, U14 / U15)`); } }
       if (redraw) route(true);
+      // (1.51) results, tables and calendar from the FFF, by themselves (at most every 3 hours, after the server's data)
+      Sources.autoFFF().catch(() => {});
     });
     Messages.start();
     Quick.start();

@@ -3399,7 +3399,9 @@ var Importer = (() => {
     found.forEach(m => {
       const t = sel === 'auto' ? guessTeam(m.competition, m.ourName || '') : Store.get('teams', sel);
       if (!t) { res.noTeam++; return; }
-      const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent));
+      // (1.51) « F.C. Bourget 2 » (AssistCoachAI) = « BOURGET FC 2 » (FFF): the same match, never a second one
+      const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent))
+        || S().matches.find(x => x.teamId === t.id && x.date === m.date && !x.exempt && ACImport.sameOpp(x.opponent, m.opponent) > 0);
       const comp = /coupe/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
       if (ex) { if (m.played && (!ex.played || ex.gf !== m.gf || ex.ga !== m.ga)) res.scores++; Object.assign(ex, { time: m.time || ex.time, played: m.played || ex.played, gf: m.played ? m.gf : ex.gf, ga: m.played ? m.ga : ex.ga }); Store.upsert('matches', ex); res.updated++; }
       else { Store.upsert('matches', { id: Store.uid(), teamId: t.id, exempt: !!m.exempt, opponent: m.opponent || 'Adversaire', date: m.date, time: m.time || '', home: m.home, competition: comp, place: m.place || m.venue || '', rdv: '', played: m.played, gf: m.played ? m.gf : 0, ga: m.played ? m.ga : 0, convoked: [], lineupId: null, notes: '', imported: true }); res.added++; if (m.played) res.scores++; }
@@ -3523,7 +3525,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.50';
+  const VERSION = '1.51';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10198,9 +10200,9 @@ var Season = (() => {
   function officialCard(t, F = t.fffTable) {
     const ours = r => !!F.our && r.name.toUpperCase() === F.our.toUpperCase();
     const when = new Date(F.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-    return `<section class="card"><h2>🏆 ${esc(F.name)} <span class="muted small">· classement officiel</span></h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Bp</th><th>Bc</th><th>Diff</th></tr></thead>
+    return `<section class="card"><h2>🏆 ${esc(F.name)} <span class="muted small">· ${F.computed ? 'classement calculé' : 'classement officiel'}</span></h2><div class="ss-table"><table class="lg-table"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Bp</th><th>Bc</th><th>Diff</th></tr></thead>
       <tbody>${F.rows.map(r => `<tr class="${ours(r) ? 'own' : ''}"><td>${r.rank}</td><td>${Clubs.oppLogo(r.name)}${esc(r.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.bp}</td><td>${r.bc}</td><td>${r.diff > 0 ? '+' : ''}${r.diff}</td></tr>`).join('')}</tbody></table></div>
-      <p class="muted small">Site de la FFF, mis à jour le ${esc(when)} · sous réserve d'éventuelles procédures. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
+      <p class="muted small">${F.computed ? `Le District n'a pas encore publié de classement : calculé par l'appli à partir des résultats officiels (3 pts la victoire, 1 le nul), mis à jour le ${esc(when)}.` : `Site de la FFF, mis à jour le ${esc(when)} · sous réserve d'éventuelles procédures.`} <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site</a></p></section>`;
   }
   // (1.48) the results of the whole poule (every opponent), the last weekend first; the older ones folded
   const okey = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
@@ -13065,6 +13067,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 15, date: '2026-10-04', title: 'La FFF vient toute seule', items: [
+      ['🪄', 'Plus de favori à glisser pour les résultats : l\'appli va chercher elle-même, sur le service officiel de la FFF, les scores de toutes tes équipes, le calendrier, les classements et les résultats de tous les adversaires. À chaque ouverture, au plus toutes les 3 heures. Le dimanche soir, ouvre l\'appli, c\'est tout.'],
+      ['🧮', 'Le District n\'a pas encore publié un classement ? L\'appli le calcule à partir des résultats officiels, et le dit.'],
+      ['🔄', 'Réglages → Le club : « Mettre à jour maintenant » si tu ne peux pas attendre. Le favori « Résultats FFF » ne sert plus qu\'aux feuilles de match (cartons, remplacements).'],
+      ['🤝', 'Toujours sans doublon : « F.C. Bourget 2 » d\'AssistCoachAI et « BOURGET FC 2 » de la FFF sont le même match.'],
+    ] },
     { n: 14, date: '2026-10-04', title: 'Les résultats sortent du placard', items: [
       ['📅', 'Les résultats de toute la poule s\'affichent maintenant dans Stats, même sans le favori FFF : le championnat d\'AssistCoachAI les contenait déjà, ils dormaient. La forme de l\'adversaire en profite aussi.'],
       ['🤝', 'AssistCoachAI et la FFF fusionnent : une seule liste par poule, chaque match une seule fois, le score officiel de la FFF d\'abord, et ce qu\'une seule des deux sources connaît est gardé. « PLAINE 2 » et « La Plaine 2 », c\'est enfin la même équipe.'],
@@ -13234,12 +13242,17 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
   function card() {
     if (!Auth.isAdmin()) return '';
     const b = bookmarks();
-    return `<section class="card src-card"><h2>📥 Mise à jour depuis AssistCoachAI et Footclubs</h2>
+    const c = S().club, at = +c.fffAutoAt ? new Date(+c.fffAutoAt).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    return `${Sport.isFoot() ? `<section class="card src-card"><h2>🏆 Résultats FFF automatiques</h2>
+      <p class="muted small">L'appli va chercher toute seule, sur le site officiel de la FFF, les scores de toutes tes équipes, le calendrier, les classements officiels et les résultats de tous les adversaires de chaque poule (à chaque ouverture, au plus toutes les 3 heures). Rien à faire.</p>
+      ${affOf(c) ? `<p class="small">Club n° <b>${esc(affOf(c))}</b>${at ? ` · dernière mise à jour : <b>${esc(at)}</b>` : ''}</p><button class="btn primary" data-fff="now">🔄<span>Mettre à jour maintenant</span></button>`
+        : `<label class="fld"><span>Page de ton club sur epreuves.fff.fr (une seule fois)</span><input id="fffUrlIn" placeholder="https://epreuves.fff.fr/competition/club/552176"></label><button class="btn primary" data-fff="set">Enregistrer</button>`}</section>` : ''}
+      <section class="card src-card"><h2>📥 Mise à jour depuis AssistCoachAI et Footclubs</h2>
       <p class="muted small">Un geste, sans mot de passe enregistré : les joueurs à jour (licences, catégories, dates de naissance) et, depuis AssistCoachAI, le planning, les présences, les blessures et le bien-être. L'appli te montre ce qui change avant d'enregistrer, sans doublon.</p>
       <ol class="steps-help"><li><b>Une seule fois, sur l'ordinateur :</b> fais glisser ces deux boutons dans la barre des favoris de ton navigateur.
         <div class="chips src-bm"><a class="btn" href="${esc(b.ac)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 AssistCoachAI → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.fc)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 Footclubs → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.ff)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">🏆 Résultats FFF → ${esc(AppCfg.name)}</a></div></li>
         <li><b>AssistCoachAI :</b> connecte-toi, puis touche le favori « AssistCoachAI ».</li>
-        <li><b>Résultats du week-end</b> (le dimanche soir) : ouvre la page de ton club sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> (onglet Équipes, le mois du week-end), puis touche le favori « Résultats FFF » : scores de toutes tes équipes et classements officiels de leurs poules.</li>
+        <li><b>Facultatif, feuilles de match</b> (cartons, remplacements) : les résultats arrivent déjà tout seuls (carte du dessus). Pour les feuilles, ouvre la page de ton club sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> et touche le favori « Résultats FFF ».</li>
         <li><b>Footclubs :</b> connecte-toi, ouvre <b>Licences → Liste</b>, touche « Afficher », puis le favori « Footclubs ».</li>
         <li>L'appli s'ouvre et te montre les changements : touche <b>Importer</b>.</li></ol>
       <p class="muted small">À refaire quand tu veux (une fois par semaine, ou après une vague de licences). Rien n'est envoyé ailleurs que dans l'appli du club.</p></section>`;
@@ -13331,12 +13344,100 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
         const sh = (P.sheets || []).map(s => sheetPlan(s)).filter(Boolean); sh.forEach(applySheet);
         // (1.48) one table per poule: a team playing two poules keeps both
         tables.forEach(({ p, t, rows }) => { const T = { name: p.comp, url: 'https://epreuves.fff.fr' + p.url + '/classement', our: p.our, rows, at: Date.now() };
-          t.fffTables = Object.assign({}, t.fffTables || (t.fffTable ? { [t.fffTable.url]: t.fffTable } : {}), { [T.url]: T }); t.fffTable = T; Store.upsert('teams', t); });
+          t.fffTables = Object.assign({}, t.fffTables || (t.fffTable ? { [pkey(t.fffTable.url)]: t.fffTable } : {}), { [pkey(p.url)]: T }); t.fffTable = T; Store.upsert('teams', t); });
         pouleWeeks(P.poules);
         Store.save(); App.route();
         toast(`FFF : ${res.scores} score${res.scores > 1 ? 's' : ''} mis à jour, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${tables.length} classement${tables.length > 1 ? 's' : ''}`);
       } }] });
   }
+  // one key per poule, whatever brought it (the FFF's API or the bookmark): « 457623/1/1 » (competition / phase / group)
+  const pkey = u => { const m = /engagement\/(\d+)[^/]*\/phase\/(\d+)\/(\d+)/.exec(u || ''); return m ? `${m[1]}/${m[2]}/${m[3]}` : (u || ''); };
+
+  /* ---------- (1.51) the FFF's public API (api-dofa.fff.fr, open to web apps): the app updates itself, no bookmark ----------
+     From the club's number (its page on epreuves.fff.fr): its teams and their poules, then for each poule every match of the
+     season (all the opponents) and the official table. Our matches: scores and calendar (Importer.applyFound, no duplicate).
+     Everything completes what is already there (AssistCoachAI, the live match, the bookmark): nothing is removed.
+     Automatic: when an admin opens the app, at most every 3 hours (and right away from Réglages). */
+  const API = 'https://api-dofa.fff.fr';
+  const getJ = async u => { const r = await fetch(API + u, { headers: { accept: 'application/ld+json' } }); if (!r.ok) throw new Error('FFF ' + r.status); return r.json(); };
+  const members = j => Array.isArray(j) ? j : (j['hydra:member'] || []);
+  async function pages(u) { let out = []; for (let p = 1; p <= 20; p++) { const j = await getJ(u + (u.includes('?') ? '&' : '?') + 'page=' + p), m = members(j); out = out.concat(m); const tot = j['hydra:totalItems']; if (!m.length || (tot != null ? out.length >= tot : m.length < 30)) break; } return out; }
+  const affOf = c => String(c.fffClub || (/club\/(\d+)/.exec(c.fffUrl || '') || [])[1] || '');
+  const teamName = e => e ? (e.short_name || '') + (+e.code > 1 ? ' ' + e.code : '') : '';
+  const logoNo = e => (/BC(\d+)\.jpg/.exec(((e || {}).club || {}).logo || '') || [])[1];
+  let running = null;
+  // the buttons of the card (Réglages → Le club)
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-fff]'); if (!b) return;
+    if (b.dataset.fff === 'now') { const bz = UI.busy('Mise à jour depuis la FFF…'); autoFFF({ force: true, verbose: true }).finally(() => { bz.done(); App.route(); }); }
+    if (b.dataset.fff === 'set') { const v = ((document.getElementById('fffUrlIn') || {}).value || '').trim(), n = (/club\/(\d+)/.exec(v) || /^(\d{4,})$/.exec(v) || [])[1];
+      if (!n) return toast('Colle l\'adresse de la page du club (…/competition/club/<numéro>)', 'err');
+      S().club.fffUrl = 'https://epreuves.fff.fr/competition/club/' + n; S().club.fffClub = n; delete S().club.fffClNo; Store.save();
+      const bz = UI.busy('Mise à jour depuis la FFF…'); autoFFF({ force: true, verbose: true }).finally(() => { bz.done(); App.route(); }); }
+  });
+  function autoFFF(o = {}) {
+    const c = S().club, aff = affOf(c);
+    if (!aff || !Sport.isFoot() || !Auth.isAdmin() || c.demo) return Promise.resolve(null);
+    if (!o.force && Date.now() - (+c.fffAutoAt || 0) < 3 * 3600e3) return Promise.resolve(null);
+    return running = running || (async () => {
+      const res = { scores: 0, added: 0, tables: 0, results: 0, poules: 0 };
+      try {
+        let cl = c.fffClNo;
+        if (!cl) { const j = await getJ('/api/clubs?cl_cod=' + encodeURIComponent(aff)); cl = (members(j).find(x => String(x.affiliation_number) === aff) || {}).cl_no; if (!cl) throw new Error('Club introuvable à la FFF (n° ' + aff + ')'); c.fffClNo = cl; }
+        const teams = members(await getJ(`/api/clubs/${cl}/equipes`)), logos = {}, found = [];
+        for (const eq of teams) for (const en of eq.engagements || []) {
+          const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number; if (!cp || !ph || !gp) continue;
+          const our = teamName(eq), comp = `${en.competition.name} - ${eq.category_label || ''}`, t = Importer.guessTeam(comp, our); if (!t) continue;
+          const base = `/api/compets/${cp}/phases/${ph}/poules/${gp}`, key = `${cp}/${ph}/${gp}`, url = `https://epreuves.fff.fr/competition/engagement/${cp}/phase/${ph}/${gp}`;
+          let ms = []; try { ms = await pages(base + '/matchs'); } catch (e) { continue; }
+          res.poules++;
+          // every match of the poule (kept and completed), our matches for the calendar and the scores
+          const all = t.fffPoules = t.fffPoules || {}, R = all[key] = all[key] || { name: en.competition.name, url, list: [] }; R.our = our; R.url = R.url || url;
+          ms.forEach(m => {
+            const h = teamName(m.home), a = teamName(m.away), date = String(m.date || '').slice(0, 10), time = String(m.time || '').replace(/H/i, ':');
+            [m.home, m.away].forEach(e => { const n = logoNo(e); if (n && e) logos[teamName(e)] = n; });
+            const hs = m.home_score == null ? null : +m.home_score, as = m.away_score == null ? null : +m.away_score;
+            if (h && a && date) {
+              const ex = R.list.find(x => x.date === date && x.home === h && x.away === a);
+              if (ex) { if (hs != null && (ex.hs !== hs || ex.as !== as)) { ex.hs = hs; ex.as = as; res.results++; } if (time) ex.time = time; }
+              else { R.list.push({ date, time, home: h, away: a, hs, as }); res.results++; }
+            }
+            const usH = (m.home || {}).club && +m.home.club.cl_no === +cl && teamName(m.home) === our, usA = (m.away || {}).club && +m.away.club.cl_no === +cl && teamName(m.away) === our;
+            if (!usH && !usA || !date) return;
+            const played = hs != null && as != null, opp = usH ? a : h;
+            found.push({ date, time, competition: comp, home: usH, opponent: opp || 'Exempt', ourName: our, exempt: !opp, played, gf: played ? (usH ? hs : as) : 0, ga: played ? (usH ? as : hs) : 0, venue: ((m.terrain || {}).name || '') + ((m.terrain || {}).city ? ', ' + m.terrain.city : '') });
+          });
+          R.list.sort((x, y) => x.date.localeCompare(y.date) || String(x.time).localeCompare(String(y.time))); R.at = Date.now();
+          // the official table (the last matchday of each team)
+          try {
+            const cj = members(await getJ(base + '/classement_journees')), last = {};
+            cj.forEach(r => { const n = teamName(r.equipe); if (n && (!last[n] || (+r.cj_no || 0) >= (+last[n].cj_no || 0))) last[n] = r; });
+            const rows = Object.values(last).sort((x, y) => (+x.rank || 99) - (+y.rank || 99)).map(r => ({ rank: +r.rank || 0, name: teamName(r.equipe), pts: +r.point_count || 0, j: +r.total_games_count || 0, v: +r.won_games_count || 0, n: +r.draw_games_count || 0, d: +r.lost_games_count || 0, f: +r.forfeits_games_count || 0, bp: +r.goals_for_count || 0, bc: +r.goals_against_count || 0, diff: +r.goals_diff || 0 }));
+            // no table published yet by the District: computed from the results of the poule (3 / 1 / 0), and said so
+            let computed = false;
+            if (!rows.length && en.competition.type !== 'CP' && R.list.some(x => x.hs != null)) {
+              const T = {}; const row = n => T[n] = T[n] || { name: n, pts: 0, j: 0, v: 0, n: 0, d: 0, f: 0, bp: 0, bc: 0, diff: 0 };
+              R.list.forEach(x => { if (/exempt/i.test(x.home + x.away)) return; row(x.home); row(x.away); if (x.hs == null) return; const H = T[x.home], A = T[x.away];
+                H.j++; A.j++; H.bp += x.hs; H.bc += x.as; A.bp += x.as; A.bc += x.hs; if (x.hs > x.as) { H.v++; A.d++; H.pts += 3; } else if (x.hs < x.as) { A.v++; H.d++; A.pts += 3; } else { H.n++; A.n++; H.pts++; A.pts++; } });
+              Object.values(T).forEach(x => { x.diff = x.bp - x.bc; });
+              Object.values(T).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.bp - a.bp || a.name.localeCompare(b.name)).forEach((x, i) => { x.rank = i + 1; rows.push(x); });
+              computed = true;
+            }
+            if (rows.length && en.competition.type !== 'CP') { const T = { name: en.competition.name, url: url + '/classement', our, rows, at: Date.now(), computed }; t.fffTables = Object.assign({}, t.fffTables || {}, { [key]: T }); t.fffTable = T; res.tables++; }
+          } catch (e) {}
+          Store.upsert('teams', t);
+        }
+        const r = Importer.applyFound(found.filter(f => !f.exempt || f.date >= UI.today())); res.scores = r.scores; res.added = r.added;
+        Clubs.setOppLogos(logos);
+        c.fffAutoAt = Date.now(); c.fffClub = aff; Store.save();
+        if (o.verbose || res.scores || res.added) toast(`FFF à jour : ${res.scores} score${res.scores > 1 ? 's' : ''}, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${res.tables} classement${res.tables > 1 ? 's' : ''}`);
+        if (res.scores || res.added || res.results || res.tables) App.route();
+        return res;
+      } catch (e) { if (o.verbose) toast(e.message || 'FFF injoignable', 'err'); return null; }
+      finally { running = null; }
+    })();
+  }
+
   /* ---------- (1.48) the results of every match of our poules (all the opponents), week after week ----------
      t.fffPoules[competition] = { name, url, our, list: [{ date, time, home, away, hs, as }] }: kept and completed at each import
      (a match is found again by its date and its two teams; its score is updated, nothing is removed; one team can play two poules) */
@@ -13344,7 +13445,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
     let n = 0;
     (poules || []).forEach(p => {
       const t = p.week && p.week.length && Importer.guessTeam(p.comp, p.our || ''); if (!t) return;
-      const all = t.fffPoules = t.fffPoules || {}, R = all[p.url] = all[p.url] || { name: p.comp, url: 'https://epreuves.fff.fr' + p.url, list: [] };
+      const all = t.fffPoules = t.fffPoules || {}, k = pkey(p.url), R = all[k] = all[k] || { name: p.comp, url: 'https://epreuves.fff.fr' + p.url, list: [] };
       if (p.our) R.our = p.our;
       p.week.forEach(w => {
         const date = dayOf(w.when), time = (/(\d{1,2})h(\d{2})/.exec(w.when) || []).slice(1).map(x => x.padStart(2, '0')).join(':'); if (!date) return;
@@ -13410,7 +13511,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       <div class="sheet-teams">${(F.teams || []).map(t => `<div><h3>${esc(t.name)}</h3><ol>${t.starters.map(p => `<li>${esc(p.name)}</li>`).join('')}</ol>${t.subs.length ? `<p class="muted small">Remplaçants : ${t.subs.map(p => esc(p.name)).join(', ')}</p>` : ''}</div>`).join('')}</div>
       <p class="muted small">Cartons et temps de jeu repris de la feuille. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site de la FFF</a></p></section>`;
   }
-  return { card, receive, bookmarks, sheetCard, fff };
+  return { card, receive, bookmarks, sheetCard, fff, autoFFF };
 })();
 
 ;
@@ -14584,7 +14685,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 51, UPD = AppCfg.key('update-tried');
+  const BUILD = 52, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -14667,6 +14768,8 @@ var App = (() => {
       // (3.11) « RAINCY F.A. 2 » was read as team 1, and « U14 D4 - U15 - U14 » as U15: imported matches are put back in their team, once
       if (Auth.isAdmin() && !c.matchTeamsV2) { const n = Importer.refileImported(); c.matchTeamsV2 = 1; Store.save(); if (n) { redraw = true; UI.toast(`${n} match${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''} rangé${n > 1 ? 's' : ''} dans la bonne équipe (A / B, U14 / U15)`); } }
       if (redraw) route(true);
+      // (1.51) results, tables and calendar from the FFF, by themselves (at most every 3 hours, after the server's data)
+      Sources.autoFFF().catch(() => {});
     });
     Messages.start();
     Quick.start();

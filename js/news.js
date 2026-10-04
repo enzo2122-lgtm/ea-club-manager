@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 15, date: '2026-10-04', title: 'La FFF vient toute seule', items: [
+      ['🪄', 'Plus de favori à glisser pour les résultats : l\'appli va chercher elle-même, sur le service officiel de la FFF, les scores de toutes tes équipes, le calendrier, les classements et les résultats de tous les adversaires. À chaque ouverture, au plus toutes les 3 heures. Le dimanche soir, ouvre l\'appli, c\'est tout.'],
+      ['🧮', 'Le District n\'a pas encore publié un classement ? L\'appli le calcule à partir des résultats officiels, et le dit.'],
+      ['🔄', 'Réglages → Le club : « Mettre à jour maintenant » si tu ne peux pas attendre. Le favori « Résultats FFF » ne sert plus qu\'aux feuilles de match (cartons, remplacements).'],
+      ['🤝', 'Toujours sans doublon : « F.C. Bourget 2 » d\'AssistCoachAI et « BOURGET FC 2 » de la FFF sont le même match.'],
+    ] },
     { n: 14, date: '2026-10-04', title: 'Les résultats sortent du placard', items: [
       ['📅', 'Les résultats de toute la poule s\'affichent maintenant dans Stats, même sans le favori FFF : le championnat d\'AssistCoachAI les contenait déjà, ils dormaient. La forme de l\'adversaire en profite aussi.'],
       ['🤝', 'AssistCoachAI et la FFF fusionnent : une seule liste par poule, chaque match une seule fois, le score officiel de la FFF d\'abord, et ce qu\'une seule des deux sources connaît est gardé. « PLAINE 2 » et « La Plaine 2 », c\'est enfin la même équipe.'],
