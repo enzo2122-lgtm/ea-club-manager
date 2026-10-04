@@ -1888,3 +1888,8 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 .sheet-teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .sheet-teams h3 { margin: 0 0 6px; font-size: 15px; }
 .sheet-teams ol { margin: 0; padding-left: 22px; font-size: 14px; line-height: 1.5; }
+
+/* ---------- 1.47 : compte-rendu du match en PDF ---------- */
+.report-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.report-card h2 { margin-bottom: 2px; }
+.report-card > div { flex: 1 1 220px; }

@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 11, date: '2026-10-04', title: 'Le compte-rendu qui part tout seul', items: [
+      ['📄', 'Nouveau dans l\'onglet « Après » du match : « Envoyer le PDF ». Score, buteurs, passeurs, temps forts, minutes, cartons, notes, commentaires et le mot du coach, dans un joli PDF prêt pour WhatsApp. Les parents vont croire que tu as un attaché de presse.'],
+      ['🤝', 'Le match suivi en direct, la feuille de la FFF et AssistCoachAI se complètent au lieu de s\'écraser : un carton noté deux fois compte une fois, un changement oublié en direct est repris de la feuille, tes buteurs restent. Trois sources, une seule vérité.'],
+    ] },
     { n: 10, date: '2026-10-04', title: 'Une démo par sport', items: [
       ['📱', 'Chaque sport a maintenant sa propre adresse de démonstration, qui s\'installe comme une appli à part sur le téléphone : foot, basket, hand, rugby, volley. Cinq clubs dans la poche, zéro cotisation.'],
       ['🐛', 'Bug réparé : le club de démonstration se faisait parfois mettre à la porte au démarrage (« connexion expirée »). Il avait pourtant sa licence.'],

@@ -97,19 +97,25 @@ const ACImport = (() => {
       // (1.45) a past match with goals, substitutions or stats counts as played even when the coach did not press « terminé » on AssistCoachAI
       if (pt && (pt.done || (date < UI.today() && ((pt.goalsFor || []).length || (pt.goalsAgainst || []).length || (pt.subs || []).length || Object.keys(pt.stats || {}).length)))) {
         const dur = +pt.dur || 90, half = dur / 2, gFor = pt.goalsFor || [], gAg = pt.goalsAgainst && pt.goalsAgainst.length ? pt.goalsAgainst : ((pt.opp || {}).gmins || []).map(min => ({ min }));
-        m.played = true; m.gf = gFor.length; m.ga = gAg.length || +(pt.opp || {}).g || 0; m.duration = dur;
+        // (1.47) AssistCoachAI completes the match: the official FFF score, the live match followed in the app and the cards stay
+        const official = m.played && (m.fffSheet || m.imported), followed = !!(m.live && !m.live.imported && (m.live.events || []).length);
+        m.played = true; if (!official) { m.gf = gFor.length; m.ga = gAg.length || +(pt.opp || {}).g || 0; } m.duration = m.duration || dur;
         // scorers and assists; the minutes of the goals come from the player's stats when the goal has none
         const used = {}, minOf = (g2, who) => g2.min != null ? +g2.min : (() => { const l = ((pt.stats || {})[who] || {}).gmins || []; used[who] = (used[who] || 0); return l[used[who]++]; })();
         const stats = {}; const add = (id, k) => { if (!id) return; (stats[id] = stats[id] || {})[k] = ((stats[id] || {})[k] || 0) + 1; };
         const evsL = [];
         gFor.forEach(g2 => { const sc = pid(g2.scorer), as = pid(g2.assist); add(sc, 'g'); add(as, 'a'); evsL.push({ type: 'goal', player: sc || null, assist: as || null, min: minOf(g2, g2.scorer) }); });
         gAg.forEach(g2 => evsL.push({ type: 'against', min: g2.min != null ? +g2.min : null }));
-        m.stats = stats;
-        // playing time from the lineup and the substitutions
+        // goals and assists from AssistCoachAI when it has some (unless the match was followed live in the app); the other figures (cards…) stay
+        const old = m.stats || {}, useAc = gFor.length && !followed, merged = {};
+        [...new Set([...Object.keys(old), ...Object.keys(stats)])].forEach(id => { const o = Object.assign({}, old[id]); if (useAc) { delete o.g; delete o.a; Object.assign(o, stats[id]); } if (Object.keys(o).length) merged[id] = o; });
+        m.stats = merged;
+        // playing time from the lineup and the substitutions (the live match's minutes stay for the players it followed)
         if (m.acLineup) {
           const mins = {}; m.acLineup.starters.forEach(id => { mins[id] = [0, dur]; });
           (pt.subs || []).forEach(s => { const o = pid(s.out), i = pid(s.in), t = +s.min || 0; if (o && mins[o]) mins[o][1] = Math.min(mins[o][1], t); if (i) mins[i] = [t, dur]; });
-          m.minutes = {}; (m.convoked || []).forEach(id => { m.minutes[id] = mins[id] ? Math.max(0, Math.round(mins[id][1] - mins[id][0])) : 0; });
+          const had = m.minutes || {}; m.minutes = {};
+          (m.convoked || []).forEach(id => { const ac = mins[id] ? Math.max(0, Math.round(mins[id][1] - mins[id][0])) : 0; m.minutes[id] = followed && +had[id] > 0 ? +had[id] : (ac || +had[id] || 0); });
         }
         // the detailed stats of each player (shots, key passes, interceptions, crosses, corners, cards, saves)
         const det = {}; Object.entries(pt.stats || {}).forEach(([cid, s]) => { const id = pid(cid); if (!id) return;
@@ -120,7 +126,7 @@ const ACImport = (() => {
         // the match as if it had been followed live (goals by period on the Stats page)
         const base = new Date(date + 'T' + (m.time || '15:00') + ':00').getTime();
         const wall = min => base + (min > half ? (min + 15) : min) * 60000;
-        m.live = { status: 'end', halfLen: half, starters: (m.acLineup || {}).starters || [], imported: true,
+        if (!followed) m.live = { status: 'end', halfLen: half, starters: (m.acLineup || {}).starters || [], imported: true,
           periods: [{ start: base, end: base + half * 60000 }, { start: base + (half + 15) * 60000, end: base + (dur + 15) * 60000 }],
           events: evsL.filter(x => x.min != null).map(x => Object.assign({ id: Store.uid(), wall: wall(x.min), min: x.min + "'", period: x.min > half ? 2 : 1 }, x)) };
         if (e.debrief_note && !(m.notes || '').includes(e.debrief_note)) m.notes = [m.notes, e.debrief_note].filter(Boolean).join('\n\n');

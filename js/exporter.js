@@ -364,7 +364,51 @@ const Exporter = (() => {
     await addDocs(P, m.docIds);
     return deliver(P.blob(), safeName(`match-${m.opponent || ''}-${m.date || ''}`) + '.pdf');
   }
+  /* (1.47) the end of the match in one PDF, to send on WhatsApp: score, scorers, key moments, each player (minutes, goals,
+     assists, cards, rating) and the coach's word */
+  async function pdfReport(m, team, club) {
+    const P = Doc(club), opp = m.opponent || 'Adversaire', us = club.name + (team ? ' ' + team.name : '');
+    const pn = id => { const p = Store.get('players', id); return p ? Store.shortName(p) : ''; };
+    const res = !m.played ? '' : m.gf > m.ga ? 'Victoire' : m.gf < m.ga ? 'Défaite' : 'Match nul';
+    P.header('Compte-rendu du match', team ? team.name : '');
+    P.h2(m.home ? `${us}  ${m.gf} - ${m.ga}  ${opp}` : `${opp}  ${m.ga} - ${m.gf}  ${us}`);
+    P.facts([['Date', fmtDate(m.date)], ['Compétition', m.competition || '-'], ['Lieu', m.home ? 'Domicile' : 'Extérieur'], ['Résultat', res || 'À jouer']]);
+    const st = m.stats || {}, det = m.detail || {};
+    const list = k => Object.entries(st).filter(([id, x]) => x[k] && pn(id)).sort((a, b) => b[1][k] - a[1][k]).map(([id, x]) => pn(id) + (x[k] > 1 ? ` (${x[k]})` : ''));
+    const sc = list('g'), as = list('a');
+    if (sc.length) { P.label(Sport.W().Scorers); P.para(sc.join(', ')); }
+    if (as.length) { P.label('Passes décisives'); P.para(as.join(', ')); }
+    // the key moments: the live match (or AssistCoachAI), else the FFF sheet
+    const evs = ((m.live || {}).events || []).filter(e => e.min != null && e.type !== 'note');
+    const line = e => e.type === 'goal' ? `But : ${pn(e.player) || '?'}${e.assist ? ' (passe de ' + pn(e.assist) + ')' : ''}` : e.type === 'against' ? 'But encaissé'
+      : e.type === 'sub' ? `Changement : ${e.in ? pn(e.in) : '?'} remplace ${e.out ? pn(e.out) : '?'}` : Live.desc(e);
+    // both together: the FFF sheet adds the cards and changes the live match did not note (same kind within 2 minutes = the same one)
+    const kind = t => /^(sub|Changement)/.test(t) ? 'sub' : /^(yellow|Avertissement)/.test(t) ? 'yc' : /^(red|Exclusion)/.test(t) ? 'rc' : t;
+    const all = evs.map(e => ({ min: parseInt(e.min, 10) || 0, k: kind(e.type), t: line(e) }));
+    ((m.fffSheet || {}).moments || []).forEach(x => { const k = kind(x.type), mn = +x.min || 0;
+      const mine = x.side === (m.home ? 'home' : 'away');
+      if (mine && all.some(a => a.k === k && Math.abs(a.min - mn) <= 2)) return;
+      all.push({ min: mn, k, t: (k === 'sub' ? `Changement : ${x.names[0] || '?'} remplace ${x.names[1] || '?'}` : `${k === 'yc' ? 'Carton jaune' : k === 'rc' ? 'Carton rouge' : x.type} : ${x.names[0] || '?'}`) + (mine ? '' : ` (${opp})`) }); });
+    const moments = all.sort((a, b) => a.min - b.min).map(a => `${a.min}'  ${a.t}`);
+    if (moments.length) { P.label('Les temps forts'); P.bullets(moments); }
+    // the players of the match
+    const ids = [...new Set([...(m.convoked || []), ...Object.keys(st)])].filter(id => Store.get('players', id));
+    if (ids.length) {
+      const card = (id, k) => Math.max(+((st[id] || {})[k]) || 0, +((det[id] || {})[k]) || 0);
+      const rows = ids.map(id => { const p = Store.get('players', id), r = Ratings.avg(m, id), y = card(id, 'yc'), rc = card(id, 'rc'), mn = (m.minutes || {})[id];
+        return { p, row: [String(p.number || ''), Store.fullName(p), mn != null && mn !== '' ? mn + "'" : '-', (st[id] || {}).g ? String(st[id].g) : '', (st[id] || {}).a ? String(st[id].a) : '',
+          [y ? y + ' J' : '', rc ? rc + ' R' : ''].filter(Boolean).join(' '), r ? Ratings.fr(r.v) + '/5' : ''], mn: +mn || 0 }; })
+        .sort((a, b) => b.mn - a.mn || (+a.p.number || 99) - (+b.p.number || 99));
+      P.label(`Les joueurs (${rows.length})`);
+      P.table(['N°', 'Joueur', 'Min.', Sport.W().Units, 'Passes', 'Cartons', 'Note'], rows.map(x => x.row), [.07, .37, .1, .1, .11, .12, .13]);
+    }
+    // the coach's comments on the players, then the word of the coach
+    const coms = ids.map(id => { const c = Object.values(((m.ratings || {})[id]) || {}).map(x => x.c).filter(Boolean); return c.length ? `${pn(id)} : ${c.join(' / ')}` : ''; }).filter(Boolean);
+    if (coms.length) { P.label('Commentaires sur les joueurs'); P.bullets(coms); }
+    if (m.notes) { P.label('Le mot du coach'); P.para(m.notes); }
+    return deliver(P.blob(), safeName(`compte-rendu-${m.opponent || ''}-${m.date || ''}`) + '.pdf');
+  }
   async function json(text, name) { return deliver(new Blob([text], { type: 'application/json' }), safeName(name) + '.raincy.json'); }
 
-  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, json, deliver, linkOf, fromLink };
+  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, pdfReport, json, deliver, linkOf, fromLink };
 })();

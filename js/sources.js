@@ -197,13 +197,15 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       if (/^Avertissement/.test(e.type)) { const p = who(e.names[0]); if (p) (cards[p.id] = cards[p.id] || { yc: 0, rc: 0 }).yc++; }
       if (/^Exclusion/.test(e.type)) { const p = who(e.names[0]); if (p) { (cards[p.id] = cards[p.id] || { yc: 0, rc: 0 }).rc++; if (start[p.id] != null) end[p.id] = Math.min(end[p.id], e.min); } }
     });
-    // the sheet is the reference for the cards and for the minutes it gives (a second import changes nothing)
-    Object.entries(cards).forEach(([pid, c]) => { stats[pid] = Object.assign({}, stats[pid], { yc: c.yc, rc: c.rc }); });
-    const mm = m.minutes = m.minutes || {};
-    Object.keys(start).forEach(pid => { mm[pid] = Math.max(0, end[pid] - start[pid]); });
+    // (1.47) the sheet completes the match, it does not replace it (a second import changes nothing):
+    // cards: the most found by the sheet or the live match; minutes: those of the live match when it was followed live, the sheet's otherwise
+    Object.entries(cards).forEach(([pid, c]) => { const o = stats[pid] || {}; stats[pid] = Object.assign({}, o, { yc: Math.max(+o.yc || 0, c.yc), rc: Math.max(+o.rc || 0, c.rc) }); });
+    // (a player the sheet takes off earlier than the live match — a change or a red card not noted live — gets the sheet's time)
+    const mm = m.minutes = m.minutes || {}, followed = !!(m.live && m.live.status === 'end' && !m.live.imported), sheetMin = {};
+    Object.keys(start).forEach(pid => { const v = sheetMin[pid] = Math.max(0, end[pid] - start[pid]); mm[pid] = followed && +mm[pid] > 0 ? Math.min(+mm[pid], v) : v; });
     m.convoked = [...new Set([...(m.convoked || []), ...[...starters, ...subs].filter(Boolean).map(p => p.id)])];
     m.played = true;
-    m.fffSheet = { url: 'https://epreuves.fff.fr' + s.url, moments: s.moments, teams: s.teams, at: Date.now() };
+    m.fffSheet = { url: 'https://epreuves.fff.fr' + s.url, moments: s.moments, teams: s.teams, minutes: sheetMin, at: Date.now() };
     Store.upsert('matches', m);
   }
   // the sheet on the match page (tab « Après »)
@@ -216,5 +218,5 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       <div class="sheet-teams">${(F.teams || []).map(t => `<div><h3>${esc(t.name)}</h3><ol>${t.starters.map(p => `<li>${esc(p.name)}</li>`).join('')}</ol>${t.subs.length ? `<p class="muted small">Remplaçants : ${t.subs.map(p => esc(p.name)).join(', ')}</p>` : ''}</div>`).join('')}</div>
       <p class="muted small">Cartons et temps de jeu repris de la feuille. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site de la FFF</a></p></section>`;
   }
-  return { card, receive, bookmarks, sheetCard };
+  return { card, receive, bookmarks, sheetCard, fff };
 })();

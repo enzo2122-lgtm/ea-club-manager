@@ -96,12 +96,23 @@ const Live = (() => {
     const l = L(m), [us, them] = score(l);
     m.gf = us; m.ga = them;
     if (SP().sets) m.sets = sets(l).filter(s => s[2]).map(s => [s[0], s[1]]);
+    // (1.47) the live match completes what is already known (FFF sheet, AssistCoachAI, typed by hand) instead of replacing it:
+    // goals and assists come from the live match once it has some with a player; cards: the most found by either
     const st = {}; l.events.filter(isUs).forEach(e => {
       if (e.player && e.player !== 'csc') (st[e.player] = st[e.player] || {}).g = ((st[e.player] || {}).g || 0) + pts(e);
       if (e.assist) (st[e.assist] = st[e.assist] || {}).a = ((st[e.assist] || {}).a || 0) + 1; });
-    m.stats = st;
+    const liveGoals = Object.keys(st).length > 0, old = m.stats || {}, out = {};
+    [...new Set([...Object.keys(old), ...Object.keys(st)])].forEach(id => {
+      const o = Object.assign({}, old[id]); if (liveGoals) { delete o.g; delete o.a; Object.assign(o, st[id]); }
+      if (Object.keys(o).length) out[id] = o; });
+    l.events.forEach(e => { const k = e.type === 'yellow' ? 'yc' : e.type === 'red' ? 'rc' : ''; if (!k || !e.player) return;
+      const n = l.events.filter(x => x.type === e.type && x.player === e.player).length; out[e.player] = Object.assign({}, out[e.player]); out[e.player][k] = Math.max(+out[e.player][k] || 0, n); });
+    m.stats = out;
     if (l.status === 'end') {
-      const mins = minutes(l); m.minutes = {}; (m.convoked || []).forEach(id => { m.minutes[id] = mins[id] || 0; });
+      // minutes: the live match's for the players it followed, the ones already known (FFF sheet…) for the others
+      // (a player the FFF sheet takes off earlier — a change or a red card not noted live — gets the sheet's time)
+      const mins = minutes(l), had = m.minutes || {}, fm = (m.fffSheet || {}).minutes || {}; m.minutes = {};
+      (m.convoked || []).forEach(id => { const v = mins[id] || 0, f = fm[id]; m.minutes[id] = f != null ? (v > 0 ? Math.min(v, f) : f) : (v || +had[id] || 0); });
       if (!SP().sets) m.duration = l.halfLen * Math.max(SP().periods, l.periods.length);
       m.played = true;
     }
@@ -233,5 +244,5 @@ const Live = (() => {
     }).filter(c => !(rec.clips || []).some(x => x.liveId === c.liveId));
   }
 
-  return { page, card, minutes, minuteOf, videoClips, EV };
+  return { page, card, minutes, minuteOf, videoClips, EV, desc, write };
 })();

@@ -1707,9 +1707,53 @@ var Exporter = (() => {
     await addDocs(P, m.docIds);
     return deliver(P.blob(), safeName(`match-${m.opponent || ''}-${m.date || ''}`) + '.pdf');
   }
+  /* (1.47) the end of the match in one PDF, to send on WhatsApp: score, scorers, key moments, each player (minutes, goals,
+     assists, cards, rating) and the coach's word */
+  async function pdfReport(m, team, club) {
+    const P = Doc(club), opp = m.opponent || 'Adversaire', us = club.name + (team ? ' ' + team.name : '');
+    const pn = id => { const p = Store.get('players', id); return p ? Store.shortName(p) : ''; };
+    const res = !m.played ? '' : m.gf > m.ga ? 'Victoire' : m.gf < m.ga ? 'Défaite' : 'Match nul';
+    P.header('Compte-rendu du match', team ? team.name : '');
+    P.h2(m.home ? `${us}  ${m.gf} - ${m.ga}  ${opp}` : `${opp}  ${m.ga} - ${m.gf}  ${us}`);
+    P.facts([['Date', fmtDate(m.date)], ['Compétition', m.competition || '-'], ['Lieu', m.home ? 'Domicile' : 'Extérieur'], ['Résultat', res || 'À jouer']]);
+    const st = m.stats || {}, det = m.detail || {};
+    const list = k => Object.entries(st).filter(([id, x]) => x[k] && pn(id)).sort((a, b) => b[1][k] - a[1][k]).map(([id, x]) => pn(id) + (x[k] > 1 ? ` (${x[k]})` : ''));
+    const sc = list('g'), as = list('a');
+    if (sc.length) { P.label(Sport.W().Scorers); P.para(sc.join(', ')); }
+    if (as.length) { P.label('Passes décisives'); P.para(as.join(', ')); }
+    // the key moments: the live match (or AssistCoachAI), else the FFF sheet
+    const evs = ((m.live || {}).events || []).filter(e => e.min != null && e.type !== 'note');
+    const line = e => e.type === 'goal' ? `But : ${pn(e.player) || '?'}${e.assist ? ' (passe de ' + pn(e.assist) + ')' : ''}` : e.type === 'against' ? 'But encaissé'
+      : e.type === 'sub' ? `Changement : ${e.in ? pn(e.in) : '?'} remplace ${e.out ? pn(e.out) : '?'}` : Live.desc(e);
+    // both together: the FFF sheet adds the cards and changes the live match did not note (same kind within 2 minutes = the same one)
+    const kind = t => /^(sub|Changement)/.test(t) ? 'sub' : /^(yellow|Avertissement)/.test(t) ? 'yc' : /^(red|Exclusion)/.test(t) ? 'rc' : t;
+    const all = evs.map(e => ({ min: parseInt(e.min, 10) || 0, k: kind(e.type), t: line(e) }));
+    ((m.fffSheet || {}).moments || []).forEach(x => { const k = kind(x.type), mn = +x.min || 0;
+      const mine = x.side === (m.home ? 'home' : 'away');
+      if (mine && all.some(a => a.k === k && Math.abs(a.min - mn) <= 2)) return;
+      all.push({ min: mn, k, t: (k === 'sub' ? `Changement : ${x.names[0] || '?'} remplace ${x.names[1] || '?'}` : `${k === 'yc' ? 'Carton jaune' : k === 'rc' ? 'Carton rouge' : x.type} : ${x.names[0] || '?'}`) + (mine ? '' : ` (${opp})`) }); });
+    const moments = all.sort((a, b) => a.min - b.min).map(a => `${a.min}'  ${a.t}`);
+    if (moments.length) { P.label('Les temps forts'); P.bullets(moments); }
+    // the players of the match
+    const ids = [...new Set([...(m.convoked || []), ...Object.keys(st)])].filter(id => Store.get('players', id));
+    if (ids.length) {
+      const card = (id, k) => Math.max(+((st[id] || {})[k]) || 0, +((det[id] || {})[k]) || 0);
+      const rows = ids.map(id => { const p = Store.get('players', id), r = Ratings.avg(m, id), y = card(id, 'yc'), rc = card(id, 'rc'), mn = (m.minutes || {})[id];
+        return { p, row: [String(p.number || ''), Store.fullName(p), mn != null && mn !== '' ? mn + "'" : '-', (st[id] || {}).g ? String(st[id].g) : '', (st[id] || {}).a ? String(st[id].a) : '',
+          [y ? y + ' J' : '', rc ? rc + ' R' : ''].filter(Boolean).join(' '), r ? Ratings.fr(r.v) + '/5' : ''], mn: +mn || 0 }; })
+        .sort((a, b) => b.mn - a.mn || (+a.p.number || 99) - (+b.p.number || 99));
+      P.label(`Les joueurs (${rows.length})`);
+      P.table(['N°', 'Joueur', 'Min.', Sport.W().Units, 'Passes', 'Cartons', 'Note'], rows.map(x => x.row), [.07, .37, .1, .1, .11, .12, .13]);
+    }
+    // the coach's comments on the players, then the word of the coach
+    const coms = ids.map(id => { const c = Object.values(((m.ratings || {})[id]) || {}).map(x => x.c).filter(Boolean); return c.length ? `${pn(id)} : ${c.join(' / ')}` : ''; }).filter(Boolean);
+    if (coms.length) { P.label('Commentaires sur les joueurs'); P.bullets(coms); }
+    if (m.notes) { P.label('Le mot du coach'); P.para(m.notes); }
+    return deliver(P.blob(), safeName(`compte-rendu-${m.opponent || ''}-${m.date || ''}`) + '.pdf');
+  }
   async function json(text, name) { return deliver(new Blob([text], { type: 'application/json' }), safeName(name) + '.raincy.json'); }
 
-  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, json, deliver, linkOf, fromLink };
+  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, pdfReport, json, deliver, linkOf, fromLink };
 })();
 
 ;
@@ -3479,7 +3523,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.46';
+  const VERSION = '1.47';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8013,12 +8057,23 @@ var Live = (() => {
     const l = L(m), [us, them] = score(l);
     m.gf = us; m.ga = them;
     if (SP().sets) m.sets = sets(l).filter(s => s[2]).map(s => [s[0], s[1]]);
+    // (1.47) the live match completes what is already known (FFF sheet, AssistCoachAI, typed by hand) instead of replacing it:
+    // goals and assists come from the live match once it has some with a player; cards: the most found by either
     const st = {}; l.events.filter(isUs).forEach(e => {
       if (e.player && e.player !== 'csc') (st[e.player] = st[e.player] || {}).g = ((st[e.player] || {}).g || 0) + pts(e);
       if (e.assist) (st[e.assist] = st[e.assist] || {}).a = ((st[e.assist] || {}).a || 0) + 1; });
-    m.stats = st;
+    const liveGoals = Object.keys(st).length > 0, old = m.stats || {}, out = {};
+    [...new Set([...Object.keys(old), ...Object.keys(st)])].forEach(id => {
+      const o = Object.assign({}, old[id]); if (liveGoals) { delete o.g; delete o.a; Object.assign(o, st[id]); }
+      if (Object.keys(o).length) out[id] = o; });
+    l.events.forEach(e => { const k = e.type === 'yellow' ? 'yc' : e.type === 'red' ? 'rc' : ''; if (!k || !e.player) return;
+      const n = l.events.filter(x => x.type === e.type && x.player === e.player).length; out[e.player] = Object.assign({}, out[e.player]); out[e.player][k] = Math.max(+out[e.player][k] || 0, n); });
+    m.stats = out;
     if (l.status === 'end') {
-      const mins = minutes(l); m.minutes = {}; (m.convoked || []).forEach(id => { m.minutes[id] = mins[id] || 0; });
+      // minutes: the live match's for the players it followed, the ones already known (FFF sheet…) for the others
+      // (a player the FFF sheet takes off earlier — a change or a red card not noted live — gets the sheet's time)
+      const mins = minutes(l), had = m.minutes || {}, fm = (m.fffSheet || {}).minutes || {}; m.minutes = {};
+      (m.convoked || []).forEach(id => { const v = mins[id] || 0, f = fm[id]; m.minutes[id] = f != null ? (v > 0 ? Math.min(v, f) : f) : (v || +had[id] || 0); });
       if (!SP().sets) m.duration = l.halfLen * Math.max(SP().periods, l.periods.length);
       m.played = true;
     }
@@ -8150,7 +8205,7 @@ var Live = (() => {
     }).filter(c => !(rec.clips || []).some(x => x.liveId === c.liveId));
   }
 
-  return { page, card, minutes, minuteOf, videoClips, EV };
+  return { page, card, minutes, minuteOf, videoClips, EV, desc, write };
 })();
 
 ;
@@ -10404,19 +10459,25 @@ var ACImport = (() => {
       // (1.45) a past match with goals, substitutions or stats counts as played even when the coach did not press « terminé » on AssistCoachAI
       if (pt && (pt.done || (date < UI.today() && ((pt.goalsFor || []).length || (pt.goalsAgainst || []).length || (pt.subs || []).length || Object.keys(pt.stats || {}).length)))) {
         const dur = +pt.dur || 90, half = dur / 2, gFor = pt.goalsFor || [], gAg = pt.goalsAgainst && pt.goalsAgainst.length ? pt.goalsAgainst : ((pt.opp || {}).gmins || []).map(min => ({ min }));
-        m.played = true; m.gf = gFor.length; m.ga = gAg.length || +(pt.opp || {}).g || 0; m.duration = dur;
+        // (1.47) AssistCoachAI completes the match: the official FFF score, the live match followed in the app and the cards stay
+        const official = m.played && (m.fffSheet || m.imported), followed = !!(m.live && !m.live.imported && (m.live.events || []).length);
+        m.played = true; if (!official) { m.gf = gFor.length; m.ga = gAg.length || +(pt.opp || {}).g || 0; } m.duration = m.duration || dur;
         // scorers and assists; the minutes of the goals come from the player's stats when the goal has none
         const used = {}, minOf = (g2, who) => g2.min != null ? +g2.min : (() => { const l = ((pt.stats || {})[who] || {}).gmins || []; used[who] = (used[who] || 0); return l[used[who]++]; })();
         const stats = {}; const add = (id, k) => { if (!id) return; (stats[id] = stats[id] || {})[k] = ((stats[id] || {})[k] || 0) + 1; };
         const evsL = [];
         gFor.forEach(g2 => { const sc = pid(g2.scorer), as = pid(g2.assist); add(sc, 'g'); add(as, 'a'); evsL.push({ type: 'goal', player: sc || null, assist: as || null, min: minOf(g2, g2.scorer) }); });
         gAg.forEach(g2 => evsL.push({ type: 'against', min: g2.min != null ? +g2.min : null }));
-        m.stats = stats;
-        // playing time from the lineup and the substitutions
+        // goals and assists from AssistCoachAI when it has some (unless the match was followed live in the app); the other figures (cards…) stay
+        const old = m.stats || {}, useAc = gFor.length && !followed, merged = {};
+        [...new Set([...Object.keys(old), ...Object.keys(stats)])].forEach(id => { const o = Object.assign({}, old[id]); if (useAc) { delete o.g; delete o.a; Object.assign(o, stats[id]); } if (Object.keys(o).length) merged[id] = o; });
+        m.stats = merged;
+        // playing time from the lineup and the substitutions (the live match's minutes stay for the players it followed)
         if (m.acLineup) {
           const mins = {}; m.acLineup.starters.forEach(id => { mins[id] = [0, dur]; });
           (pt.subs || []).forEach(s => { const o = pid(s.out), i = pid(s.in), t = +s.min || 0; if (o && mins[o]) mins[o][1] = Math.min(mins[o][1], t); if (i) mins[i] = [t, dur]; });
-          m.minutes = {}; (m.convoked || []).forEach(id => { m.minutes[id] = mins[id] ? Math.max(0, Math.round(mins[id][1] - mins[id][0])) : 0; });
+          const had = m.minutes || {}; m.minutes = {};
+          (m.convoked || []).forEach(id => { const ac = mins[id] ? Math.max(0, Math.round(mins[id][1] - mins[id][0])) : 0; m.minutes[id] = followed && +had[id] > 0 ? +had[id] : (ac || +had[id] || 0); });
         }
         // the detailed stats of each player (shots, key passes, interceptions, crosses, corners, cards, saves)
         const det = {}; Object.entries(pt.stats || {}).forEach(([cid, s]) => { const id = pid(cid); if (!id) return;
@@ -10427,7 +10488,7 @@ var ACImport = (() => {
         // the match as if it had been followed live (goals by period on the Stats page)
         const base = new Date(date + 'T' + (m.time || '15:00') + ':00').getTime();
         const wall = min => base + (min > half ? (min + 15) : min) * 60000;
-        m.live = { status: 'end', halfLen: half, starters: (m.acLineup || {}).starters || [], imported: true,
+        if (!followed) m.live = { status: 'end', halfLen: half, starters: (m.acLineup || {}).starters || [], imported: true,
           periods: [{ start: base, end: base + half * 60000 }, { start: base + (half + 15) * 60000, end: base + (dur + 15) * 60000 }],
           events: evsL.filter(x => x.min != null).map(x => Object.assign({ id: Store.uid(), wall: wall(x.min), min: x.min + "'", period: x.min > half ? 2 : 1 }, x)) };
         if (e.debrief_note && !(m.notes || '').includes(e.debrief_note)) m.notes = [m.notes, e.debrief_note].filter(Boolean).join('\n\n');
@@ -12944,6 +13005,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 11, date: '2026-10-04', title: 'Le compte-rendu qui part tout seul', items: [
+      ['📄', 'Nouveau dans l\'onglet « Après » du match : « Envoyer le PDF ». Score, buteurs, passeurs, temps forts, minutes, cartons, notes, commentaires et le mot du coach, dans un joli PDF prêt pour WhatsApp. Les parents vont croire que tu as un attaché de presse.'],
+      ['🤝', 'Le match suivi en direct, la feuille de la FFF et AssistCoachAI se complètent au lieu de s\'écraser : un carton noté deux fois compte une fois, un changement oublié en direct est repris de la feuille, tes buteurs restent. Trois sources, une seule vérité.'],
+    ] },
     { n: 10, date: '2026-10-04', title: 'Une démo par sport', items: [
       ['📱', 'Chaque sport a maintenant sa propre adresse de démonstration, qui s\'installe comme une appli à part sur le téléphone : foot, basket, hand, rugby, volley. Cinq clubs dans la poche, zéro cotisation.'],
       ['🐛', 'Bug réparé : le club de démonstration se faisait parfois mettre à la porte au démarrage (« connexion expirée »). Il avait pourtant sa licence.'],
@@ -13221,13 +13286,15 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       if (/^Avertissement/.test(e.type)) { const p = who(e.names[0]); if (p) (cards[p.id] = cards[p.id] || { yc: 0, rc: 0 }).yc++; }
       if (/^Exclusion/.test(e.type)) { const p = who(e.names[0]); if (p) { (cards[p.id] = cards[p.id] || { yc: 0, rc: 0 }).rc++; if (start[p.id] != null) end[p.id] = Math.min(end[p.id], e.min); } }
     });
-    // the sheet is the reference for the cards and for the minutes it gives (a second import changes nothing)
-    Object.entries(cards).forEach(([pid, c]) => { stats[pid] = Object.assign({}, stats[pid], { yc: c.yc, rc: c.rc }); });
-    const mm = m.minutes = m.minutes || {};
-    Object.keys(start).forEach(pid => { mm[pid] = Math.max(0, end[pid] - start[pid]); });
+    // (1.47) the sheet completes the match, it does not replace it (a second import changes nothing):
+    // cards: the most found by the sheet or the live match; minutes: those of the live match when it was followed live, the sheet's otherwise
+    Object.entries(cards).forEach(([pid, c]) => { const o = stats[pid] || {}; stats[pid] = Object.assign({}, o, { yc: Math.max(+o.yc || 0, c.yc), rc: Math.max(+o.rc || 0, c.rc) }); });
+    // (a player the sheet takes off earlier than the live match — a change or a red card not noted live — gets the sheet's time)
+    const mm = m.minutes = m.minutes || {}, followed = !!(m.live && m.live.status === 'end' && !m.live.imported), sheetMin = {};
+    Object.keys(start).forEach(pid => { const v = sheetMin[pid] = Math.max(0, end[pid] - start[pid]); mm[pid] = followed && +mm[pid] > 0 ? Math.min(+mm[pid], v) : v; });
     m.convoked = [...new Set([...(m.convoked || []), ...[...starters, ...subs].filter(Boolean).map(p => p.id)])];
     m.played = true;
-    m.fffSheet = { url: 'https://epreuves.fff.fr' + s.url, moments: s.moments, teams: s.teams, at: Date.now() };
+    m.fffSheet = { url: 'https://epreuves.fff.fr' + s.url, moments: s.moments, teams: s.teams, minutes: sheetMin, at: Date.now() };
     Store.upsert('matches', m);
   }
   // the sheet on the match page (tab « Après »)
@@ -13240,7 +13307,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       <div class="sheet-teams">${(F.teams || []).map(t => `<div><h3>${esc(t.name)}</h3><ol>${t.starters.map(p => `<li>${esc(p.name)}</li>`).join('')}</ol>${t.subs.length ? `<p class="muted small">Remplaçants : ${t.subs.map(p => esc(p.name)).join(', ')}</p>` : ''}</div>`).join('')}</div>
       <p class="muted small">Cartons et temps de jeu repris de la feuille. <a href="${esc(F.url)}" target="_blank" rel="noopener">Voir sur le site de la FFF</a></p></section>`;
   }
-  return { card, receive, bookmarks, sheetCard };
+  return { card, receive, bookmarks, sheetCard, fff };
 })();
 
 ;
@@ -13945,6 +14012,7 @@ var Views = (() => {
         <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
         </div>
         <div ${panel('apres')}>
+        ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${Sources.sheetCard(m)}
         <h2 class="section">Score</h2>
         <section class="card">
@@ -14011,6 +14079,7 @@ var Views = (() => {
       if (b.dataset.pl) { const st = (m.stats = m.stats || {})[b.dataset.pl] = m.stats[b.dataset.pl] || {}; st[b.dataset.k] = Math.max(0, (st[b.dataset.k] || 0) + +b.dataset.d); save(); return render(); }
       switch (b.dataset.act) {
         case 'pdf': return runExport('Création de la feuille de match…', () => Exporter.pdfMatch(m, teamOf(m.teamId), S().club, { homeBib: S().club.homeBib }));
+        case 'report': return runExport('Création du compte-rendu…', () => Exporter.pdfReport(m, teamOf(m.teamId), S().club));
         case 'lineup': return makeLineup(m);
         case 'delete': if (await confirmBox('Supprimer ce match ?')) { Store.remove('matches', m.id); Media.removeRef('match:' + m.id); location.hash = '#/matchs'; } return;
       }
@@ -14409,7 +14478,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 47, UPD = AppCfg.key('update-tried');
+  const BUILD = 48, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

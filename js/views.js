@@ -698,6 +698,7 @@ const Views = (() => {
         <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
         </div>
         <div ${panel('apres')}>
+        ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${Sources.sheetCard(m)}
         <h2 class="section">Score</h2>
         <section class="card">
@@ -764,6 +765,7 @@ const Views = (() => {
       if (b.dataset.pl) { const st = (m.stats = m.stats || {})[b.dataset.pl] = m.stats[b.dataset.pl] || {}; st[b.dataset.k] = Math.max(0, (st[b.dataset.k] || 0) + +b.dataset.d); save(); return render(); }
       switch (b.dataset.act) {
         case 'pdf': return runExport('Création de la feuille de match…', () => Exporter.pdfMatch(m, teamOf(m.teamId), S().club, { homeBib: S().club.homeBib }));
+        case 'report': return runExport('Création du compte-rendu…', () => Exporter.pdfReport(m, teamOf(m.teamId), S().club));
         case 'lineup': return makeLineup(m);
         case 'delete': if (await confirmBox('Supprimer ce match ?')) { Store.remove('matches', m.id); Media.removeRef('match:' + m.id); location.hash = '#/matchs'; } return;
       }
