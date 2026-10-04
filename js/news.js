@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 17, date: '2026-10-04', title: 'Moins de boutons, moins de pièges', items: [
+      ['🧹', 'Réglages → Le club : le favori « Résultats FFF » est rangé dans « Facultatif » (il ne sert plus qu\'aux cartons et remplacements des feuilles de match). Les résultats, eux, arrivent tout seuls.'],
+      ['🐛', 'Un bouton-favori touché dans l\'appli au lieu d\'être glissé affichait un message qui s\'enfuyait plus vite qu\'un ailier : il reste maintenant affiché jusqu\'à ce que tu le fermes.'],
+    ] },
     { n: 16, date: '2026-10-04', title: 'Footclubs en un clic', items: [
       ['🪪', 'Le favori Footclubs ouvre maintenant la liste des licences tout seul : connecte-toi, touche le favori depuis n\'importe quelle page, c\'est tout. Fini le tour du menu Licences → Liste → Afficher.'],
       ['⚠️', 'Le favori a changé : refais-le glisser une fois depuis Réglages → Le club (l\'ancien marche encore, mais seulement depuis la liste).'],

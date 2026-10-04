@@ -3525,7 +3525,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.52';
+  const VERSION = '1.53';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13067,6 +13067,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 17, date: '2026-10-04', title: 'Moins de boutons, moins de pièges', items: [
+      ['🧹', 'Réglages → Le club : le favori « Résultats FFF » est rangé dans « Facultatif » (il ne sert plus qu\'aux cartons et remplacements des feuilles de match). Les résultats, eux, arrivent tout seuls.'],
+      ['🐛', 'Un bouton-favori touché dans l\'appli au lieu d\'être glissé affichait un message qui s\'enfuyait plus vite qu\'un ailier : il reste maintenant affiché jusqu\'à ce que tu le fermes.'],
+    ] },
     { n: 16, date: '2026-10-04', title: 'Footclubs en un clic', items: [
       ['🪪', 'Le favori Footclubs ouvre maintenant la liste des licences tout seul : connecte-toi, touche le favori depuis n\'importe quelle page, c\'est tout. Fini le tour du menu Licences → Liste → Afficher.'],
       ['⚠️', 'Le favori a changé : refais-le glisser une fois depuis Réglages → Le club (l\'ancien marche encore, mais seulement depuis la liste).'],
@@ -13257,13 +13261,17 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       <section class="card src-card"><h2>📥 Mise à jour depuis AssistCoachAI et Footclubs</h2>
       <p class="muted small">Un geste, sans mot de passe enregistré : les joueurs à jour (licences, catégories, dates de naissance) et, depuis AssistCoachAI, le planning, les présences, les blessures et le bien-être. L'appli te montre ce qui change avant d'enregistrer, sans doublon.</p>
       <ol class="steps-help"><li><b>Une seule fois, sur l'ordinateur :</b> fais glisser ces deux boutons dans la barre des favoris de ton navigateur.
-        <div class="chips src-bm"><a class="btn" href="${esc(b.ac)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 AssistCoachAI → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.fc)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">📥 Footclubs → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.ff)}" onclick="event.preventDefault();UI.toast('Fais-le glisser dans la barre des favoris')">🏆 Résultats FFF → ${esc(AppCfg.name)}</a></div></li>
+        <div class="chips src-bm"><a class="btn" href="${esc(b.ac)}" onclick="${DRAG}">📥 AssistCoachAI → ${esc(AppCfg.name)}</a><a class="btn" href="${esc(b.fc)}" onclick="${DRAG}">📥 Footclubs → ${esc(AppCfg.name)}</a></div></li>
         <li><b>AssistCoachAI :</b> connecte-toi, puis touche le favori « AssistCoachAI ».</li>
-        <li><b>Facultatif, feuilles de match</b> (cartons, remplacements) : les résultats arrivent déjà tout seuls (carte du dessus). Pour les feuilles, ouvre la page de ton club sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a> et touche le favori « Résultats FFF ».</li>
         <li><b>Footclubs :</b> connecte-toi, puis touche le favori « Footclubs » (depuis n'importe quelle page : il ouvre la liste des licences tout seul).</li>
         <li>L'appli s'ouvre et te montre les changements : touche <b>Importer</b>.</li></ol>
-      <p class="muted small">À refaire quand tu veux (une fois par semaine, ou après une vague de licences). Rien n'est envoyé ailleurs que dans l'appli du club.</p></section>`;
+      <p class="muted small">À refaire quand tu veux (une fois par semaine, ou après une vague de licences). Rien n'est envoyé ailleurs que dans l'appli du club.</p>
+      ${Sport.isFoot() ? `<details class="src-more"><summary>Facultatif : cartons et remplacements des feuilles de match FFF</summary>
+        <p class="muted small">Les résultats arrivent déjà tout seuls. Ce favori ne sert qu'aux feuilles de match : fais-le glisser dans la barre des favoris, ouvre la page de ton club sur <a href="${esc(S().club.fffUrl || 'https://epreuves.fff.fr/')}" target="_blank" rel="noopener">epreuves.fff.fr</a>, puis touche-le <b>sur ce site-là</b>.</p>
+        <div class="chips src-bm"><a class="btn" href="${esc(b.ff)}" onclick="${DRAG}">📋 Feuilles de match FFF → ${esc(AppCfg.name)}</a></div></details>` : ''}</section>`;
   }
+  // (1.53) a bookmark button touched in the app instead of dragged: a message that stays (a toast was gone too fast)
+  const DRAG = "event.preventDefault();alert('Ce bouton ne se touche pas ici : fais-le GLISSER (clic maintenu) jusqu\\'à la barre des favoris de ton navigateur. Ensuite, utilise ce favori sur le site concerné (AssistCoachAI, Footclubs ou la FFF), pas dans l\\'appli.')";
 
   /* ---------- the app opened by a bookmark ---------- */
   function receive() {
@@ -14692,7 +14700,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 53, UPD = AppCfg.key('update-tried');
+  const BUILD = 54, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
