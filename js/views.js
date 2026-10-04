@@ -631,10 +631,11 @@ const Views = (() => {
       .sort((a, b) => (b.gk - a.gk) || (st.pos[a.id][0] - st.pos[b.id][0]) || (st.pos[a.id][1] - st.pos[b.id][1]));
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
+    const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
     return `<section class="card slots-card"><h2>👕 Qui joue où ?</h2>
-      <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur choisi ailleurs quitte son ancien poste.</p>
-      <div class="slots">${slots.map((o, i) => `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}">${o.gk ? '🧤' : esc(o.post || o.label || String(i + 1))}</span>
-        <select data-slot="${o.id}"><option value="">— personne —</option>${players.map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`).join('')}</div></section>`;
+      <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur déjà placé disparaît des autres listes.</p>
+      <div class="slots">${slots.map((o, i) => { const t = taken(o); return `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}">${o.gk ? '🧤' : esc(o.post || o.label || String(i + 1))}</span>
+        <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`; }).join('')}</div></section>`;
   }
   function setSlot(sc, slotId, pid) {
     const o = sc.objects.find(x => x.id === slotId); if (!o) return;

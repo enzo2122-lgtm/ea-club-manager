@@ -3478,7 +3478,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.42';
+  const VERSION = '1.43';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -12940,6 +12940,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 7, date: '2026-10-04', title: 'Un joueur, un poste', items: [
+      ['👕', 'Dans « Qui joue où ? », un joueur déjà placé disparaît des autres listes. Les listes raccourcissent à mesure que l\'équipe se remplit : plus facile de voir qui reste sur le banc.'],
+    ] },
     { n: 6, date: '2026-10-04', title: 'La feuille de match débarque', items: [
       ['📋', 'Le favori « Résultats FFF » lit aussi la feuille de match de chaque match joué : cartons, remplacements, compositions. Elle s\'affiche dans l\'onglet « Après » du match.'],
       ['⏱️', 'Le temps de jeu se calcule tout seul : un titulaire joue jusqu\'à sa sortie, un remplaçant depuis son entrée. Fini le chronomètre sur la ligne de touche.'],
@@ -13859,10 +13862,11 @@ var Views = (() => {
       .sort((a, b) => (b.gk - a.gk) || (st.pos[a.id][0] - st.pos[b.id][0]) || (st.pos[a.id][1] - st.pos[b.id][1]));
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
+    const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
     return `<section class="card slots-card"><h2>👕 Qui joue où ?</h2>
-      <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur choisi ailleurs quitte son ancien poste.</p>
-      <div class="slots">${slots.map((o, i) => `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}">${o.gk ? '🧤' : esc(o.post || o.label || String(i + 1))}</span>
-        <select data-slot="${o.id}"><option value="">— personne —</option>${players.map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`).join('')}</div></section>`;
+      <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur déjà placé disparaît des autres listes.</p>
+      <div class="slots">${slots.map((o, i) => { const t = taken(o); return `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}">${o.gk ? '🧤' : esc(o.post || o.label || String(i + 1))}</span>
+        <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`; }).join('')}</div></section>`;
   }
   function setSlot(sc, slotId, pid) {
     const o = sc.objects.find(x => x.id === slotId); if (!o) return;
@@ -14385,7 +14389,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 43, UPD = AppCfg.key('update-tried');
+  const BUILD = 44, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
