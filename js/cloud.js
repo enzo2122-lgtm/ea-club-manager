@@ -116,6 +116,10 @@ const Cloud = (() => {
     photoGet: id => rpc('club_photo_get', { p_id: id }),
     photoDel: id => rpc('club_photo_del', { p_id: id }),
     // backups
+    // (1.61) the predictions game
+    game: team => rpc('club_game', { p_team: team }),
+    gameBet: (ev, h, a, ko) => rpc('club_game_bet', { p_event: ev, p_h: h, p_a: a, p_kickoff: ko }),
+    gameFav: f => rpc('club_game_fav', { p_fav: f }),
     backups: () => rpc('club_backups', { admin_k: adminKey() }),
     backupNow: () => rpc('club_backup_now', { admin_k: adminKey() }),
     backupGet: id => rpc('club_backup_get', { admin_k: adminKey(), p_id: id }),

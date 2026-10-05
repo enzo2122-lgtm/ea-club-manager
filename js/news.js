@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 25, date: '2026-10-05', title: 'Le jeu des pronos', items: [
+      ['🎲', 'Nouveau : le jeu des pronos sur la Ligue des champions, entre les joueurs et les coachs de la catégorie (A et B ensemble). Gratuit, sans argent : 3 points le score exact, 1 point le bon résultat. Les coachs aussi peuvent se faire chambrer.'],
+      ['❤️', 'Chacun choisit son club de cœur, affiché à côté de son nom dans le classement. Les débats du vestiaire ont enfin des preuves.'],
+      ['🏋️', 'Le dernier de la semaine a un gage à la séance suivante (10 pompes, ranger les plots…), affiché aussi sur la page de la séance du coach. Les coachs choisissent la liste et peuvent mettre le jeu en pause.'],
+      ['🙈', 'Pas de copie possible : les pronos des autres n\'apparaissent qu\'au coup d\'envoi.'],
+    ] },
     { n: 24, date: '2026-10-05', title: 'Les joueurs voient le classement', items: [
       ['🏆', 'Sur l\'espace joueur : « Classements de ma catégorie », avec un onglet par équipe (A, B…) puisqu\'un joueur peut être appelé dans l\'une ou l\'autre. Classement, derniers résultats et prochaine journée.'],
       ['📊', '« Ma saison » compte maintenant tous les matchs du joueur, en A comme en B, avec ses cartons et sa présence aux séances. Les stats ne se perdent plus en changeant d\'équipe.'],

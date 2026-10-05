@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.60';
+  const VERSION = '1.61';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3910,6 +3910,10 @@ var Cloud = (() => {
     photoGet: id => rpc('club_photo_get', { p_id: id }),
     photoDel: id => rpc('club_photo_del', { p_id: id }),
     // backups
+    // (1.61) the predictions game
+    game: team => rpc('club_game', { p_team: team }),
+    gameBet: (ev, h, a, ko) => rpc('club_game_bet', { p_event: ev, p_h: h, p_a: a, p_kickoff: ko }),
+    gameFav: f => rpc('club_game_fav', { p_fav: f }),
     backups: () => rpc('club_backups', { admin_k: adminKey() }),
     backupNow: () => rpc('club_backup_now', { admin_k: adminKey() }),
     backupGet: id => rpc('club_backup_get', { admin_k: adminKey(), p_id: id }),
@@ -13106,6 +13110,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 25, date: '2026-10-05', title: 'Le jeu des pronos', items: [
+      ['🎲', 'Nouveau : le jeu des pronos sur la Ligue des champions, entre les joueurs et les coachs de la catégorie (A et B ensemble). Gratuit, sans argent : 3 points le score exact, 1 point le bon résultat. Les coachs aussi peuvent se faire chambrer.'],
+      ['❤️', 'Chacun choisit son club de cœur, affiché à côté de son nom dans le classement. Les débats du vestiaire ont enfin des preuves.'],
+      ['🏋️', 'Le dernier de la semaine a un gage à la séance suivante (10 pompes, ranger les plots…), affiché aussi sur la page de la séance du coach. Les coachs choisissent la liste et peuvent mettre le jeu en pause.'],
+      ['🙈', 'Pas de copie possible : les pronos des autres n\'apparaissent qu\'au coup d\'envoi.'],
+    ] },
     { n: 24, date: '2026-10-05', title: 'Les joueurs voient le classement', items: [
       ['🏆', 'Sur l\'espace joueur : « Classements de ma catégorie », avec un onglet par équipe (A, B…) puisqu\'un joueur peut être appelé dans l\'une ou l\'autre. Classement, derniers résultats et prochaine journée.'],
       ['📊', '« Ma saison » compte maintenant tous les matchs du joueur, en A comme en B, avec ses cartons et sa présence aux séances. Les stats ne se perdent plus en changeant d\'équipe.'],
@@ -13622,6 +13632,137 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
 })();
 
 ;
+/* ===== game.js ===== */
+/* Game (1.61): « Jeu des pronos », free predictions on the Champions League matches between the players and the coaches of a
+   category (teams A and B together). No money, no stake: points, a ranking, and a little forfeit (« gage ») for the last of the
+   week at the next session. Matches and results: TheSportsDB (free, open to web apps). Predictions: the club server
+   (member_game* for the players' page, club_game* for the coaches' app). Used by joueurs.html and by the app (#/jeu). */
+var Game = (() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const API = 'https://www.thesportsdb.com/api/v1/json/123/', LEAGUE = 4480; // UEFA Champions League
+  const GAGES = ['10 pompes', '20 abdos', '15 squats', 'Gainage 45 secondes', 'Ranger les plots à la fin de la séance', 'Porter le sac de ballons', '20 jongles sans faire tomber le ballon', 'Un tour de terrain en petites foulées'];
+  const FAVS = ['PSG', 'OM', 'OL', 'LOSC', 'AS Monaco', 'RC Lens', 'Stade Rennais', 'OGC Nice', 'Real Madrid', 'FC Barcelone', 'Atlético Madrid', 'Manchester City', 'Manchester United', 'Liverpool', 'Arsenal', 'Chelsea', 'Bayern Munich', 'Borussia Dortmund', 'Juventus', 'AC Milan', 'Inter Milan', 'Naples', 'Benfica', 'Porto', 'Ajax'];
+  const season = () => { const d = new Date(), y = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; return `${y}-${y + 1}`; };
+  const sKey = 'game-fx-' + LEAGUE;
+  const get = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+  const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const j = async u => { const r = await fetch(API + u); if (!r.ok) throw new Error('Matchs indisponibles pour l\'instant'); return r.json(); };
+
+  /* ---------- the matches (cached 2 hours on the device) ---------- */
+  async function fixtures(force) {
+    const c = get(sKey); if (!force && c && Date.now() - c.at < 2 * 3600e3) return c.list;
+    const s = season(), from = s.slice(0, 4) + '-09-01';
+    let r = 0; try { r = +((((await j(`eventsnextleague.php?id=${LEAGUE}`)).events || [])[0] || {}).intRound) || 0; } catch (e) {}
+    if (!r) try { r = +((((await j(`eventspastleague.php?id=${LEAGUE}`)).events || [])[0] || {}).intRound) || 0; } catch (e) {}
+    const seen = {}, list = [];
+    for (let k = Math.max(1, r - 8); k <= r + 1 && r; k++) {
+      try { ((await j(`eventsround.php?id=${LEAGUE}&r=${k}&s=${s}`)).events || []).forEach(e => {
+        if (seen[e.idEvent] || !e.strTimestamp || e.dateEvent < from) return; seen[e.idEvent] = 1;
+        const ko = Date.parse(e.strTimestamp + (/Z|[+-]\d\d:?\d\d$/.test(e.strTimestamp) ? '' : 'Z')), hs = e.intHomeScore == null || e.intHomeScore === '' ? null : +e.intHomeScore, as = e.intAwayScore == null || e.intAwayScore === '' ? null : +e.intAwayScore;
+        list.push({ id: String(e.idEvent), home: e.strHomeTeam, away: e.strAwayTeam, hb: e.strHomeTeamBadge || '', ab: e.strAwayTeamBadge || '', ko, hs, as,
+          done: hs != null && as != null && (/FT|AET|PEN|Match Finished/i.test(e.strStatus || '') || ko < Date.now() - 3 * 3600e3) });
+      }); } catch (e) {}
+    }
+    list.sort((a, b) => a.ko - b.ko);
+    if (list.length) put(sKey, { at: Date.now(), list });
+    return list.length ? list : (c ? c.list : []);
+  }
+  // the week of a match (Monday), to group the matchdays
+  const weekOf = t => { const d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.toISOString().slice(0, 10); };
+  const pts = (b, e) => !b || !e.done ? null : (b.h === e.hs && b.a === e.as) ? 3 : Math.sign(b.h - b.a) === Math.sign(e.hs - e.as) ? 1 : 0;
+  const hash = s => { let h = 7; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
+
+  /* ---------- the computation: ranking and forfeits ---------- */
+  function compute(view, fx) {
+    const people = view.people || [], byId = {}; people.forEach(p => { byId[p.id] = Object.assign({ pts: 0, exact: 0, n: 0 }, p); });
+    const bets = {}; (view.bets || []).forEach(b => { (bets[b.e] = bets[b.e] || {})[b.p] = b; });
+    fx.forEach(e => Object.values(bets[e.id] || {}).forEach(b => { const x = byId[b.p], q = pts(b, e); if (!x || q == null) return; x.pts += q; x.n++; if (q === 3) x.exact++; }));
+    const ranking = Object.values(byId).filter(x => x.n).sort((a, b) => b.pts - a.pts || b.exact - a.exact || a.name.localeCompare(b.name));
+    // the last week whose matches are all over: the last one(s) get a forfeit for the next session
+    const weeks = {}; fx.forEach(e => (weeks[weekOf(e.ko)] = weeks[weekOf(e.ko)] || []).push(e));
+    const done = Object.keys(weeks).sort().reverse().find(w => weeks[w].every(e => e.done) && weeks[w].some(e => bets[e.id]));
+    let gages = null;
+    if (done) {
+      const sc = {}; weeks[done].forEach(e => Object.values(bets[e.id] || {}).forEach(b => { if (byId[b.p]) sc[b.p] = (sc[b.p] || 0) + pts(b, e); }));
+      const ids = Object.keys(sc), list = ((view.settings || {}).gages || []).filter(Boolean), pool = list.length ? list : GAGES;
+      if (ids.length >= 2) {
+        const min = Math.min(...ids.map(i => sc[i])), max = Math.max(...ids.map(i => sc[i]));
+        gages = { week: done, tie: min === max, who: min === max ? [] : ids.filter(i => sc[i] === min).map(i => ({ p: byId[i], pts: sc[i], gage: pool[hash(done + i) % pool.length] })) };
+      }
+    }
+    return { ranking, bets, weeks, gages, byId };
+  }
+
+  /* ---------- the page ---------- */
+  const fmtD = t => new Date(t).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+  const fmtT = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const badge = u => u ? `<img class="gm-b" src="${esc(u)}/tiny" alt="" loading="lazy" onerror="this.remove()">` : '';
+  const favTag = f => f ? ` <span class="gm-fav">❤️ ${esc(f)}</span>` : '';
+  let state = { view: null, fx: null, err: '' };
+  async function load(o, force) {
+    if (!force && state.view && Date.now() - (state.at || 0) < 60000) return;
+    try { const [view, fx] = await Promise.all([o.load(), fixtures(force)]); state = { view, fx, err: '', at: Date.now() }; }
+    catch (e) { state.err = e.message || 'Jeu indisponible'; }
+  }
+  function html(o) {
+    const { view, fx, err } = state;
+    if (!view && err && o.quiet) return ''; // (the player's page: nothing until the club server has the game)
+    if (!view || !fx) return `<div class="gm"><h2>🎲 Jeu des pronos</h2><p class="gm-info">${err ? esc(err) : 'Chargement des matchs de Ligue des champions…'}</p></div>`;
+    const set = view.settings || {}, me = (view.people || []).find(p => p.me) || {}, c = compute(view, fx), now = Date.now();
+    const mine = id => ((c.bets[id] || {})[me.id]) || null;
+    const open = fx.filter(e => e.ko > now).slice(0, 18), live = fx.filter(e => e.ko <= now && !e.done);
+    const lastWeek = Object.keys(c.weeks).sort().reverse().find(w => c.weeks[w].some(e => e.done));
+    const row = e => { const b = mine(e.id), started = e.ko <= now, others = Object.values(c.bets[e.id] || {}).filter(x => x.p !== me.id);
+      return `<div class="gm-m" data-ev="${esc(e.id)}" data-ko="${e.ko}"><div class="gm-t">${badge(e.hb)}<span>${esc(e.home)}</span></div>
+        ${started || set.off ? `<div class="gm-s">${e.done ? `<b>${e.hs} - ${e.as}</b>` : '<i>en cours</i>'}${b ? `<small>ton prono ${b.h}-${b.a}${e.done ? ` · <b>+${pts(b, e)}</b>` : ''}</small>` : '<small>pas de prono</small>'}${others.length ? `<small class="gm-oth">${others.slice(0, 6).map(x => `${esc((c.byId[x.p] || {}).name || '?')} ${x.h}-${x.a}`).join(' · ')}${others.length > 6 ? '…' : ''}</small>` : ''}</div>`
+          : `<div class="gm-s"><span class="gm-in"><input type="number" min="0" max="20" inputmode="numeric" data-h value="${b ? b.h : ''}" aria-label="Buts ${esc(e.home)}">-<input type="number" min="0" max="20" inputmode="numeric" data-a value="${b ? b.a : ''}" aria-label="Buts ${esc(e.away)}"></span><small>${esc(fmtD(e.ko))} · ${esc(fmtT(e.ko))}${b ? ' · ✓ enregistré' : ''}</small></div>`}
+        <div class="gm-t r"><span>${esc(e.away)}</span>${badge(e.ab)}</div></div>`; };
+    const gg = c.gages;
+    return `<div class="gm">
+      <h2>🎲 Jeu des pronos <span class="gm-sub">Ligue des champions · ${esc(view.category || '')}</span></h2>
+      <p class="gm-info">Pronostique le score des matchs (gratuit, sans argent). Score exact : <b>3 pts</b> · bon résultat : <b>1 pt</b>. Les pronos des autres apparaissent au coup d'envoi. Le dernier de la semaine a un gage à la séance suivante 😈</p>
+      <div class="gm-favbox"><label>❤️ Mon club de cœur <input list="gm-favs" id="gmFav" maxlength="40" value="${esc(me.fav || '')}" placeholder="PSG, OM, Real Madrid…"></label><button class="gm-btn" data-gm-fav>OK</button>
+        <datalist id="gm-favs">${FAVS.map(f => `<option value="${esc(f)}">`).join('')}</datalist></div>
+      ${set.off ? '<p class="gm-warn">⏸️ Le jeu est en pause (décision des coachs).</p>' : ''}
+      ${gg && gg.who.length ? `<div class="gm-gage"><b>🏋️ Gages pour la prochaine séance</b> <small>(semaine du ${esc(fmtD(gg.week))})</small><ul>${gg.who.map(x => `<li><b>${esc(x.p.name)}</b> (${x.pts} pt${x.pts > 1 ? 's' : ''}) → ${esc(x.gage)}</li>`).join('')}</ul></div>` : gg && gg.tie ? '<p class="gm-info">🤝 Égalité parfaite la semaine dernière : pas de gage.</p>' : ''}
+      ${live.length ? `<h3>⚡ En cours</h3>${live.map(row).join('')}` : ''}
+      ${open.length ? `<h3>📝 À pronostiquer</h3>${open.map(row).join('')}<p class="gm-info">Ton prono s'enregistre dès que les deux scores sont remplis. Modifiable jusqu'au coup d'envoi.</p>` : '<p class="gm-info">Pas de match à venir pour l\'instant.</p>'}
+      <h3>🏆 Classement</h3>${c.ranking.length ? `<table class="gm-rank"><tbody>${c.ranking.map((x, i) => `<tr class="${x.me ? 'me' : ''}"><td>${i + 1}</td><td>${x.kind === 'coach' ? '🧢 ' : ''}${esc(x.name)}${favTag(x.fav)}</td><td><b>${x.pts}</b> pt${x.pts > 1 ? 's' : ''}</td><td class="gm-x">${x.exact} exact${x.exact > 1 ? 's' : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="gm-info">Le classement apparaîtra après les premiers matchs.</p>'}
+      ${lastWeek ? `<details class="gm-past"><summary>Résultats de la semaine du ${esc(fmtD(lastWeek))}</summary>${c.weeks[lastWeek].filter(e => e.done).map(row).join('')}</details>` : ''}
+      ${o.settings ? `<details class="gm-set"><summary>⚙️ Réglages du jeu (coachs)</summary>
+        <label class="gm-chk"><input type="checkbox" id="gmOff" ${set.off ? 'checked' : ''}> Mettre le jeu en pause</label>
+        <label>Liste des gages (un par ligne) <textarea id="gmGages" rows="6">${esc(((set.gages || []).length ? set.gages : GAGES).join('\n'))}</textarea></label>
+        <button class="gm-btn" data-gm-set>Enregistrer les réglages</button></details>` : ''}
+      <p class="gm-info gm-src">Matchs et résultats : TheSportsDB.</p></div>`;
+  }
+  /* mount the game into an element; o = { load, bet(ev, h, a, ko), fav(f), settings?: { save(s) }, toast } */
+  function mount(el, o) {
+    if (!el) return;
+    const draw = () => { el.innerHTML = html(o); };
+    draw();
+    if (!el.dataset.gmBound) {
+      el.dataset.gmBound = 1;
+      let tmr = null;
+      el.addEventListener('input', e => {
+        const m = e.target.closest('[data-ev]'); if (!m || !e.target.matches('[data-h],[data-a]')) return;
+        clearTimeout(tmr); tmr = setTimeout(async () => {
+          const h = m.querySelector('[data-h]').value, a = m.querySelector('[data-a]').value; if (h === '' || a === '') return;
+          try { await o.bet(m.dataset.ev, +h, +a, new Date(+m.dataset.ko).toISOString()); const v = state.view; v.bets = (v.bets || []).filter(b => !(b.e === m.dataset.ev && (v.people.find(p => p.me) || {}).id === b.p)); v.bets.push({ p: (v.people.find(p => p.me) || {}).id, e: m.dataset.ev, h: +h, a: +a }); (o.toast || (() => {}))('Prono enregistré ✓'); const sm = m.querySelector('small'); if (sm && !/enregistré/.test(sm.textContent)) sm.textContent += ' · ✓ enregistré'; }
+          catch (err) { (o.toast || alert)(/TROP_TARD/.test(err.message) ? 'Trop tard : le match a commencé.' : err.message, true); }
+        }, 700);
+      });
+      el.addEventListener('click', async e => {
+        if (e.target.closest('[data-gm-fav]')) { const f = (el.querySelector('#gmFav') || {}).value || ''; try { await o.fav(f); const me = state.view.people.find(p => p.me); if (me) me.fav = f.trim(); draw(); (o.toast || (() => {}))('Club de cœur enregistré ❤️'); } catch (err) { (o.toast || alert)(err.message, true); } }
+        if (e.target.closest('[data-gm-set]') && o.settings) { const s = { off: el.querySelector('#gmOff').checked, gages: el.querySelector('#gmGages').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 30) }; await o.settings.save(s); state.view.settings = s; draw(); (o.toast || (() => {}))('Réglages du jeu enregistrés'); }
+      });
+    }
+    load(o).then(draw);
+  }
+  // the forfeits of the week for a category (the coaches' session page): [{ name, gage }]
+  return { mount, fixtures, compute, GAGES };
+})();
+
+;
 /* ===== views.js ===== */
 /* Views: every screen of the app except the board editor. */
 var Views = (() => {
@@ -14049,6 +14190,7 @@ var Views = (() => {
           </div>
           <label class="fld"><span>Objectif de la séance</span><textarea id="trGoal" rows="2" placeholder="ex : jouer vers l'avant après la récupération">${esc(tr.goal || '')}</textarea></label>
         </section>
+        <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
         <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
         <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
@@ -14066,6 +14208,7 @@ var Views = (() => {
         </details>
         <div class="danger-zone"><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button></div>`;
       const box = $('#rateBox', root); if (box) Ratings.bind(box, tr, save);
+      gagesInto($('#gageBox', root), tr);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
       Parents.mountTraining($('#trAnsBox', root), tr, ids => { tr.presents = [...new Set([...(tr.presents || []), ...ids])]; save(); render(); toast('Présents annoncés cochés'); });
     };
@@ -14680,7 +14823,31 @@ var Views = (() => {
       } });
   }
 
-  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup };
+  /* (1.61) the forfeits of the predictions game, on the page of the next session of the category */
+  const gageCache = {};
+  async function gagesInto(el, tr) {
+    if (!el || !tr.teamId || !Cloud.ready() || (tr.date && tr.date < UI.today())) return;
+    try {
+      const c = gageCache[tr.teamId] && Date.now() - gageCache[tr.teamId].at < 300000 ? gageCache[tr.teamId] : (gageCache[tr.teamId] = { at: Date.now(), p: Promise.all([Cloud.game(tr.teamId), Game.fixtures()]) });
+      const [view, fx] = await c.p, g = Game.compute(view, fx).gages;
+      if (!g || !g.who.length || (view.settings || {}).off) return;
+      el.innerHTML = `<section class="card gm-gage"><b>🏋️ Gages du jeu des pronos</b> <span class="muted small">(derniers de la semaine)</span>
+        <ul>${g.who.map(x => `<li><b>${esc(x.p.name)}</b> → ${esc(x.gage)}</li>`).join('')}</ul><a class="btn soft" href="#/jeu">🎲<span>Voir le jeu</span></a></section>`;
+    } catch (e) { /* no game on this server yet, or no connection: nothing shown */ }
+  }
+  /* ================= (1.61) Jeu des pronos (Ligue des champions) ================= */
+  function game(root) {
+    const tid = activeTeam() || (Auth.teams()[0] && Auth.teams()[0].id), t = teamOf(tid);
+    if (!t) { root.innerHTML = header('Jeu des pronos') + empty('Crée une équipe pour lancer le jeu.'); return; }
+    S().ui.teamId = tid;
+    root.innerHTML = `${header('Jeu des pronos', 'Ligue des champions · joueurs et coachs de la catégorie')}${teamSwitch()}
+      ${Cloud.ready() ? '<section class="card" id="gameBox"></section>' : '<p class="tip">Le jeu se joue avec le serveur du club : connecte-toi pour y jouer avec tes joueurs.</p>'}`;
+    bindTeamSwitch(root, () => game(root));
+    const box = $('#gameBox', root); if (!box) return;
+    Game.mount(box, { load: () => Cloud.game(t.id), bet: (e, h, a, ko) => Cloud.gameBet(e, h, a, ko), fav: f => Cloud.gameFav(f), toast: (m, err) => toast(m, err ? 'err' : ''),
+      settings: Auth.isAdmin() || (Auth.current() && Auth.sees(t.id)) ? { save: async st => { S().club.game = st; Store.save(); } } : null });
+  }
+  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game };
 })();
 
 ;
@@ -14690,11 +14857,11 @@ var App = (() => {
   // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
     ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
-    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['reglages', 'Réglages', 'settings'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['reglages', 'Réglages', 'settings'],
   ];
   const PHONE_MAIN = 5;
   // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
-  const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque']], ['Réglages et aide', ['reglages']]];
+  const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque']], ['Réglages et aide', ['reglages']]];
   const view = () => document.getElementById('view');
 
   function refreshChrome() {
@@ -14768,7 +14935,7 @@ var App = (() => {
     }
     const fn = { '': Views.home, equipes: Views.teams, equipe: Views.team, schemas: Views.schemas, entrainements: Views.trainings, entrainement: Views.training,
       matchs: Views.matches, match: Views.match, stats: Views.stats, reglages: Views.settings,
-      planning: r => Planning.page(r), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x),
+      planning: r => Planning.page(r), jeu: r => Views.game(r), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
       tests: (r, x) => Tests.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
@@ -14808,7 +14975,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 61, UPD = AppCfg.key('update-tried');
+  const BUILD = 62, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

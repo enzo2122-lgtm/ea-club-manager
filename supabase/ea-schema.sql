@@ -606,6 +606,432 @@ begin
       from items i where i.club = c and i.col = 'trainings' and not i.deleted and coalesce(i.data->>'model', '') <> 'true' and i.data->>'teamId' = any(tids)
         and i.data->>'date' between season and to_char(current_date, 'YYYY-MM-DD') and jsonb_array_length(coalesce(i.data->'presents', '[]'::jsonb)) > 0));
 end $;
+-- (1.61) « Jeu des pronos » : free predictions on Champions League matches (no money), players and coaches of a category
+-- (teams A and B together). Bets of the others are shown only from the kick-off. Settings (gages, on/off) in the club item (data.game).
+create table if not exists game_bets (club text not null, person text not null, kind text not null, event text not null,
+  h int not null check (h between 0 and 20), a int not null check (a between 0 and 20), kickoff timestamptz not null, at timestamptz not null default now(),
+  primary key (club, person, event));
+create table if not exists game_people (club text not null, person text not null, fav text, at timestamptz not null default now(), primary key (club, person));
+alter table game_bets enable row level security;
+alter table game_people enable row level security;
+revoke all on game_bets, game_people from public, anon, authenticated;
+-- the view of the game for one category (teams of the same category as p_teams), « me » = the person asking
+create or replace function ea_game_view(c text, p_teams text[], p_me text) returns jsonb language plpgsql stable security definer set search_path = public as $
+declare cats text[]; tids text[];
+begin
+  select array_agg(distinct coalesce(nullif(t.data->>'category', ''), t.data->>'name')) into cats from items t where t.club = c and t.col = 'teams' and not t.deleted and t.id = any(p_teams);
+  select array_agg(t.id) into tids from items t where t.club = c and t.col = 'teams' and not t.deleted and coalesce(nullif(t.data->>'category', ''), t.data->>'name') = any(coalesce(cats, '{}'::text[]));
+  return jsonb_build_object(
+    'category', (select string_agg(x, ' · ') from unnest(coalesce(cats, '{}'::text[])) x),
+    'settings', (select data->'game' from items where club = c and col = 'club' and id = 'club' and not deleted),
+    'people', (select coalesce(jsonb_agg(p order by p->>'name'), '[]'::jsonb) from (
+        select jsonb_build_object('id', i.id, 'kind', 'player', 'name', ea_short(i.data), 'me', i.id = p_me, 'fav', (select g.fav from game_people g where g.club = c and g.person = i.id)) p
+          from items i where i.club = c and i.col = 'players' and not i.deleted and ea_arr(i.data->'teamIds') && coalesce(tids, '{}'::text[])
+        union all
+        select jsonb_build_object('id', s.id, 'kind', 'coach', 'name', 'Coach ' || ea_short(s.data), 'me', s.id = p_me, 'fav', coalesce((select g.fav from game_people g where g.club = c and g.person = s.id), s.data->>'club'))
+          from items s where s.club = c and s.col = 'staff' and not s.deleted and ea_arr(s.data->'teamIds') && coalesce(tids, '{}'::text[])) z),
+    'bets', (select coalesce(jsonb_agg(jsonb_build_object('p', b.person, 'e', b.event, 'h', b.h, 'a', b.a)), '[]'::jsonb) from game_bets b
+      where b.club = c and (b.person = p_me or b.kickoff <= now()) and b.kickoff > now() - interval '300 days'
+        and (exists (select 1 from items i where i.club = c and i.col = 'players' and i.id = b.person and ea_arr(i.data->'teamIds') && coalesce(tids, '{}'::text[]))
+          or exists (select 1 from items s where s.club = c and s.col = 'staff' and s.id = b.person and ea_arr(s.data->'teamIds') && coalesce(tids, '{}'::text[])))));
+end $;
+create or replace function ea_game_bet(c text, p_me text, p_kind text, p_event text, p_h int, p_a int, p_kickoff timestamptz) returns jsonb language plpgsql security definer set search_path = public as $
+begin
+  if p_kickoff is null or p_kickoff <= now() then raise exception 'TROP_TARD'; end if;
+  if coalesce(p_event, '') !~ '^[0-9]{1,12}p_code text, p_match text, p_status text, p_seats int default 0) returns jsonb language plpgsql security definer set search_path = public as $$
+declare pl items := ea_member(p_code); c text := pl.club; m items;
+begin
+  select * into m from items where club = c and col = 'matches' and id = p_match and not deleted;
+  if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) or not (coalesce(m.data->'convoked', '[]'::jsonb) ? pl.id) then raise exception 'DONNEES'; end if;
+  if coalesce((m.data->>'played')::boolean, false) or m.data->>'date' < to_char(current_date, 'YYYY-MM-DD') then raise exception 'MATCH_PASSE'; end if;
+  if coalesce(p_status, '') = '' then delete from answers where club = c and match_id = p_match and player_id = pl.id; return to_jsonb(true); end if;
+  if p_status not in ('oui', 'non') then raise exception 'DONNEES'; end if;
+  insert into answers (club, match_id, player_id, status, seats, by_coach) values (c, p_match, pl.id, p_status, greatest(0, least(coalesce(p_seats, 0), 8)), false)
+    on conflict (club, match_id, player_id) do update set status = excluded.status, seats = excluded.seats, by_coach = false, updated_at = now();
+  return to_jsonb(true); end $$;
+create or replace function member_wellness(p_code text, p_mood int, p_mental int, p_sleep int, p_legs int, p_sore int, p_note text) returns jsonb language plpgsql security definer set search_path = public as $$
+declare pl items := ea_member(p_code); w jsonb; d text := to_char(current_date, 'YYYY-MM-DD');
+begin
+  if least(p_mood, p_mental, p_sleep, p_legs, p_sore) < 1 or greatest(p_mood, p_mental, p_sleep, p_legs, p_sore) > 10 then raise exception 'DONNEES'; end if;
+  w := (select coalesce(jsonb_agg(e), '[]'::jsonb) from (select e from jsonb_array_elements(case when jsonb_typeof(pl.data->'wellness') = 'array' then pl.data->'wellness' else '[]'::jsonb end) e where e->>'day' <> d order by e->>'day' desc limit 119) q)
+    || jsonb_build_array(jsonb_build_object('day', d, 'mood', p_mood, 'mental', p_mental, 'sleep', p_sleep, 'legs', p_legs, 'sore', p_sore, 'note', left(coalesce(p_note, ''), 200), 'self', true));
+  update items set data = jsonb_set(data, '{wellness}', w), updated_at = (extract(epoch from now()) * 1000)::bigint, rev = nextval('items_rev') where club = pl.club and col = 'players' and id = pl.id;
+  return to_jsonb(true); end $$;
+create or replace function member_volunteer(p_code text, p_match text, p_task text, p_label text, p_name text, p_remove boolean) returns jsonb language plpgsql security definer set search_path = public as $$
+declare pl items := ea_member(p_code); c text := pl.club; m items; v jsonb; lst jsonb; nm text := left(trim(coalesce(p_name, '')), 40);
+begin
+  if coalesce(p_task, '') !~ '^[A-Za-z0-9_-]{1,30}$' or (nm = '' and not coalesce(p_remove, false)) then raise exception 'DONNEES'; end if;
+  select * into m from items where club = c and col = 'matches' and id = p_match and not deleted;
+  if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if;
+  if m.data->>'date' < to_char(current_date, 'YYYY-MM-DD') then raise exception 'MATCH_PASSE'; end if;
+  v := case when jsonb_typeof(m.data->'vol') = 'object' then m.data->'vol' else '{}'::jsonb end;
+  lst := case when jsonb_typeof(v->p_task) = 'array' then v->p_task else '[]'::jsonb end;
+  if coalesce(p_remove, false) then
+    lst := (select coalesce(jsonb_agg(e), '[]'::jsonb) from jsonb_array_elements(lst) e where coalesce(e->>'pid', '') <> pl.id);
+  elsif not exists (select 1 from jsonb_array_elements(lst) e where coalesce(e->>'pid', '') = pl.id) then
+    if jsonb_array_length(lst) >= 8 then raise exception 'COMPLET'; end if;
+    lst := lst || jsonb_build_array(jsonb_build_object('id', substr(md5(random()::text), 1, 12), 'name', nm, 'parent', true, 'pid', pl.id, 'label', left(coalesce(p_label, ''), 40)));
+  end if;
+  update items set data = jsonb_set(data, '{vol}', v || jsonb_build_object(p_task, lst)), updated_at = (extract(epoch from now()) * 1000)::bigint, rev = nextval('items_rev')
+    where club = c and col = 'matches' and id = p_match;
+  return (select coalesce(jsonb_agg(jsonb_build_object('mine', coalesce(e->>'pid', '') = pl.id, 'name', case when coalesce(e->>'pid', '') = pl.id then e->>'name' else null end)), '[]'::jsonb) from jsonb_array_elements(lst) e); end $$;
+create or replace function member_photo(p_code text, p_id uuid) returns text language plpgsql stable security definer set search_path = public as $$
+declare pl items := ea_member(p_code);
+begin return (select ph.data from match_photos ph join items i on i.club = pl.club and i.col = 'matches' and i.id = ph.match_id and not i.deleted
+  where ph.club = pl.club and ph.id = p_id and i.data->>'teamId' = any(ea_member_teams(pl))); end $$;
+
+/* ================= espace du propriétaire de la plateforme ================= */
+-- La clé du propriétaire se choisit une seule fois, dans les 24 heures qui suivent l'installation (depuis l'appli : Réglages → Propriétaire)
+create or replace function ea_owner_ok(p_key text) returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(p_key, '') <> '' and exists (select 1 from ea_platform where id = 1 and owner_key_hash = ea_hash(p_key)) $$;
+create or replace function ea_owner_init(p_key text) returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  if length(coalesce(p_key, '')) < 12 then raise exception 'DONNEES'; end if;
+  update ea_platform set owner_key_hash = ea_hash(p_key) where id = 1 and owner_key_hash is null and installed_at > now() - interval '24 hours';
+  if not found then raise exception 'PROPRIETAIRE'; end if;
+  return to_jsonb(true); end $$;
+create or replace function ea_owner_codes(p_key text, p_new int default 0, p_note text default null) returns jsonb language plpgsql security definer set search_path = public as $$
+declare i int;
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  for i in 1 .. least(greatest(coalesce(p_new, 0), 0), 50) loop
+    insert into ea_activation (code, note) values ('EA-' || ea_code(4) || '-' || ea_code(4), left(p_note, 120)) on conflict do nothing;
+  end loop;
+  return (select coalesce(jsonb_agg(jsonb_build_object('code', a.code, 'note', a.note, 'created', a.created_at, 'used', a.used_at, 'club', cl.name) order by a.created_at desc), '[]'::jsonb)
+    from ea_activation a left join clubs cl on cl.id = a.used_by); end $$;
+create or replace function ea_owner_clubs(p_key text) returns jsonb language plpgsql security definer set search_path = public as $$
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  return (select coalesce(jsonb_agg(jsonb_build_object('id', cl.id, 'slug', cl.slug, 'name', cl.name, 'status', cl.status, 'created', cl.created_at, 'seen', cl.last_seen,
+      'players', (select count(*) from items i where i.club = cl.id and i.col = 'players' and not i.deleted),
+      'staff', (select count(*) from items i where i.club = cl.id and i.col = 'staff' and not i.deleted),
+      'accounts', (select count(*) from accounts a where a.club = cl.id and a.pw_hash is not null),
+      'matches', (select count(*) from items i where i.club = cl.id and i.col = 'matches' and not i.deleted)) order by cl.created_at desc), '[]'::jsonb) from clubs cl); end $$;
+create or replace function ea_owner_club_set(p_key text, p_club text, p_status text) returns jsonb language plpgsql security definer set search_path = public as $$
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  if p_status not in ('active', 'suspended') then raise exception 'DONNEES'; end if;
+  update clubs set status = p_status where id = p_club;
+  if p_status = 'suspended' then delete from sessions where club = p_club; end if;
+  return to_jsonb(found); end $$;
+create or replace function ea_owner_push(p_key text, p_url text) returns jsonb language plpgsql security definer set search_path = public as $$
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  update push_config set fn_url = nullif(p_url, '') where id = 1;
+  return (select jsonb_build_object('secret', secret, 'public', vapid_public) from push_config where id = 1); end $$;
+
+/* ================= droits ================= */
+-- a player or a parent (with the personal code) sends a message to the coaches of the category: his own training, his footings. 10 a day at most.
+create or replace function member_message(p_code text, p_body text, p_parent boolean default false) returns boolean language plpgsql security definer set search_path = public as $$
+declare pl items := ea_member(p_code); tids text[] := ea_member_teams(pl); who text;
+begin
+  if coalesce(trim(p_body), '') = '' or coalesce(array_length(tids, 1), 0) = 0 then raise exception 'DONNEES'; end if;
+  if (select count(*) from messages where club = pl.club and author_id = 'member:' || pl.id and created_at > now() - interval '1 day') >= 10 then raise exception 'LIMITE'; end if;
+  who := trim(coalesce(pl.data->>'firstName', '') || ' ' || coalesce(pl.data->>'lastName', '')) || case when p_parent then ' (parent)' else ' (joueur)' end;
+  insert into messages (club, channel, author_id, author_name, body) values (pl.club, 'team:' || tids[1], 'member:' || pl.id, who, left(p_body, 2000));
+  return true; end $$;
+
+-- (1.21) un joueur ou un parent répond présent / absent à un match OU à un entraînement, avec la raison de l'absence (malade, blessé, vacances…)
+create or replace function member_reply(p_code text, p_kind text, p_id text, p_status text, p_seats int default 0, p_reason text default null) returns jsonb language plpgsql security definer set search_path = public as $
+declare pl items := ea_member(p_code); c text := pl.club; m items; r text := nullif(left(trim(coalesce(p_reason, '')), 120), '');
+begin
+  if p_kind = 'match' then
+    select * into m from items where club = c and col = 'matches' and id = p_id and not deleted;
+    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) or not (coalesce(m.data->'convoked', '[]'::jsonb) ? pl.id) then raise exception 'DONNEES'; end if;
+    if coalesce((m.data->>'played')::boolean, false) then raise exception 'MATCH_PASSE'; end if;
+  elsif p_kind = 'training' then
+    select * into m from items where club = c and col = 'trainings' and id = p_id and not deleted;
+    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if;
+  else raise exception 'DONNEES'; end if;
+  if m.data->>'date' < to_char(current_date, 'YYYY-MM-DD') then raise exception 'MATCH_PASSE'; end if;
+  if coalesce(p_status, '') = '' then delete from answers where club = c and match_id = p_id and player_id = pl.id; return to_jsonb(true); end if;
+  if p_status not in ('oui', 'non') then raise exception 'DONNEES'; end if;
+  insert into answers (club, match_id, player_id, status, seats, note, by_coach)
+    values (c, p_id, pl.id, p_status, case when p_kind = 'match' and p_status = 'oui' then greatest(0, least(coalesce(p_seats, 0), 8)) else 0 end, case when p_status = 'non' then r end, false)
+    on conflict (club, match_id, player_id) do update set status = excluded.status, seats = excluded.seats, note = excluded.note, by_coach = false, updated_at = now();
+  return to_jsonb(true); end $;
+-- ses réponses : les entraînements des 2 semaines à venir (avec sa réponse) et les raisons de ses absences aux matchs
+create or replace function member_replies(p_code text) returns jsonb language plpgsql stable security definer set search_path = public as $
+declare pl items := ea_member(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); d0 text := to_char(current_date, 'YYYY-MM-DD');
+begin
+  return jsonb_build_object(
+    'trainings', (select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'date', i.data->>'date', 'time', i.data->>'time', 'title', i.data->>'title', 'answer', a.status, 'reason', a.note)
+        order by i.data->>'date', i.data->>'time'), '[]'::jsonb)
+      from items i left join answers a on a.club = c and a.match_id = i.id and a.player_id = pl.id
+      where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false) and i.data->>'teamId' = any(tids)
+        and i.data->>'date' between d0 and to_char(current_date + 14, 'YYYY-MM-DD')),
+    'reasons', (select coalesce(jsonb_object_agg(a.match_id, a.note), '{}'::jsonb) from answers a where a.club = c and a.player_id = pl.id and a.status = 'non' and a.note is not null and a.updated_at > now() - interval '120 days'));
+end $;
+grant execute on function member_reply(text, text, text, text, int, text), member_replies(text) to anon, authenticated;
+-- (1.22) les demandes de code d'activation envoyées depuis la page « Découvrir Clubbo » ; le propriétaire les voit dans son espace
+create table if not exists ea_requests (id uuid primary key default gen_random_uuid(), created_at timestamptz not null default now(),
+  name text not null, club text not null, sport text, town text, contact text not null, message text, status text not null default 'new', code text);
+alter table ea_requests enable row level security;
+create or replace function ea_request(p_name text, p_club text, p_sport text, p_town text, p_contact text, p_message text, p_trap text default null) returns boolean language plpgsql security definer set search_path = public as $
+begin
+  if coalesce(p_trap, '') <> '' then return true; end if; -- un robot a rempli le champ caché
+  if length(trim(coalesce(p_name, ''))) < 2 or length(trim(coalesce(p_club, ''))) < 2 or length(trim(coalesce(p_contact, ''))) < 6 then raise exception 'DONNEES'; end if;
+  if (select count(*) from ea_requests where created_at > now() - interval '1 hour') >= 20 then raise exception 'LIMITE'; end if;
+  if exists (select 1 from ea_requests where lower(contact) = lower(trim(p_contact)) and created_at > now() - interval '1 day') then return true; end if;
+  insert into ea_requests (name, club, sport, town, contact, message)
+    values (left(trim(p_name), 80), left(trim(p_club), 80), left(p_sport, 20), left(trim(coalesce(p_town, '')), 60), left(trim(p_contact), 120), left(trim(coalesce(p_message, '')), 1000));
+  return true; end $;
+create or replace function ea_owner_requests(p_key text, p_id uuid default null, p_status text default null, p_code text default null) returns jsonb language plpgsql security definer set search_path = public as $
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  if p_id is not null and p_status in ('new', 'done', 'dropped') then update ea_requests set status = p_status, code = coalesce(p_code, code) where id = p_id; end if;
+  return (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'at', created_at, 'name', name, 'club', club, 'sport', sport, 'town', town, 'contact', contact, 'message', message, 'status', status, 'code', code) order by created_at desc), '[]'::jsonb)
+    from (select * from ea_requests order by created_at desc limit 200) r); end $;
+revoke all on function ea_request(text, text, text, text, text, text, text), ea_owner_requests(text, uuid, text, text) from public;
+grant execute on function ea_request(text, text, text, text, text, text, text), ea_owner_requests(text, uuid, text, text) to anon, authenticated;
+-- (1.23) le propriétaire est prévenu sur son téléphone à chaque nouvelle demande de code
+create extension if not exists pg_net;
+create table if not exists ea_owner_subs (id uuid primary key default gen_random_uuid(), endpoint text not null unique, created_at timestamptz not null default now());
+alter table ea_owner_subs enable row level security;
+alter table ea_requests add column if not exists notified_at timestamptz;
+-- réveille les téléphones du propriétaire (sans contenu : le téléphone vient ensuite lire « ea_owner_news »)
+create or replace function ea_owner_wake() returns void language plpgsql security definer set search_path = public as $
+declare cfg push_config; subs jsonb;
+begin
+  select * into cfg from push_config where id = 1;
+  select jsonb_agg(jsonb_build_object('id', id, 'endpoint', endpoint)) into subs from ea_owner_subs;
+  if cfg.fn_url is null or subs is null then return; end if;
+  begin perform net.http_post(url := cfg.fn_url, body := jsonb_build_object('subs', subs), headers := jsonb_build_object('Content-Type', 'application/json', 'x-raincy-secret', cfg.secret));
+  exception when others then raise notice 'notification propriétaire : %', sqlerrm; end;
+end $;
+create or replace function ea_request(p_name text, p_club text, p_sport text, p_town text, p_contact text, p_message text, p_trap text default null) returns boolean language plpgsql security definer set search_path = public as $
+begin
+  if coalesce(p_trap, '') <> '' then return true; end if; -- un robot a rempli le champ caché
+  if length(trim(coalesce(p_name, ''))) < 2 or length(trim(coalesce(p_club, ''))) < 2 or length(trim(coalesce(p_contact, ''))) < 6 then raise exception 'DONNEES'; end if;
+  if (select count(*) from ea_requests where created_at > now() - interval '1 hour') >= 20 then raise exception 'LIMITE'; end if;
+  if exists (select 1 from ea_requests where lower(contact) = lower(trim(p_contact)) and created_at > now() - interval '1 day') then return true; end if;
+  insert into ea_requests (name, club, sport, town, contact, message)
+    values (left(trim(p_name), 80), left(trim(p_club), 80), left(p_sport, 20), left(trim(coalesce(p_town, '')), 60), left(trim(p_contact), 120), left(trim(coalesce(p_message, '')), 1000));
+  perform ea_owner_wake();
+  return true; end $;
+-- ce téléphone reçoit (ou plus) les alertes du propriétaire ; renvoie la clé publique des notifications
+create or replace function ea_owner_sub(p_key text, p_endpoint text default null, p_on boolean default null) returns jsonb language plpgsql security definer set search_path = public as $
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  if coalesce(p_endpoint, '') <> '' and p_on is not null then
+    if p_on then insert into ea_owner_subs (endpoint) values (left(p_endpoint, 1000)) on conflict (endpoint) do nothing;
+    else delete from ea_owner_subs where endpoint = p_endpoint; end if;
+  end if;
+  return jsonb_build_object('key', (select vapid_public from push_config where id = 1),
+    'on', coalesce(p_endpoint, '') <> '' and exists (select 1 from ea_owner_subs where endpoint = p_endpoint)); end $;
+-- le téléphone réveillé lit ses alertes (seulement s'il est abonné comme propriétaire)
+create or replace function ea_owner_news(p_endpoint text) returns jsonb language plpgsql security definer set search_path = public as $
+declare n int; last ea_requests;
+begin
+  if coalesce(p_endpoint, '') = '' or not exists (select 1 from ea_owner_subs where endpoint = p_endpoint) then return '[]'::jsonb; end if;
+  select count(*) into n from ea_requests where status = 'new' and notified_at is null and created_at > now() - interval '2 days';
+  if n = 0 then return '[]'::jsonb; end if;
+  select * into last from ea_requests where status = 'new' and notified_at is null order by created_at desc limit 1;
+  update ea_requests set notified_at = now() where status = 'new' and notified_at is null;
+  return jsonb_build_array(jsonb_build_object('title', case when n > 1 then '📨 ' || n || ' nouvelles demandes de code' else '📨 Nouvelle demande de code' end,
+    'body', last.club || coalesce(' · ' || nullif(last.sport, ''), '') || ' · ' || last.name, 'url', '#/proprietaire', 'tag', 'ea-request')); end $;
+revoke all on function ea_owner_wake() from public, anon, authenticated;
+revoke all on function ea_request(text, text, text, text, text, text, text), ea_owner_sub(text, text, boolean), ea_owner_news(text) from public;
+grant execute on function ea_request(text, text, text, text, text, text, text), ea_owner_sub(text, text, boolean), ea_owner_news(text) to anon, authenticated;
+-- (1.26) les joueurs et les parents prévenus sur leur téléphone : convocation envoyée, changement d'horaire ou de lieu, match ou séance annulés
+create table if not exists member_subs (id uuid primary key default gen_random_uuid(), club text not null references clubs(id) on delete cascade, player_id text not null,
+  endpoint text not null, page text not null default 'parents.html', created_at timestamptz not null default now(), unique (endpoint, player_id));
+create table if not exists member_notifs (id bigserial primary key, club text not null references clubs(id) on delete cascade, player_id text not null,
+  title text, body text, created_at timestamptz not null default now(), delivered boolean not null default false);
+create index if not exists member_notifs_player on member_notifs (club, player_id, delivered);
+alter table member_subs enable row level security;
+alter table member_notifs enable row level security;
+create or replace function member_arr(j jsonb) returns text[] language sql immutable as $
+  select array(select jsonb_array_elements_text(case when jsonb_typeof(j) = 'array' then j else '[]'::jsonb end)) $;
+-- ce téléphone est prévenu (ou plus) pour ce joueur ; renvoie la clé publique des notifications
+create or replace function member_push(p_code text, p_endpoint text default null, p_on boolean default null, p_page text default null) returns jsonb language plpgsql security definer set search_path = public as $
+declare pl items := ea_member(p_code);
+begin
+  if coalesce(p_endpoint, '') <> '' and p_on is not null then
+    if p_on then insert into member_subs (club, player_id, endpoint, page) values (pl.club, pl.id, left(p_endpoint, 1000), case when p_page = 'joueurs.html' then 'joueurs.html' else 'parents.html' end)
+      on conflict (endpoint, player_id) do update set page = excluded.page;
+    else delete from member_subs where endpoint = p_endpoint and player_id = pl.id; end if;
+  end if;
+  return jsonb_build_object('key', (select vapid_public from push_config where id = 1),
+    'on', exists (select 1 from member_subs where endpoint = coalesce(p_endpoint, '') and player_id = pl.id)); end $;
+-- le téléphone réveillé lit ses notifications (celles des joueurs suivis sur ce téléphone)
+create or replace function member_news(p_endpoint text) returns jsonb language plpgsql security definer set search_path = public as $
+declare r jsonb;
+begin
+  if coalesce(p_endpoint, '') = '' then return '[]'::jsonb; end if;
+  select coalesce(jsonb_agg(jsonb_build_object('title', n.title, 'body', n.body, 'url', s.page, 'tag', 'm' || n.id) order by n.id desc), '[]'::jsonb) into r
+    from member_notifs n join member_subs s on s.club = n.club and s.player_id = n.player_id and s.endpoint = p_endpoint
+    where not n.delivered and n.created_at > now() - interval '2 days';
+  update member_notifs n set delivered = true from member_subs s where s.club = n.club and s.player_id = n.player_id and s.endpoint = p_endpoint and not n.delivered;
+  delete from member_notifs where created_at < now() - interval '30 days';
+  return r; end $;
+-- une notification pour ces joueurs (seulement ceux qui ont un téléphone abonné), puis les téléphones sont réveillés
+create or replace function member_note(c text, p_players text[], p_title text, p_body text) returns void language plpgsql security definer set search_path = public as $
+declare subs jsonb; cfg push_config;
+begin
+  if coalesce(array_length(p_players, 1), 0) = 0 then return; end if;
+  insert into member_notifs (club, player_id, title, body)
+    select distinct c, s.player_id, left(p_title, 120), left(p_body, 240) from member_subs s where s.club = c and s.player_id = any(p_players);
+  select jsonb_agg(jsonb_build_object('id', x.id, 'endpoint', x.endpoint)) into subs
+    from (select distinct on (endpoint) id, endpoint from member_subs where club = c and player_id = any(p_players)) x;
+  select * into cfg from push_config where id = 1;
+  if subs is null or cfg.fn_url is null then return; end if;
+  begin perform net.http_post(url := cfg.fn_url, body := jsonb_build_object('subs', subs), headers := jsonb_build_object('Content-Type', 'application/json', 'x-raincy-secret', cfg.secret));
+  exception when others then raise notice 'notification des familles : %', sqlerrm; end;
+end $;
+create or replace function ea_on_item_members() returns trigger language plpgsql security definer set search_path = public as $
+declare d jsonb; o jsonb; ismatch boolean := new.col = 'matches'; dt date; team text; lbl text; body text; conv text[]; added text[];
+begin
+  if new.col not in ('matches', 'trainings') then return null; end if;
+  begin
+    if tg_op = 'UPDATE' and not old.deleted then o := old.data; end if;
+    d := case when new.deleted then o else new.data end;
+    if d is null or coalesce((d->>'model')::boolean, false) or coalesce((d->>'exempt')::boolean, false) then return null; end if;
+    begin dt := (d->>'date')::date; exception when others then return null; end;
+    if dt is null or dt < current_date or dt > current_date + 30 then return null; end if;
+    team := d->>'teamId'; if coalesce(team, '') = '' then return null; end if;
+    lbl := coalesce((select data->>'name' from items where club = new.club and col = 'teams' and id = team), '');
+    body := ea_day(dt) || coalesce(' · ' || replace(nullif(d->>'time', ''), ':', 'h'), '');
+    if ismatch then
+      body := (case when coalesce((d->>'home')::boolean, false) then 'contre ' else 'chez ' end) || coalesce(d->>'opponent', '?') || ' · ' || body
+        || coalesce(' · RDV ' || replace(nullif(d->>'rdv', ''), ':', 'h'), '') || coalesce(' · ' || nullif(d->>'place', ''), '');
+      conv := member_arr(d->'convoked');
+      if new.deleted then perform member_note(new.club, conv, '❌ Match annulé · ' || lbl, body); return null; end if;
+      if (d->>'convSent') is null then return null; end if; -- la convocation n'est pas encore envoyée par le coach
+      if o is null or (o->>'convSent') is distinct from (d->>'convSent') then perform member_note(new.club, conv, '📣 Convocation · ' || lbl, body); return null; end if;
+      added := array(select x from unnest(conv) x where not (coalesce(o->'convoked', '[]'::jsonb) ? x));
+      if coalesce(array_length(added, 1), 0) > 0 then perform member_note(new.club, added, '📣 Convocation · ' || lbl, body); end if;
+      if (d->>'date') is distinct from (o->>'date') or (d->>'time') is distinct from (o->>'time') or (d->>'rdv') is distinct from (o->>'rdv') or (d->>'place') is distinct from (o->>'place') then
+        perform member_note(new.club, array(select x from unnest(conv) x where not (x = any(added))), '🕘 Changement · match ' || lbl, body);
+      end if;
+    else
+      if dt > current_date + 7 then return null; end if;
+      body := body || coalesce(' · ' || nullif(d->>'title', ''), '');
+      conv := array(select i.id from items i where i.club = new.club and i.col = 'players' and not i.deleted and coalesce(i.data->'teamIds', '[]'::jsonb) ? team);
+      if new.deleted then perform member_note(new.club, conv, '❌ Séance annulée · ' || lbl, body);
+      elsif o is not null and ((d->>'date') is distinct from (o->>'date') or (d->>'time') is distinct from (o->>'time')) then perform member_note(new.club, conv, '🕘 Changement · séance ' || lbl, body); end if;
+    end if;
+  exception when others then raise notice 'notification des familles : %', sqlerrm; end;
+  return null;
+end $;
+drop trigger if exists ea_item_members on items;
+create trigger ea_item_members after insert or update on items for each row execute function ea_on_item_members();
+revoke all on function member_note(text, text[], text, text), ea_on_item_members() from public, anon, authenticated;
+revoke all on function member_push(text, text, boolean, text), member_news(text) from public;
+grant execute on function member_push(text, text, boolean, text), member_news(text) to anon, authenticated;
+-- (1.26) la formule de chaque club (gratuite jusqu'à 3 équipes, « Club » à 15 € par mois au-delà) et l'usage de l'appli, pour le propriétaire
+alter table clubs add column if not exists plan text not null default 'free';
+create or replace function ea_owner_clubs(p_key text) returns jsonb language plpgsql security definer set search_path = public as $
+declare wk bigint := (extract(epoch from now() - interval '7 days') * 1000)::bigint;
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  return (select coalesce(jsonb_agg(jsonb_build_object('id', cl.id, 'slug', cl.slug, 'name', cl.name, 'status', cl.status, 'created', cl.created_at, 'seen', cl.last_seen, 'plan', cl.plan,
+      'teams', (select count(*) from items i where i.club = cl.id and i.col = 'teams' and not i.deleted),
+      'players', (select count(*) from items i where i.club = cl.id and i.col = 'players' and not i.deleted),
+      'staff', (select count(*) from items i where i.club = cl.id and i.col = 'staff' and not i.deleted),
+      'accounts', (select count(*) from accounts a where a.club = cl.id and a.pw_hash is not null),
+      'matches', (select count(*) from items i where i.club = cl.id and i.col = 'matches' and not i.deleted),
+      'week', (select count(*) from items i where i.club = cl.id and i.col in ('trainings', 'matches', 'schemas', 'players') and i.updated_at > wk),
+      'families', (select count(distinct player_id) from member_subs s where s.club = cl.id),
+      'up', (select count(*) from items i where i.club = cl.id and i.col = 'reports' and not i.deleted and i.data->>'type' = 'avis' and i.data->>'value' = 'up'),
+      'down', (select count(*) from items i where i.club = cl.id and i.col = 'reports' and not i.deleted and i.data->>'type' = 'avis' and i.data->>'value' = 'down'))
+    order by cl.created_at desc), '[]'::jsonb) from clubs cl); end $;
+-- les pages les moins aimées, tous clubs confondus
+create or replace function ea_owner_votes(p_key text) returns jsonb language plpgsql security definer set search_path = public as $
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  return (select coalesce(jsonb_agg(x order by (x->>'down')::int desc, (x->>'up')::int), '[]'::jsonb) from (
+    select jsonb_build_object('page', data->>'page', 'up', count(*) filter (where data->>'value' = 'up'), 'down', count(*) filter (where data->>'value' = 'down')) x
+    from items where col = 'reports' and not deleted and data->>'type' = 'avis' group by data->>'page') q); end $;
+create or replace function ea_owner_club_plan(p_key text, p_club text, p_plan text) returns boolean language plpgsql security definer set search_path = public as $
+begin if not ea_owner_ok(p_key) then raise exception 'PROPRIETAIRE'; end if;
+  if p_plan not in ('free', 'club') then raise exception 'DONNEES'; end if;
+  update clubs set plan = p_plan where id = p_club; return found; end $;
+-- le club connaît sa formule (pour le message de la version gratuite)
+create or replace function club_info(k text) returns jsonb language plpgsql security definer set search_path = public as $
+declare c text := ea_need(k);
+begin return (select jsonb_build_object('id', id, 'slug', slug, 'name', name, 'created', created_at, 'plan', plan) from clubs where id = c); end $;
+revoke all on function ea_owner_votes(text), ea_owner_club_plan(text, text, text) from public;
+grant execute on function ea_owner_votes(text), ea_owner_club_plan(text, text, text) to anon, authenticated;
+-- (1.27) « Retirer l'accès » : un dirigeant marqué « blocked » ne peut plus créer de compte (même avec le lien d'invitation)
+create or replace function club_register(k text, admin_k text, p jsonb) returns jsonb language plpgsql security definer set search_path = public as $
+declare c text := coalesce(ea_club(admin_k), ea_club(k)); is_adm boolean; sid text := p->>'staff_id'; s text := ea_token(); a accounts;
+begin
+  if c is null then raise exception 'CLE_CLUB'; end if;
+  is_adm := ea_admin(admin_k, c);
+  if coalesce(sid, '') = '' or coalesce(p->>'last_key', '') = '' or length(coalesce(p->>'h', '')) < 32 then raise exception 'DONNEES'; end if;
+  if not is_adm and exists (select 1 from items where club = c and col = 'staff' and id = sid and not deleted and coalesce(data->>'blocked', '') not in ('', 'false', 'null')) then raise exception 'ACCES_RETIRE'; end if;
+  select * into a from accounts where club = c and staff_id = sid;
+  if a.pw_hash is not null and not is_adm then raise exception 'DEJA_INSCRIT'; end if;
+  insert into accounts (club, staff_id, last_key, first_keys, display, salt, pw_hash, admin)
+    values (c, sid, p->>'last_key', ea_arr(p->'first_keys'), coalesce(p->>'display', ''), s, ea_hash(s || (p->>'h')), coalesce((p->>'admin')::boolean, false) and is_adm)
+    on conflict (club, staff_id) do update set last_key = excluded.last_key, first_keys = excluded.first_keys, display = excluded.display, salt = excluded.salt,
+      pw_hash = excluded.pw_hash, admin = accounts.admin or excluded.admin, updated_at = now();
+  delete from sessions where club = c and staff_id = sid;
+  return ea_new_session(c, sid);
+end $;
+-- (1.32) un joueur ou un parent répond « absent » (match ou séance) : les coachs de la catégorie sont prévenus, avec la raison
+create or replace function ea_on_answer() returns trigger language plpgsql security definer set search_path = public as $
+declare m items; pl items; ismatch boolean; dt date; who text; what text;
+begin
+  begin
+    if new.by_coach or new.status <> 'non' then return null; end if;
+    if tg_op = 'UPDATE' and old.status = 'non' and coalesce(old.note, '') = coalesce(new.note, '') then return null; end if;
+    select * into m from items where club = new.club and col in ('matches', 'trainings') and id = new.match_id and not deleted limit 1;
+    if m.id is null or coalesce(m.data->>'teamId', '') = '' then return null; end if;
+    select * into pl from items where club = new.club and col = 'players' and id = new.player_id;
+    ismatch := m.col = 'matches';
+    begin dt := (m.data->>'date')::date; exception when others then dt := null; end;
+    who := coalesce(nullif(ea_short(pl.data), ''), 'Un joueur');
+    what := case when ismatch then 'match ' || case when coalesce((m.data->>'home')::boolean, false) then 'contre ' else 'chez ' end || coalesce(m.data->>'opponent', '?')
+      else 'séance' || coalesce(' « ' || nullif(m.data->>'title', '') || ' »', '') end
+      || coalesce(' · ' || ea_day(dt), '');
+    perform ea_notify(new.club, ea_team_staff(new.club, m.data->>'teamId'), 'planning', 'abs:' || new.match_id || ':' || new.player_id,
+      '✗ Absent · ' || who, what || coalesce(' · ' || nullif(new.note, ''), ''),
+      case when ismatch then '#/match/' else '#/entrainement/' end || m.id);
+  exception when others then raise notice 'notification absence : %', sqlerrm; end;
+  return null;
+end $;
+drop trigger if exists ea_answer_notify on answers;
+create trigger ea_answer_notify after insert or update on answers for each row execute function ea_on_answer();
+revoke all on function ea_on_answer() from public, anon, authenticated;
+do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_login', 'club_register', 'club_accounts', 'club_account_set', 'club_me', 'club_teams_done',
+  'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
+  'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
+  'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
+  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
+  'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_request', 'ea_owner_requests', 'ea_owner_sub', 'ea_owner_news', 'member_push', 'member_news', 'ea_owner_votes', 'ea_owner_club_plan', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
+begin
+  for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop
+    execute format('revoke all on function %s from public', f.sig);
+    begin execute format('revoke all on function %s from anon, authenticated', f.sig); exception when others then null; end;
+    if f.proname = any(open_fns) then execute format('grant execute on function %s to anon, authenticated', f.sig); end if;
+  end loop;
+end $grants$;
+notify pgrst, 'reload schema';
+ then raise exception 'DONNEES'; end if;
+  if (select (data#>>'{game,off}')::boolean from items where club = c and col = 'club' and id = 'club') is true then raise exception 'JEU_FERME'; end if;
+  insert into game_bets (club, person, kind, event, h, a, kickoff) values (c, p_me, p_kind, p_event, p_h, p_a, p_kickoff)
+    on conflict (club, person, event) do update set h = excluded.h, a = excluded.a, at = now()
+    where game_bets.kickoff > now();
+  return to_jsonb(true); end $;
+create or replace function ea_game_fav(c text, p_me text, p_fav text) returns jsonb language plpgsql security definer set search_path = public as $
+begin
+  insert into game_people (club, person, fav) values (c, p_me, left(nullif(trim(coalesce(p_fav, '')), ''), 40))
+    on conflict (club, person) do update set fav = excluded.fav, at = now();
+  return to_jsonb(true); end $;
+-- the player (personal code)
+create or replace function member_game(p_code text) returns jsonb language plpgsql security definer set search_path = public as $
+declare pl items := ea_member(p_code); begin return ea_game_view(pl.club, ea_member_teams(pl), pl.id); end $;
+create or replace function member_game_bet(p_code text, p_event text, p_h int, p_a int, p_kickoff timestamptz) returns jsonb language plpgsql security definer set search_path = public as $
+declare pl items := ea_member(p_code); begin return ea_game_bet(pl.club, pl.id, 'player', p_event, p_h, p_a, p_kickoff); end $;
+create or replace function member_game_fav(p_code text, p_fav text) returns jsonb language plpgsql security definer set search_path = public as $
+declare pl items := ea_member(p_code); begin return ea_game_fav(pl.club, pl.id, p_fav); end $;
+-- the coach (his login), for one of the club's teams
+create or replace function club_game(k text, p_team text) returns jsonb language plpgsql security definer set search_path = public as $
+declare c text := ea_need(k); sid text := ea_staff(k); begin
+  if sid is null then raise exception 'CLE_CLUB'; end if;
+  return ea_game_view(c, array[p_team], sid); end $;
+create or replace function club_game_bet(k text, p_event text, p_h int, p_a int, p_kickoff timestamptz) returns jsonb language plpgsql security definer set search_path = public as $
+declare c text := ea_need(k); sid text := ea_staff(k); begin
+  if sid is null then raise exception 'CLE_CLUB'; end if;
+  return ea_game_bet(c, sid, 'coach', p_event, p_h, p_a, p_kickoff); end $;
+create or replace function club_game_fav(k text, p_fav text) returns jsonb language plpgsql security definer set search_path = public as $
+declare c text := ea_need(k); sid text := ea_staff(k); begin
+  if sid is null then raise exception 'CLE_CLUB'; end if;
+  return ea_game_fav(c, sid, p_fav); end $;
 create or replace function member_answer(p_code text, p_match text, p_status text, p_seats int default 0) returns jsonb language plpgsql security definer set search_path = public as $$
 declare pl items := ea_member(p_code); c text := pl.club; m items;
 begin

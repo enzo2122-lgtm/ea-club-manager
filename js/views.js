@@ -424,6 +424,7 @@ const Views = (() => {
           </div>
           <label class="fld"><span>Objectif de la séance</span><textarea id="trGoal" rows="2" placeholder="ex : jouer vers l'avant après la récupération">${esc(tr.goal || '')}</textarea></label>
         </section>
+        <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
         <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
         <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
@@ -441,6 +442,7 @@ const Views = (() => {
         </details>
         <div class="danger-zone"><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button></div>`;
       const box = $('#rateBox', root); if (box) Ratings.bind(box, tr, save);
+      gagesInto($('#gageBox', root), tr);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
       Parents.mountTraining($('#trAnsBox', root), tr, ids => { tr.presents = [...new Set([...(tr.presents || []), ...ids])]; save(); render(); toast('Présents annoncés cochés'); });
     };
@@ -1055,5 +1057,29 @@ const Views = (() => {
       } });
   }
 
-  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup };
+  /* (1.61) the forfeits of the predictions game, on the page of the next session of the category */
+  const gageCache = {};
+  async function gagesInto(el, tr) {
+    if (!el || !tr.teamId || !Cloud.ready() || (tr.date && tr.date < UI.today())) return;
+    try {
+      const c = gageCache[tr.teamId] && Date.now() - gageCache[tr.teamId].at < 300000 ? gageCache[tr.teamId] : (gageCache[tr.teamId] = { at: Date.now(), p: Promise.all([Cloud.game(tr.teamId), Game.fixtures()]) });
+      const [view, fx] = await c.p, g = Game.compute(view, fx).gages;
+      if (!g || !g.who.length || (view.settings || {}).off) return;
+      el.innerHTML = `<section class="card gm-gage"><b>🏋️ Gages du jeu des pronos</b> <span class="muted small">(derniers de la semaine)</span>
+        <ul>${g.who.map(x => `<li><b>${esc(x.p.name)}</b> → ${esc(x.gage)}</li>`).join('')}</ul><a class="btn soft" href="#/jeu">🎲<span>Voir le jeu</span></a></section>`;
+    } catch (e) { /* no game on this server yet, or no connection: nothing shown */ }
+  }
+  /* ================= (1.61) Jeu des pronos (Ligue des champions) ================= */
+  function game(root) {
+    const tid = activeTeam() || (Auth.teams()[0] && Auth.teams()[0].id), t = teamOf(tid);
+    if (!t) { root.innerHTML = header('Jeu des pronos') + empty('Crée une équipe pour lancer le jeu.'); return; }
+    S().ui.teamId = tid;
+    root.innerHTML = `${header('Jeu des pronos', 'Ligue des champions · joueurs et coachs de la catégorie')}${teamSwitch()}
+      ${Cloud.ready() ? '<section class="card" id="gameBox"></section>' : '<p class="tip">Le jeu se joue avec le serveur du club : connecte-toi pour y jouer avec tes joueurs.</p>'}`;
+    bindTeamSwitch(root, () => game(root));
+    const box = $('#gameBox', root); if (!box) return;
+    Game.mount(box, { load: () => Cloud.game(t.id), bet: (e, h, a, ko) => Cloud.gameBet(e, h, a, ko), fav: f => Cloud.gameFav(f), toast: (m, err) => toast(m, err ? 'err' : ''),
+      settings: Auth.isAdmin() || (Auth.current() && Auth.sees(t.id)) ? { save: async st => { S().club.game = st; Store.save(); } } : null });
+  }
+  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game };
 })();
