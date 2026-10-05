@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 26, date: '2026-10-05', title: 'Départage au millimètre', items: [
+      ['🎯', 'Jeu des pronos : à égalité de points, la meilleure réussite passe devant (le % de pronos qui rapportent des points).'],
+      ['⚡', 'Toujours à égalité ? Le plus rapide gagne : celui qui pronostique le plus tôt avant les matchs. Fini d\'attendre la compo officielle pour copier les coachs.'],
+    ] },
     { n: 25, date: '2026-10-05', title: 'Le jeu des pronos', items: [
       ['🎲', 'Nouveau : le jeu des pronos sur la Ligue des champions, entre les joueurs et les coachs de la catégorie (A et B ensemble). Gratuit, sans argent : 3 points le score exact, 1 point le bon résultat. Les coachs aussi peuvent se faire chambrer.'],
       ['❤️', 'Chacun choisit son club de cœur, affiché à côté de son nom dans le classement. Les débats du vestiaire ont enfin des preuves.'],

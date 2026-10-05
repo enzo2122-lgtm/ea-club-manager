@@ -39,10 +39,13 @@ const Game = (() => {
 
   /* ---------- the computation: ranking and forfeits ---------- */
   function compute(view, fx) {
-    const people = view.people || [], byId = {}; people.forEach(p => { byId[p.id] = Object.assign({ pts: 0, exact: 0, n: 0 }, p); });
+    const people = view.people || [], byId = {}; people.forEach(p => { byId[p.id] = Object.assign({ pts: 0, exact: 0, n: 0, good: 0, adv: 0, advN: 0 }, p); });
     const bets = {}; (view.bets || []).forEach(b => { (bets[b.e] = bets[b.e] || {})[b.p] = b; });
-    fx.forEach(e => Object.values(bets[e.id] || {}).forEach(b => { const x = byId[b.p], q = pts(b, e); if (!x || q == null) return; x.pts += q; x.n++; if (q === 3) x.exact++; }));
-    const ranking = Object.values(byId).filter(x => x.n).sort((a, b) => b.pts - a.pts || b.exact - a.exact || a.name.localeCompare(b.name));
+    fx.forEach(e => Object.values(bets[e.id] || {}).forEach(b => { const x = byId[b.p], q = pts(b, e); if (!x || q == null) return; x.pts += q; x.n++; if (q > 0) x.good++; if (q === 3) x.exact++;
+      const at = Date.parse(b.at || ''); if (at && at < e.ko) { x.adv += (e.ko - at) / 3600e3; x.advN++; } }));
+    // (1.62) tie-breaks: points, then the success rate (% of predictions that scored), then the speed (hours before the kick-off, on average)
+    Object.values(byId).forEach(x => { x.pct = x.n ? Math.round(x.good / x.n * 100) : 0; x.speed = x.advN ? x.adv / x.advN : null; });
+    const ranking = Object.values(byId).filter(x => x.n).sort((a, b) => b.pts - a.pts || b.pct - a.pct || (b.speed || 0) - (a.speed || 0) || b.exact - a.exact || a.name.localeCompare(b.name));
     // the last week whose matches are all over: the last one(s) get a forfeit for the next session
     const weeks = {}; fx.forEach(e => (weeks[weekOf(e.ko)] = weeks[weekOf(e.ko)] || []).push(e));
     const done = Object.keys(weeks).sort().reverse().find(w => weeks[w].every(e => e.done) && weeks[w].some(e => bets[e.id]));
@@ -62,6 +65,7 @@ const Game = (() => {
   const fmtD = t => new Date(t).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
   const fmtT = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const badge = u => u ? `<img class="gm-b" src="${esc(u)}/tiny" alt="" loading="lazy" onerror="this.remove()">` : '';
+  const adv = h => h >= 48 ? Math.round(h / 24) + ' j' : h >= 1 ? Math.round(h) + ' h' : Math.max(1, Math.round(h * 60)) + ' min';
   const favTag = f => f ? ` <span class="gm-fav">❤️ ${esc(f)}</span>` : '';
   let state = { view: null, fx: null, err: '' };
   async function load(o, force) {
@@ -92,7 +96,7 @@ const Game = (() => {
       ${gg && gg.who.length ? `<div class="gm-gage"><b>🏋️ Gages pour la prochaine séance</b> <small>(semaine du ${esc(fmtD(gg.week))})</small><ul>${gg.who.map(x => `<li><b>${esc(x.p.name)}</b> (${x.pts} pt${x.pts > 1 ? 's' : ''}) → ${esc(x.gage)}</li>`).join('')}</ul></div>` : gg && gg.tie ? '<p class="gm-info">🤝 Égalité parfaite la semaine dernière : pas de gage.</p>' : ''}
       ${live.length ? `<h3>⚡ En cours</h3>${live.map(row).join('')}` : ''}
       ${open.length ? `<h3>📝 À pronostiquer</h3>${open.map(row).join('')}<p class="gm-info">Ton prono s'enregistre dès que les deux scores sont remplis. Modifiable jusqu'au coup d'envoi.</p>` : '<p class="gm-info">Pas de match à venir pour l\'instant.</p>'}
-      <h3>🏆 Classement</h3>${c.ranking.length ? `<table class="gm-rank"><tbody>${c.ranking.map((x, i) => `<tr class="${x.me ? 'me' : ''}"><td>${i + 1}</td><td>${x.kind === 'coach' ? '🧢 ' : ''}${esc(x.name)}${favTag(x.fav)}</td><td><b>${x.pts}</b> pt${x.pts > 1 ? 's' : ''}</td><td class="gm-x">${x.exact} exact${x.exact > 1 ? 's' : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="gm-info">Le classement apparaîtra après les premiers matchs.</p>'}
+      <h3>🏆 Classement</h3>${c.ranking.length ? `<table class="gm-rank"><tbody>${c.ranking.map((x, i) => `<tr class="${x.me ? 'me' : ''}"><td>${i + 1}</td><td>${x.kind === 'coach' ? '🧢 ' : ''}${esc(x.name)}${favTag(x.fav)}</td><td><b>${x.pts}</b> pt${x.pts > 1 ? 's' : ''}</td><td class="gm-x" title="Réussite : pronos qui ont rapporté des points">🎯 ${x.pct} %</td><td class="gm-x" title="Rapidité : avance moyenne avant le coup d'envoi">${x.speed == null ? '' : '⚡ ' + adv(x.speed)}</td></tr>`).join('')}</tbody></table><p class="gm-info">À égalité de points : la meilleure réussite (🎯 % de pronos qui rapportent), puis le plus rapide (⚡ avance moyenne avant le match).</p>` : '<p class="gm-info">Le classement apparaîtra après les premiers matchs.</p>'}
       ${lastWeek ? `<details class="gm-past"><summary>Résultats de la semaine du ${esc(fmtD(lastWeek))}</summary>${c.weeks[lastWeek].filter(e => e.done).map(row).join('')}</details>` : ''}
       ${o.settings ? `<details class="gm-set"><summary>⚙️ Réglages du jeu (coachs)</summary>
         <label class="gm-chk"><input type="checkbox" id="gmOff" ${set.off ? 'checked' : ''}> Mettre le jeu en pause</label>

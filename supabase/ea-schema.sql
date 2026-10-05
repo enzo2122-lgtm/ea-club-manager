@@ -630,7 +630,7 @@ begin
         union all
         select jsonb_build_object('id', s.id, 'kind', 'coach', 'name', 'Coach ' || ea_short(s.data), 'me', s.id = p_me, 'fav', coalesce((select g.fav from game_people g where g.club = c and g.person = s.id), s.data->>'club'))
           from items s where s.club = c and s.col = 'staff' and not s.deleted and ea_arr(s.data->'teamIds') && coalesce(tids, '{}'::text[])) z),
-    'bets', (select coalesce(jsonb_agg(jsonb_build_object('p', b.person, 'e', b.event, 'h', b.h, 'a', b.a)), '[]'::jsonb) from game_bets b
+    'bets', (select coalesce(jsonb_agg(jsonb_build_object('p', b.person, 'e', b.event, 'h', b.h, 'a', b.a, 'at', b.at)), '[]'::jsonb) from game_bets b
       where b.club = c and (b.person = p_me or b.kickoff <= now()) and b.kickoff > now() - interval '300 days'
         and (exists (select 1 from items i where i.club = c and i.col = 'players' and i.id = b.person and ea_arr(i.data->'teamIds') && coalesce(tids, '{}'::text[]))
           or exists (select 1 from items s where s.club = c and s.col = 'staff' and s.id = b.person and ea_arr(s.data->'teamIds') && coalesce(tids, '{}'::text[])))));
