@@ -1914,3 +1914,17 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 
 /* ---------- 1.58 : Résultats et stats, deux onglets ---------- */
 .rs-switch .seg-b { display: grid; place-items: center; text-decoration: none; }
+
+/* ---------- 1.59 : notes sur 10 ---------- */
+.notes10 { display: inline-flex; gap: 3px; flex-wrap: nowrap; }
+.n10 { width: 28px; height: 30px; padding: 0; border: 1px solid var(--line, #d9dde3); border-radius: 8px; background: var(--surface, #fff); color: var(--muted, #667); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.n10.fill { background: rgba(201, 164, 92, .22); border-color: rgba(201, 164, 92, .6); color: var(--ink, #14172b); }
+.n10.on { background: #c9a45c; border-color: #c9a45c; color: #14172b; transform: scale(1.08); }
+@media (max-width: 420px) { .n10 { width: 25px; height: 28px; font-size: 12px; } .notes10 { gap: 2px; } }
+.note-ro { display: inline-block; min-width: 46px; padding: 2px 6px; border-radius: 8px; background: rgba(201, 164, 92, .18); text-align: center; white-space: nowrap; }
+.note-ro b { font-size: 15px; }
+@media (max-width: 560px) {
+  .rate-row { grid-template-columns: auto 1fr; gap: 4px 8px; }
+  .rate-row .nm { grid-column: 1 / -1; white-space: normal; }
+  .rate-row .avg { grid-column: 1 / -1; }
+}

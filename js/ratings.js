@@ -1,9 +1,11 @@
-/* Ratings: each dirigeant rates players (1 to 5 stars + a comment) after a training or a match.
-   Stored in the event: ratings[playerId][staffId] = { v, c, at }. Also: result smileys and a little celebration. */
+/* Ratings: each dirigeant rates players (1 to 10 + a comment) after a training or a match.
+   Stored in the event: ratings[playerId][staffId] = { v, s: 10, c, at }. (1.59) The old ratings, out of 5 (no « s »), count double. Also: result smileys and a little celebration. */
 const Ratings = (() => {
   const { esc } = UI;
-  const FACES = ['', '😕', '🙂', '😀', '😃', '🤩'];
-  const WORDS = ['', 'À retravailler', 'Correct', 'Bien', 'Très bien', 'Excellent'];
+  const FACES = ['', '😣', '😕', '😕', '😐', '😐', '🙂', '😀', '😃', '🤩', '🏆'];
+  const WORDS = ['', 'Très difficile', 'À retravailler', 'À retravailler', 'Moyen', 'Moyen', 'Correct', 'Bien', 'Très bien', 'Excellent', 'Exceptionnel'];
+  // a rating out of 10 (the old ones were out of 5)
+  const val = x => !x || !x.v ? 0 : x.s === 10 ? +x.v : +x.v * 2;
   const SMILEYS = ['🏆', '🎉', '🔥', '💪', '😎', '🤝', '😐', '😢', '😤', '🌧️'];
   const DEFAULT = { V: '🏆', N: '🤝', D: '😢' };
   const RESULT_WORD = { V: 'Victoire !', N: 'Match nul', D: 'On se relève !' };
@@ -13,14 +15,14 @@ const Ratings = (() => {
   const smiley = m => { const r = result(m); return r ? (m.smiley || DEFAULT[r]) : ''; };
 
   function avg(ev, pid) {
-    const r = ((ev.ratings || {})[pid]) || {}, vals = Object.values(r).map(x => x.v).filter(Boolean);
+    const r = ((ev.ratings || {})[pid]) || {}, vals = Object.values(r).map(val).filter(Boolean);
     return vals.length ? { v: vals.reduce((a, b) => a + b, 0) / vals.length, n: vals.length } : null;
   }
   // All ratings of a player, most recent first
   function history(pid) {
     const out = [], S = Store.state;
     const scan = (list, kind) => list.forEach(ev => Object.entries(((ev.ratings || {})[pid]) || {}).forEach(([sid, x]) => {
-      if (x.v) out.push({ kind, ev, date: ev.date, v: x.v, c: x.c || '', by: Store.get('staff', sid) });
+      if (x.v) out.push({ kind, ev, date: ev.date, v: val(x), c: x.c || '', by: Store.get('staff', sid) });
     }));
     scan(S.matches, 'match'); scan(S.trainings, 'training');
     return out.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -35,17 +37,17 @@ const Ratings = (() => {
     const me = Auth.current();
     if (!players.length) return `<section class="card"><h2>⭐ Notes des joueurs</h2><p class="muted">${what === 'match' ? 'Coche les convoqués pour pouvoir les noter.' : 'Coche les présents pour pouvoir les noter.'}</p></section>`;
     const rows = players.map(p => {
-      const mine = me && (((ev.ratings || {})[p.id]) || {})[me.id] || {}, a = avg(ev, p.id);
-      const others = a && (a.n > 1 || !mine.v) ? `<span class="avg" title="Moyenne de tous les dirigeants">moy. ${fr(a.v)} · ${a.n} note${a.n > 1 ? 's' : ''}</span>` : '';
+      const mine = me && (((ev.ratings || {})[p.id]) || {})[me.id] || {}, a = avg(ev, p.id), mv = val(mine);
+      const others = a && (a.n > 1 || !mv) ? `<span class="avg" title="Moyenne de tous les dirigeants">moy. ${fr(a.v)}/10 · ${a.n} note${a.n > 1 ? 's' : ''}</span>` : '';
       return `<div class="rate-row" data-pid="${p.id}">
         <span class="nm">${esc(p.number ? p.number + ' · ' : '')}${esc(Store.fullName(p))}</span>
-        <span class="stars" role="radiogroup" aria-label="Note de ${esc(Store.fullName(p))}">${[1, 2, 3, 4, 5].map(n => `<button class="star ${n <= (mine.v || 0) ? 'on' : ''}" data-rate="${n}" role="radio" aria-checked="${n === mine.v}" aria-label="${n} sur 5 : ${WORDS[n]}">★</button>`).join('')}</span>
-        <span class="face" title="${esc(WORDS[mine.v || 0])}">${FACES[mine.v || 0]}</span>${others}
-        <input class="rate-c" data-rc placeholder="Commentaire (facultatif)" value="${esc(mine.c || '')}" maxlength="140" ${mine.v || mine.c ? '' : 'hidden'}>
+        <span class="notes10" role="radiogroup" aria-label="Note de ${esc(Store.fullName(p))} sur 10">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button class="n10 ${n === mv ? 'on' : ''} ${n <= mv ? 'fill' : ''}" data-rate="${n}" role="radio" aria-checked="${n === mv}" aria-label="${n} sur 10 : ${WORDS[n]}">${n}</button>`).join('')}</span>
+        <span class="face" title="${esc(WORDS[mv])}">${FACES[mv]}</span>${others}
+        <input class="rate-c" data-rc placeholder="Commentaire (facultatif)" value="${esc(mine.c || '')}" maxlength="140" ${mv || mine.c ? '' : 'hidden'}>
       </div>`;
     }).join('');
     return `<section class="card rate-card"><div class="row-head"><h2>⭐ Notes des joueurs</h2><span class="muted small">Tes notes : ${esc(me ? Store.fullName(me) : '')}</span></div>
-      <p class="muted small">1 étoile : à retravailler · 3 : bien · 5 : excellent. Chaque dirigeant donne sa note, l'appli fait la moyenne.</p>${rows}</section>`;
+      <p class="muted small">Note sur 10 : 4-5 moyen · 6 correct · 7 bien · 8 très bien · 9-10 excellent. Chaque dirigeant donne sa note, l'appli fait la moyenne.</p>${rows}</section>`;
   }
   function bind(root, ev, save) {
     const me = Auth.current(); if (!me) return;
@@ -53,8 +55,8 @@ const Ratings = (() => {
     root.addEventListener('click', e => {
       const b = e.target.closest('[data-rate]'); if (!b) return;
       const row = b.closest('[data-pid]'), s = slot(row.dataset.pid), n = +b.dataset.rate;
-      s.v = s.v === n ? 0 : n; s.at = Date.now(); save();
-      row.querySelectorAll('.star').forEach((x, i) => { x.classList.toggle('on', i < s.v); x.setAttribute('aria-checked', i + 1 === s.v); });
+      s.v = val(s) === n ? 0 : n; s.s = 10; s.at = Date.now(); save();
+      row.querySelectorAll('.n10').forEach((x, i) => { x.classList.toggle('on', i + 1 === s.v); x.classList.toggle('fill', i < s.v); x.setAttribute('aria-checked', i + 1 === s.v); });
       row.querySelector('.face').textContent = FACES[s.v]; row.querySelector('.face').title = WORDS[s.v];
       row.querySelector('[data-rc]').hidden = !s.v && !s.c;
     });
@@ -85,5 +87,5 @@ const Ratings = (() => {
     requestAnimationFrame(tick);
   }
 
-  return { section, bind, history, average, avg, smiley, smileyPicker, celebrate, result, FACES, fr };
+  return { section, bind, history, average, avg, smiley, smileyPicker, celebrate, result, FACES, fr, val };
 })();

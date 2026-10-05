@@ -186,8 +186,8 @@ const People = (() => {
     const h = Ratings.history(p.id); if (!h.length) return '';
     const am = Ratings.average(p.id, 'match'), at = Ratings.average(p.id, 'training');
     return `<h3 class="sub-h">⭐ Notes des dirigeants</h3>
-      <p class="muted">${am ? 'Matchs : ' + Ratings.fr(am) + '/5' : ''}${am && at ? ' · ' : ''}${at ? 'Entraînements : ' + Ratings.fr(at) + '/5' : ''}</p>
-      <ul class="notes-list">${h.slice(0, 12).map(x => `<li><span class="stars-ro" aria-label="${x.v} sur 5">${'★'.repeat(x.v)}<i>${'★'.repeat(5 - x.v)}</i></span>
+      <p class="muted">${am ? 'Matchs : ' + Ratings.fr(am) + '/10' : ''}${am && at ? ' · ' : ''}${at ? 'Entraînements : ' + Ratings.fr(at) + '/10' : ''}</p>
+      <ul class="notes-list">${h.slice(0, 12).map(x => `<li><span class="note-ro" aria-label="${x.v} sur 10"><b>${x.v}</b>/10</span>
         <span><b>${x.kind === 'match' ? 'Match contre ' + esc(x.ev.opponent || '') : esc(x.ev.title || 'Entraînement')}</b> · ${esc(UI.fmtDate(x.date))}${x.by ? ' · ' + esc(Store.fullName(x.by)) : ''}${x.c ? `<br><span class="muted">« ${esc(x.c)} »</span>` : ''}</span></li>`).join('')}</ul>`;
   }
 
@@ -627,7 +627,7 @@ const People = (() => {
       <div class="tiles">
         ${tile(s.att.pct == null ? '–' : s.att.pct + ' %', `Présence à l'entraînement${s.att.total ? ` (${s.att.n}/${s.att.total})` : ''}`, s.att.pct == null ? '' : s.att.pct >= 75 ? 'v' : s.att.pct >= 50 ? 'n' : 'd')}
         ${tile(s.played.length, 'Matchs joués')}${tile(s.minutes, 'Minutes jouées')}${tile(s.avg == null ? '–' : s.avg + "'", 'Moyenne par match')}
-        ${tile(s.g, Sport.W().Units)}${tile(s.a, Sport.W().Assists)}${tile(am ? Ratings.fr(am) : '–', 'Note matchs /5')}${tile(at ? Ratings.fr(at) : '–', 'Note entr. /5')}
+        ${tile(s.g, Sport.W().Units)}${tile(s.a, Sport.W().Assists)}${tile(am ? Ratings.fr(am) : '–', 'Note matchs /10')}${tile(at ? Ratings.fr(at) : '–', 'Note entr. /10')}
       </div>
       <p class="muted small">Saison ${esc(seasonLabel())} · les présences comptent les séances où le coach a fait l'appel.</p>
       <div class="cards2">

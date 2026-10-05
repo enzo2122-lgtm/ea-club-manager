@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 23, date: '2026-10-05', title: 'Notes sur 10', items: [
+      ['🔟', 'Les notes des joueurs passent sur 10, après les matchs comme après les séances : dix pastilles de 1 à 10 au lieu de 5 étoiles. Plus de nuances entre « pas mal » et « presque parfait ».'],
+      ['🔁', 'Les anciennes notes sur 5 sont converties toutes seules (un 4/5 devient 8/10) : les moyennes de la saison restent justes.'],
+      ['📱', 'Sur téléphone, le nom du joueur a enfin sa ligne à lui au-dessus des notes : plus de « 2 ·… » mystérieux.'],
+    ] },
     { n: 22, date: '2026-10-04', title: 'Deux pages en une', items: [
       ['🔀', 'Résultats et Stats fusionnent : une seule entrée « Résultats et stats », avec deux onglets en haut, « Tout le club » (les week-ends de toutes les catégories) et « Par équipe » (classement, poule, coupes, joueurs). Un bouton de moins dans le menu.'],
       ['⚡', 'La mise à jour FFF lit 4 poules à la fois : 4 secondes au lieu de 17. Le temps de dire « hors-jeu ».'],
