@@ -81,6 +81,16 @@ button, select { font: inherit; }
 .tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .tiles div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px; text-align: center; }
 .tiles b { display: block; font-size: 22px; } .tiles span { font-size: 12px; color: var(--muted); }
+@media (max-width: 480px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* (1.60) the tables of the category */
+.st-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.st-tabs .b.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.st-card h3 { font-size: 15px; margin: 12px 0 6px; }
+.st-table, .st-res { width: 100%; border-collapse: collapse; font-size: 14px; }
+.st-table th, .st-table td, .st-res td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+.st-table th { font-size: 12px; color: var(--muted); }
+.st-res .h { text-align: right; width: 44%; } .st-res .s { text-align: center; font-weight: 800; white-space: nowrap; }
+.st-table tr.own td, .st-res tr.own td { background: color-mix(in srgb, var(--brand) 10%, var(--surface)); font-weight: 700; }
 .card.next { border: 2px solid var(--brand); }
 .mine-box { margin: 10px 0; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--brand) 9%, var(--surface)); display: flex; flex-direction: column; gap: 8px; }
 .mine-box.off { color: var(--muted); }
@@ -131,11 +141,11 @@ button, select { font: inherit; }
 <main id="page"><p class="empty">Chargement des informations de l'équipe…</p></main>
 <p class="credit">Clubbo · créée par <b>Coach Enzo</b></p>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script src="js/config.js?v=60"></script>
-<script src="js/appcfg.js?v=60"></script>
-<script src="js/sport.js?v=60"></script>
-<script src="js/member.js?v=60"></script>
-<script src="js/perso.js?v=60"></script>
-<script src="js/players-page.js?v=60"></script>
+<script src="js/config.js?v=61"></script>
+<script src="js/appcfg.js?v=61"></script>
+<script src="js/sport.js?v=61"></script>
+<script src="js/member.js?v=61"></script>
+<script src="js/perso.js?v=61"></script>
+<script src="js/players-page.js?v=61"></script>
 </body>
 </html>

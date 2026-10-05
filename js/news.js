@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 24, date: '2026-10-05', title: 'Les joueurs voient le classement', items: [
+      ['🏆', 'Sur l\'espace joueur : « Classements de ma catégorie », avec un onglet par équipe (A, B…) puisqu\'un joueur peut être appelé dans l\'une ou l\'autre. Classement, derniers résultats et prochaine journée.'],
+      ['📊', '« Ma saison » compte maintenant tous les matchs du joueur, en A comme en B, avec ses cartons et sa présence aux séances. Les stats ne se perdent plus en changeant d\'équipe.'],
+    ] },
     { n: 23, date: '2026-10-05', title: 'Notes sur 10', items: [
       ['🔟', 'Les notes des joueurs passent sur 10, après les matchs comme après les séances : dix pastilles de 1 à 10 au lieu de 5 étoiles. Plus de nuances entre « pas mal » et « presque parfait ».'],
       ['🔁', 'Les anciennes notes sur 5 sont converties toutes seules (un 4/5 devient 8/10) : les moyennes de la saison restent justes.'],

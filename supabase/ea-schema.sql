@@ -585,6 +585,27 @@ begin
       from items i where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false) and i.data->>'teamId' = any(tids)
         and i.data->>'date' between today and to_char(current_date + 14, 'YYYY-MM-DD')));
 end $$;
+-- (1.60) the player's page: the tables and results of every team of his category (he can be picked in A or B),
+-- and his own season in every team of the club (matches where he was called up, minutes, goals, assists, cards, sessions).
+-- Read only. Public FFF data for the tables; nothing about the other players.
+create or replace function member_standings(p_code text) returns jsonb language plpgsql security definer set search_path = public as $
+declare pl items := ea_member(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); cats text[];
+  season text := case when extract(month from current_date) >= 8 then to_char(current_date, 'YYYY') else to_char(current_date - interval '1 year', 'YYYY') end || '-08-01';
+begin
+  select array_agg(distinct coalesce(nullif(t.data->>'category', ''), t.data->>'name')) into cats from items t where t.club = c and t.col = 'teams' and not t.deleted and t.id = any(tids);
+  return jsonb_build_object(
+    'teams', (select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'name', t.data->>'name', 'mine', t.id = any(tids),
+        'tables', coalesce(t.data->'fffTables', '{}'::jsonb), 'poules', coalesce(t.data->'fffPoules', '{}'::jsonb)) order by t.data->>'name'), '[]'::jsonb)
+      from items t where t.club = c and t.col = 'teams' and not t.deleted and coalesce(nullif(t.data->>'category', ''), t.data->>'name') = any(coalesce(cats, '{}'::text[]))),
+    'played', (select coalesce(jsonb_agg(jsonb_build_object('date', i.data->>'date', 'opponent', i.data->>'opponent', 'competition', i.data->>'competition',
+        'team', (select t.data->>'name' from items t where t.club = c and t.col = 'teams' and t.id = i.data->>'teamId'),
+        'min', i.data#>array['minutes', pl.id], 'st', i.data#>array['stats', pl.id], 'det', i.data#>array['detail', pl.id]) order by i.data->>'date'), '[]'::jsonb)
+      from items i where i.club = c and i.col = 'matches' and not i.deleted and coalesce(i.data->>'played', '') = 'true'
+        and coalesce(i.data->'convoked', '[]'::jsonb) ? pl.id and i.data->>'date' >= season),
+    'sessions', (select jsonb_build_object('total', count(*), 'present', count(*) filter (where coalesce(i.data->'presents', '[]'::jsonb) ? pl.id))
+      from items i where i.club = c and i.col = 'trainings' and not i.deleted and coalesce(i.data->>'model', '') <> 'true' and i.data->>'teamId' = any(tids)
+        and i.data->>'date' between season and to_char(current_date, 'YYYY-MM-DD') and jsonb_array_length(coalesce(i.data->'presents', '[]'::jsonb)) > 0));
+end $;
 create or replace function member_answer(p_code text, p_match text, p_status text, p_seats int default 0) returns jsonb language plpgsql security definer set search_path = public as $$
 declare pl items := ea_member(p_code); c text := pl.club; m items;
 begin
@@ -938,7 +959,7 @@ do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_l
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
   'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
-  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_answer', 'member_message',
+  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'member_answer', 'member_message',
   'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_request', 'ea_owner_requests', 'ea_owner_sub', 'ea_owner_news', 'member_push', 'member_news', 'ea_owner_votes', 'ea_owner_club_plan', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
 begin
   for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop
