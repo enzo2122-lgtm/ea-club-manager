@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 28, date: '2026-10-07', title: 'Groupes d\'entraînement et conseils perso', items: [
+      ['👥', 'Plusieurs séances le même jour (Groupe Gianni, Groupe Enzo…) : le joueur répond « Présent » une seule fois pour la journée. Sur la séance, « Réponses des joueurs » : touchez le groupe de chacun (il le garde les semaines suivantes). Il voit alors la séance de son groupe.'],
+      ['💡', 'Fiche joueur → « Conseils perso » : envoyez à un joueur un exercice pour progresser (course, passe, positionnement…). Il le voit avec ses parents dans son espace, onglet Séances.'],
+      ['📱', 'Espaces joueur et parents rangés en onglets en bas de l\'écran, avec un onglet Bénévoles pour les parents.'],
+      ['🔄', '« Mettre à jour l\'appli » : menu Plus (et onglet Moi pour les joueurs et les parents). Plus besoin de fermer et rouvrir.'],
+    ] },
     { n: 27, date: '2026-10-06', title: 'La séance avant la séance', items: [
       ['📋', 'Espace joueur : un joueur qui répond « Présent » à une séance voit tout de suite son programme (objectif, exercices, consignes du coach). Plus d\'excuse « je savais pas qu\'on faisait des centres ».'],
       ['🔒', 'Seuls les joueurs présents la voient, et seulement avant la séance. Les notes et les présences restent entre coachs.'],

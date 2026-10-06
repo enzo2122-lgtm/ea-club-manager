@@ -753,13 +753,21 @@ create or replace function ea_tr_group(c text, d jsonb) returns text language sq
     where st.club = c and st.col = 'staff' and not st.deleted and st.id = coalesce(d->'staffIds'->>0, d->>'by'))) $$;
 create or replace function member_replies(p_code text) returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare pl items := ea_member(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); d0 text := to_char(current_date, 'YYYY-MM-DD');
+  mygrp text := nullif(trim(pl.data->>'trGroup'), '');
 begin
   return jsonb_build_object(
-    'trainings', (select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'date', i.data->>'date', 'time', i.data->>'time', 'title', i.data->>'title', 'group', ea_tr_group(c, i.data), 'answer', a.status, 'reason', a.note)
-        order by i.data->>'date', i.data->>'time'), '[]'::jsonb)
-      from items i left join answers a on a.club = c and a.match_id = i.id and a.player_id = pl.id
-      where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false) and i.data->>'teamId' = any(tids)
-        and i.data->>'date' between d0 and to_char(current_date + 14, 'YYYY-MM-DD')),
+    -- (1.68) one line per day : several sessions the same day (one per training group) are answered once ;
+    -- the line shows the session of his group when the coaches have chosen it
+    'trainings', (with tr as (select i.* from items i where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false)
+          and i.data->>'teamId' = any(tids) and i.data->>'date' between d0 and to_char(current_date + 14, 'YYYY-MM-DD')),
+        g as (select tr.data->>'teamId' tm, tr.data->>'date' d, array_agg(tr.id order by tr.data->>'time', tr.id) ids from tr group by 1, 2),
+        p as (select g.*, case when array_length(g.ids, 1) = 1 then g.ids[1] else (select t.id from tr t where t.id = any(g.ids) and ea_tr_group(c, t.data) = mygrp limit 1) end mine from g)
+      select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'date', p.d, 'time', t.data->>'time',
+          'title', case when p.mine is null then 'Entraînement' else t.data->>'title' end,
+          'group', case when array_length(p.ids, 1) > 1 then coalesce(case when p.mine is not null then ea_tr_group(c, t.data) end, 'Groupe choisi par le coach') end,
+          'answer', ans.status, 'reason', ans.note) order by p.d, t.data->>'time'), '[]'::jsonb)
+      from p join tr t on t.id = coalesce(p.mine, p.ids[1])
+      left join lateral (select a.status, a.note from answers a where a.club = c and a.player_id = pl.id and a.match_id = any(p.ids) order by a.updated_at desc limit 1) ans on true),
     'reasons', (select coalesce(jsonb_object_agg(a.match_id, a.note), '{}'::jsonb) from answers a where a.club = c and a.player_id = pl.id and a.status = 'non' and a.note is not null and a.updated_at > now() - interval '120 days'));
 end $$;
 grant execute on function member_reply(text, text, text, text, int, text), member_replies(text) to anon, authenticated;
@@ -1046,13 +1054,24 @@ begin
     from jsonb_array_elements(case when jsonb_typeof(pl.data->'coachTips') = 'array' then pl.data->'coachTips' else '[]'::jsonb end) t);
 end $$;
 create or replace function member_session(p_code text, p_id text) returns jsonb language plpgsql stable security definer set search_path = public as $$
-declare pl items := ea_member(p_code); c text := pl.club; t items;
+declare pl items := ea_member(p_code); c text := pl.club; t items; f items; ids text[];
 begin
   select * into t from items where club = c and col = 'trainings' and id = p_id and not deleted;
   if t.id is null or not (t.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if;
   if t.data->>'date' < to_char(current_date, 'YYYY-MM-DD') then raise exception 'MATCH_PASSE'; end if;
-  if not exists (select 1 from answers a where a.club = c and a.match_id = p_id and a.player_id = pl.id and a.status = 'oui') then raise exception 'PRESENT_D_ABORD'; end if;
-  return jsonb_build_object('id', t.id, 'date', t.data->>'date', 'time', t.data->>'time', 'title', t.data->>'title', 'group', ea_tr_group(c, t.data), 'goal', t.data->>'goal',
+  -- (1.68) the sessions of that day for his team (one per training group): présent once for the day
+  ids := array(select j.id from items j where j.club = c and j.col = 'trainings' and not j.deleted and not coalesce((j.data->>'model')::boolean, false)
+    and j.data->>'teamId' = t.data->>'teamId' and j.data->>'date' = t.data->>'date');
+  if not exists (select 1 from answers a where a.club = c and a.player_id = pl.id and a.status = 'oui' and a.match_id = any(ids || p_id)) then raise exception 'PRESENT_D_ABORD'; end if;
+  if array_length(ids, 1) > 1 then
+    select * into f from items j where j.club = c and j.col = 'trainings' and j.id = any(ids) and ea_tr_group(c, j.data) = nullif(trim(pl.data->>'trGroup'), '') limit 1;
+    if f.id is null then
+      return jsonb_build_object('id', t.id, 'date', t.data->>'date', 'time', t.data->>'time', 'title', 'Entraînement', 'group', 'Groupe choisi par le coach',
+        'goal', 'Le coach va choisir ton groupe d''entraînement : ta séance s''affichera ici.', 'exercises', '[]'::jsonb);
+    end if;
+    t := f;
+  end if;
+  return jsonb_build_object('id', t.id, 'date', t.data->>'date', 'time', t.data->>'time', 'title', t.data->>'title', 'group', case when array_length(ids, 1) > 1 then ea_tr_group(c, t.data) end, 'goal', t.data->>'goal',
     'exercises', (select coalesce(jsonb_agg(jsonb_build_object('title', e->>'title', 'duration', e->>'duration', 'org', e->>'org', 'consignes', e->>'consignes', 'materiel', e->>'materiel') order by n), '[]'::jsonb)
       from jsonb_array_elements(case when jsonb_typeof(t.data->'exercises') = 'array' then t.data->'exercises' else '[]'::jsonb end) with ordinality as x(e, n)));
 end $$;
@@ -1167,13 +1186,21 @@ begin
 -- ses réponses : les entraînements des 2 semaines à venir (avec sa réponse) et les raisons de ses absences aux matchs
 create or replace function member_replies(p_code text) returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare pl items := ea_member(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); d0 text := to_char(current_date, 'YYYY-MM-DD');
+  mygrp text := nullif(trim(pl.data->>'trGroup'), '');
 begin
   return jsonb_build_object(
-    'trainings', (select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'date', i.data->>'date', 'time', i.data->>'time', 'title', i.data->>'title', 'group', ea_tr_group(c, i.data), 'answer', a.status, 'reason', a.note)
-        order by i.data->>'date', i.data->>'time'), '[]'::jsonb)
-      from items i left join answers a on a.club = c and a.match_id = i.id and a.player_id = pl.id
-      where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false) and i.data->>'teamId' = any(tids)
-        and i.data->>'date' between d0 and to_char(current_date + 14, 'YYYY-MM-DD')),
+    -- (1.68) one line per day : several sessions the same day (one per training group) are answered once ;
+    -- the line shows the session of his group when the coaches have chosen it
+    'trainings', (with tr as (select i.* from items i where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false)
+          and i.data->>'teamId' = any(tids) and i.data->>'date' between d0 and to_char(current_date + 14, 'YYYY-MM-DD')),
+        g as (select tr.data->>'teamId' tm, tr.data->>'date' d, array_agg(tr.id order by tr.data->>'time', tr.id) ids from tr group by 1, 2),
+        p as (select g.*, case when array_length(g.ids, 1) = 1 then g.ids[1] else (select t.id from tr t where t.id = any(g.ids) and ea_tr_group(c, t.data) = mygrp limit 1) end mine from g)
+      select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'date', p.d, 'time', t.data->>'time',
+          'title', case when p.mine is null then 'Entraînement' else t.data->>'title' end,
+          'group', case when array_length(p.ids, 1) > 1 then coalesce(case when p.mine is not null then ea_tr_group(c, t.data) end, 'Groupe choisi par le coach') end,
+          'answer', ans.status, 'reason', ans.note) order by p.d, t.data->>'time'), '[]'::jsonb)
+      from p join tr t on t.id = coalesce(p.mine, p.ids[1])
+      left join lateral (select a.status, a.note from answers a where a.club = c and a.player_id = pl.id and a.match_id = any(p.ids) order by a.updated_at desc limit 1) ans on true),
     'reasons', (select coalesce(jsonb_object_agg(a.match_id, a.note), '{}'::jsonb) from answers a where a.club = c and a.player_id = pl.id and a.status = 'non' and a.note is not null and a.updated_at > now() - interval '120 days'));
 end $$;
 grant execute on function member_reply(text, text, text, text, int, text), member_replies(text) to anon, authenticated;
