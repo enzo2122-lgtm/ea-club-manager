@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.77';
+  const VERSION = '1.78';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13328,6 +13328,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 35, date: '2026-10-07', title: 'Un coup d\'œil suffit', items: [
+      ['🎨', 'Espaces joueur et parents : chaque match a son étiquette et sa couleur — 🏆 Championnat (bleu), 🏅 Coupe (or), 🤝 Amical (vert), 🎪 Tournoi / Plateau (orange) — et les entraînements 🏃 (violet).'],
+    ] },
     { n: 34, date: '2026-10-07', title: 'Matchs de toute la catégorie', items: [
       ['⚽', 'Un joueur de « Seniors » voit les matchs de Seniors A et de Seniors B (il peut être pris dans les deux) et peut dire s\'il est dispo.'],
       ['📅', 'Entraînements : les 3 prochaines semaines, puis « Voir les suivants ».'],
@@ -15261,7 +15264,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 78, UPD = AppCfg.key('update-tried');
+  const BUILD = 79, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

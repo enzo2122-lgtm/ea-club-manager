@@ -149,6 +149,10 @@ const Member = (() => {
       + '.tf-view{position:fixed;inset:0;z-index:95;background:rgba(10,15,34,.75);display:flex;align-items:center;justify-content:center;padding:16px}.tf-box{background:var(--surface);color:var(--ink);border-radius:16px;padding:16px;max-width:min(720px,100%);max-height:92vh;overflow:auto;text-align:center}.tf-box img{max-width:100%;border-radius:10px}'
       + '.tip-card .tc-txt{white-space:pre-wrap;margin:8px 0 4px}.tip-card .tc-th{display:inline-block;font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);margin-bottom:6px}'
       + '.tab-pane>h2:first-child{margin-top:8px}'
+      + '.kb{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;color:#fff;margin:2px 6px 2px 0;white-space:nowrap}'
+      + '.kb-champ{background:#2563eb}.kb-cup{background:#b7791f}.kb-ami{background:#15803d}.kb-tour{background:#ea580c}.kb-tr{background:#7c3aed;font-size:12px;padding:2px 8px}'
+      + '.card.k-champ{border-left:6px solid #2563eb}.card.k-cup{border-left:6px solid #b7791f}.card.k-ami{border-left:6px solid #15803d}.card.k-tour{border-left:6px solid #ea580c}'
+      + '.tr-ans{border-left:4px solid #7c3aed;padding-left:10px}'
       + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}';
     document.head.appendChild(st);
   }
@@ -232,6 +236,17 @@ const Member = (() => {
       const top = document.querySelector('header.top'); top ? top.after(bar) : document.body.prepend(bar);
     } catch (e) {}
   }
+  /* (1.78) the kind of an event, with its pictogram and its colour (championship, cup, friendly, tournament, training) */
+  function kind(m) {
+    const c = String((m && m.competition) || '');
+    if (/coupe|\bcup\b|challenge|troph/i.test(c)) return ['cup', '🏅', 'Coupe'];
+    if (/amical|friendly|pr[ée]pa/i.test(c)) return ['ami', '🤝', 'Amical'];
+    if (/tournoi|plateau|festi/i.test(c)) return ['tour', '🎪', /plateau/i.test(c) ? 'Plateau' : 'Tournoi'];
+    return ['champ', '🏆', 'Championnat'];
+  }
+  const kindBadge = m => { const [k, ic, l] = kind(m); return `<span class="kb kb-${k}" title="${esc(m.competition || l)}">${ic} ${l}</span>`; };
+  const kindCls = m => 'k-' + kind(m)[0];
+  const trBadge = '<span class="kb kb-tr">🏃 Entraînement</span>';
   /* (1.77) the sessions to come: the next 3 weeks (at least 3), then « Voir les suivants » */
   let allTr = false;
   function trList(list, row) {
@@ -307,5 +322,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { tabs, trList, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { tabs, trList, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();

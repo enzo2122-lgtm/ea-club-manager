@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 35, date: '2026-10-07', title: 'Un coup d\'œil suffit', items: [
+      ['🎨', 'Espaces joueur et parents : chaque match a son étiquette et sa couleur — 🏆 Championnat (bleu), 🏅 Coupe (or), 🤝 Amical (vert), 🎪 Tournoi / Plateau (orange) — et les entraînements 🏃 (violet).'],
+    ] },
     { n: 34, date: '2026-10-07', title: 'Matchs de toute la catégorie', items: [
       ['⚽', 'Un joueur de « Seniors » voit les matchs de Seniors A et de Seniors B (il peut être pris dans les deux) et peut dire s\'il est dispo.'],
       ['📅', 'Entraînements : les 3 prochaines semaines, puis « Voir les suivants ».'],
