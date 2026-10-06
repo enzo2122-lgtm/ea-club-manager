@@ -84,10 +84,25 @@
     catch (e) { toast(e.message, true); }
   }
   // a session: the answer (when the club's server gives the sessions with their id)
+  /* (1.63) the session, shown once he answered « présent » (goal and exercises, from the club server) */
+  const sess = {};
+  async function loadSession(id, open) {
+    try { sess[id] = { data: await rpc('member_session', { p_code: code, p_id: id }), open: open !== false }; }
+    catch (e) { sess[id] = { err: /PRESENT_D_ABORD/.test(e.message) ? 'Réponds « Présent » pour voir la séance.' : e.message, open: true }; }
+    render();
+  }
+  function sessBox(t) {
+    const x = sess[t.id]; if (!x || !x.open) return '';
+    if (x.err) return `<div class="sess"><p class="info">${esc(x.err)}</p></div>`;
+    const d = x.data || {}, ex = d.exercises || [], total = ex.reduce((a, e) => a + (+e.duration || 0), 0);
+    return `<div class="sess"><h4>📋 ${esc(d.title || 'Séance')}${total ? ` · ${total} min` : ''}</h4>${d.goal ? `<p class="obj">🎯 ${esc(d.goal)}</p>` : ''}
+      ${ex.length ? `<ol class="sess-ex">${ex.map(e => `<li><b>${esc(e.title || 'Exercice')}</b>${+e.duration ? ` <span class="info">· ${esc(e.duration)} min</span>` : ''}${e.consignes ? `<div class="info">${esc(e.consignes).split('\n').join('<br>')}</div>` : ''}</li>`).join('')}</ol>` : `<p class="info">Le coach n'a pas encore détaillé la séance.</p>`}
+      <p class="info">Prépare ta tenue et tes crampons, et sois à l'heure 💪</p></div>`;
+  }
   function trRow(t) {
     return `<div class="tr tr-ans" ${t.id ? `data-t="${esc(t.id)}"` : ''}><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}
       ${t.answer === 'non' && t.reason ? `<span class="why">Absent · ${esc(t.reason)}</span>` : ''}</span>
-      ${t.id ? `<span class="btns"><button class="b small yes ${t.answer === 'oui' ? 'on' : ''}" data-tans="oui">Présent</button><button class="b small no ${t.answer === 'non' ? 'on' : ''}" data-tans="non">Absent</button></span>` : ''}</div>`;
+      ${t.id ? `<span class="btns"><button class="b small yes ${t.answer === 'oui' ? 'on' : ''}" data-tans="oui">Présent</button><button class="b small no ${t.answer === 'non' ? 'on' : ''}" data-tans="non">Absent</button>${t.answer === 'oui' ? `<button class="b small" data-sess="${esc(t.id)}">${(sess[t.id] || {}).open ? 'Masquer' : '📋 Voir la séance'}</button>` : ''}</span>` : ''}</div>${t.answer === 'oui' ? sessBox(t) : ''}`;
   }
   /* (1.60) the tables of his category: every team (A, B…), because he can be picked in any of them */
   let stTeam = null;
@@ -148,7 +163,7 @@
     let reason = '';
     if (status === 'non') { reason = await Member.askReason(kind === 'match' ? 'Absent pour ce match' : 'Absent à cet entraînement'); if (reason == null) return; }
     const before = { answer: x.answer, reason: x.reason }; x.answer = status; x.reason = reason; render();
-    try { await Member.reply(code, kind, id, status, 0, reason); toast(status === 'oui' ? 'C\'est noté : présent 💪' : 'C\'est noté : absent. Le coach voit la raison.'); }
+    try { await Member.reply(code, kind, id, status, 0, reason); toast(status === 'oui' ? 'C\'est noté : présent 💪' : 'C\'est noté : absent. Le coach voit la raison.'); if (kind === 'training' && status === 'oui') loadSession(id); else if (kind === 'training') { delete sess[id]; render(); } }
     catch (e) { Object.assign(x, before); render(); toast(e.message, true); }
   }
   const icsDate = (d, t) => d.replace(/-/g, '') + 'T' + (t || '10:00').replace(':', '') + '00';
@@ -167,6 +182,7 @@
     if (c) { const m = data.matches.find(x => x.id === c.dataset.cal); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics(m)], { type: 'text/calendar;charset=utf-8' })); a.download = `match-${m.date}.ics`; document.body.appendChild(a); a.click(); a.remove(); return; }
     const wb = e.target.closest('[data-wb]'); if (wb) { wbVals[wb.dataset.wb] = +wb.dataset.v; document.querySelectorAll(`[data-wb="${wb.dataset.wb}"]`).forEach(x => x.classList.toggle('on', x === wb)); return; }
     if (e.target.closest('[data-wbsend]')) { wbSend(); return; }
+    const sb = e.target.closest('[data-sess]'); if (sb) { const x = sess[sb.dataset.sess]; if (x && x.data) { x.open = !x.open; render(); } else loadSession(sb.dataset.sess); return; }
     const stb = e.target.closest('[data-st]'); if (stb) { stTeam = stb.dataset.st; render(); return; }
     const tb = e.target.closest('[data-tans]'); if (tb) { answer('training', tb.closest('[data-t]').dataset.t, tb.dataset.tans); return; }
     const b = e.target.closest('[data-ans]'); if (!b) return;

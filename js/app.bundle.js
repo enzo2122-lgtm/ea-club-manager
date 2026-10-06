@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.62';
+  const VERSION = '1.63';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13110,6 +13110,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 27, date: '2026-10-06', title: 'La séance avant la séance', items: [
+      ['📋', 'Espace joueur : un joueur qui répond « Présent » à une séance voit tout de suite son programme (objectif, exercices, consignes du coach). Plus d\'excuse « je savais pas qu\'on faisait des centres ».'],
+      ['🔒', 'Seuls les joueurs présents la voient, et seulement avant la séance. Les notes et les présences restent entre coachs.'],
+    ] },
     { n: 26, date: '2026-10-05', title: 'Départage au millimètre', items: [
       ['🎯', 'Jeu des pronos : à égalité de points, la meilleure réussite passe devant (le % de pronos qui rapportent des points).'],
       ['⚡', 'Toujours à égalité ? Le plus rapide gagne : celui qui pronostique le plus tôt avant les matchs. Fini d\'attendre la compo officielle pour copier les coachs.'],
@@ -14983,7 +14987,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 63, UPD = AppCfg.key('update-tried');
+  const BUILD = 64, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
