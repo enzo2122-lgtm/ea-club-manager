@@ -237,7 +237,9 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
         const fetched = {}, queue = [];
         for (const eq of teams) for (const en of eq.engagements || []) {
           const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number, k = `${cp}/${ph}/${gp}`;
-          if (cp && ph && gp && !fetched[k]) { const b = `/api/compets/${cp}/phases/${ph}/poules/${gp}`; fetched[k] = null; queue.push([k, () => Promise.all([pages(b + '/matchs'), getJ(b + '/classement_journees').catch(() => null)])]); }
+          if (cp && ph && gp && !fetched[k]) { const b = `/api/compets/${cp}/phases/${ph}/poules/${gp}`; fetched[k] = null; queue.push([k, () => Promise.all([pages(b + '/matchs'), pages(b + '/classement_journees').catch(() => null)])]); }
+          // (1.70) every page of the tables: one line per team AND per matchday (12 teams × 10 matchdays = 120 lines, 30 a page);
+          // with the first page only, the table shown was the one of the 2nd or 3rd matchday
         }
         await Promise.all([0, 1, 2, 3].map(async () => { while (queue.length) { const [k, f] = queue.shift(); try { fetched[k] = await f(); } catch (e) { fetched[k] = null; } } }));
         for (const eq of teams) for (const en of eq.engagements || []) {
