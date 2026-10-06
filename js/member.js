@@ -152,7 +152,7 @@ const Member = (() => {
       + '.kb{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;color:#fff;margin:2px 6px 2px 0;white-space:nowrap}'
       + '.kb-team{background:#0e1d45}.kb-champ{background:#2563eb}.kb-cup{background:#b7791f}.kb-ami{background:#15803d}.kb-tour{background:#ea580c}.kb-tr{background:#7c3aed;font-size:12px;padding:2px 8px}'
       + '.card.k-champ{border-left:6px solid #2563eb}.card.k-cup{border-left:6px solid #b7791f}.card.k-ami{border-left:6px solid #15803d}.card.k-tour{border-left:6px solid #ea580c}'
-      + '.tr-ans{border-left:4px solid #7c3aed;padding-left:10px}'
+      + '.tr-ans{border-left:4px solid #7c3aed;padding-left:10px}.tr-m{padding-left:10px;border-left:4px solid #2563eb}.tr.k-cup{border-left-color:#b7791f}.tr.k-ami{border-left-color:#15803d}.tr.k-tour{border-left-color:#ea580c}'
       + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}';
     document.head.appendChild(st);
   }
@@ -248,6 +248,20 @@ const Member = (() => {
   const kindBadge = m => { const [k, ic, l] = kind(m); return `<span class="kb kb-${k}" title="${esc(m.competition || l)}">${ic} ${l}</span>${m.team ? `<span class="kb kb-team">⚽ ${esc(m.team)}</span>` : ''}`; };
   const kindCls = m => 'k-' + kind(m)[0];
   const trBadge = '<span class="kb kb-tr">🏃 Entraînement</span>';
+  /* (1.80) the programme: trainings AND matches to come, by date (a match with its kind, its team and « dispo / pas dispo ») */
+  function matchRow(m) {
+    const d = new Date(m.date + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }), h = String(m.time || '').replace(':', 'h');
+    const st = m.answer === 'oui' ? (m.convoked ? '✓ présent' : '✓ dispo') : m.answer === 'non' ? (m.convoked ? '✗ absent' : '✗ pas dispo') : m.convoked ? 'convoqué : réponds' : 'pas encore répondu';
+    return `<div class="tr tr-m ${kindCls(m)}" data-m="${esc(m.id)}"><span class="d">${esc(d)}</span><span>${kindBadge(m)}<br>${m.home ? '🏠 contre' : '🚌 chez'} <b>${esc(m.opponent || '?')}</b>${h ? ' · ' + esc(h) : ''}
+      <span class="why">${m.convoked ? '<b>📣 Tu es convoqué</b> · ' : ''}${esc(st)}</span></span>
+      <span class="btns"><button class="b small yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">${m.convoked ? 'Présent' : 'Dispo'}</button><button class="b small no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">${m.convoked ? 'Absent' : 'Pas dispo'}</button></span></div>`;
+  }
+  function programme(trainings, matches, trRow) {
+    const today = new Date().toISOString().slice(0, 10);
+    const ms = (matches || []).filter(m => !m.played && !m.exempt && m.date >= today).map(m => ({ date: m.date, time: m.time, _m: m }));
+    const all = [...(trainings || []), ...ms].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+    return all.length ? trList(all, x => x._m ? matchRow(x._m) : trRow(x)) : '';
+  }
   /* (1.77) the sessions to come: the next 3 weeks (at least 3), then « Voir les suivants » */
   let allTr = false;
   function trList(list, row) {
@@ -323,5 +337,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { tabs, trList, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { tabs, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();
