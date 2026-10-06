@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.65';
+  const VERSION = '1.66';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13853,6 +13853,8 @@ var Views = (() => {
   const { esc, $, $$, toast, modal, confirmBox, fmtDate, today } = UI;
   const S = () => Store.state;
   const teamOf = id => Store.get('teams', id);
+  // (1.66) the training group of a session (« Groupe Gianni »): written by the coach, or the first name of its first coach (or of who made it)
+  const trGroup = t => { if (t.group && t.group.trim()) return t.group.trim(); const st = Store.get('staff', (t.staffIds || [])[0] || t.by || ''); return st ? 'Groupe ' + (st.firstName || st.lastName || '') : ''; };
   const fmtLabel = f => Sport.formatLabel(f || Sport.defFormat());
   const formats = () => Sport.cur().formats.map(x => [x[0], x[1]]);
   const pName = Store.fullName;
@@ -14214,9 +14216,9 @@ var Views = (() => {
   function trainings(root) {
     const now = today(), list = byTeam(S().trainings).filter(t => !t.model), models = S().trainings.filter(t => t.model).sort((a, b) => String(a.title).localeCompare(String(b.title), 'fr'));
     const up = list.filter(t => t.date >= now).sort((a, b) => a.date.localeCompare(b.date)), past = list.filter(t => t.date < now).sort((a, b) => b.date.localeCompare(a.date));
-    const item = t => { const tm = teamOf(t.teamId), dur = t.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
+    const item = t => { const tm = teamOf(t.teamId), dur = t.exercises.reduce((a, e) => a + (+e.duration || 0), 0), grp = trGroup(t);
       return `<a class="list-item" href="#/entrainement/${t.id}"><div class="date-box"><b>${new Date(t.date + 'T12:00').getDate()}</b><span>${esc(fmtDate(t.date, { month: 'short' }))}</span></div>
-        <div class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${tm ? esc(tm.name) + ' · ' : ''}${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span></div>${I.next}</a>`; };
+        <div class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${grp ? `<b class="tr-grp">${esc(grp)}</b> · ` : ''}${tm ? esc(tm.name) + ' · ' : ''}${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span></div>${I.next}</a>`; };
     root.innerHTML = `${header('Entraînements', 'Séances, exercices et présences', `<a class="btn primary" href="#/systemes">📚<span>Séances par système de jeu</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="ics">${I.calendar}<span>Agenda (.ics)</span></button><a class="btn" href="#/bibliotheque">${I.pdf}<span>Importer une fiche PDF</span></a><a class="btn" href="#/exercices">📚<span>Exercices du club</span></a><button class="btn" data-exgen>✨<span>Générer une séance</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouvel entraînement</span></button>`)}
       ${teamSwitch()}
       <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Séances types du club (${models.length})</b><span class="muted small"> · des séances prêtes, pour toutes les catégories</span></summary>
@@ -14272,6 +14274,7 @@ var Views = (() => {
             <label class="fld"><span>Heure</span><input type="time" id="trTime" value="${esc(tr.time || '')}"></label>
             <label class="fld"><span>Équipe</span><select id="trTeam"><option value="">Aucune</option>${Auth.teams().map(x => `<option value="${x.id}" ${x.id === tr.teamId ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
           </div>
+          <label class="fld"><span>Groupe d'entraînement (les joueurs le voient quand il y a plusieurs séances le même jour)</span><input id="trGroup" maxlength="40" value="${esc(tr.group || '')}" placeholder="${esc(trGroup(Object.assign({}, tr, { group: '' })) || 'ex : Groupe Gianni')}"></label>
           <label class="fld"><span>Objectif de la séance</span><textarea id="trGoal" rows="2" placeholder="ex : jouer vers l'avant après la récupération">${esc(tr.goal || '')}</textarea></label>
         </section>
         <div id="gageBox"></div>
@@ -14337,7 +14340,7 @@ var Views = (() => {
     root.oninput = e => {
       const t = e.target, card = t.closest('[data-ex]');
       if (card) { const ex = tr.exercises.find(x => x.id === card.dataset.ex); ex[t.dataset.f] = t.dataset.f === 'duration' ? +t.value : t.value; save(); if (t.dataset.f === 'duration') $('.sub', root).textContent = tr.exercises.reduce((a, x) => a + (+x.duration || 0), 0) + ' min au total'; return; }
-      const map = { trTitle: 'title', trDate: 'date', trTime: 'time', trGoal: 'goal' };
+      const map = { trTitle: 'title', trDate: 'date', trTime: 'time', trGoal: 'goal', trGroup: 'group' };
       if (map[t.id]) { tr[map[t.id]] = t.value; save(); }
     };
     root.onchange = e => {
@@ -15059,7 +15062,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 66, UPD = AppCfg.key('update-tried');
+  const BUILD = 67, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
