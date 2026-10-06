@@ -48,7 +48,7 @@ const Parents = (() => {
     // (1.73) the players not (yet) called up who said « dispo / pas dispo »: the coach chooses who is called up
     const convIds = new Set(conv.map(p => p.id)), dispo = Object.values(rows).filter(r => !convIds.has(r.player_id) && Store.get('players', r.player_id));
     const dy = dispo.filter(r => r.status === 'oui').map(r => Store.get('players', r.player_id)), dn = dispo.filter(r => r.status === 'non');
-    if (m.exempt || (!conv.length && !dispo.length) || (!isOpen(m) && !Object.keys(rows).length)) { box.innerHTML = ''; return; }
+    if (m.exempt || !conv.length || (!isOpen(m) && !Object.keys(rows).length)) { box.innerHTML = ''; return; }
     const dispoHtml = dispo.length ? `<div class="dispo-box"><h4>🙋 Disponibilités annoncées${conv.length ? ' (pas convoqués)' : ''}</h4>
       <p class="ans-sum"><span class="ans-yes">✓ ${dy.length} dispo</span> · <span class="ans-no">✗ ${dn.length} pas dispo</span></p>
       ${dy.length ? `<div class="chips">${dy.map(p => `<span class="chip ans-chip ans-oui"><b class="ans ans-yes">✓</b><span>${esc(Store.shortName(p))}</span></span>`).join('')}</div>` : ''}
@@ -60,7 +60,7 @@ const Parents = (() => {
     box.innerHTML = `<section class="card answers">
       <div class="row-head"><h3>Réponses des joueurs et des parents</h3><button class="btn soft" data-parents="${m.teamId}">${I.share}<span>Lien des parents</span></button></div>
       ${err ? `<p class="tip">${esc(err)}</p>` : !Cloud.ready() ? '<p class="muted small">Les réponses arrivent quand l\'appli est connectée au serveur du club.</p>' : `
-      ${dispoHtml}${!conv.length ? '' : `${dispo.length ? '<h4>📋 Convoqués</h4>' : ''}
+      ${!conv.length ? '' : `
       <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span> · <span>? ${conv.length - yes.length - no.length} sans réponse</span></p>
       <div class="chips ans-list">${conv.map(p => { const r = rows[p.id];
         return `<button class="chip ans-chip ${r ? 'ans-' + r.status : ''}" data-ans="${p.id}" ${isOpen(m) ? '' : 'disabled'} title="${r ? (r.by_coach ? 'Noté par un coach' : 'Réponse du parent') : 'Pas de réponse'}">${mark(p)}<span>${esc(Store.shortName(p))}</span>${r && r.seats && r.status === 'oui' && !m.home ? ` <i class="muted">🚗 ${r.seats}</i>` : ''}${r && r.note ? ` <i class="muted">« ${esc(r.note)} »</i>` : ''}</button>`; }).join('')}</div>
@@ -258,6 +258,41 @@ const Parents = (() => {
     list.forEach(t => { const el = root.querySelector(`[data-trans="${t.id}"]`); if (!el || !t.teamId) return; const s = dayStats(t, rows);
       if (s.yes || s.no) el.innerHTML = `✓ ${s.yes} · ✗ ${s.no} · ${s.pct} %`; });
   }
+  /* (1.75) who said « dispo » (match) or « présent » (training day): the coach sees them as they answer.
+     null without the club server (then every player is shown); { ready: false, wait } while loading. */
+  const dcache = {};
+  function dispoOf(key, ids) {
+    if (!Cloud.ready()) return null;
+    const c = dcache[key] = dcache[key] || {};
+    if (!c.p && (!c.v || Date.now() - c.at > 20000)) c.p = Cloud.answers(ids).then(rows => {
+      const l = latest(rows || []); c.v = { ready: true, yes: new Set(l.filter(r => r.status === 'oui').map(r => r.player_id)), no: new Map(l.filter(r => r.status === 'non').map(r => [r.player_id, r.note || ''])) };
+    }).catch(() => { c.v = c.v || { ready: true, yes: new Set(), no: new Map() }; }).then(() => { c.at = Date.now(); c.p = null; });
+    return c.v || { ready: false, wait: c.p };
+  }
+  const matchDispo = m => m.exempt ? null : dispoOf('m:' + m.id, [m.id]);
+  const trainingDispo = t => !t.teamId || t.model ? null : dispoOf('d:' + t.teamId + ':' + t.date, daySessions(t).map(x => x.id).concat(t.id));
+  // a phone number for WhatsApp: 06… → 336…
+  const waNum = s => { let d = String(s || '').replace(/[^\d+]/g, ''); if (d.startsWith('+')) d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (/^0\d{9}$/.test(d)) d = '33' + d.slice(1); return d.length >= 10 ? d : ''; };
+  const phoneOf = p => [p.phone, ...(p.parents || []).map(x => x.phone)].map(waNum).find(Boolean) || '';
+  // once the choice is made: a message for all the players not called up (a group) or one by one (WhatsApp, with his first name)
+  function nonConvDialog(m, roster) {
+    const D = matchDispo(m) || { yes: new Set(), no: new Map() }, conv = new Set(m.convoked || []), u = Auth.current && Auth.current();
+    const list = roster.filter(p => !conv.has(p.id)).sort((a, b) => (D.yes.has(b.id) ? 1 : 0) - (D.yes.has(a.id) ? 1 : 0));
+    const def = `Bonjour, pour le match ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} (${UI.fmtDate(m.date)}), tu n'es pas retenu cette fois. Continue à bien t'entraîner, ta chance va venir 💪${u ? ' Coach ' + (u.firstName || '') : ''}`;
+    modal({ title: '📣 Prévenir les non-convoqués', noFocus: true,
+      body: `<label class="fld"><span>Le message (modifie-le si tu veux)</span><textarea id="ncTxt" rows="4">${esc(def)}</textarea></label>
+        <div class="chips"><button class="btn primary" data-ncall>${I.share}<span>Envoyer à tous (groupe WhatsApp…)</span></button><button class="btn soft" data-nccopy>Copier</button></div>
+        <h3 class="sub-h">Joueur par joueur (${list.length})</h3>
+        <div class="list">${list.map(p => { const tel = phoneOf(p); return `<div class="list-item"><div class="li-main"><b>${esc(Store.fullName(p))}</b><span class="muted small">${D.yes.has(p.id) ? '✓ était dispo' : D.no.has(p.id) ? '✗ pas dispo' : 'pas de réponse'}</span></div>
+          ${tel ? `<button class="btn soft" data-ncwa="${tel}" data-fn="${esc(p.firstName || '')}">WhatsApp</button>` : '<span class="muted small">pas de numéro</span>'}</div>`; }).join('') || '<p class="muted">Tout le monde est convoqué.</p>'}</div>`,
+      onOpen: r => {
+        const txt = () => r.querySelector('#ncTxt').value;
+        r.querySelector('[data-ncall]').onclick = () => { const t = txt(); if (navigator.share) navigator.share({ text: t }).catch(() => {}); else window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); };
+        r.querySelector('[data-nccopy]').onclick = () => navigator.clipboard.writeText(txt()).then(() => toast('Message copié : colle-le dans WhatsApp ou un SMS')).catch(() => {});
+        r.querySelectorAll('[data-ncwa]').forEach(b => b.onclick = () => { const t = b.dataset.fn ? txt().replace(/^Bonjour\b/, 'Bonjour ' + b.dataset.fn) : txt(); window.open('https://wa.me/' + b.dataset.ncwa + '?text=' + encodeURIComponent(t), '_blank'); b.textContent = '✓ Envoyé'; });
+      },
+      actions: [{ label: 'Fermer' }] });
+  }
   async function mountTraining(box, tr, onPresent) {
     if (!box || !Cloud.ready() || !tr.teamId || tr.model) return;
     // (1.68) several sessions the same day for the same team (one per training group): the player answers once for the day,
@@ -289,5 +324,5 @@ const Parents = (() => {
     };
     draw();
   }
-  return { mountTraining, trGroup, dayBadges, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
+  return { mountTraining, trGroup, dayBadges, matchDispo, trainingDispo, nonConvDialog, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
 })();

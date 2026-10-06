@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.74';
+  const VERSION = '1.75';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -11774,7 +11774,7 @@ var Parents = (() => {
     // (1.73) the players not (yet) called up who said « dispo / pas dispo »: the coach chooses who is called up
     const convIds = new Set(conv.map(p => p.id)), dispo = Object.values(rows).filter(r => !convIds.has(r.player_id) && Store.get('players', r.player_id));
     const dy = dispo.filter(r => r.status === 'oui').map(r => Store.get('players', r.player_id)), dn = dispo.filter(r => r.status === 'non');
-    if (m.exempt || (!conv.length && !dispo.length) || (!isOpen(m) && !Object.keys(rows).length)) { box.innerHTML = ''; return; }
+    if (m.exempt || !conv.length || (!isOpen(m) && !Object.keys(rows).length)) { box.innerHTML = ''; return; }
     const dispoHtml = dispo.length ? `<div class="dispo-box"><h4>🙋 Disponibilités annoncées${conv.length ? ' (pas convoqués)' : ''}</h4>
       <p class="ans-sum"><span class="ans-yes">✓ ${dy.length} dispo</span> · <span class="ans-no">✗ ${dn.length} pas dispo</span></p>
       ${dy.length ? `<div class="chips">${dy.map(p => `<span class="chip ans-chip ans-oui"><b class="ans ans-yes">✓</b><span>${esc(Store.shortName(p))}</span></span>`).join('')}</div>` : ''}
@@ -11786,7 +11786,7 @@ var Parents = (() => {
     box.innerHTML = `<section class="card answers">
       <div class="row-head"><h3>Réponses des joueurs et des parents</h3><button class="btn soft" data-parents="${m.teamId}">${I.share}<span>Lien des parents</span></button></div>
       ${err ? `<p class="tip">${esc(err)}</p>` : !Cloud.ready() ? '<p class="muted small">Les réponses arrivent quand l\'appli est connectée au serveur du club.</p>' : `
-      ${dispoHtml}${!conv.length ? '' : `${dispo.length ? '<h4>📋 Convoqués</h4>' : ''}
+      ${!conv.length ? '' : `
       <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span> · <span>? ${conv.length - yes.length - no.length} sans réponse</span></p>
       <div class="chips ans-list">${conv.map(p => { const r = rows[p.id];
         return `<button class="chip ans-chip ${r ? 'ans-' + r.status : ''}" data-ans="${p.id}" ${isOpen(m) ? '' : 'disabled'} title="${r ? (r.by_coach ? 'Noté par un coach' : 'Réponse du parent') : 'Pas de réponse'}">${mark(p)}<span>${esc(Store.shortName(p))}</span>${r && r.seats && r.status === 'oui' && !m.home ? ` <i class="muted">🚗 ${r.seats}</i>` : ''}${r && r.note ? ` <i class="muted">« ${esc(r.note)} »</i>` : ''}</button>`; }).join('')}</div>
@@ -11984,6 +11984,41 @@ var Parents = (() => {
     list.forEach(t => { const el = root.querySelector(`[data-trans="${t.id}"]`); if (!el || !t.teamId) return; const s = dayStats(t, rows);
       if (s.yes || s.no) el.innerHTML = `✓ ${s.yes} · ✗ ${s.no} · ${s.pct} %`; });
   }
+  /* (1.75) who said « dispo » (match) or « présent » (training day): the coach sees them as they answer.
+     null without the club server (then every player is shown); { ready: false, wait } while loading. */
+  const dcache = {};
+  function dispoOf(key, ids) {
+    if (!Cloud.ready()) return null;
+    const c = dcache[key] = dcache[key] || {};
+    if (!c.p && (!c.v || Date.now() - c.at > 20000)) c.p = Cloud.answers(ids).then(rows => {
+      const l = latest(rows || []); c.v = { ready: true, yes: new Set(l.filter(r => r.status === 'oui').map(r => r.player_id)), no: new Map(l.filter(r => r.status === 'non').map(r => [r.player_id, r.note || ''])) };
+    }).catch(() => { c.v = c.v || { ready: true, yes: new Set(), no: new Map() }; }).then(() => { c.at = Date.now(); c.p = null; });
+    return c.v || { ready: false, wait: c.p };
+  }
+  const matchDispo = m => m.exempt ? null : dispoOf('m:' + m.id, [m.id]);
+  const trainingDispo = t => !t.teamId || t.model ? null : dispoOf('d:' + t.teamId + ':' + t.date, daySessions(t).map(x => x.id).concat(t.id));
+  // a phone number for WhatsApp: 06… → 336…
+  const waNum = s => { let d = String(s || '').replace(/[^\d+]/g, ''); if (d.startsWith('+')) d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (/^0\d{9}$/.test(d)) d = '33' + d.slice(1); return d.length >= 10 ? d : ''; };
+  const phoneOf = p => [p.phone, ...(p.parents || []).map(x => x.phone)].map(waNum).find(Boolean) || '';
+  // once the choice is made: a message for all the players not called up (a group) or one by one (WhatsApp, with his first name)
+  function nonConvDialog(m, roster) {
+    const D = matchDispo(m) || { yes: new Set(), no: new Map() }, conv = new Set(m.convoked || []), u = Auth.current && Auth.current();
+    const list = roster.filter(p => !conv.has(p.id)).sort((a, b) => (D.yes.has(b.id) ? 1 : 0) - (D.yes.has(a.id) ? 1 : 0));
+    const def = `Bonjour, pour le match ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} (${UI.fmtDate(m.date)}), tu n'es pas retenu cette fois. Continue à bien t'entraîner, ta chance va venir 💪${u ? ' Coach ' + (u.firstName || '') : ''}`;
+    modal({ title: '📣 Prévenir les non-convoqués', noFocus: true,
+      body: `<label class="fld"><span>Le message (modifie-le si tu veux)</span><textarea id="ncTxt" rows="4">${esc(def)}</textarea></label>
+        <div class="chips"><button class="btn primary" data-ncall>${I.share}<span>Envoyer à tous (groupe WhatsApp…)</span></button><button class="btn soft" data-nccopy>Copier</button></div>
+        <h3 class="sub-h">Joueur par joueur (${list.length})</h3>
+        <div class="list">${list.map(p => { const tel = phoneOf(p); return `<div class="list-item"><div class="li-main"><b>${esc(Store.fullName(p))}</b><span class="muted small">${D.yes.has(p.id) ? '✓ était dispo' : D.no.has(p.id) ? '✗ pas dispo' : 'pas de réponse'}</span></div>
+          ${tel ? `<button class="btn soft" data-ncwa="${tel}" data-fn="${esc(p.firstName || '')}">WhatsApp</button>` : '<span class="muted small">pas de numéro</span>'}</div>`; }).join('') || '<p class="muted">Tout le monde est convoqué.</p>'}</div>`,
+      onOpen: r => {
+        const txt = () => r.querySelector('#ncTxt').value;
+        r.querySelector('[data-ncall]').onclick = () => { const t = txt(); if (navigator.share) navigator.share({ text: t }).catch(() => {}); else window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); };
+        r.querySelector('[data-nccopy]').onclick = () => navigator.clipboard.writeText(txt()).then(() => toast('Message copié : colle-le dans WhatsApp ou un SMS')).catch(() => {});
+        r.querySelectorAll('[data-ncwa]').forEach(b => b.onclick = () => { const t = b.dataset.fn ? txt().replace(/^Bonjour\b/, 'Bonjour ' + b.dataset.fn) : txt(); window.open('https://wa.me/' + b.dataset.ncwa + '?text=' + encodeURIComponent(t), '_blank'); b.textContent = '✓ Envoyé'; });
+      },
+      actions: [{ label: 'Fermer' }] });
+  }
   async function mountTraining(box, tr, onPresent) {
     if (!box || !Cloud.ready() || !tr.teamId || tr.model) return;
     // (1.68) several sessions the same day for the same team (one per training group): the player answers once for the day,
@@ -12015,7 +12050,7 @@ var Parents = (() => {
     };
     draw();
   }
-  return { mountTraining, trGroup, dayBadges, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
+  return { mountTraining, trGroup, dayBadges, matchDispo, trainingDispo, nonConvDialog, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
 })();
 
 ;
@@ -13283,6 +13318,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 32, date: '2026-10-07', title: 'Convocations : seulement les dispos', items: [
+      ['🙋', 'Match et séance : la liste ne montre que les joueurs qui ont répondu « dispo » / « présent », au fur et à mesure. Un menu ajoute un joueur à la main (téléphone perdu, réponse de vive voix…).'],
+      ['📣', '« Non-convoqués » : un message pour tous (groupe WhatsApp) ou joueur par joueur. Les joueurs ne voient plus « tu n\'es pas convoqué ».'],
+    ] },
     { n: 31, date: '2026-10-07', title: 'Conseils perso : séance, vidéos et PDF', items: [
       ['📋', 'Fiche joueur → Conseils perso : joignez une séance prête (séance type du club ou de l\'équipe), avec les schémas des exercices en images.'],
       ['🎬', 'Ajoutez des liens vidéo (YouTube, Google Drive…) et des PDF ou images (3 Mo maximum). Le joueur les ouvre dans son espace, onglet Séances.'],
@@ -13991,8 +14030,8 @@ var Views = (() => {
   // The team's own players (all of its category when nobody is put in the team yet, e.g. « Seniors A »)
   const squad = teamId => { const own = Store.playersOf(teamId); return own.length ? own : Store.rosterOf(teamId); };
   // Chips of a team's players, then « Autres joueurs de la catégorie » (a team A / B can call up any player of its category)
-  function rosterChips(teamId, chip) {
-    const mode = S().ui.rosterSort || 'name', all = Store.rosterOf(teamId), own = new Set(Store.playersOf(teamId).map(p => p.id));
+  function rosterChips(teamId, chip, only) {
+    const mode = S().ui.rosterSort || 'name', all = Store.rosterOf(teamId).filter(p => !only || only.has(p.id)), own = new Set(Store.playersOf(teamId).map(p => p.id));
     const mine = all.filter(p => own.has(p.id)), others = all.filter(p => !own.has(p.id)), t = teamOf(teamId);
     // sorted by position: one row of chips per line (goalkeepers, defenders, midfielders, forwards)
     const block = list => mode === 'post' ? People.byLine(list).map(([lab, ps]) => `<div class="lbl line-lbl">${esc(lab)} (${ps.length})</div><div class="chips roster">${ps.map(chip).join('')}</div>`).join('') : `<div class="chips roster">${People.sortPlayers(list, mode).map(chip).join('')}</div>`;
@@ -14018,6 +14057,17 @@ var Views = (() => {
   function lastTeams(m) {
     const t = teamOf(m.teamId), us = `<b class="us">${esc(usShort())}</b>`, them = `<span>${esc(m.opponent || '?')}</span>`;
     return `${t ? `<i class="rl-cat" style="background:${Planning.teamColor(t.id)}">${esc(t.name)}</i>` : ''}<span class="rl-teams">${m.home ? us + ' – ' + them : them + ' – ' + us}</span>`;
+  }
+  // (1.75) the players who answered « dispo » / « présent » (as they answer), and a menu to add one by hand (lost phone, said so face to face…)
+  function pickList(teamId, D, selected, chip, rerender, addAttr, word) {
+    if (!D) return rosterChips(teamId, chip);
+    if (!D.ready) { D.wait.then(() => rerender()); return '<p class="muted">Chargement des réponses des joueurs…</p>'; }
+    const show = new Set([...D.yes, ...selected]), others = Store.rosterOf(teamId).filter(p => !show.has(p.id));
+    const nm = id => { const p = Store.get('players', id); return p ? Store.shortName(p) : '?'; };
+    return `<p class="muted small">✓ ${D.yes.size} ${word} : ils arrivent ici au fur et à mesure de leurs réponses.</p>
+      ${show.size ? rosterChips(teamId, chip, show) : `<p class="tip">Personne n'a encore répondu « ${word} ».</p>`}
+      ${D.no.size ? `<p class="small ans-why">✗ ${[...D.no].map(([id, n]) => `<b>${esc(nm(id))}</b>${n ? ' (' + esc(n) + ')' : ''}`).join(' · ')}</p>` : ''}
+      ${others.length ? `<label class="fld"><span>➕ Ajouter un joueur (téléphone perdu, réponse de vive voix…)</span><select ${addAttr}><option value="">Choisir un joueur…</option>${others.map(p => `<option value="${p.id}">${esc(Store.fullName(p))}${D.no.has(p.id) ? ' · pas dispo' : ''}</option>`).join('')}</select></label>` : ''}`;
   }
   const empty = (txt, btn) => `<div class="empty"><p>${txt}</p>${btn || ''}</div>`;
 
@@ -14413,7 +14463,7 @@ var Views = (() => {
         ${tm ? `<div class="row-head"><h2 class="section" id="presH">Présents (${(tr.presents || []).length}/${squad(tm.id).length})</h2>
           <div class="chips"><button class="btn soft" data-allpres="1">${I.check}<span>Tous présents</span></button><button class="btn soft" data-allpres="0">${I.x}<span>Personne</span></button></div></div>
           <p class="muted small">Un toucher par joueur. Le % est sa présence sur la saison (séances où l'appel a été fait).</p>
-          ${rosterChips(tm.id, p => `<button class="chip ${(tr.presents || []).includes(p.id) ? 'on' : ''}" data-present="${p.id}">${presChip(p, tm.id)}</button>`)}` : ''}
+          ${pickList(tm.id, Parents.trainingDispo(tr), tr.presents || [], p => `<button class="chip ${(tr.presents || []).includes(p.id) ? 'on' : ''}" data-present="${p.id}">${presChip(p, tm.id)}</button>`, render, 'data-addpres', 'présents')}` : ''}
         <div id="trAnsBox"></div>
         <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">notes des joueurs, effort, documents, photos et vidéos</span></summary>
         <div id="rateBox"></div>
@@ -14474,6 +14524,7 @@ var Views = (() => {
     root.onchange = e => {
       if (e.target.id === 'trTeam') { tr.teamId = e.target.value || null; save(); render(); }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { tr.staffIds = [...new Set([...(tr.staffIds || []), e.target.value])]; save(); render(); }
+      if (e.target.hasAttribute('data-addpres') && e.target.value) { tr.presents = [...new Set([...(tr.presents || []), e.target.value])]; save(); render(); }
     };
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -14664,8 +14715,8 @@ var Views = (() => {
         ${(() => { const f = !m.played && Season.formOf(t, m.opponent); return f && f.length ? `<section class="card opp-form"><h2>🔎 ${Clubs.oppLogo(m.opponent)}${esc(m.opponent)} : sa forme du moment</h2>
           <div class="form-dots">${f.map(({ r, x }) => `<span class="fd ${r}" title="${esc(`${x.home} ${x.hs} - ${x.as} ${x.away}`)}">${r}</span>`).join('')}</div>
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
-        <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2>${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}</div>
-        ${t ? rosterChips(t.id, p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`) : '<p class="muted">Choisis une équipe.</p>'}
+        <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
+        ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
         <div id="answersBox"></div>
         ${!m.home && !m.exempt ? '<div id="carpoolBox"></div>' : ''}
@@ -14723,6 +14774,7 @@ var Views = (() => {
       if (e.target.dataset.slot) { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (sc) { setSlot(sc, e.target.dataset.slot, e.target.value); toast(e.target.value ? 'Placé sur le schéma ✓' : 'Poste libéré'); render(); } return; }
       if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; matchTabs[m.id] = 'apres'; save(); render(); return cheer(before); }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { m.staffIds = [...new Set([...(m.staffIds || []), e.target.value])]; save(); return render(); }
+      if (e.target.hasAttribute('data-addconv') && e.target.value) { m.convoked = [...new Set([...(m.convoked || []), e.target.value])]; save(); return render(); }
       root.oninput(e);
     };
     root.onclick = async e => {
@@ -14730,6 +14782,7 @@ var Views = (() => {
       if (b.dataset.mtab) { matchTabs[m.id] = b.dataset.mtab; $$('.m-tab', root).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); $$('.m-panel', root).forEach(p => { p.hidden = p.dataset.panel !== b.dataset.mtab; }); return; }
       if (b.hasAttribute('data-editm')) { mEdit[m.id] = !(mEdit[m.id] != null ? mEdit[m.id] : !m.opponent); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
+      if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.minset) {
         const full = People.matchLength(m), v = { full, half: Math.round(full / 2), zero: 0 }[b.dataset.v];
@@ -15191,7 +15244,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 75, UPD = AppCfg.key('update-tried');
+  const BUILD = 76, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
