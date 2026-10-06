@@ -145,6 +145,8 @@ const Member = (() => {
       + '.tab .ti{font-size:21px;line-height:1}.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}'
       + '.tab.on{background:rgba(201,164,92,.18);color:#e2c27d;box-shadow:inset 0 3px 0 #c9a45c}'
       + '.tip-card{border-left:5px solid #c9a45c}.tip-card .tc-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.tip-card h3{margin:0;font-size:17px}'
+      + '.tc-sess{margin:8px 0;padding:10px;border-radius:12px;background:var(--bg)}.tc-sess ol{margin:6px 0 0;padding-left:20px}.tc-sess li{margin:6px 0}.tc-links,.tc-files{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}'
+      + '.tf-view{position:fixed;inset:0;z-index:95;background:rgba(10,15,34,.75);display:flex;align-items:center;justify-content:center;padding:16px}.tf-box{background:var(--surface);color:var(--ink);border-radius:16px;padding:16px;max-width:min(720px,100%);max-height:92vh;overflow:auto;text-align:center}.tf-box img{max-width:100%;border-radius:10px}'
       + '.tip-card .tc-txt{white-space:pre-wrap;margin:8px 0 4px}.tip-card .tc-th{display:inline-block;font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);margin-bottom:6px}'
       + '.tab-pane>h2:first-child{margin-top:8px}'
       + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}';
@@ -159,13 +161,43 @@ const Member = (() => {
   }
   // (1.65) the coach's personal suggestions for this player (Séances tab), from the club server (member_tips)
   const fmtDay = d => { try { return new Date(d + 'T12:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch (e) { return d; } };
+  // (1.74) a ready session joined to the tip: its goal and its exercises
+  function tipSession(s) {
+    if (!s || !s.exercises) return '';
+    const total = s.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
+    return `<div class="tc-sess"><b>📋 ${esc(s.title || 'Séance')}${total ? ` · ${total} min` : ''}</b>${s.goal ? `<p class="info">🎯 ${esc(s.goal)}</p>` : ''}
+      <ol>${s.exercises.map(e => `<li><b>${esc(e.title || 'Exercice')}</b>${+e.duration ? ` <span class="info">· ${esc(e.duration)} min</span>` : ''}
+        ${e.org ? `<div class="info">${esc(e.org)}</div>` : ''}${e.consignes ? `<div class="info">${esc(e.consignes).split('\n').join('<br>')}</div>` : ''}${e.materiel ? `<div class="info">🧰 ${esc(e.materiel)}</div>` : ''}</li>`).join('')}</ol></div>`;
+  }
+  // video links and the files (PDF, images, the schemas) kept on the club server
+  function tipMedia(t) {
+    const links = [...new Set([...(t.links || []), t.link].filter(x => /^https:\/\//.test(x || '')))];
+    const files = t.files || [];
+    return (links.length ? `<p class="tc-links">${links.map((u, i) => `<a class="b small" href="${esc(u)}" target="_blank" rel="noopener noreferrer">▶️ ${links.length > 1 ? 'Vidéo ' + (i + 1) : 'Voir la vidéo'}</a>`).join(' ')}</p>` : '')
+      + (files.length ? `<p class="tc-files">${files.map(x => `<button class="b small" data-tipfile="${esc(x.id)}">${x.mime === 'application/pdf' ? '📄' : '🖼️'} ${esc(x.name || 'Fichier')}</button>`).join(' ')}</p>` : '');
+  }
+  async function openTipFile(id) {
+    const v = document.createElement('div'); v.className = 'tf-view';
+    v.innerHTML = '<div class="tf-box"><p>Ouverture…</p><button class="b small" data-tfclose>Fermer</button></div>'; document.body.appendChild(v);
+    v.onclick = e => { if (e.target === v || e.target.closest('[data-tfclose]')) v.remove(); };
+    try {
+      const f = await rpc('member_tip_file', { p_code: current(), p_id: id }); if (!f || !f.data) throw new Error('Fichier introuvable.');
+      const box = v.querySelector('.tf-box');
+      if (/^image\//.test(f.mime)) box.innerHTML = `<img src="${f.data}" alt=""><p><button class="b small" data-tfclose>Fermer</button></p>`;
+      else {
+        const bin = atob(f.data.split(',')[1]), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([u8], { type: 'application/pdf' }));
+        box.innerHTML = `<p><b>📄 ${esc(f.name || 'Document')}</b></p><p><a class="b yes on" href="${url}" target="_blank" rel="noopener">Ouvrir le PDF</a> <a class="b" href="${url}" download="${esc(f.name || 'document.pdf')}">Télécharger</a></p><p><button class="b small" data-tfclose>Fermer</button></p>`;
+      }
+    } catch (e) { v.querySelector('.tf-box').innerHTML = `<p>${esc(e.message || 'Ouverture impossible')}</p><button class="b small" data-tfclose>Fermer</button>`; }
+  }
   function tipsHtml(tips, who) {
     // (1.72) always shown, so the player knows where to look
     if (!tips || !tips.length) return `<h2>💡 Les conseils du coach</h2><p class="tip">Pas encore de conseil du coach. Quand il enverra un exercice pour progresser (course, passe, positionnement…), il apparaîtra ici.</p>`;
     return `<h2>💡 Les conseils du coach</h2><p class="info small">Des exercices choisis pour ${esc(who || 'toi')}, pour progresser là où c'est le plus utile.</p>`
       + tips.map(t => `<article class="card tip-card"><span class="tc-th">${esc(t.icon || '💡')} ${esc(t.themeLabel || 'Conseil')}</span>
         <div class="tc-head"><h3>${esc(t.title || 'Séance perso')}</h3><span class="muted small">${t.by ? esc(t.by) + ' · ' : ''}${esc(fmtDay(t.at || ''))}</span></div>
-        ${t.text ? `<p class="tc-txt">${esc(t.text)}</p>` : ''}${/^https:\/\//.test(t.link || '') ? `<p><a href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">▶️ Voir la vidéo</a></p>` : ''}</article>`).join('');
+        ${t.text ? `<p class="tc-txt">${esc(t.text)}</p>` : ''}${tipSession(t.session)}${tipMedia(t)}</article>`).join('');
   }
   async function tips(code) { try { const r = await rpc('member_tips', { p_code: code }); return Array.isArray(r) ? r : []; } catch (e) { return []; } } // not yet on the server: nothing shown
   function showTab(b) {
@@ -203,6 +235,7 @@ const Member = (() => {
   function onBar(e, reload) {
     if (e.target.closest('[data-mupdate]')) { updateApp(); return true; }
     const tb = e.target.closest('[data-tab]'); if (tb) { showTab(tb); return true; }
+    const tf = e.target.closest('[data-tipfile]'); if (tf) { openTipFile(tf.dataset.tipfile); return true; }
     const nb = e.target.closest('[data-mnotif]'); if (nb) { setNotify(nb.dataset.mnotif === 'on', nb.dataset.kind); return true; }
     if (e.target.closest('[data-forgetme]')) { forgetMe(/parents/.test(location.pathname) ? 'parents' : 'joueur'); return true; }
     const u = e.target.closest('[data-usecode]'); if (u) { use(u.dataset.usecode); reload(); return true; }

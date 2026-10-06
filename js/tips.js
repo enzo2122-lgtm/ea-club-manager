@@ -26,9 +26,43 @@ const Tips = (() => {
     return `<section class="card tips-card"><div class="row-head"><h2>💡 Conseils perso</h2><button class="btn primary" data-tip="new">${I.plus}<span>Envoyer un conseil</span></button></div>
       <p class="muted small">Des exercices choisis pour ${esc(p.firstName || 'ce joueur')} (course, passe, positionnement…). Il les voit avec ses parents dans son espace, onglet « Séances ».</p>
       ${l.length ? `<div class="list">${l.map(t => `<div class="list-item"><div class="li-main"><b>${esc(t.icon || '💡')} ${esc(t.title || t.themeLabel || 'Conseil')}</b>
-        <span class="muted small">${esc(t.themeLabel || '')} · ${esc(fmt(t.at))}${t.by ? ' · ' + esc(t.by) : ''}</span>${t.text ? `<span class="small pre">${esc(t.text)}</span>` : ''}</div>
+        <span class="muted small">${esc(t.themeLabel || '')} · ${esc(fmt(t.at))}${t.by ? ' · ' + esc(t.by) : ''}${t.session ? ' · 📋 séance' : ''}${(t.links || []).length ? ` · 🎬 ${t.links.length} vidéo${t.links.length > 1 ? 's' : ''}` : ''}${(t.files || []).length ? ` · 📎 ${t.files.length} fichier${t.files.length > 1 ? 's' : ''}` : ''}</span>${t.text ? `<span class="small pre">${esc(t.text)}</span>` : ''}</div>
         <button class="icon-btn" data-tip="del" data-t="${esc(t.id)}" aria-label="Retirer ce conseil">${I.trash}</button></div>`).join('')}</div>`
         : '<p class="muted">Aucun conseil envoyé pour l\'instant.</p>'}</section>`;
+  }
+  // (1.74) the sessions a coach can join: the club's ready sessions, then the sessions of the player's teams (newest first)
+  function sessionsFor(p) {
+    const tr = Store.state.trainings, mine = new Set(p.teamIds || []);
+    const models = tr.filter(t => t.model && (t.exercises || []).length).sort((a, b) => String(a.title).localeCompare(String(b.title), 'fr'));
+    const team = tr.filter(t => !t.model && (t.exercises || []).length && mine.has(t.teamId)).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 30);
+    return [['Séances types du club', models], ['Séances de son équipe', team]].filter(x => x[1].length);
+  }
+  const readData = f => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
+  async function toJpeg(src, max = 1600) {
+    const img = await Media.loadImage(src), k = Math.min(1, max / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+    cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); return cv.toDataURL('image/jpeg', .85);
+  }
+  async function schemaJpeg(sc) {
+    await Board.ensureBg(sc); const cv = document.createElement('canvas'); cv.width = 1200; cv.height = 800;
+    Board.drawFrame(cv.getContext('2d'), 1200, 800, sc, 0, 0, { homeBib: Store.state.club.homeBib, names: (sc.overlays || {}).names }); return cv.toDataURL('image/jpeg', .85);
+  }
+  // the tip is saved on the player; its files go to the club server (the player reads them with his code)
+  async function send(p, tip, sess, files) {
+    const todo = [];
+    if (sess) (sess.exercises || []).forEach((e, i) => { const sc = e.schemaId && Store.get('schemas', e.schemaId); if (sc) todo.push({ name: `Schéma ${i + 1} · ${e.title || sc.name || ''}`.slice(0, 100), mime: 'image/jpeg', make: () => schemaJpeg(sc) }); });
+    files.forEach(f => {
+      if (f.type === 'application/pdf') todo.push({ name: f.name, mime: 'application/pdf', make: async () => { if (f.size > 3.1e6) throw new Error('trop lourd'); return readData(f); } });
+      else if (/^image\//.test(f.type)) todo.push({ name: f.name, mime: 'image/jpeg', make: async () => toJpeg(URL.createObjectURL(f)) });
+    });
+    const skipped = [];
+    if (todo.length) {
+      if (!Cloud.ready()) skipped.push(...todo.map(x => x.name));
+      else { const bz = UI.busy('Envoi des fichiers…');
+        try { for (const x of todo) { try { const id = await Cloud.tipFileAdd(p.id, tip.id, x.name, x.mime, await x.make()); tip.files.push({ id, name: x.name, mime: x.mime }); } catch (e) { skipped.push(x.name); } } }
+        finally { bz.done(); } }
+    }
+    p.coachTips = [tip, ...(p.coachTips || [])].slice(0, 30); Store.upsert('players', p);
+    toast(skipped.length ? `Conseil envoyé, mais ${skipped.length} fichier${skipped.length > 1 ? 's' : ''} non envoyé${skipped.length > 1 ? 's' : ''} (trop lourd ou serveur pas à jour) : mets-le sur Google Drive et colle le lien` : `Conseil envoyé à ${p.firstName || 'ton joueur'}`, skipped.length ? 'err' : '');
   }
   function dialog(p, done) {
     let th = 'course', touched = false;
@@ -38,9 +72,15 @@ const Tips = (() => {
         <div class="chips" id="tpTh">${THEMES.map(([k, ic, l]) => `<button class="chip ${k === th ? 'on' : ''}" data-th="${k}">${ic} ${esc(l)}</button>`).join('')}</div>
         <label class="fld"><span>Titre</span><input id="tpTitle" maxlength="80" value="${esc(theme(th)[2])}"></label>
         <label class="fld"><span>L'exercice (déjà rempli : modifie-le si tu veux)</span><textarea id="tpText" rows="7" maxlength="1500">${esc(theme(th)[3])}</textarea></label>
-        <label class="fld"><span>Lien d'une vidéo (facultatif)</span><input id="tpLink" type="url" inputmode="url" placeholder="https://…"></label>`,
+        <label class="fld"><span>Joindre une séance prête (facultatif)</span><select id="tpSess"><option value="">Aucune</option>${sessionsFor(p).map(([g, l]) => `<optgroup label="${esc(g)}">${l.map(t => `<option value="${t.id}">${esc((t.date && !t.model ? UI.fmtDate(t.date) + ' · ' : '') + (t.title || 'Séance'))} (${(t.exercises || []).length} ex.)</option>`).join('')}</optgroup>`).join('')}</select></label>
+        <label class="switch"><input type="checkbox" id="tpSch" checked><span>Avec les schémas des exercices (images)</span></label>
+        <label class="fld"><span>Liens de vidéos (un par ligne : YouTube, Google Drive, Instagram…)</span><textarea id="tpLinks" rows="2" inputmode="url" placeholder="https://…"></textarea></label>
+        <label class="fld"><span>PDF ou images (3 Mo maximum chacun)</span><input id="tpFiles" type="file" multiple accept="application/pdf,image/*"></label>
+        ${Cloud.ready() ? '' : '<p class="tip">Les fichiers ne partent que si l\'appli est connectée au serveur du club.</p>'}`,
       onOpen: r => {
         $('#tpText', r).addEventListener('input', () => { touched = true; });
+        // a ready session chosen: its title, and the ready-made exercise is left out (unless the coach wrote his own)
+        $('#tpSess', r).onchange = e => { const s = Store.get('trainings', e.target.value); if (!s) return; $('#tpTitle', r).value = s.title || 'Séance'; if (!touched) $('#tpText', r).value = ''; };
         $$('#tpTh .chip', r).forEach(b => b.onclick = () => {
           th = b.dataset.th; $$('#tpTh .chip', r).forEach(x => x.classList.toggle('on', x === b));
           $('#tpTitle', r).value = theme(th)[2];
@@ -48,10 +88,12 @@ const Tips = (() => {
         });
       },
       actions: [{ label: 'Annuler' }, { label: 'Envoyer', kind: 'primary', onClick: (close, r) => {
-        const text = $('#tpText', r).value.trim(), link = $('#tpLink', r).value.trim(), [, icon, themeLabel] = theme(th);
-        if (!text) { toast('Écris l\'exercice', 'err'); return false; }
-        p.coachTips = [{ id: Store.uid(), at: today(), theme: th, icon, themeLabel, title: $('#tpTitle', r).value.trim() || themeLabel, text, link: /^https:\/\//.test(link) ? link : '', by: coachName() }, ...(p.coachTips || [])].slice(0, 30);
-        Store.upsert('players', p); toast(`Conseil envoyé à ${p.firstName || 'ton joueur'}`); done();
+        const text = $('#tpText', r).value.trim(), [, icon, themeLabel] = theme(th), sess = Store.get('trainings', $('#tpSess', r).value);
+        if (!text && !sess) { toast('Écris l\'exercice ou choisis une séance', 'err'); return false; }
+        const links = $('#tpLinks', r).value.split(/\s+/).map(x => x.trim()).filter(x => /^https:\/\/\S+$/.test(x)).slice(0, 8);
+        const tip = { id: Store.uid(), at: today(), theme: th, icon, themeLabel, title: $('#tpTitle', r).value.trim() || (sess && sess.title) || themeLabel, text, links, files: [], by: coachName() };
+        if (sess) tip.session = { title: sess.title || 'Séance', goal: sess.goal || '', exercises: (sess.exercises || []).map(e => ({ title: e.title || '', duration: e.duration || '', org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '' })) };
+        send(p, tip, sess && $('#tpSch', r).checked ? sess : null, [...($('#tpFiles', r).files || [])]).then(done);
       } }],
     });
   }
@@ -59,7 +101,9 @@ const Tips = (() => {
     const b = e.target.closest('[data-tip]'); if (!b) return false;
     if (b.dataset.tip === 'new') dialog(p, done);
     if (b.dataset.tip === 'del') confirmBox('Retirer ce conseil ? Le joueur ne le verra plus.', 'Retirer').then(ok => {
-      if (!ok) return; p.coachTips = (p.coachTips || []).filter(t => t.id !== b.dataset.t); Store.upsert('players', p); done();
+      if (!ok) return; const t = (p.coachTips || []).find(x => x.id === b.dataset.t);
+      ((t && t.files) || []).forEach(x => Cloud.tipFileDel(x.id).catch(() => {}));
+      p.coachTips = (p.coachTips || []).filter(x => x.id !== b.dataset.t); Store.upsert('players', p); done();
     });
     return true;
   }

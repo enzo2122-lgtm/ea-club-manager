@@ -1007,7 +1007,7 @@ do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_l
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
   'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
-  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'member_tips', 'member_session', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
+  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'member_tips', 'member_tip_file', 'club_tip_file_add', 'club_tip_file_del', 'member_session', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
   'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_request', 'ea_owner_requests', 'ea_owner_sub', 'ea_owner_news', 'member_push', 'member_news', 'ea_owner_votes', 'ea_owner_club_plan', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
 begin
   for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop
@@ -1050,11 +1050,31 @@ declare c text := ea_need(k); sid text := ea_staff(k); begin
   return ea_game_fav(c, sid, p_fav); end $$;
 -- (1.63) the player's page: the content of an upcoming session of his team (goal, exercises), only once he answered « présent ». Read only.
 -- (1.65) les conseils perso du coach pour ce joueur (exercices pour progresser), lus seulement avec son code
+create table if not exists tip_files (id uuid primary key default gen_random_uuid(), club text not null references clubs(id) on delete cascade,
+  player_id text not null, tip_id text not null, name text, mime text not null, data text not null check (length(data) < 4200000), created_at timestamptz not null default now());
+create index if not exists tip_files_player on tip_files (club, player_id);
+alter table tip_files enable row level security;
+-- (1.74) a coach joins a PDF or an image to a tip for one player (at most 40 files a player, ~3 Mo each)
+create or replace function club_tip_file_add(k text, p_player text, p_tip text, p_name text, p_mime text, p_data text) returns jsonb language plpgsql security definer set search_path = public as $$
+declare c text := ea_need(k); r uuid;
+begin
+  if coalesce(p_mime, '') not in ('application/pdf', 'image/jpeg', 'image/png') or coalesce(p_data, '') not like 'data:' || p_mime || ';base64,%' or length(p_data) >= 4200000 then raise exception 'DONNEES'; end if;
+  if not exists (select 1 from items where club = c and col = 'players' and id = p_player and not deleted) then raise exception 'DONNEES'; end if;
+  if (select count(*) from tip_files where club = c and player_id = p_player) >= 40 then raise exception 'FICHIERS_MAX'; end if;
+  insert into tip_files (club, player_id, tip_id, name, mime, data) values (c, p_player, left(p_tip, 40), left(p_name, 120), p_mime, p_data) returning id into r;
+  return to_jsonb(r); end $$;
+create or replace function club_tip_file_del(k text, p_id uuid) returns boolean language plpgsql security definer set search_path = public as $$
+declare c text := ea_need(k); begin delete from tip_files where club = c and id = p_id; return found; end $$;
+-- the player (or his parents) reads a file of HIS tips only
+create or replace function member_tip_file(p_code text, p_id uuid) returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare pl items := ea_member(p_code);
+begin return (select jsonb_build_object('name', name, 'mime', mime, 'data', data) from tip_files where club = pl.club and player_id = pl.id and id = p_id); end $$;
+-- (1.65 → 1.74) the coach's tips for this player: the exercise, a ready session, video links, files
 create or replace function member_tips(p_code text) returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare pl items := ea_member(p_code);
 begin
-  return (select coalesce(jsonb_agg(jsonb_build_object('id', t->>'id', 'at', t->>'at', 'icon', t->>'icon', 'themeLabel', t->>'themeLabel', 'title', t->>'title', 'text', t->>'text', 'link', t->>'link', 'by', t->>'by')
-      order by t->>'at' desc), '[]'::jsonb)
+  return (select coalesce(jsonb_agg(jsonb_build_object('id', t->>'id', 'at', t->>'at', 'icon', t->>'icon', 'themeLabel', t->>'themeLabel', 'title', t->>'title', 'text', t->>'text', 'link', t->>'link', 'by', t->>'by',
+      'session', t->'session', 'links', t->'links', 'files', t->'files') order by t->>'at' desc), '[]'::jsonb)
     from jsonb_array_elements(case when jsonb_typeof(pl.data->'coachTips') = 'array' then pl.data->'coachTips' else '[]'::jsonb end) t);
 end $$;
 create or replace function member_session(p_code text, p_id text) returns jsonb language plpgsql stable security definer set search_path = public as $$
@@ -1440,7 +1460,7 @@ do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_l
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
   'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
-  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'member_tips', 'member_session', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
+  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'member_tips', 'member_tip_file', 'club_tip_file_add', 'club_tip_file_del', 'member_session', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
   'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_request', 'ea_owner_requests', 'ea_owner_sub', 'ea_owner_news', 'member_push', 'member_news', 'ea_owner_votes', 'ea_owner_club_plan', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
 begin
   for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop
