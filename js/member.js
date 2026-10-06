@@ -152,7 +152,7 @@ const Member = (() => {
   }
   // list: [{ id, icon, label, html, empty }] — the chosen tab stays the same when the page is redrawn
   function tabs(kind, list) {
-    tabCss(); document.body.classList.add('has-tabs');
+    tabCss(); document.body.classList.add('has-tabs'); checkNew();
     if (!list.some(t => t.id === tabCur)) { let s = ''; try { s = sessionStorage.getItem(TABKEY(kind)) || ''; } catch (e) {} tabCur = list.some(t => t.id === s) ? s : list[0].id; }
     return list.map(t => `<section class="tab-pane" data-pane="${t.id}" role="tabpanel" ${t.id === tabCur ? '' : 'hidden'}>${t.html && t.html.trim() ? t.html : `<p class="tip">${t.empty || 'Rien pour l\'instant.'}</p>`}</section>`).join('')
       + `<nav class="tabbar" role="tablist" data-kind="${kind}">${list.map(t => `<button class="tab ${t.id === tabCur ? 'on' : ''}" role="tab" aria-selected="${t.id === tabCur}" data-tab="${t.id}"><span class="ti">${t.icon}</span><span>${esc(t.label)}</span></button>`).join('')}</nav>`;
@@ -174,7 +174,33 @@ const Member = (() => {
     document.querySelectorAll('.tabbar .tab').forEach(x => { const on = x.dataset.tab === tabCur; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
     window.scrollTo(0, 0);
   }
+  /* ---------- (1.67) « Mettre à jour l'appli » : no need to close and reopen it ---------- */
+  const pageBuild = () => { const s = document.querySelector('script[src*="member.js?v="]'); return s ? +((s.getAttribute('src').match(/v=(\d+)/) || [])[1] || 0) : 0; };
+  async function updateApp() {
+    const t = document.getElementById('toast'); if (t) { t.textContent = 'Mise à jour de l\'appli…'; t.className = 'toast show'; }
+    try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r => r.update().catch(() => {}))); } catch (e) {} // kept: the notifications stay on
+    try { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (e) {}
+    setTimeout(() => location.reload(), 300);
+  }
+  function updateCard() {
+    return `<div class="card"><p class="info">📲 Une nouveauté annoncée par le club ? Touche le bouton pour avoir la dernière version, sans fermer l'appli.</p>
+      <button class="b yes on" data-mupdate>🔄 Mettre à jour l'appli</button></div>`;
+  }
+  // a newer version online: a bar on top of the page
+  let checked = false;
+  async function checkNew() {
+    if (checked || location.protocol === 'file:') return; checked = true;
+    try {
+      const v = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json(), mine = pageBuild();
+      if (!mine || !(v.build > mine) || document.getElementById('updBar')) return;
+      const bar = document.createElement('div'); bar.id = 'updBar';
+      bar.style.cssText = 'display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#c9a45c;color:#14172b;padding:10px 16px;font-weight:700';
+      bar.innerHTML = `<span>✨ Nouvelle version de l'appli (${esc(v.version || '')})</span><button class="b small" data-mupdate>🔄 Mettre à jour</button>`;
+      const top = document.querySelector('header.top'); top ? top.after(bar) : document.body.prepend(bar);
+    } catch (e) {}
+  }
   function onBar(e, reload) {
+    if (e.target.closest('[data-mupdate]')) { updateApp(); return true; }
     const tb = e.target.closest('[data-tab]'); if (tb) { showTab(tb); return true; }
     const nb = e.target.closest('[data-mnotif]'); if (nb) { setNotify(nb.dataset.mnotif === 'on', nb.dataset.kind); return true; }
     if (e.target.closest('[data-forgetme]')) { forgetMe(/parents/.test(location.pathname) ? 'parents' : 'joueur'); return true; }
@@ -239,5 +265,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { tabs, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { tabs, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();
