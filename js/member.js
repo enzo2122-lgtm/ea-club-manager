@@ -232,7 +232,15 @@ const Member = (() => {
       const top = document.querySelector('header.top'); top ? top.after(bar) : document.body.prepend(bar);
     } catch (e) {}
   }
+  /* (1.77) the sessions to come: the next 3 weeks (at least 3), then « Voir les suivants » */
+  let allTr = false;
+  function trList(list, row) {
+    if (!list.length) return '';
+    const lim = new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10), near = list.filter((t, i) => i < 3 || t.date <= lim), more = list.length - near.length;
+    return `<div class="card">${(allTr ? list : near).map(row).join('')}</div>${more ? `<p><button class="b small" data-alltr>${allTr ? 'Voir seulement les 3 prochaines semaines' : `Voir les ${more} entraînement${more > 1 ? 's' : ''} suivant${more > 1 ? 's' : ''}`}</button></p>` : ''}`;
+  }
   function onBar(e, reload) {
+    if (e.target.closest('[data-alltr]')) { allTr = !allTr; document.dispatchEvent(new Event('member-redraw')); return true; }
     if (e.target.closest('[data-mupdate]')) { updateApp(); return true; }
     const tb = e.target.closest('[data-tab]'); if (tb) { showTab(tb); return true; }
     const tf = e.target.closest('[data-tipfile]'); if (tf) { openTipFile(tf.dataset.tipfile); return true; }
@@ -299,5 +307,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { tabs, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { tabs, trList, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();
