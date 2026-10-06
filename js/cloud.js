@@ -112,6 +112,7 @@ const Cloud = (() => {
     markRead: (channel, at) => rpc('club_mark_read', { k: token(), p_channel: channel, p_at: at }),
     reads: channel => rpc('club_reads', { p_channel: channel }),
     tipFileAdd: (playerId, tipId, name, mime, data) => rpc('club_tip_file_add', { p_player: playerId, p_tip: tipId, p_name: name, p_mime: mime, p_data: data }), // (1.74)
+    memberNote: (players, title, body) => rpc('club_member_note', { p_players: players, p_title: title, p_body: body }), // (1.76) notification of the app
     tipFileDel: id => rpc('club_tip_file_del', { p_id: id }),
     photoAdd: (matchId, src, data) => rpc('club_photo_add', { p_match: matchId, p_src: src, p_data: data, p_by: Auth.current() ? Store.fullName(Auth.current()) : '' }),
     photos: matchId => rpc('club_photos', { p_match: matchId }),

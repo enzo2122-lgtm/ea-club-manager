@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.75';
+  const VERSION = '1.76';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3906,6 +3906,7 @@ var Cloud = (() => {
     markRead: (channel, at) => rpc('club_mark_read', { k: token(), p_channel: channel, p_at: at }),
     reads: channel => rpc('club_reads', { p_channel: channel }),
     tipFileAdd: (playerId, tipId, name, mime, data) => rpc('club_tip_file_add', { p_player: playerId, p_tip: tipId, p_name: name, p_mime: mime, p_data: data }), // (1.74)
+    memberNote: (players, title, body) => rpc('club_member_note', { p_players: players, p_title: title, p_body: body }), // (1.76) notification of the app
     tipFileDel: id => rpc('club_tip_file_del', { p_id: id }),
     photoAdd: (matchId, src, data) => rpc('club_photo_add', { p_match: matchId, p_src: src, p_data: data, p_by: Auth.current() ? Store.fullName(Auth.current()) : '' }),
     photos: matchId => rpc('club_photos', { p_match: matchId }),
@@ -12007,12 +12008,21 @@ var Parents = (() => {
     const def = `Bonjour, pour le match ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} (${UI.fmtDate(m.date)}), tu n'es pas retenu cette fois. Continue à bien t'entraîner, ta chance va venir 💪${u ? ' Coach ' + (u.firstName || '') : ''}`;
     modal({ title: '📣 Prévenir les non-convoqués', noFocus: true,
       body: `<label class="fld"><span>Le message (modifie-le si tu veux)</span><textarea id="ncTxt" rows="4">${esc(def)}</textarea></label>
-        <div class="chips"><button class="btn primary" data-ncall>${I.share}<span>Envoyer à tous (groupe WhatsApp…)</span></button><button class="btn soft" data-nccopy>Copier</button></div>
+        <div class="chips">${Cloud.ready() ? `<button class="btn primary" data-ncnotif>🔔<span>Notifier tous dans l'appli</span></button>` : ''}<button class="btn soft" data-ncall>${I.share}<span>Groupe WhatsApp…</span></button><button class="btn soft" data-nccopy>Copier</button></div>
+        <p class="muted small">La notification arrive sur le téléphone des joueurs et des parents qui l'ont activée dans leur espace. Pour les autres : WhatsApp.</p>
         <h3 class="sub-h">Joueur par joueur (${list.length})</h3>
-        <div class="list">${list.map(p => { const tel = phoneOf(p); return `<div class="list-item"><div class="li-main"><b>${esc(Store.fullName(p))}</b><span class="muted small">${D.yes.has(p.id) ? '✓ était dispo' : D.no.has(p.id) ? '✗ pas dispo' : 'pas de réponse'}</span></div>
-          ${tel ? `<button class="btn soft" data-ncwa="${tel}" data-fn="${esc(p.firstName || '')}">WhatsApp</button>` : '<span class="muted small">pas de numéro</span>'}</div>`; }).join('') || '<p class="muted">Tout le monde est convoqué.</p>'}</div>`,
+        <div class="list">${list.map(p => { const tel = phoneOf(p); return `<div class="list-item" data-ncp="${esc(p.id)}"><div class="li-main"><b>${esc(Store.fullName(p))}</b><span class="muted small nc-st">${D.yes.has(p.id) ? '✓ était dispo' : D.no.has(p.id) ? '✗ pas dispo' : 'pas de réponse'}</span></div>
+          <span class="chips">${Cloud.ready() ? `<button class="btn soft" data-ncone="${esc(p.id)}" data-fn="${esc(p.firstName || '')}" aria-label="Notifier dans l'appli">🔔</button>` : ''}${tel ? `<button class="btn soft" data-ncwa="${tel}" data-fn="${esc(p.firstName || '')}">WhatsApp</button>` : '<span class="muted small">pas de numéro</span>'}</span></div>`; }).join('') || '<p class="muted">Tout le monde est convoqué.</p>'}</div>`,
       onOpen: r => {
         const txt = () => r.querySelector('#ncTxt').value;
+        // (1.76) the notification of the app; the result says who has it on (the others: WhatsApp)
+        const t0 = Store.get('teams', m.teamId), title = `📣 ${t0 ? t0.name + ' · ' : ''}match ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`;
+        const mark = (ids, sent) => ids.forEach(id => { const row = r.querySelector(`[data-ncp="${id}"] .nc-st`); if (row) row.innerHTML = sent.includes(id) ? '<b class="ans-yes">🔔 prévenu dans l\'appli</b>' : '<b class="ans-no">notifications pas activées : WhatsApp</b>'; });
+        const notify = async (ids, text, btn) => { btn.disabled = true;
+          try { const res = await Cloud.memberNote(ids, title, text), sent = (res && res.sent) || []; mark(ids, sent); toast(`${sent.length} prévenu${sent.length > 1 ? 's' : ''} dans l'appli${ids.length - sent.length ? ` · ${ids.length - sent.length} sans notification (WhatsApp)` : ''}`); }
+          catch (e) { toast(needUpdate(e), 'err'); } finally { btn.disabled = false; } };
+        const nb = r.querySelector('[data-ncnotif]'); if (nb) nb.onclick = () => notify(list.map(p => p.id), txt(), nb);
+        r.querySelectorAll('[data-ncone]').forEach(b => b.onclick = () => notify([b.dataset.ncone], b.dataset.fn ? txt().replace(/^Bonjour\b/, 'Bonjour ' + b.dataset.fn) : txt(), b));
         r.querySelector('[data-ncall]').onclick = () => { const t = txt(); if (navigator.share) navigator.share({ text: t }).catch(() => {}); else window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); };
         r.querySelector('[data-nccopy]').onclick = () => navigator.clipboard.writeText(txt()).then(() => toast('Message copié : colle-le dans WhatsApp ou un SMS')).catch(() => {});
         r.querySelectorAll('[data-ncwa]').forEach(b => b.onclick = () => { const t = b.dataset.fn ? txt().replace(/^Bonjour\b/, 'Bonjour ' + b.dataset.fn) : txt(); window.open('https://wa.me/' + b.dataset.ncwa + '?text=' + encodeURIComponent(t), '_blank'); b.textContent = '✓ Envoyé'; });
@@ -13318,6 +13328,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 33, date: '2026-10-07', title: 'Message aux non-convoqués par notification', items: [
+      ['🔔', 'Match → « Non-convoqués » → « Notifier tous dans l\'appli » (ou 🔔 joueur par joueur, avec son prénom). L\'appli dit qui l\'a reçu ; pour les autres (notifications pas activées) : WhatsApp.'],
+    ] },
     { n: 32, date: '2026-10-07', title: 'Convocations : seulement les dispos', items: [
       ['🙋', 'Match et séance : la liste ne montre que les joueurs qui ont répondu « dispo » / « présent », au fur et à mesure. Un menu ajoute un joueur à la main (téléphone perdu, réponse de vive voix…).'],
       ['📣', '« Non-convoqués » : un message pour tous (groupe WhatsApp) ou joueur par joueur. Les joueurs ne voient plus « tu n\'es pas convoqué ».'],
@@ -15244,7 +15257,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 76, UPD = AppCfg.key('update-tried');
+  const BUILD = 77, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

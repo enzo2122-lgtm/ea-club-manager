@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 33, date: '2026-10-07', title: 'Message aux non-convoqués par notification', items: [
+      ['🔔', 'Match → « Non-convoqués » → « Notifier tous dans l\'appli » (ou 🔔 joueur par joueur, avec son prénom). L\'appli dit qui l\'a reçu ; pour les autres (notifications pas activées) : WhatsApp.'],
+    ] },
     { n: 32, date: '2026-10-07', title: 'Convocations : seulement les dispos', items: [
       ['🙋', 'Match et séance : la liste ne montre que les joueurs qui ont répondu « dispo » / « présent », au fur et à mesure. Un menu ajoute un joueur à la main (téléphone perdu, réponse de vive voix…).'],
       ['📣', '« Non-convoqués » : un message pour tous (groupe WhatsApp) ou joueur par joueur. Les joueurs ne voient plus « tu n\'es pas convoqué ».'],
