@@ -150,7 +150,7 @@ const Member = (() => {
       + '.tip-card .tc-txt{white-space:pre-wrap;margin:8px 0 4px}.tip-card .tc-th{display:inline-block;font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);margin-bottom:6px}'
       + '.tab-pane>h2:first-child{margin-top:8px}'
       + '.kb{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;color:#fff;margin:2px 6px 2px 0;white-space:nowrap}'
-      + '.kb-champ{background:#2563eb}.kb-cup{background:#b7791f}.kb-ami{background:#15803d}.kb-tour{background:#ea580c}.kb-tr{background:#7c3aed;font-size:12px;padding:2px 8px}'
+      + '.kb-team{background:#0e1d45}.kb-champ{background:#2563eb}.kb-cup{background:#b7791f}.kb-ami{background:#15803d}.kb-tour{background:#ea580c}.kb-tr{background:#7c3aed;font-size:12px;padding:2px 8px}'
       + '.card.k-champ{border-left:6px solid #2563eb}.card.k-cup{border-left:6px solid #b7791f}.card.k-ami{border-left:6px solid #15803d}.card.k-tour{border-left:6px solid #ea580c}'
       + '.tr-ans{border-left:4px solid #7c3aed;padding-left:10px}'
       + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}';
@@ -244,7 +244,8 @@ const Member = (() => {
     if (/tournoi|plateau|festi/i.test(c)) return ['tour', '🎪', /plateau/i.test(c) ? 'Plateau' : 'Tournoi'];
     return ['champ', '🏆', 'Championnat'];
   }
-  const kindBadge = m => { const [k, ic, l] = kind(m); return `<span class="kb kb-${k}" title="${esc(m.competition || l)}">${ic} ${l}</span>`; };
+  // (1.79) and which team plays it (Seniors A or Seniors B): a player of the category sees and answers both
+  const kindBadge = m => { const [k, ic, l] = kind(m); return `<span class="kb kb-${k}" title="${esc(m.competition || l)}">${ic} ${l}</span>${m.team ? `<span class="kb kb-team">⚽ ${esc(m.team)}</span>` : ''}`; };
   const kindCls = m => 'k-' + kind(m)[0];
   const trBadge = '<span class="kb kb-tr">🏃 Entraînement</span>';
   /* (1.77) the sessions to come: the next 3 weeks (at least 3), then « Voir les suivants » */
