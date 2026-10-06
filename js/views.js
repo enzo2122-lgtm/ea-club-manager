@@ -368,7 +368,7 @@ const Views = (() => {
     const up = list.filter(t => t.date >= now).sort((a, b) => a.date.localeCompare(b.date)), past = list.filter(t => t.date < now).sort((a, b) => b.date.localeCompare(a.date));
     const item = t => { const tm = teamOf(t.teamId), dur = t.exercises.reduce((a, e) => a + (+e.duration || 0), 0), grp = trGroup(t);
       return `<a class="list-item" href="#/entrainement/${t.id}"><div class="date-box"><b>${new Date(t.date + 'T12:00').getDate()}</b><span>${esc(fmtDate(t.date, { month: 'short' }))}</span></div>
-        <div class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${grp ? `<b class="tr-grp">${esc(grp)}</b> · ` : ''}${tm ? esc(tm.name) + ' · ' : ''}${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span></div>${I.next}</a>`; };
+        <div class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${grp ? `<b class="tr-grp">${esc(grp)}</b> · ` : ''}${tm ? esc(tm.name) + ' · ' : ''}${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span>${t.date >= now ? `<span class="tr-ans" data-trans="${t.id}"></span>` : ''}</div>${I.next}</a>`; };
     root.innerHTML = `${header('Entraînements', 'Séances, exercices et présences', `<a class="btn primary" href="#/systemes">📚<span>Séances par système de jeu</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="ics">${I.calendar}<span>Agenda (.ics)</span></button><a class="btn" href="#/bibliotheque">${I.pdf}<span>Importer une fiche PDF</span></a><a class="btn" href="#/exercices">📚<span>Exercices du club</span></a><button class="btn" data-exgen>✨<span>Générer une séance</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouvel entraînement</span></button>`)}
       ${teamSwitch()}
       <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Séances types du club (${models.length})</b><span class="muted small"> · des séances prêtes, pour toutes les catégories</span></summary>
@@ -377,6 +377,7 @@ const Views = (() => {
       <h2 class="section">À venir</h2>${up.length ? `<div class="list">${up.map(item).join('')}</div>` : '<p class="muted">Aucun entraînement prévu.</p>'}
       <h2 class="section">Passés</h2>${past.length ? `<div class="list">${past.map(item).join('')}</div>` : '<p class="muted">Rien pour l\'instant.</p>'}`;
     bindTeamSwitch(root, () => trainings(root));
+    Parents.dayBadges(root, up.slice(0, 40)); // (1.69) présents / absents annoncés de chaque jour
     $('[data-act="new"]', root).onclick = newTraining;
     $('[data-act="import"]', root).onclick = importFile;
     $('[data-act="ics"]', root).onclick = () => Importer.trainingsFromICS(() => trainings(root));
