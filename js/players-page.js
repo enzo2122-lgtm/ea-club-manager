@@ -42,6 +42,15 @@
     return r;
   }
 
+  // (1.73) before the convocation: « dispo / pas dispo », the coach sees it and chooses who is called up
+  const dispoBox = m => `<div class="mine-box"><b>Tu es dispo ?</b> <span class="info small">${m.answer === 'oui' ? '✓ dispo' : m.answer === 'non' ? '✗ pas dispo' : 'pas encore répondu'}</span>
+      <div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis dispo</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Pas dispo</button></div>
+      <p class="info small">Le coach choisit les convoqués, puis t'envoie la convocation.</p></div>`;
+  // the other matches to come: short, with the same answer
+  const upCard = m => `<article class="card ${m.home ? 'home' : 'away'}" data-m="${esc(m.id)}"><div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(hh(m.time)) : ''}</div>
+      <div class="m-title">${title(m)}</div><span class="tag">${m.home ? '🏠 À domicile' : '🚌 À l\'extérieur'}</span>
+      ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div></div>`
+        : m.published ? '<div class="mine-box off">Tu n\'es pas convoqué pour ce match.</div>' : dispoBox(m)}</article>`;
   function nextCard(m) {
     const t = m.talk || {}, keys = (t.keys || []).filter(Boolean), place = m.place || (m.home ? (data.club && data.club.fieldName) || '' : '');
     return `<article class="card next ${m.home ? 'home' : 'away'}" data-m="${esc(m.id)}">
@@ -51,7 +60,7 @@
       <p class="info">${m.rdv ? `🕘 Rendez-vous <b>${esc(hh(m.rdv))}</b>` : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? `coup d'envoi <b>${esc(hh(m.time))}</b>` : ''}${!m.rdv && !m.time ? '🕘 Horaire à confirmer' : ''}</p>
       ${place ? `<p class="info">📍 ${mapLink(place)}</p>` : ''}
       ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div>${m.answer === 'non' && m.reason ? `<span class="why">Raison : ${esc(m.reason)}</span>` : ''}</div>`
-        : m.published ? '<div class="mine-box off">Tu n\'es pas convoqué pour ce match.</div>' : '<p class="info">La convocation n\'est pas encore publiée.</p>'}
+        : m.published ? '<div class="mine-box off">Tu n\'es pas convoqué pour ce match.</div>' : dispoBox(m)}
       ${t.objective || keys.length || t.final || t.video ? `<div class="talk"><h3>🗣️ Le mot du coach</h3>
         ${t.objective ? `<p class="obj">🎯 ${esc(t.objective)}</p>` : ''}${t.system ? `<p class="info">Système : <b>${esc(t.system)}</b></p>` : ''}
         ${keys.length ? `<ol class="keys">${keys.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
@@ -133,9 +142,9 @@
       ${Member.tabs('joueurs', [
         { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}
           <h2>Prochain match</h2>${up.length ? nextCard(up[0]) : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}
-          ${up.length > 1 ? `<h2>Ensuite</h2><div class="card">${up.slice(1, 6).map(m => `<div class="tr"><span class="d">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}${m.time ? ' · ' + esc(hh(m.time)) : ''}</span></div>`).join('')}</div>` : ''}` },
+          ${up.length > 1 ? `<h2>Ensuite</h2>${up.slice(1).map(upCard).join('')}` : ''}` },
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, 'toi')}
-          ${(data.trainings || []).length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${data.trainings.map(trRow).join('')}</div>` : '<h2>Entraînements</h2><p class="tip">Pas d\'entraînement prévu ces deux semaines.</p>'}
+          ${(data.trainings || []).length ? `<h2>Entraînements à venir</h2><div class="card">${data.trainings.map(trRow).join('')}</div>` : '<h2>Entraînements</h2><p class="tip">Pas d\'entraînement prévu ces deux semaines.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'saison', icon: '📊', label: 'Saison', html: `${my.conv || my.f.mp ? `<h2>Ma saison</h2><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div>${my.yc || my.rc ? `<div><b>${my.yc ? '🟨' + my.yc : ''}${my.rc ? ' 🟥' + my.rc : ''}</b><span>cartons</span></div>` : ''}${my.sessions && my.sessions.total ? `<div><b>${Math.round(my.sessions.present / my.sessions.total * 100)} %</b><span>présence aux séances (${my.sessions.present}/${my.sessions.total})</span></div>` : ''}</div>${my.teams && Object.keys(my.teams).length > 1 ? `<p class="info">Joué avec : ${Object.entries(my.teams).map(([t, n]) => `<b>${esc(t)}</b> (${n})`).join(' · ')}</p>` : ''}<p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
           ${past.length ? `<h2>Résultats</h2>${past.slice(0, 12).map(pastCard).join('')}` : ''}
