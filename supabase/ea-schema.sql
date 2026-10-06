@@ -889,6 +889,17 @@ begin
   begin perform net.http_post(url := cfg.fn_url, body := jsonb_build_object('subs', subs), headers := jsonb_build_object('Content-Type', 'application/json', 'x-raincy-secret', cfg.secret));
   exception when others then raise notice 'notification des familles : %', sqlerrm; end;
 end $$;
+-- (1.76) a coach (logged in, not the invitation link) sends his own message as a notification to some players of the club
+-- (those whose phone has the notifications on); returns who has them on (the others: WhatsApp)
+create or replace function club_member_note(k text, p_players text[], p_title text, p_body text) returns jsonb language plpgsql security definer set search_path = public as $$
+declare c text := ea_need(k); ids text[];
+begin
+  if not exists (select 1 from sessions s where s.token_hash = ea_hash(k) and s.club = c and s.expires_at > now()) then raise exception 'SESSION'; end if;
+  if coalesce(trim(p_body), '') = '' then raise exception 'DONNEES'; end if;
+  ids := array(select i.id from items i where i.club = c and i.col = 'players' and not i.deleted and i.id = any(coalesce(p_players, '{}'::text[])) limit 300);
+  perform member_note(c, ids, coalesce(nullif(trim(p_title), ''), '📣 Message du coach'), trim(p_body));
+  return jsonb_build_object('sent', (select coalesce(jsonb_agg(distinct s.player_id), '[]'::jsonb) from member_subs s where s.club = c and s.player_id = any(ids)));
+end $$;
 create or replace function ea_on_item_members() returns trigger language plpgsql security definer set search_path = public as $$
 declare d jsonb; o jsonb; ismatch boolean := new.col = 'matches'; dt date; team text; lbl text; body text; conv text[]; added text[];
 begin
@@ -1007,7 +1018,7 @@ do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_l
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
   'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
-  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'member_tips', 'member_tip_file', 'club_tip_file_add', 'club_tip_file_del', 'member_session', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
+  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'club_member_note', 'member_tips', 'member_tip_file', 'club_tip_file_add', 'club_tip_file_del', 'member_session', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
   'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_request', 'ea_owner_requests', 'ea_owner_sub', 'ea_owner_news', 'member_push', 'member_news', 'ea_owner_votes', 'ea_owner_club_plan', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
 begin
   for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop
@@ -1460,7 +1471,7 @@ do $grants$ declare f record; open_fns text[] := array['ea_create_club', 'club_l
   'club_change_pw', 'club_logout', 'club_invite', 'club_info', 'club_pull', 'club_push', 'club_ping', 'club_admin_ping', 'club_messages', 'club_post', 'club_delete_message',
   'club_slots', 'club_set_slots', 'club_bookings', 'club_book', 'club_unbook', 'club_unbook_series', 'club_answers', 'club_set_answer', 'club_photo_add', 'club_photos',
   'club_photo_get', 'club_photo_del', 'club_push_key', 'club_push_sub', 'club_push_unsub', 'club_push_test', 'club_notifs', 'club_mark_read', 'club_reads',
-  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'member_tips', 'member_tip_file', 'club_tip_file_add', 'club_tip_file_del', 'member_session', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
+  'club_backups', 'club_backup_now', 'club_backup_get', 'club_backup_auto', 'club_member_codes', 'club_member_given', 'member_view', 'member_standings', 'club_member_note', 'member_tips', 'member_tip_file', 'club_tip_file_add', 'club_tip_file_del', 'member_session', 'member_game', 'member_game_bet', 'member_game_fav', 'club_game', 'club_game_bet', 'club_game_fav', 'member_answer', 'member_message',
   'member_wellness', 'member_volunteer', 'member_photo', 'member_reply', 'member_replies', 'ea_owner_init', 'ea_owner_codes', 'ea_request', 'ea_owner_requests', 'ea_owner_sub', 'ea_owner_news', 'member_push', 'member_news', 'ea_owner_votes', 'ea_owner_club_plan', 'ea_owner_clubs', 'ea_owner_club_set', 'ea_owner_push'];
 begin
   for f in select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname like 'ea\_%' or p.proname like 'club\_%' or p.proname like 'member\_%') loop
