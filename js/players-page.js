@@ -7,7 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hh = x => String(x || '').replace(':', 'h');
   const fmt = (d, o = { weekday: 'long', day: 'numeric', month: 'long' }) => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', o) : '';
-  let code = Member.current(), data = null, extra = null; // extra (1.60): tables of the category + his whole season (member_standings)
+  let code = Member.current(), data = null, extra = null, tips = []; // tips (1.65): the coach's suggestions for him // extra (1.60): tables of the category + his whole season (member_standings)
   if (!code) { location.replace('moi.html' + location.hash); return; }
 
   let tt;
@@ -131,10 +131,11 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '⚽', label: 'Matchs', html: `${wbCard(now)}
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}
           <h2>Prochain match</h2>${up.length ? nextCard(up[0]) : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}
           ${up.length > 1 ? `<h2>Ensuite</h2><div class="card">${up.slice(1, 6).map(m => `<div class="tr"><span class="d">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}${m.time ? ' · ' + esc(hh(m.time)) : ''}</span></div>`).join('')}</div>` : ''}` },
-        { id: 'seances', icon: '🏃', label: 'Séances', html: `${(data.trainings || []).length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${data.trainings.map(trRow).join('')}</div>` : '<h2>Entraînements</h2><p class="tip">Pas d\'entraînement prévu ces deux semaines.</p>'}
+        { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, 'toi')}
+          ${(data.trainings || []).length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${data.trainings.map(trRow).join('')}</div>` : '<h2>Entraînements</h2><p class="tip">Pas d\'entraînement prévu ces deux semaines.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'saison', icon: '📊', label: 'Saison', html: `${my.conv || my.f.mp ? `<h2>Ma saison</h2><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div>${my.yc || my.rc ? `<div><b>${my.yc ? '🟨' + my.yc : ''}${my.rc ? ' 🟥' + my.rc : ''}</b><span>cartons</span></div>` : ''}${my.sessions && my.sessions.total ? `<div><b>${Math.round(my.sessions.present / my.sessions.total * 100)} %</b><span>présence aux séances (${my.sessions.present}/${my.sessions.total})</span></div>` : ''}</div>${my.teams && Object.keys(my.teams).length > 1 ? `<p class="info">Joué avec : ${Object.entries(my.teams).map(([t, n]) => `<b>${esc(t)}</b> (${n})`).join(' · ')}</p>` : ''}<p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
           ${past.length ? `<h2>Résultats</h2>${past.slice(0, 12).map(pastCard).join('')}` : ''}
@@ -152,6 +153,7 @@
   async function load(quiet) {
     code = Member.current();
     try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); await Member.replies(code, data); render();
+      tips = await Member.tips(code); if (tips.length) render();
       try { extra = await rpc('member_standings', { p_code: code }); render(); } catch (e) { /* a club server not yet updated: the page stays as before */ } }
     catch (e) {
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }

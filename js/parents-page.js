@@ -7,7 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hh = x => String(x || '').replace(':', 'h');
   const fmt = (d, o = { weekday: 'long', day: 'numeric', month: 'long' }) => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', o) : '';
-  let code = Member.current(), data = null;
+  let code = Member.current(), data = null, tips = []; // tips (1.65): the coach's suggestions for the child
   if (!code) { location.replace('moi.html' + location.hash); return; }
 
   let tt;
@@ -85,7 +85,6 @@
           <span class="st ${esc(m.answer || '')}">${m.answer === 'oui' ? '✓ présent' : m.answer === 'non' ? '✗ absent' + (m.reason ? ' · ' + esc(m.reason) : '') : 'pas de réponse'}</span>
           <span class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button>${m.answer === 'oui' ? seatSel : ''}</span></div>`
         : m.open && m.published ? `<p class="info">${esc(kid())} n'est pas convoqué pour ce match.</p>` : m.open ? '<p class="info">La liste des convoqués n\'est pas encore publiée.</p>' : ''}
-      ${volBox(m)}
       ${!m.played && !m.exempt && m.date >= new Date().toISOString().slice(0, 10) ? `<p><button class="b cal" data-cal="${esc(m.id)}">📅 Ajouter à mon agenda</button></p>` : ''}
       ${(m.photos || []).length ? `<div class="photos">${m.photos.map(id => `<a class="ph" data-photo="${esc(id)}" href="#" role="button" aria-label="Voir la photo"><span class="muted small">Photo…</span></a>`).join('')}</div>` : ''}
       ${!m.home && cars.length && !m.played ? `<div class="car-list"><p class="info"><b>🚗 Covoiturage de ${esc(kid())}</b></p>${cars.map(c => `<div class="car"><b>${esc(c.driver || 'Voiture')}</b>
@@ -110,7 +109,9 @@
     $('#page').innerHTML = `${Member.bar(data, 'parents')}
       ${Member.tabs('parents', [
         { id: 'matchs', icon: '⚽', label: 'Matchs', html: `<h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}` },
-        { id: 'seances', icon: '🏃', label: 'Séances', html: `${trs.length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${trs.map(trRow).join('')}</div>` : '<h2>Entraînements</h2><p class="tip">Pas d\'entraînement prévu ces deux semaines.</p>'}
+        { id: 'benevoles', icon: '🙋', label: 'Bénévoles', html: (() => { const l = up.filter(m => volBox(m)); return l.length ? `<h2>Coup de main les jours de match</h2><p class="info">Buvette, arbitre de touche, délégué, lavage des maillots… Inscris-toi en un geste.</p>${l.map(m => `<article class="card ${m.home ? 'home' : 'away'}" data-m="${esc(m.id)}"><div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(String(m.time).replace(':', 'h')) : ''}</div><div class="m-title">${m.home ? '🏠 contre' : '🚌 chez'} ${esc(m.opponent || '?')}</div>${volBox(m)}</article>`).join('')}` : ''; })(), empty: 'Pas de besoin de bénévoles pour les prochains matchs.' },
+        { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, (data.me || {}).firstName || kid())}
+          ${trs.length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${trs.map(trRow).join('')}</div>` : '<h2>Entraînements</h2><p class="tip">Pas d\'entraînement prévu ces deux semaines.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Pour ${esc(kid())} : physique, technique ou tactique, seul ou à plusieurs. Ses footings (temps, distance) et l'envoi au coach.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'resultats', icon: '🏆', label: 'Résultats', html: past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : '', empty: 'Pas encore de résultat.' },
         { id: 'coachs', icon: '📞', label: 'Coachs', html: (data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '', empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
@@ -123,7 +124,7 @@
 
   async function load(quiet) {
     code = Member.current();
-    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos(); await Member.replies(code, data); render(); loadPhotos(); }
+    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos(); await Member.replies(code, data); tips = await Member.tips(code); render(); loadPhotos(); }
     catch (e) {
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
       if (quiet && data) return;
