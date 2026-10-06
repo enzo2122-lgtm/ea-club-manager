@@ -7,6 +7,7 @@ const News = (() => {
   const LIST = [
     { n: 28, date: '2026-10-07', title: 'Groupes d\'entraînement et conseils perso', items: [
       ['👥', 'Plusieurs séances le même jour (Groupe Gianni, Groupe Enzo…) : le joueur répond « Présent » une seule fois pour la journée. Sur la séance, « Réponses des joueurs » : touchez le groupe de chacun (il le garde les semaines suivantes). Il voit alors la séance de son groupe.'],
+      ['📊', 'Dans Entraînements, chaque séance à venir affiche les réponses du jour (✓ présents · ✗ absents · % de présence). Dans la séance : le total de la journée (tous groupes), les sans-réponse et le nombre de joueurs par groupe.'],
       ['💡', 'Fiche joueur → « Conseils perso » : envoyez à un joueur un exercice pour progresser (course, passe, positionnement…). Il le voit avec ses parents dans son espace, onglet Séances.'],
       ['📱', 'Espaces joueur et parents rangés en onglets en bas de l\'écran, avec un onglet Bénévoles pour les parents.'],
       ['🔄', '« Mettre à jour l\'appli » : menu Plus (et onglet Moi pour les joueurs et les parents). Plus besoin de fermer et rouvrir.'],

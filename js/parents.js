@@ -224,6 +224,25 @@ const Parents = (() => {
   /* ---------- (3.65) the answers of the players and parents to a session (présent / absent and why) ---------- */
   // (1.68) the training group of a session (« Groupe Gianni »): written by the coach, or the first name of its first coach (or of who made it)
   const trGroup = t => { if (t.group && t.group.trim()) return t.group.trim(); const st = Store.get('staff', (t.staffIds || [])[0] || t.by || ''); return st ? 'Groupe ' + (st.firstName || st.lastName || '') : ''; };
+  // (1.69) the day of a session: its sessions (one per training group), the answers of the day (one per player, the latest), the squad
+  const daySessions = t => Store.state.trainings.filter(x => !x.model && x.teamId === t.teamId && x.date === t.date);
+  const squadOf = teamId => { const own = Store.playersOf(teamId); return own.length ? own : Store.rosterOf(teamId); };
+  const latest = rows => { const last = {}; (rows || []).forEach(r => { if (!last[r.player_id] || String(r.at || '') > String(last[r.player_id].at || '')) last[r.player_id] = r; }); return Object.values(last); };
+  function dayStats(t, rows) {
+    const ids = new Set(daySessions(t).map(x => x.id).concat(t.id)), sq = squadOf(t.teamId), inSq = new Set(sq.map(p => p.id));
+    const l = latest(rows.filter(r => ids.has(r.match_id) && inSq.has(r.player_id)));
+    const yes = l.filter(r => r.status === 'oui').length, no = l.filter(r => r.status === 'non').length, total = sq.length;
+    return { yes, no, none: Math.max(0, total - yes - no), total, pct: total ? Math.round(yes * 100 / total) : 0 };
+  }
+  const statsLine = s => `<span class="ans-yes">✓ ${s.yes} présent${s.yes > 1 ? 's' : ''}</span> · <span class="ans-no">✗ ${s.no} absent${s.no > 1 ? 's' : ''}</span> · <span class="muted">${s.none} sans réponse</span> · <b>${s.pct} % de présence</b>`;
+  // the list of the sessions: the answers of each day on its sessions (one request for all)
+  async function dayBadges(root, list) {
+    if (!Cloud.ready() || !list.length) return;
+    const ids = [...new Set(list.flatMap(t => daySessions(t).map(x => x.id).concat(t.id)))].slice(0, 200);
+    let rows = []; try { rows = await Cloud.answers(ids) || []; } catch (e) { return; }
+    list.forEach(t => { const el = root.querySelector(`[data-trans="${t.id}"]`); if (!el || !t.teamId) return; const s = dayStats(t, rows);
+      if (s.yes || s.no) el.innerHTML = `✓ ${s.yes} · ✗ ${s.no} · ${s.pct} %`; });
+  }
   async function mountTraining(box, tr, onPresent) {
     if (!box || !Cloud.ready() || !tr.teamId || tr.model) return;
     // (1.68) several sessions the same day for the same team (one per training group): the player answers once for the day,
@@ -232,13 +251,16 @@ const Parents = (() => {
     let rows = [];
     try { rows = await Cloud.answers([tr.id, ...twins.map(t => t.id)]) || []; } catch (e) { return; }
     if (!box.isConnected || !rows.length) return;
-    const last = {}; rows.forEach(r => { if (!last[r.player_id] || String(r.at || '') > String(last[r.player_id].at || '')) last[r.player_id] = r; }); rows = Object.values(last);
+    const rowsAll = rows; rows = latest(rows);
     const pl = id => Store.get('players', id);
     const groups = twins.length ? [...new Set([tr, ...twins].map(trGroup).filter(Boolean))] : [], mine = trGroup(tr);
     const inMine = r => !groups.length || (pl(r.player_id).trGroup || '') === mine;
     const yesAll = rows.filter(r => r.status === 'oui' && pl(r.player_id)), yes = yesAll.filter(inMine), no = rows.filter(r => r.status === 'non' && pl(r.player_id));
     const draw = () => {
+    const day = dayStats(tr, rowsAll);
     box.innerHTML = `<section class="card answers"><h3>Réponses des joueurs et des parents</h3>
+      <p class="ans-day">${twins.length ? `Journée du ${esc(UI.fmtDate(tr.date))} (toutes les séances)` : 'Effectif'} : ${day.total} joueurs<br>${statsLine(day)}</p>
+      ${groups.length ? `<p class="small">${groups.map(g => `<b>${esc(g)}</b> : ${yesAll.filter(r => (pl(r.player_id).trGroup || '') === g).length}`).join(' · ')} · <span class="muted">sans groupe : ${yesAll.filter(r => !groups.includes(pl(r.player_id).trGroup || '')).length}</span></p>` : ''}
       ${groups.length ? `<p class="small muted">${twins.length + 1} séances ce jour-là : chaque joueur répond une fois, et vous choisissez son groupe (il le garde les semaines suivantes).</p>
         <div class="ans-groups">${yesAll.map(r => { const p = pl(r.player_id), g = p.trGroup || ''; return `<div class="ans-grp-row"><b>${esc(Store.shortName(p))}</b><span class="chips">${groups.map(x => `<button class="chip small ${g === x ? 'on' : ''}" data-setgrp="${esc(x)}" data-p="${esc(p.id)}">${esc(x)}</button>`).join('')}</span></div>`; }).join('')}</div>` : ''}
       <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''} annoncé${yes.length > 1 ? 's' : ''}${groups.length ? ` (${esc(mine)})` : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span></p>
@@ -252,5 +274,5 @@ const Parents = (() => {
     };
     draw();
   }
-  return { mountTraining, trGroup, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
+  return { mountTraining, trGroup, dayBadges, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
 })();

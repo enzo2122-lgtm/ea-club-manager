@@ -982,6 +982,9 @@ p.pre { white-space: pre-wrap; }
 .min-q .chip { min-height: 38px; padding: 0 12px; }
 .answers h3 { margin: 0; }
 .ans-sum { margin: 8px 0; font-weight: 700; }
+.ans-day { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: var(--surface2); line-height: 1.6; }
+.tr-ans { display: block; font-size: 13.5px; font-weight: 700; color: var(--good); }
+.tr-ans:empty { display: none; }
 .ans-groups { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .ans-grp-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid var(--line); }
 .ans-grp-row .chip.small { min-height: 34px; padding: 0 10px; font-size: 13.5px; }

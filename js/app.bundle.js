@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.68';
+  const VERSION = '1.69';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -11904,6 +11904,25 @@ var Parents = (() => {
   /* ---------- (3.65) the answers of the players and parents to a session (présent / absent and why) ---------- */
   // (1.68) the training group of a session (« Groupe Gianni »): written by the coach, or the first name of its first coach (or of who made it)
   const trGroup = t => { if (t.group && t.group.trim()) return t.group.trim(); const st = Store.get('staff', (t.staffIds || [])[0] || t.by || ''); return st ? 'Groupe ' + (st.firstName || st.lastName || '') : ''; };
+  // (1.69) the day of a session: its sessions (one per training group), the answers of the day (one per player, the latest), the squad
+  const daySessions = t => Store.state.trainings.filter(x => !x.model && x.teamId === t.teamId && x.date === t.date);
+  const squadOf = teamId => { const own = Store.playersOf(teamId); return own.length ? own : Store.rosterOf(teamId); };
+  const latest = rows => { const last = {}; (rows || []).forEach(r => { if (!last[r.player_id] || String(r.at || '') > String(last[r.player_id].at || '')) last[r.player_id] = r; }); return Object.values(last); };
+  function dayStats(t, rows) {
+    const ids = new Set(daySessions(t).map(x => x.id).concat(t.id)), sq = squadOf(t.teamId), inSq = new Set(sq.map(p => p.id));
+    const l = latest(rows.filter(r => ids.has(r.match_id) && inSq.has(r.player_id)));
+    const yes = l.filter(r => r.status === 'oui').length, no = l.filter(r => r.status === 'non').length, total = sq.length;
+    return { yes, no, none: Math.max(0, total - yes - no), total, pct: total ? Math.round(yes * 100 / total) : 0 };
+  }
+  const statsLine = s => `<span class="ans-yes">✓ ${s.yes} présent${s.yes > 1 ? 's' : ''}</span> · <span class="ans-no">✗ ${s.no} absent${s.no > 1 ? 's' : ''}</span> · <span class="muted">${s.none} sans réponse</span> · <b>${s.pct} % de présence</b>`;
+  // the list of the sessions: the answers of each day on its sessions (one request for all)
+  async function dayBadges(root, list) {
+    if (!Cloud.ready() || !list.length) return;
+    const ids = [...new Set(list.flatMap(t => daySessions(t).map(x => x.id).concat(t.id)))].slice(0, 200);
+    let rows = []; try { rows = await Cloud.answers(ids) || []; } catch (e) { return; }
+    list.forEach(t => { const el = root.querySelector(`[data-trans="${t.id}"]`); if (!el || !t.teamId) return; const s = dayStats(t, rows);
+      if (s.yes || s.no) el.innerHTML = `✓ ${s.yes} · ✗ ${s.no} · ${s.pct} %`; });
+  }
   async function mountTraining(box, tr, onPresent) {
     if (!box || !Cloud.ready() || !tr.teamId || tr.model) return;
     // (1.68) several sessions the same day for the same team (one per training group): the player answers once for the day,
@@ -11912,13 +11931,16 @@ var Parents = (() => {
     let rows = [];
     try { rows = await Cloud.answers([tr.id, ...twins.map(t => t.id)]) || []; } catch (e) { return; }
     if (!box.isConnected || !rows.length) return;
-    const last = {}; rows.forEach(r => { if (!last[r.player_id] || String(r.at || '') > String(last[r.player_id].at || '')) last[r.player_id] = r; }); rows = Object.values(last);
+    const rowsAll = rows; rows = latest(rows);
     const pl = id => Store.get('players', id);
     const groups = twins.length ? [...new Set([tr, ...twins].map(trGroup).filter(Boolean))] : [], mine = trGroup(tr);
     const inMine = r => !groups.length || (pl(r.player_id).trGroup || '') === mine;
     const yesAll = rows.filter(r => r.status === 'oui' && pl(r.player_id)), yes = yesAll.filter(inMine), no = rows.filter(r => r.status === 'non' && pl(r.player_id));
     const draw = () => {
+    const day = dayStats(tr, rowsAll);
     box.innerHTML = `<section class="card answers"><h3>Réponses des joueurs et des parents</h3>
+      <p class="ans-day">${twins.length ? `Journée du ${esc(UI.fmtDate(tr.date))} (toutes les séances)` : 'Effectif'} : ${day.total} joueurs<br>${statsLine(day)}</p>
+      ${groups.length ? `<p class="small">${groups.map(g => `<b>${esc(g)}</b> : ${yesAll.filter(r => (pl(r.player_id).trGroup || '') === g).length}`).join(' · ')} · <span class="muted">sans groupe : ${yesAll.filter(r => !groups.includes(pl(r.player_id).trGroup || '')).length}</span></p>` : ''}
       ${groups.length ? `<p class="small muted">${twins.length + 1} séances ce jour-là : chaque joueur répond une fois, et vous choisissez son groupe (il le garde les semaines suivantes).</p>
         <div class="ans-groups">${yesAll.map(r => { const p = pl(r.player_id), g = p.trGroup || ''; return `<div class="ans-grp-row"><b>${esc(Store.shortName(p))}</b><span class="chips">${groups.map(x => `<button class="chip small ${g === x ? 'on' : ''}" data-setgrp="${esc(x)}" data-p="${esc(p.id)}">${esc(x)}</button>`).join('')}</span></div>`; }).join('')}</div>` : ''}
       <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''} annoncé${yes.length > 1 ? 's' : ''}${groups.length ? ` (${esc(mine)})` : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span></p>
@@ -11932,7 +11954,7 @@ var Parents = (() => {
     };
     draw();
   }
-  return { mountTraining, trGroup, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
+  return { mountTraining, trGroup, dayBadges, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
 })();
 
 ;
@@ -13202,6 +13224,7 @@ var News = (() => {
   const LIST = [
     { n: 28, date: '2026-10-07', title: 'Groupes d\'entraînement et conseils perso', items: [
       ['👥', 'Plusieurs séances le même jour (Groupe Gianni, Groupe Enzo…) : le joueur répond « Présent » une seule fois pour la journée. Sur la séance, « Réponses des joueurs » : touchez le groupe de chacun (il le garde les semaines suivantes). Il voit alors la séance de son groupe.'],
+      ['📊', 'Dans Entraînements, chaque séance à venir affiche les réponses du jour (✓ présents · ✗ absents · % de présence). Dans la séance : le total de la journée (tous groupes), les sans-réponse et le nombre de joueurs par groupe.'],
       ['💡', 'Fiche joueur → « Conseils perso » : envoyez à un joueur un exercice pour progresser (course, passe, positionnement…). Il le voit avec ses parents dans son espace, onglet Séances.'],
       ['📱', 'Espaces joueur et parents rangés en onglets en bas de l\'écran, avec un onglet Bénévoles pour les parents.'],
       ['🔄', '« Mettre à jour l\'appli » : menu Plus (et onglet Moi pour les joueurs et les parents). Plus besoin de fermer et rouvrir.'],
@@ -14242,7 +14265,7 @@ var Views = (() => {
     const up = list.filter(t => t.date >= now).sort((a, b) => a.date.localeCompare(b.date)), past = list.filter(t => t.date < now).sort((a, b) => b.date.localeCompare(a.date));
     const item = t => { const tm = teamOf(t.teamId), dur = t.exercises.reduce((a, e) => a + (+e.duration || 0), 0), grp = trGroup(t);
       return `<a class="list-item" href="#/entrainement/${t.id}"><div class="date-box"><b>${new Date(t.date + 'T12:00').getDate()}</b><span>${esc(fmtDate(t.date, { month: 'short' }))}</span></div>
-        <div class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${grp ? `<b class="tr-grp">${esc(grp)}</b> · ` : ''}${tm ? esc(tm.name) + ' · ' : ''}${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span></div>${I.next}</a>`; };
+        <div class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${grp ? `<b class="tr-grp">${esc(grp)}</b> · ` : ''}${tm ? esc(tm.name) + ' · ' : ''}${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span>${t.date >= now ? `<span class="tr-ans" data-trans="${t.id}"></span>` : ''}</div>${I.next}</a>`; };
     root.innerHTML = `${header('Entraînements', 'Séances, exercices et présences', `<a class="btn primary" href="#/systemes">📚<span>Séances par système de jeu</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="ics">${I.calendar}<span>Agenda (.ics)</span></button><a class="btn" href="#/bibliotheque">${I.pdf}<span>Importer une fiche PDF</span></a><a class="btn" href="#/exercices">📚<span>Exercices du club</span></a><button class="btn" data-exgen>✨<span>Générer une séance</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouvel entraînement</span></button>`)}
       ${teamSwitch()}
       <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Séances types du club (${models.length})</b><span class="muted small"> · des séances prêtes, pour toutes les catégories</span></summary>
@@ -14251,6 +14274,7 @@ var Views = (() => {
       <h2 class="section">À venir</h2>${up.length ? `<div class="list">${up.map(item).join('')}</div>` : '<p class="muted">Aucun entraînement prévu.</p>'}
       <h2 class="section">Passés</h2>${past.length ? `<div class="list">${past.map(item).join('')}</div>` : '<p class="muted">Rien pour l\'instant.</p>'}`;
     bindTeamSwitch(root, () => trainings(root));
+    Parents.dayBadges(root, up.slice(0, 40)); // (1.69) présents / absents annoncés de chaque jour
     $('[data-act="new"]', root).onclick = newTraining;
     $('[data-act="import"]', root).onclick = importFile;
     $('[data-act="ics"]', root).onclick = () => Importer.trainingsFromICS(() => trainings(root));
@@ -15087,7 +15111,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 69, UPD = AppCfg.key('update-tried');
+  const BUILD = 70, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
