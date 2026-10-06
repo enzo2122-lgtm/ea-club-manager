@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 34, date: '2026-10-07', title: 'Matchs de toute la catégorie', items: [
+      ['⚽', 'Un joueur de « Seniors » voit les matchs de Seniors A et de Seniors B (il peut être pris dans les deux) et peut dire s\'il est dispo.'],
+      ['📅', 'Entraînements : les 3 prochaines semaines, puis « Voir les suivants ».'],
+    ] },
     { n: 33, date: '2026-10-07', title: 'Message aux non-convoqués par notification', items: [
       ['🔔', 'Match → « Non-convoqués » → « Notifier tous dans l\'appli » (ou 🔔 joueur par joueur, avec son prénom). L\'appli dit qui l\'a reçu ; pour les autres (notifications pas activées) : WhatsApp.'],
     ] },
