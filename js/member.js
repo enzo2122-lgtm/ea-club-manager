@@ -160,7 +160,8 @@ const Member = (() => {
   // (1.65) the coach's personal suggestions for this player (Séances tab), from the club server (member_tips)
   const fmtDay = d => { try { return new Date(d + 'T12:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch (e) { return d; } };
   function tipsHtml(tips, who) {
-    if (!tips || !tips.length) return '';
+    // (1.72) always shown, so the player knows where to look
+    if (!tips || !tips.length) return `<h2>💡 Les conseils du coach</h2><p class="tip">Pas encore de conseil du coach. Quand il enverra un exercice pour progresser (course, passe, positionnement…), il apparaîtra ici.</p>`;
     return `<h2>💡 Les conseils du coach</h2><p class="info small">Des exercices choisis pour ${esc(who || 'toi')}, pour progresser là où c'est le plus utile.</p>`
       + tips.map(t => `<article class="card tip-card"><span class="tc-th">${esc(t.icon || '💡')} ${esc(t.themeLabel || 'Conseil')}</span>
         <div class="tc-head"><h3>${esc(t.title || 'Séance perso')}</h3><span class="muted small">${t.by ? esc(t.by) + ' · ' : ''}${esc(fmtDay(t.at || ''))}</span></div>
