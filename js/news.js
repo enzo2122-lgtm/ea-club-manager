@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 36, date: '2026-10-07', title: 'Tout le programme au même endroit', items: [
+      ['📅', 'Espaces joueur et parents, onglet Séances : les entraînements ET les matchs à venir, par date, avec « dispo / pas dispo » sur chaque match.'],
+    ] },
     { n: 35, date: '2026-10-07', title: 'Un coup d\'œil suffit', items: [
       ['🎨', 'Espaces joueur et parents : chaque match a son étiquette et sa couleur — 🏆 Championnat (bleu), 🏅 Coupe (or), 🤝 Amical (vert), 🎪 Tournoi / Plateau (orange) — et les entraînements 🏃 (violet).'],
     ] },
