@@ -50,7 +50,7 @@
   const upCard = m => `<article class="card ${m.home ? 'home' : 'away'}" data-m="${esc(m.id)}"><div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(hh(m.time)) : ''}</div>
       <div class="m-title">${title(m)}</div><span class="tag">${m.home ? '🏠 À domicile' : '🚌 À l\'extérieur'}</span>
       ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div></div>`
-        : m.published ? '<div class="mine-box off">Tu n\'es pas convoqué pour ce match.</div>' : dispoBox(m)}</article>`;
+        : dispoBox(m)}</article>`;
   function nextCard(m) {
     const t = m.talk || {}, keys = (t.keys || []).filter(Boolean), place = m.place || (m.home ? (data.club && data.club.fieldName) || '' : '');
     return `<article class="card next ${m.home ? 'home' : 'away'}" data-m="${esc(m.id)}">
@@ -60,7 +60,7 @@
       <p class="info">${m.rdv ? `🕘 Rendez-vous <b>${esc(hh(m.rdv))}</b>` : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? `coup d'envoi <b>${esc(hh(m.time))}</b>` : ''}${!m.rdv && !m.time ? '🕘 Horaire à confirmer' : ''}</p>
       ${place ? `<p class="info">📍 ${mapLink(place)}</p>` : ''}
       ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div>${m.answer === 'non' && m.reason ? `<span class="why">Raison : ${esc(m.reason)}</span>` : ''}</div>`
-        : m.published ? '<div class="mine-box off">Tu n\'es pas convoqué pour ce match.</div>' : dispoBox(m)}
+        : dispoBox(m)}
       ${t.objective || keys.length || t.final || t.video ? `<div class="talk"><h3>🗣️ Le mot du coach</h3>
         ${t.objective ? `<p class="obj">🎯 ${esc(t.objective)}</p>` : ''}${t.system ? `<p class="info">Système : <b>${esc(t.system)}</b></p>` : ''}
         ${keys.length ? `<ol class="keys">${keys.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}

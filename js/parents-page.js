@@ -84,7 +84,7 @@
       ${m.open && m.convoked ? `<div class="kid mine"><span class="nm">${esc(kid())} est convoqué</span>
           <span class="st ${esc(m.answer || '')}">${m.answer === 'oui' ? '✓ présent' : m.answer === 'non' ? '✗ absent' + (m.reason ? ' · ' + esc(m.reason) : '') : 'pas de réponse'}</span>
           <span class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button>${m.answer === 'oui' ? seatSel : ''}</span></div>`
-        : m.open && m.published ? `<p class="info">${esc(kid())} n'est pas convoqué pour ce match.</p>` : m.open ? `<div class="kid mine"><span class="nm">${esc(kid())} est disponible ?</span>
+        : m.open ? `<div class="kid mine"><span class="nm">${esc(kid())} est disponible ?</span>
           <span class="st ${esc(m.answer || '')}">${m.answer === 'oui' ? '✓ dispo' : m.answer === 'non' ? '✗ pas dispo' + (m.reason ? ' · ' + esc(m.reason) : '') : 'pas de réponse'}</span>
           <span class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Dispo</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Pas dispo</button></span></div>
           <p class="info small">Le coach choisit les convoqués, puis envoie la convocation.</p>` : ''}
