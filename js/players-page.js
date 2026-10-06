@@ -47,16 +47,16 @@
       <div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis dispo</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Pas dispo</button></div>
       <p class="info small">Le coach choisit les convoqués, puis t'envoie la convocation.</p></div>`;
   // the other matches to come: short, with the same answer
-  const upCard = m => `<article class="card ${m.home ? 'home' : 'away'}" data-m="${esc(m.id)}"><div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(hh(m.time)) : ''}</div>
+  const upCard = m => `<article class="card ${m.home ? 'home' : 'away'} ${Member.kindCls(m)}" data-m="${esc(m.id)}">${Member.kindBadge(m)}<div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(hh(m.time)) : ''}</div>
       <div class="m-title">${title(m)}</div><span class="tag">${m.home ? '🏠 À domicile' : '🚌 À l\'extérieur'}</span>
       ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div></div>`
         : dispoBox(m)}</article>`;
   function nextCard(m) {
     const t = m.talk || {}, keys = (t.keys || []).filter(Boolean), place = m.place || (m.home ? (data.club && data.club.fieldName) || '' : '');
-    return `<article class="card next ${m.home ? 'home' : 'away'}" data-m="${esc(m.id)}">
+    return `<article class="card next ${m.home ? 'home' : 'away'} ${Member.kindCls(m)}" data-m="${esc(m.id)}">${Member.kindBadge(m)}
       <div class="m-date">${esc(fmt(m.date))}${m.team && m.team !== data.team ? ` · ${esc(m.team)}` : ''}</div>
       <div class="m-title">${title(m)}</div>
-      <span class="tag">${m.home ? '🏠 À domicile' : '🚌 À l\'extérieur'}</span>${m.competition ? `<span class="tag">${esc(m.competition)}</span>` : ''}
+      <span class="tag">${m.home ? '🏠 À domicile' : '🚌 À l\'extérieur'}</span>
       <p class="info">${m.rdv ? `🕘 Rendez-vous <b>${esc(hh(m.rdv))}</b>` : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? `coup d'envoi <b>${esc(hh(m.time))}</b>` : ''}${!m.rdv && !m.time ? '🕘 Horaire à confirmer' : ''}</p>
       ${place ? `<p class="info">📍 ${mapLink(place)}</p>` : ''}
       ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div>${m.answer === 'non' && m.reason ? `<span class="why">Raison : ${esc(m.reason)}</span>` : ''}</div>`
@@ -70,7 +70,7 @@
   }
   function pastCard(m) {
     const r = result(m), st = m.my;
-    return `<article class="card past"><div class="m-date">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}${m.competition ? ' · ' + esc(m.competition) : ''}</div>
+    return `<article class="card past ${Member.kindCls(m)}">${Member.kindBadge(m)}<div class="m-date">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</div>
       <div class="m-title">${title(m)}</div><p><span class="score">${score(m)}</span>${r ? `<span class="res ${r}">${RES[r]}</span>` : ''}</p>
       ${st ? `<p class="me-line">Toi : <b>${+st.min ? esc(st.min) + "'" : 'pas joué'}</b>${+st.g ? ` · ${Sport.W().icon} ${esc(st.g)}` : ''}${+st.a ? ` · 🅿️ ${esc(st.a)}` : ''}</p>` : ''}</article>`;
   }
@@ -109,7 +109,7 @@
       <p class="info">Prépare ta tenue et tes crampons, et sois à l'heure 💪</p></div>`;
   }
   function trRow(t) {
-    return `<div class="tr tr-ans" ${t.id ? `data-t="${esc(t.id)}"` : ''}><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${t.group ? `<b class="grp">${esc(t.group)}</b> · ` : ''}${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}
+    return `<div class="tr tr-ans" ${t.id ? `data-t="${esc(t.id)}"` : ''}><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${Member.trBadge}${t.group ? `<b class="grp">${esc(t.group)}</b> · ` : ''}${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}
       ${t.answer === 'non' && t.reason ? `<span class="why">Absent · ${esc(t.reason)}</span>` : ''}</span>
       ${t.id ? `<span class="btns"><button class="b small yes ${t.answer === 'oui' ? 'on' : ''}" data-tans="oui">Présent</button><button class="b small no ${t.answer === 'non' ? 'on' : ''}" data-tans="non">Absent</button>${t.answer === 'oui' ? `<button class="b small" data-sess="${esc(t.id)}">${(sess[t.id] || {}).open ? 'Masquer' : '📋 Voir la séance'}</button>` : ''}</span>` : ''}</div>${t.answer === 'oui' ? sessBox(t) : ''}`;
   }
