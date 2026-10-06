@@ -95,12 +95,12 @@
     const x = sess[t.id]; if (!x || !x.open) return '';
     if (x.err) return `<div class="sess"><p class="info">${esc(x.err)}</p></div>`;
     const d = x.data || {}, ex = d.exercises || [], total = ex.reduce((a, e) => a + (+e.duration || 0), 0);
-    return `<div class="sess"><h4>📋 ${esc(d.title || 'Séance')}${total ? ` · ${total} min` : ''}</h4>${d.goal ? `<p class="obj">🎯 ${esc(d.goal)}</p>` : ''}
+    return `<div class="sess"><h4>📋 ${d.group ? esc(d.group) + ' · ' : ''}${esc(d.title || 'Séance')}${total ? ` · ${total} min` : ''}</h4>${d.goal ? `<p class="obj">🎯 ${esc(d.goal)}</p>` : ''}
       ${ex.length ? `<ol class="sess-ex">${ex.map(e => `<li><b>${esc(e.title || 'Exercice')}</b>${+e.duration ? ` <span class="info">· ${esc(e.duration)} min</span>` : ''}${e.consignes ? `<div class="info">${esc(e.consignes).split('\n').join('<br>')}</div>` : ''}</li>`).join('')}</ol>` : `<p class="info">Le coach n'a pas encore détaillé la séance.</p>`}
       <p class="info">Prépare ta tenue et tes crampons, et sois à l'heure 💪</p></div>`;
   }
   function trRow(t) {
-    return `<div class="tr tr-ans" ${t.id ? `data-t="${esc(t.id)}"` : ''}><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}
+    return `<div class="tr tr-ans" ${t.id ? `data-t="${esc(t.id)}"` : ''}><span class="d">${esc(fmt(t.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${t.group ? `<b class="grp">${esc(t.group)}</b> · ` : ''}${t.time ? esc(hh(t.time)) + ' · ' : ''}${esc(t.title || 'Entraînement')}
       ${t.answer === 'non' && t.reason ? `<span class="why">Absent · ${esc(t.reason)}</span>` : ''}</span>
       ${t.id ? `<span class="btns"><button class="b small yes ${t.answer === 'oui' ? 'on' : ''}" data-tans="oui">Présent</button><button class="b small no ${t.answer === 'non' ? 'on' : ''}" data-tans="non">Absent</button>${t.answer === 'oui' ? `<button class="b small" data-sess="${esc(t.id)}">${(sess[t.id] || {}).open ? 'Masquer' : '📋 Voir la séance'}</button>` : ''}</span>` : ''}</div>${t.answer === 'oui' ? sessBox(t) : ''}`;
   }
