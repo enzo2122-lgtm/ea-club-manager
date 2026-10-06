@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.70';
+  const VERSION = '1.71';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13224,6 +13224,7 @@ var News = (() => {
   const LIST = [
     { n: 29, date: '2026-10-07', title: 'Classements FFF corrigés', items: [
       ['🏆', 'Les classements venus de la FFF restaient bloqués sur une des premières journées (points, matchs joués, rangs). Ils sont maintenant lus en entier : le classement officiel du jour.'],
+      ['⚽', 'Différence de buts (et buts pour / contre) recalculée à partir de tous les scores de la poule : celle reçue de la FFF était fausse.'],
     ] },
     { n: 28, date: '2026-10-07', title: 'Groupes d\'entraînement et conseils perso', items: [
       ['👥', 'Plusieurs séances le même jour (Groupe Gianni, Groupe Enzo…) : le joueur répond « Présent » une seule fois pour la journée. Sur la séance, « Réponses des joueurs » : touchez le groupe de chacun (il le garde les semaines suivantes). Il voit alors la séance de son groupe.'],
@@ -13658,6 +13659,11 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
             const cj = cjJ ? members(cjJ) : [], last = {};
             cj.forEach(r => { const n = teamName(r.equipe); if (n && (!last[n] || (+r.cj_no || 0) >= (+last[n].cj_no || 0))) last[n] = r; });
             const rows = Object.values(last).sort((x, y) => (+x.rank || 99) - (+y.rank || 99)).map(r => ({ rank: +r.rank || 0, name: teamName(r.equipe), pts: +r.point_count || 0, j: +r.total_games_count || 0, v: +r.won_games_count || 0, n: +r.draw_games_count || 0, d: +r.lost_games_count || 0, f: +r.forfeits_games_count || 0, bp: +r.goals_for_count || 0, bc: +r.goals_against_count || 0, diff: +r.goals_diff || 0 }));
+            // (1.71) goals for / against and difference counted from the scores of the poule (every match is read just above):
+            // the difference sent by the FFF's table was wrong (all positive, e.g. +5 for a team with 3 defeats)
+            const GF = {}; R.list.forEach(x => { if (x.hs == null || x.as == null || /exempt/i.test(x.home + x.away)) return;
+              [[x.home, x.hs, x.as], [x.away, x.as, x.hs]].forEach(([n, f, a]) => { const g = GF[n] = GF[n] || { f: 0, a: 0 }; g.f += f; g.a += a; }); });
+            rows.forEach(r => { const g = GF[r.name]; if (g) { r.bp = g.f; r.bc = g.a; r.diff = g.f - g.a; } });
             // no table published yet by the District: computed from the results of the poule (3 / 1 / 0), and said so
             let computed = false;
             // (1.57) a cup (knock-out: « DISTRICT CUP », « COUPE 93 ») has no table and never counts in the championship
@@ -15116,7 +15122,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 71, UPD = AppCfg.key('update-tried');
+  const BUILD = 72, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

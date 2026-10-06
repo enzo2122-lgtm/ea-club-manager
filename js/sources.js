@@ -271,6 +271,11 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
             const cj = cjJ ? members(cjJ) : [], last = {};
             cj.forEach(r => { const n = teamName(r.equipe); if (n && (!last[n] || (+r.cj_no || 0) >= (+last[n].cj_no || 0))) last[n] = r; });
             const rows = Object.values(last).sort((x, y) => (+x.rank || 99) - (+y.rank || 99)).map(r => ({ rank: +r.rank || 0, name: teamName(r.equipe), pts: +r.point_count || 0, j: +r.total_games_count || 0, v: +r.won_games_count || 0, n: +r.draw_games_count || 0, d: +r.lost_games_count || 0, f: +r.forfeits_games_count || 0, bp: +r.goals_for_count || 0, bc: +r.goals_against_count || 0, diff: +r.goals_diff || 0 }));
+            // (1.71) goals for / against and difference counted from the scores of the poule (every match is read just above):
+            // the difference sent by the FFF's table was wrong (all positive, e.g. +5 for a team with 3 defeats)
+            const GF = {}; R.list.forEach(x => { if (x.hs == null || x.as == null || /exempt/i.test(x.home + x.away)) return;
+              [[x.home, x.hs, x.as], [x.away, x.as, x.hs]].forEach(([n, f, a]) => { const g = GF[n] = GF[n] || { f: 0, a: 0 }; g.f += f; g.a += a; }); });
+            rows.forEach(r => { const g = GF[r.name]; if (g) { r.bp = g.f; r.bc = g.a; r.diff = g.f - g.a; } });
             // no table published yet by the District: computed from the results of the poule (3 / 1 / 0), and said so
             let computed = false;
             // (1.57) a cup (knock-out: « DISTRICT CUP », « COUPE 93 ») has no table and never counts in the championship
