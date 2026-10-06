@@ -140,10 +140,12 @@ const Member = (() => {
     if (document.getElementById('tabCss')) return;
     const st = document.createElement('style'); st.id = 'tabCss';
     st.textContent = 'body.has-tabs main{padding-bottom:calc(env(safe-area-inset-bottom) + 96px)}'
-      + '.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;justify-content:center;gap:2px;padding:6px 6px calc(env(safe-area-inset-bottom) + 6px);background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.08)}'
-      + '.tab{flex:1 1 0;max-width:120px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-family:inherit;font-weight:700;font-size:12px;line-height:1.2;cursor:pointer}'
+      + '.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;justify-content:center;gap:2px;padding:6px 6px calc(env(safe-area-inset-bottom) + 6px);background:#0e1d45;border-top:3px solid #8c1024;box-shadow:0 -6px 20px rgba(0,0,0,.18)}'
+      + '.tab{flex:1 1 0;max-width:120px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px 6px;border:0;border-radius:12px;background:transparent;color:rgba(255,255,255,.72);font-family:inherit;font-weight:600;font-size:11.5px;line-height:1.2;cursor:pointer}'
       + '.tab .ti{font-size:21px;line-height:1}.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}'
-      + '.tab.on{background:color-mix(in srgb,var(--brand) 12%,transparent);color:var(--brand)}'
+      + '.tab.on{background:rgba(201,164,92,.18);color:#e2c27d;box-shadow:inset 0 3px 0 #c9a45c}'
+      + '.tip-card{border-left:5px solid #c9a45c}.tip-card .tc-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.tip-card h3{margin:0;font-size:17px}'
+      + '.tip-card .tc-txt{white-space:pre-wrap;margin:8px 0 4px}.tip-card .tc-th{display:inline-block;font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);margin-bottom:6px}'
       + '.tab-pane>h2:first-child{margin-top:8px}'
       + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}';
     document.head.appendChild(st);
@@ -155,6 +157,16 @@ const Member = (() => {
     return list.map(t => `<section class="tab-pane" data-pane="${t.id}" role="tabpanel" ${t.id === tabCur ? '' : 'hidden'}>${t.html && t.html.trim() ? t.html : `<p class="tip">${t.empty || 'Rien pour l\'instant.'}</p>`}</section>`).join('')
       + `<nav class="tabbar" role="tablist" data-kind="${kind}">${list.map(t => `<button class="tab ${t.id === tabCur ? 'on' : ''}" role="tab" aria-selected="${t.id === tabCur}" data-tab="${t.id}"><span class="ti">${t.icon}</span><span>${esc(t.label)}</span></button>`).join('')}</nav>`;
   }
+  // (1.65) the coach's personal suggestions for this player (Séances tab), from the club server (member_tips)
+  const fmtDay = d => { try { return new Date(d + 'T12:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch (e) { return d; } };
+  function tipsHtml(tips, who) {
+    if (!tips || !tips.length) return '';
+    return `<h2>💡 Les conseils du coach</h2><p class="info small">Des exercices choisis pour ${esc(who || 'toi')}, pour progresser là où c'est le plus utile.</p>`
+      + tips.map(t => `<article class="card tip-card"><span class="tc-th">${esc(t.icon || '💡')} ${esc(t.themeLabel || 'Conseil')}</span>
+        <div class="tc-head"><h3>${esc(t.title || 'Séance perso')}</h3><span class="muted small">${t.by ? esc(t.by) + ' · ' : ''}${esc(fmtDay(t.at || ''))}</span></div>
+        ${t.text ? `<p class="tc-txt">${esc(t.text)}</p>` : ''}${/^https:\/\//.test(t.link || '') ? `<p><a href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">▶️ Voir la vidéo</a></p>` : ''}</article>`).join('');
+  }
+  async function tips(code) { try { const r = await rpc('member_tips', { p_code: code }); return Array.isArray(r) ? r : []; } catch (e) { return []; } } // not yet on the server: nothing shown
   function showTab(b) {
     tabCur = b.dataset.tab; const kind = (b.closest('.tabbar') || {}).dataset ? b.closest('.tabbar').dataset.kind : '';
     try { sessionStorage.setItem(TABKEY(kind), tabCur); } catch (e) {}
@@ -227,5 +239,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { tabs, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { tabs, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();

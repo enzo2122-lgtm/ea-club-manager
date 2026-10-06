@@ -633,6 +633,7 @@ const People = (() => {
       <div class="cards2">
         ${Health.playerCard(p)}
         ${Progress.card(p)}
+        ${Tips.card(p)}
         ${Tests.card(p)}
         ${Health.wellnessCard(p)}
         ${Season.playerDetail(p)}
@@ -656,6 +657,7 @@ const People = (() => {
     root.onclick = e => {
       if (Health.click(e, p, () => playerPage(root, id))) return;
       if (Progress.click(e, p, () => playerPage(root, id))) return;
+      if (Tips.click(e, p, () => playerPage(root, id))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.act === 'back') return history.length > 1 ? history.back() : (location.hash = '#/joueurs');
       if (b.dataset.act === 'edit') return editPlayer(p, { onSave: () => { if (Store.get('players', p.id)) playerPage(root, p.id); else location.hash = '#/joueurs'; } });
