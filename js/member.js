@@ -133,7 +133,37 @@ const Member = (() => {
       nState = true; document.dispatchEvent(new Event('member-redraw'));
     } catch (e) { alert(e.message || 'Notifications impossibles sur ce téléphone.'); }
   }
+  /* ---------- (1.64) the family pages in tabs: a bar at the bottom of the screen, like an app ---------- */
+  let tabCur = null;
+  const TABKEY = kind => AppCfg.key('tab-' + kind);
+  function tabCss() {
+    if (document.getElementById('tabCss')) return;
+    const st = document.createElement('style'); st.id = 'tabCss';
+    st.textContent = 'body.has-tabs main{padding-bottom:calc(env(safe-area-inset-bottom) + 96px)}'
+      + '.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;justify-content:center;gap:2px;padding:6px 6px calc(env(safe-area-inset-bottom) + 6px);background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.08)}'
+      + '.tab{flex:1 1 0;max-width:120px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-family:inherit;font-weight:700;font-size:12px;line-height:1.2;cursor:pointer}'
+      + '.tab .ti{font-size:21px;line-height:1}.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}'
+      + '.tab.on{background:color-mix(in srgb,var(--brand) 12%,transparent);color:var(--brand)}'
+      + '.tab-pane>h2:first-child{margin-top:8px}'
+      + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}';
+    document.head.appendChild(st);
+  }
+  // list: [{ id, icon, label, html, empty }] — the chosen tab stays the same when the page is redrawn
+  function tabs(kind, list) {
+    tabCss(); document.body.classList.add('has-tabs');
+    if (!list.some(t => t.id === tabCur)) { let s = ''; try { s = sessionStorage.getItem(TABKEY(kind)) || ''; } catch (e) {} tabCur = list.some(t => t.id === s) ? s : list[0].id; }
+    return list.map(t => `<section class="tab-pane" data-pane="${t.id}" role="tabpanel" ${t.id === tabCur ? '' : 'hidden'}>${t.html && t.html.trim() ? t.html : `<p class="tip">${t.empty || 'Rien pour l\'instant.'}</p>`}</section>`).join('')
+      + `<nav class="tabbar" role="tablist" data-kind="${kind}">${list.map(t => `<button class="tab ${t.id === tabCur ? 'on' : ''}" role="tab" aria-selected="${t.id === tabCur}" data-tab="${t.id}"><span class="ti">${t.icon}</span><span>${esc(t.label)}</span></button>`).join('')}</nav>`;
+  }
+  function showTab(b) {
+    tabCur = b.dataset.tab; const kind = (b.closest('.tabbar') || {}).dataset ? b.closest('.tabbar').dataset.kind : '';
+    try { sessionStorage.setItem(TABKEY(kind), tabCur); } catch (e) {}
+    document.querySelectorAll('.tab-pane').forEach(p => { p.hidden = p.dataset.pane !== tabCur; });
+    document.querySelectorAll('.tabbar .tab').forEach(x => { const on = x.dataset.tab === tabCur; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+    window.scrollTo(0, 0);
+  }
   function onBar(e, reload) {
+    const tb = e.target.closest('[data-tab]'); if (tb) { showTab(tb); return true; }
     const nb = e.target.closest('[data-mnotif]'); if (nb) { setNotify(nb.dataset.mnotif === 'on', nb.dataset.kind); return true; }
     if (e.target.closest('[data-forgetme]')) { forgetMe(/parents/.test(location.pathname) ? 'parents' : 'joueur'); return true; }
     const u = e.target.closest('[data-usecode]'); if (u) { use(u.dataset.usecode); reload(); return true; }
@@ -197,5 +227,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { tabs, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();

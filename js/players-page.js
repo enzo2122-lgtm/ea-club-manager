@@ -128,20 +128,23 @@
     $('#club').textContent = `${club()} · Espace joueur`; $('#team').textContent = data.team || 'Équipe';
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now && !m.exempt), past = ms.filter(m => m.played).reverse();
     const my = season();
+    // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
-      ${Member.notifyCard('joueurs')}
-      ${wbCard(now)}
-      <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>
-      ${my.conv || my.f.mp ? `<h2>Ma saison</h2><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div>${my.yc || my.rc ? `<div><b>${my.yc ? '🟨' + my.yc : ''}${my.rc ? ' 🟥' + my.rc : ''}</b><span>cartons</span></div>` : ''}${my.sessions && my.sessions.total ? `<div><b>${Math.round(my.sessions.present / my.sessions.total * 100)} %</b><span>présence aux séances (${my.sessions.present}/${my.sessions.total})</span></div>` : ''}</div>${my.teams && Object.keys(my.teams).length > 1 ? `<p class="info">Joué avec : ${Object.entries(my.teams).map(([t, n]) => `<b>${esc(t)}</b> (${n})`).join(' · ')}</p>` : ''}<p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
-      <h2>Prochain match</h2>${up.length ? nextCard(up[0]) : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}
-      ${up.length > 1 ? `<h2>Ensuite</h2><div class="card">${up.slice(1, 6).map(m => `<div class="tr"><span class="d">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}${m.time ? ' · ' + esc(hh(m.time)) : ''}</span></div>`).join('')}</div>` : ''}
-      ${(data.trainings || []).length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${data.trainings.map(trRow).join('')}</div>` : ''}
-      ${past.length ? `<h2>Résultats</h2>${past.slice(0, 12).map(pastCard).join('')}` : ''}
-      ${standings()}
-      <div class="card" id="gameBox"></div>
-      ${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}
-      <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
-      ${Member.privacy()}`;
+      ${Member.tabs('joueurs', [
+        { id: 'matchs', icon: '⚽', label: 'Matchs', html: `${wbCard(now)}
+          <h2>Prochain match</h2>${up.length ? nextCard(up[0]) : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}
+          ${up.length > 1 ? `<h2>Ensuite</h2><div class="card">${up.slice(1, 6).map(m => `<div class="tr"><span class="d">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</span><span>${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}${m.time ? ' · ' + esc(hh(m.time)) : ''}</span></div>`).join('')}</div>` : ''}` },
+        { id: 'seances', icon: '🏃', label: 'Séances', html: `${(data.trainings || []).length ? `<h2>Entraînements (2 semaines)</h2><div class="card">${data.trainings.map(trRow).join('')}</div>` : '<h2>Entraînements</h2><p class="tip">Pas d\'entraînement prévu ces deux semaines.</p>'}
+          <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
+        { id: 'saison', icon: '📊', label: 'Saison', html: `${my.conv || my.f.mp ? `<h2>Ma saison</h2><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div>${my.yc || my.rc ? `<div><b>${my.yc ? '🟨' + my.yc : ''}${my.rc ? ' 🟥' + my.rc : ''}</b><span>cartons</span></div>` : ''}${my.sessions && my.sessions.total ? `<div><b>${Math.round(my.sessions.present / my.sessions.total * 100)} %</b><span>présence aux séances (${my.sessions.present}/${my.sessions.total})</span></div>` : ''}</div>${my.teams && Object.keys(my.teams).length > 1 ? `<p class="info">Joué avec : ${Object.entries(my.teams).map(([t, n]) => `<b>${esc(t)}</b> (${n})`).join(' · ')}</p>` : ''}<p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
+          ${past.length ? `<h2>Résultats</h2>${past.slice(0, 12).map(pastCard).join('')}` : ''}
+          ${standings()}`, empty: 'Ta saison s\'affichera ici après tes premiers matchs.' },
+        { id: 'pronos', icon: '🎯', label: 'Pronos', html: '<div class="card" id="gameBox"></div>' },
+        { id: 'coachs', icon: '📞', label: 'Coachs', html: `${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}`, empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
+        { id: 'moi', icon: '👤', label: 'Moi', html: `<h2>Réglages</h2>${Member.notifyCard('joueurs')}
+          <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
+          ${Member.privacy()}` },
+      ])}`;
     // (1.61) the predictions game of his category (players and coaches)
     if (typeof Game !== 'undefined') Game.mount($('#gameBox'), { load: () => rpc('member_game', { p_code: code }), bet: (e, h, a, ko) => rpc('member_game_bet', { p_code: code, p_event: e, p_h: h, p_a: a, p_kickoff: ko }), fav: f => rpc('member_game_fav', { p_code: code, p_fav: f }), toast, quiet: true });
   }

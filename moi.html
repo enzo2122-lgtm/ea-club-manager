@@ -62,7 +62,8 @@ button, select { font: inherit; }
 .tip { background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 12px; color: var(--muted); font-size: 14px; }
 .empty { text-align: center; color: var(--muted); padding: 30px 10px; }
 .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px); transform: translate(-50%, 150%); background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 12px; font-weight: 700; transition: transform .25s; max-width: calc(100% - 32px); z-index: 5; }
-.toast.show { transform: translate(-50%, 0); }
+.toast.show { transform: translate(-50%, 0); visibility: visible; }
+.toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; } /* (1.64) caché : plus de point noir en bas sur iPhone */
 .toast.err { background: var(--no); color: #fff; }
 .tr { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .tr:last-child { border-bottom: 0; }
@@ -131,10 +132,10 @@ button, select { font: inherit; }
 <main id="page"></main>
 <p class="credit">Clubbo · créée par <b>Coach Enzo</b></p>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script src="js/config.js?v=64"></script>
-<script src="js/appcfg.js?v=64"></script>
-<script src="js/sport.js?v=64"></script>
-<script src="js/member.js?v=64"></script>
+<script src="js/config.js?v=65"></script>
+<script src="js/appcfg.js?v=65"></script>
+<script src="js/sport.js?v=65"></script>
+<script src="js/member.js?v=65"></script>
 <script>
 (() => {
   // a code in the address (QR code of a card) opens the space at once; otherwise the form (with the category of its QR code)
