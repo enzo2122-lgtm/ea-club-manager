@@ -222,17 +222,35 @@ const Parents = (() => {
   }
 
   /* ---------- (3.65) the answers of the players and parents to a session (présent / absent and why) ---------- */
+  // (1.68) the training group of a session (« Groupe Gianni »): written by the coach, or the first name of its first coach (or of who made it)
+  const trGroup = t => { if (t.group && t.group.trim()) return t.group.trim(); const st = Store.get('staff', (t.staffIds || [])[0] || t.by || ''); return st ? 'Groupe ' + (st.firstName || st.lastName || '') : ''; };
   async function mountTraining(box, tr, onPresent) {
     if (!box || !Cloud.ready() || !tr.teamId || tr.model) return;
+    // (1.68) several sessions the same day for the same team (one per training group): the player answers once for the day,
+    // the coaches put each player in his group (kept on the player: p.trGroup)
+    const twins = Store.state.trainings.filter(t => t.id !== tr.id && !t.model && t.teamId === tr.teamId && t.date === tr.date);
     let rows = [];
-    try { rows = await Cloud.answers([tr.id]) || []; } catch (e) { return; }
+    try { rows = await Cloud.answers([tr.id, ...twins.map(t => t.id)]) || []; } catch (e) { return; }
     if (!box.isConnected || !rows.length) return;
-    const pl = id => Store.get('players', id), yes = rows.filter(r => r.status === 'oui' && pl(r.player_id)), no = rows.filter(r => r.status === 'non' && pl(r.player_id));
+    const last = {}; rows.forEach(r => { if (!last[r.player_id] || String(r.at || '') > String(last[r.player_id].at || '')) last[r.player_id] = r; }); rows = Object.values(last);
+    const pl = id => Store.get('players', id);
+    const groups = twins.length ? [...new Set([tr, ...twins].map(trGroup).filter(Boolean))] : [], mine = trGroup(tr);
+    const inMine = r => !groups.length || (pl(r.player_id).trGroup || '') === mine;
+    const yesAll = rows.filter(r => r.status === 'oui' && pl(r.player_id)), yes = yesAll.filter(inMine), no = rows.filter(r => r.status === 'non' && pl(r.player_id));
+    const draw = () => {
     box.innerHTML = `<section class="card answers"><h3>Réponses des joueurs et des parents</h3>
-      <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''} annoncé${yes.length > 1 ? 's' : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span></p>
+      ${groups.length ? `<p class="small muted">${twins.length + 1} séances ce jour-là : chaque joueur répond une fois, et vous choisissez son groupe (il le garde les semaines suivantes).</p>
+        <div class="ans-groups">${yesAll.map(r => { const p = pl(r.player_id), g = p.trGroup || ''; return `<div class="ans-grp-row"><b>${esc(Store.shortName(p))}</b><span class="chips">${groups.map(x => `<button class="chip small ${g === x ? 'on' : ''}" data-setgrp="${esc(x)}" data-p="${esc(p.id)}">${esc(x)}</button>`).join('')}</span></div>`; }).join('')}</div>` : ''}
+      <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''} annoncé${yes.length > 1 ? 's' : ''}${groups.length ? ` (${esc(mine)})` : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span></p>
       ${no.length ? `<p class="small ans-why">${no.map(r => `✗ <b>${esc(Store.shortName(pl(r.player_id)))}</b>${r.note ? ' · ' + esc(r.note) : ''}`).join('<br>')}</p>` : ''}
       ${yes.length ? `<button class="btn soft" data-ansfill>${I.check}<span>Cocher les ${yes.length} présents annoncés</span></button>` : ''}</section>`;
     const f = box.querySelector('[data-ansfill]'); if (f) f.onclick = () => onPresent(yes.map(r => r.player_id));
+    box.querySelectorAll('[data-setgrp]').forEach(b => b.onclick = () => {
+      const p = pl(b.dataset.p); p.trGroup = p.trGroup === b.dataset.setgrp ? '' : b.dataset.setgrp; Store.upsert('players', p);
+      yes.length = 0; yesAll.filter(inMine).forEach(r => yes.push(r)); draw();
+    });
+    };
+    draw();
   }
-  return { mountTraining, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
+  return { mountTraining, trGroup, shareDialog, sharePlayers, teamCard, familyName, mountMatch, carText };
 })();
