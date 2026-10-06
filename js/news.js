@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 31, date: '2026-10-07', title: 'Conseils perso : séance, vidéos et PDF', items: [
+      ['📋', 'Fiche joueur → Conseils perso : joignez une séance prête (séance type du club ou de l\'équipe), avec les schémas des exercices en images.'],
+      ['🎬', 'Ajoutez des liens vidéo (YouTube, Google Drive…) et des PDF ou images (3 Mo maximum). Le joueur les ouvre dans son espace, onglet Séances.'],
+    ] },
     { n: 30, date: '2026-10-07', title: 'Dispo avant la convocation', items: [
       ['🙋', 'Les joueurs (et les parents) voient tous les matchs et entraînements de la saison et disent « dispo / pas dispo » avant la convocation.'],
       ['📋', 'Sur la fiche du match : « Disponibilités annoncées » (dispo, pas dispo et la raison) et « Convoquer les disponibles ». Puis « Envoyer la convocation » comme d\'habitude.'],
