@@ -534,6 +534,10 @@ begin
     given_by = case when coalesce(p_given, false) then coalesce((select trim(coalesce(s.data->>'firstName', '') || ' ' || coalesce(s.data->>'lastName', '')) from items s where s.club = c and s.col = 'staff' and s.id = sid), 'Responsable') else null end
     where club = c and player_id = p_player;
   return to_jsonb(true); end $$;
+-- (1.73) la fin de la saison (31 juillet), au moins 30 jours devant : les joueurs voient tous leurs matchs et entraînements à venir
+create or replace function ea_season_end() returns text language sql stable as $$
+  select greatest(to_char(make_date(extract(year from current_date)::int + case when extract(month from current_date) >= 8 then 1 else 0 end, 7, 31), 'YYYY-MM-DD'),
+    to_char(current_date + 30, 'YYYY-MM-DD')) $$;
 create or replace function member_view(p_code text, p_preview boolean default false) returns jsonb language plpgsql security definer set search_path = public as $$
 declare pl items := ea_member(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); today text := to_char(current_date, 'YYYY-MM-DD'); first boolean;
   season text := case when extract(month from current_date) >= 8 then to_char(current_date, 'YYYY') else to_char(current_date - interval '1 year', 'YYYY') end || '-08-01';
@@ -580,10 +584,10 @@ begin
             'mine', coalesce(cp->'kids', '[]'::jsonb) ? pl.id, 'driver', case when coalesce(cp->'kids', '[]'::jsonb) ? pl.id then cp->>'driver' else null end)), '[]'::jsonb)
           from jsonb_array_elements(case when jsonb_typeof(i.data->'carpool') = 'array' then i.data->'carpool' else '[]'::jsonb end) cp)) x
       from items i where i.club = c and i.col = 'matches' and not i.deleted and i.data->>'teamId' = any(tids)
-        and i.data->>'date' between season and to_char(current_date + 60, 'YYYY-MM-DD')) s),
+        and i.data->>'date' between season and ea_season_end()) s),
     'trainings', (select coalesce(jsonb_agg(jsonb_build_object('date', i.data->>'date', 'time', i.data->>'time', 'title', i.data->>'title') order by i.data->>'date', i.data->>'time'), '[]'::jsonb)
       from items i where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false) and i.data->>'teamId' = any(tids)
-        and i.data->>'date' between today and to_char(current_date + 14, 'YYYY-MM-DD')));
+        and i.data->>'date' between today and ea_season_end()));
 end $$;
 -- (1.60) the player's page: the tables and results of every team of his category (he can be picked in A or B),
 -- and his own season in every team of the club (matches where he was called up, minutes, goals, assists, cards, sessions).
@@ -642,7 +646,7 @@ begin
 declare pl items := ea_member(p_code); c text := pl.club; m items;
 begin
   select * into m from items where club = c and col = 'matches' and id = p_match and not deleted;
-  if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) or not (coalesce(m.data->'convoked', '[]'::jsonb) ? pl.id) then raise exception 'DONNEES'; end if;
+  if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if; -- (1.73) avant la convocation aussi : « dispo / pas dispo »
   if coalesce((m.data->>'played')::boolean, false) or m.data->>'date' < to_char(current_date, 'YYYY-MM-DD') then raise exception 'MATCH_PASSE'; end if;
   if coalesce(p_status, '') = '' then delete from answers where club = c and match_id = p_match and player_id = pl.id; return to_jsonb(true); end if;
   if p_status not in ('oui', 'non') then raise exception 'DONNEES'; end if;
@@ -733,7 +737,7 @@ declare pl items := ea_member(p_code); c text := pl.club; m items; r text := nul
 begin
   if p_kind = 'match' then
     select * into m from items where club = c and col = 'matches' and id = p_id and not deleted;
-    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) or not (coalesce(m.data->'convoked', '[]'::jsonb) ? pl.id) then raise exception 'DONNEES'; end if;
+    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if; -- (1.73) avant la convocation aussi : « dispo / pas dispo »
     if coalesce((m.data->>'played')::boolean, false) then raise exception 'MATCH_PASSE'; end if;
   elsif p_kind = 'training' then
     select * into m from items where club = c and col = 'trainings' and id = p_id and not deleted;
@@ -759,7 +763,7 @@ begin
     -- (1.68) one line per day : several sessions the same day (one per training group) are answered once ;
     -- the line shows the session of his group when the coaches have chosen it
     'trainings', (with tr as (select i.* from items i where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false)
-          and i.data->>'teamId' = any(tids) and i.data->>'date' between d0 and to_char(current_date + 14, 'YYYY-MM-DD')),
+          and i.data->>'teamId' = any(tids) and i.data->>'date' between d0 and ea_season_end()),
         g as (select tr.data->>'teamId' tm, tr.data->>'date' d, array_agg(tr.id order by tr.data->>'time', tr.id) ids from tr group by 1, 2),
         p as (select g.*, case when array_length(g.ids, 1) = 1 then g.ids[1] else (select t.id from tr t where t.id = any(g.ids) and ea_tr_group(c, t.data) = mygrp limit 1) end mine from g)
       select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'date', p.d, 'time', t.data->>'time',
@@ -1079,7 +1083,7 @@ create or replace function member_answer(p_code text, p_match text, p_status tex
 declare pl items := ea_member(p_code); c text := pl.club; m items;
 begin
   select * into m from items where club = c and col = 'matches' and id = p_match and not deleted;
-  if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) or not (coalesce(m.data->'convoked', '[]'::jsonb) ? pl.id) then raise exception 'DONNEES'; end if;
+  if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if; -- (1.73) avant la convocation aussi : « dispo / pas dispo »
   if coalesce((m.data->>'played')::boolean, false) or m.data->>'date' < to_char(current_date, 'YYYY-MM-DD') then raise exception 'MATCH_PASSE'; end if;
   if coalesce(p_status, '') = '' then delete from answers where club = c and match_id = p_match and player_id = pl.id; return to_jsonb(true); end if;
   if p_status not in ('oui', 'non') then raise exception 'DONNEES'; end if;
@@ -1170,7 +1174,7 @@ declare pl items := ea_member(p_code); c text := pl.club; m items; r text := nul
 begin
   if p_kind = 'match' then
     select * into m from items where club = c and col = 'matches' and id = p_id and not deleted;
-    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) or not (coalesce(m.data->'convoked', '[]'::jsonb) ? pl.id) then raise exception 'DONNEES'; end if;
+    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if; -- (1.73) avant la convocation aussi : « dispo / pas dispo »
     if coalesce((m.data->>'played')::boolean, false) then raise exception 'MATCH_PASSE'; end if;
   elsif p_kind = 'training' then
     select * into m from items where club = c and col = 'trainings' and id = p_id and not deleted;
@@ -1192,7 +1196,7 @@ begin
     -- (1.68) one line per day : several sessions the same day (one per training group) are answered once ;
     -- the line shows the session of his group when the coaches have chosen it
     'trainings', (with tr as (select i.* from items i where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false)
-          and i.data->>'teamId' = any(tids) and i.data->>'date' between d0 and to_char(current_date + 14, 'YYYY-MM-DD')),
+          and i.data->>'teamId' = any(tids) and i.data->>'date' between d0 and ea_season_end()),
         g as (select tr.data->>'teamId' tm, tr.data->>'date' d, array_agg(tr.id order by tr.data->>'time', tr.id) ids from tr group by 1, 2),
         p as (select g.*, case when array_length(g.ids, 1) = 1 then g.ids[1] else (select t.id from tr t where t.id = any(g.ids) and ea_tr_group(c, t.data) = mygrp limit 1) end mine from g)
       select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'date', p.d, 'time', t.data->>'time',

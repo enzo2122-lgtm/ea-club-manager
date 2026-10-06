@@ -45,18 +45,28 @@ const Parents = (() => {
   const isOpen = m => !m.played && !m.exempt && m.date >= today();
   function drawAnswers(box, m, conv, err) {
     const c = cache[m.id], rows = (c && c.rows) || {};
-    if (!conv.length || m.exempt || (!isOpen(m) && !Object.keys(rows).length)) { box.innerHTML = ''; return; }
+    // (1.73) the players not (yet) called up who said « dispo / pas dispo »: the coach chooses who is called up
+    const convIds = new Set(conv.map(p => p.id)), dispo = Object.values(rows).filter(r => !convIds.has(r.player_id) && Store.get('players', r.player_id));
+    const dy = dispo.filter(r => r.status === 'oui').map(r => Store.get('players', r.player_id)), dn = dispo.filter(r => r.status === 'non');
+    if (m.exempt || (!conv.length && !dispo.length) || (!isOpen(m) && !Object.keys(rows).length)) { box.innerHTML = ''; return; }
+    const dispoHtml = dispo.length ? `<div class="dispo-box"><h4>🙋 Disponibilités annoncées${conv.length ? ' (pas convoqués)' : ''}</h4>
+      <p class="ans-sum"><span class="ans-yes">✓ ${dy.length} dispo</span> · <span class="ans-no">✗ ${dn.length} pas dispo</span></p>
+      ${dy.length ? `<div class="chips">${dy.map(p => `<span class="chip ans-chip ans-oui"><b class="ans ans-yes">✓</b><span>${esc(Store.shortName(p))}</span></span>`).join('')}</div>` : ''}
+      ${dn.length ? `<p class="small ans-why">${dn.map(r => `✗ <b>${esc(Store.shortName(Store.get('players', r.player_id)))}</b>${r.note ? ' · ' + esc(r.note) : ''}`).join('<br>')}</p>` : ''}
+      ${isOpen(m) && dy.length ? `<button class="btn primary" data-convoke>${I.check}<span>Convoquer ${dy.length > 1 ? 'les ' + dy.length + ' disponibles' : 'le disponible'}</span></button>
+        <p class="muted small">Ils sont ajoutés aux convoqués ; ensuite, « Envoyer la convocation » comme d'habitude.</p>` : ''}</div>` : '';
     const yes = conv.filter(p => (rows[p.id] || {}).status === 'oui'), no = conv.filter(p => (rows[p.id] || {}).status === 'non');
     const mark = p => { const r = rows[p.id]; return r ? (r.status === 'oui' ? '<b class="ans ans-yes">✓</b>' : '<b class="ans ans-no">✗</b>') : '<b class="ans">?</b>'; };
     box.innerHTML = `<section class="card answers">
       <div class="row-head"><h3>Réponses des joueurs et des parents</h3><button class="btn soft" data-parents="${m.teamId}">${I.share}<span>Lien des parents</span></button></div>
       ${err ? `<p class="tip">${esc(err)}</p>` : !Cloud.ready() ? '<p class="muted small">Les réponses arrivent quand l\'appli est connectée au serveur du club.</p>' : `
+      ${dispoHtml}${!conv.length ? '' : `${dispo.length ? '<h4>📋 Convoqués</h4>' : ''}
       <p class="ans-sum"><span class="ans-yes">✓ ${yes.length} présent${yes.length > 1 ? 's' : ''}</span> · <span class="ans-no">✗ ${no.length} absent${no.length > 1 ? 's' : ''}</span> · <span>? ${conv.length - yes.length - no.length} sans réponse</span></p>
       <div class="chips ans-list">${conv.map(p => { const r = rows[p.id];
         return `<button class="chip ans-chip ${r ? 'ans-' + r.status : ''}" data-ans="${p.id}" ${isOpen(m) ? '' : 'disabled'} title="${r ? (r.by_coach ? 'Noté par un coach' : 'Réponse du parent') : 'Pas de réponse'}">${mark(p)}<span>${esc(Store.shortName(p))}</span>${r && r.seats && r.status === 'oui' && !m.home ? ` <i class="muted">🚗 ${r.seats}</i>` : ''}${r && r.note ? ` <i class="muted">« ${esc(r.note)} »</i>` : ''}</button>`; }).join('')}</div>
       ${no.length ? `<p class="small ans-why">${no.map(p => `✗ <b>${esc(Store.shortName(p))}</b>${rows[p.id].note ? ' · ' + esc(rows[p.id].note) : ''}`).join('<br>')}</p>` : ''}
       ${isOpen(m) && conv.length - yes.length - no.length > 0 ? `<button class="btn soft" data-remind>${I.chat}<span>Relancer les ${conv.length - yes.length - no.length} sans réponse</span></button>` : ''}
-      <p class="muted small">${isOpen(m) ? 'Un parent a répondu par téléphone ? Touche le prénom : présent → absent → pas de réponse.' : 'Match passé : les réponses sont fermées.'}</p>`}</section>`;
+      <p class="muted small">${isOpen(m) ? 'Un parent a répondu par téléphone ? Touche le prénom : présent → absent → pas de réponse.' : 'Match passé : les réponses sont fermées.'}</p>`}`}</section>`;
   }
 
   // A ready WhatsApp message for the parents who haven't answered yet
@@ -205,6 +215,11 @@ const Parents = (() => {
       if (b.dataset.parents) return shareDialog(b.dataset.parents);
       if (b.dataset.players) return sharePlayers(b.dataset.players);
       if (b.hasAttribute('data-remind')) return remind(m, conv);
+      if (b.hasAttribute('data-convoke')) {
+        const rows = (cache[m.id] || {}).rows || {}, ids = Object.values(rows).filter(r => r.status === 'oui' && Store.get('players', r.player_id)).map(r => r.player_id);
+        m.convoked = [...new Set([...(m.convoked || []), ...ids])]; Store.upsert('matches', m);
+        toast('Ajoutés aux convoqués : envoie la convocation quand tu es prêt'); return App.route(true);
+      }
       if (b.dataset.ans) {
         const c = cache[m.id] = cache[m.id] || { at: 0, rows: {} }, cur = c.rows[b.dataset.ans], next = !cur ? 'oui' : cur.status === 'oui' ? 'non' : '';
         try {
@@ -214,7 +229,7 @@ const Parents = (() => {
         } catch (err) { toast(needUpdate(err), 'err'); }
       }
     };
-    if (!Cloud.ready() || !conv.length || m.exempt) return;
+    if (!Cloud.ready() || m.exempt) return;
     loadAnswers(m).then(() => {
       if (ab.isConnected) drawAnswers(ab, m, conv);
       if (cb && cb.isConnected) drawCarpool(cb, m, conv);

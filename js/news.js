@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 30, date: '2026-10-07', title: 'Dispo avant la convocation', items: [
+      ['🙋', 'Les joueurs (et les parents) voient tous les matchs et entraînements de la saison et disent « dispo / pas dispo » avant la convocation.'],
+      ['📋', 'Sur la fiche du match : « Disponibilités annoncées » (dispo, pas dispo et la raison) et « Convoquer les disponibles ». Puis « Envoyer la convocation » comme d\'habitude.'],
+    ] },
     { n: 29, date: '2026-10-07', title: 'Classements FFF corrigés', items: [
       ['🏆', 'Les classements venus de la FFF restaient bloqués sur une des premières journées (points, matchs joués, rangs). Ils sont maintenant lus en entier : le classement officiel du jour.'],
       ['⚽', 'Différence de buts (et buts pour / contre) recalculée à partir de tous les scores de la poule : celle reçue de la FFF était fausse.'],
