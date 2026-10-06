@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.69';
+  const VERSION = '1.70';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13222,6 +13222,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 29, date: '2026-10-07', title: 'Classements FFF corrigés', items: [
+      ['🏆', 'Les classements venus de la FFF restaient bloqués sur une des premières journées (points, matchs joués, rangs). Ils sont maintenant lus en entier : le classement officiel du jour.'],
+    ] },
     { n: 28, date: '2026-10-07', title: 'Groupes d\'entraînement et conseils perso', items: [
       ['👥', 'Plusieurs séances le même jour (Groupe Gianni, Groupe Enzo…) : le joueur répond « Présent » une seule fois pour la journée. Sur la séance, « Réponses des joueurs » : touchez le groupe de chacun (il le garde les semaines suivantes). Il voit alors la séance de son groupe.'],
       ['📊', 'Dans Entraînements, chaque séance à venir affiche les réponses du jour (✓ présents · ✗ absents · % de présence). Dans la séance : le total de la journée (tous groupes), les sans-réponse et le nombre de joueurs par groupe.'],
@@ -13621,7 +13624,9 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
         const fetched = {}, queue = [];
         for (const eq of teams) for (const en of eq.engagements || []) {
           const cp = (en.competition || {}).cp_no, ph = (en.phase || {}).number, gp = (en.poule || {}).stage_number, k = `${cp}/${ph}/${gp}`;
-          if (cp && ph && gp && !fetched[k]) { const b = `/api/compets/${cp}/phases/${ph}/poules/${gp}`; fetched[k] = null; queue.push([k, () => Promise.all([pages(b + '/matchs'), getJ(b + '/classement_journees').catch(() => null)])]); }
+          if (cp && ph && gp && !fetched[k]) { const b = `/api/compets/${cp}/phases/${ph}/poules/${gp}`; fetched[k] = null; queue.push([k, () => Promise.all([pages(b + '/matchs'), pages(b + '/classement_journees').catch(() => null)])]); }
+          // (1.70) every page of the tables: one line per team AND per matchday (12 teams × 10 matchdays = 120 lines, 30 a page);
+          // with the first page only, the table shown was the one of the 2nd or 3rd matchday
         }
         await Promise.all([0, 1, 2, 3].map(async () => { while (queue.length) { const [k, f] = queue.shift(); try { fetched[k] = await f(); } catch (e) { fetched[k] = null; } } }));
         for (const eq of teams) for (const en of eq.engagements || []) {
@@ -15111,7 +15116,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 70, UPD = AppCfg.key('update-tried');
+  const BUILD = 71, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
