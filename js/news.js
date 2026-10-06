@@ -7,6 +7,7 @@ const News = (() => {
   const LIST = [
     { n: 29, date: '2026-10-07', title: 'Classements FFF corrigés', items: [
       ['🏆', 'Les classements venus de la FFF restaient bloqués sur une des premières journées (points, matchs joués, rangs). Ils sont maintenant lus en entier : le classement officiel du jour.'],
+      ['⚽', 'Différence de buts (et buts pour / contre) recalculée à partir de tous les scores de la poule : celle reçue de la FFF était fausse.'],
     ] },
     { n: 28, date: '2026-10-07', title: 'Groupes d\'entraînement et conseils perso', items: [
       ['👥', 'Plusieurs séances le même jour (Groupe Gianni, Groupe Enzo…) : le joueur répond « Présent » une seule fois pour la journée. Sur la séance, « Réponses des joueurs » : touchez le groupe de chacun (il le garde les semaines suivantes). Il voit alors la séance de son groupe.'],
