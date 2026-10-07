@@ -3534,7 +3534,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.03';
+  const VERSION = '2.04';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3819,6 +3819,7 @@ var Cloud = (() => {
     TROP_VITE: 'Doucement : attends quelques secondes entre deux messages.',
     CHAT_FERME: 'Le chat est fermé.',
     SONDAGE_FINI: 'Ce sondage est terminé.',
+    PHOTOS_COACHS: 'Dans ce chat, seuls les coachs envoient des photos pour l\'instant.',
     LIMITE_CHAT: 'Beaucoup de messages aujourd\'hui : réessaie demain.',
     COMPTE_INCONNU: 'Aucun compte à ce nom dans ce club.',
     CLUB_INCONNU: 'Aucun club avec ce code. Vérifie le code du club (demande-le à ton responsable).',
@@ -3930,6 +3931,10 @@ var Cloud = (() => {
     chatPost: (team, body, reply) => rpc('club_chat_post', Object.assign({ p_team: team, p_body: body }, reply ? { p_reply: reply } : {})),
     chatReact: (team, id, emo) => rpc('club_chat_react', { p_team: team, p_id: id, p_emo: emo }),
     chatMute: on => rpc('club_chat_mute', { p_on: on }),
+    chatPhoto: (team, img, body) => rpc('club_chat_photo', { p_team: team, p_img: img, p_body: body || null }),
+    chatImg: (team, id) => rpc('club_chat_img', { p_team: team, p_id: id }),
+    chatPin: (team, id) => rpc('club_chat_pin', { p_team: team, p_id: id }),
+    chatPhotos: (team, on) => rpc('club_chat_photos', { p_team: team, p_on: on }),
     chatDel: (team, id) => rpc('club_chat_del', { p_team: team, p_id: id }),
     chatOff: (team, off) => rpc('club_chat_off', { p_team: team, p_off: off }),
     chatPoll: (team, q, opts, multi) => rpc('club_chat_poll', { p_team: team, p_q: q, p_opts: opts, p_multi: multi }),
@@ -13404,6 +13409,13 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 60, date: '2026-10-08', title: 'Photos, parents, relances et badges 🏅', items: [
+      ['📷', 'Chat : envoie une photo (📷). Chez les jeunes, seuls les coachs en envoient, sauf si un coach ouvre les photos aux joueurs.'],
+      ['📌', 'Les coachs épinglent un message en haut du chat (horaires, infos importantes).'],
+      ['👪', 'Le chat des parents : par catégorie, entre parents et coachs (covoiturage, organisation). Espace parents → onglet Chat → « Parents ».'],
+      ['⏰', 'La veille à 18 h, ceux qui n\'ont pas répondu au match ou à l\'entraînement reçoivent un rappel ; les coachs ont la liste.'],
+      ['🏆', 'Classements de la catégorie (buteurs, passeurs, assiduité) et badges à gagner dans la saison. Chez les plus petits (U6 à U9) : les badges seulement.'],
+    ] },
     { n: 59, date: '2026-10-07', title: 'Le chat en mieux 💬', items: [
       ['👆', 'Touche une bulle : réagis (👍 ❤️ 😂 ⚽ 🔥 👏), réponds à ce message (la citation s\'affiche), signale-le ou supprime-le.'],
       ['🚩', '« Signaler » : les coachs de la catégorie sont prévenus tout de suite.'],
@@ -14238,7 +14250,7 @@ var Chat = (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ERR = [[/MOT_INTERDIT/, 'Pas envoyé : un mot grossier ou insultant n\'est pas accepté ici. Reformule gentiment 🙂'],
     [/TROP_VITE/, 'Doucement : attends une seconde entre deux messages.'], [/CHAT_FERME/, 'Le chat est fermé pour l\'instant par les coachs.'],
-    [/LIMITE_CHAT/, 'Beaucoup de messages aujourd\'hui : réessaie demain.'], [/SONDAGE_FINI/, 'Ce sondage est terminé.']];
+    [/LIMITE_CHAT/, 'Beaucoup de messages aujourd\'hui : réessaie demain.'], [/PHOTOS_COACHS/, 'Dans ce chat, seuls les coachs envoient des photos pour l\'instant.'], [/\bPHOTO\b/, 'Cette photo ne passe pas : essaie avec une autre.'], [/SONDAGE_FINI/, 'Ce sondage est terminé.']];
   const nice = e => { const m = String((e && ((e.code || '') + ' ' + (e.message || ''))) || ''); const x = ERR.find(([r]) => r.test(m)); return x ? x[1] : (e && e.message) || 'Le serveur ne répond pas.'; };
   const EMOJI = ['👍', '⚽', '🔥', '💪', '😂', '👏', '🙏', '❤️', '😅', '🏆', '🥅', '✅'];
   const HELLO = ['Salut tout le monde 👋', 'Qui vient à l\'entraînement ? ⚽', 'On lâche rien ! 💪'];
@@ -14250,6 +14262,8 @@ var Chat = (() => {
   let mode = 'chat', sheet = null; const whoOpen = new Set(), drawn = new Set(); let animate = false;
   // (2.03) the message being answered, the bubble whose actions are open (« sure? » for a report)
   let replyTo = null, sure = null;
+  // (2.04) the photos already loaded (id → picture), kept while the page lives
+  const imgs = new Map(), imgAsk = new Map();
   const RX = ['👍', '❤️', '😂', '⚽', '🔥', '👏'];
 
   /* ---------- look ---------- */
@@ -14310,6 +14324,10 @@ var Chat = (() => {
       '.cx-menu .cx-mbtn{display:flex;flex-wrap:wrap;gap:6px}.cx-menu .cx-mbtn button{flex:1 1 auto;border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:12px;min-height:42px;padding:6px 12px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}.cx-menu .cx-mbtn .del,.cx-menu .cx-mbtn .rep.go{background:#dc2626;color:#fff;border-color:#dc2626}',
       '.cx-replybar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:1px solid var(--line,#e3e5ea);background:var(--surface,#fff);font-size:13px}.cx-replybar span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid #8c1024;padding-left:8px}.cx-replybar button{border:0;background:none;font-size:18px;min-width:40px;min-height:40px;cursor:pointer;color:inherit}',
       '.cx-row.flash .cx-b{outline:3px solid #c9a45c}.cx-mute{border:0;background:none;font-size:20px;min-width:40px;min-height:40px;cursor:pointer}',
+      '.cx-img{display:block;margin:2px -4px 4px;border-radius:12px;overflow:hidden;min-height:120px;background:color-mix(in srgb,currentColor 8%,transparent);cursor:zoom-in}.cx-img img{display:block;width:100%;max-height:340px;object-fit:cover}',
+      '.cx-b.photo{min-width:min(70%,260px)}.cx-pin{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:13px;background:color-mix(in srgb,#c9a45c 16%,var(--surface,#fff));border-bottom:1px solid var(--line,#e3e5ea);cursor:pointer}.cx-pin span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.cx-view{position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}.cx-view img{max-width:100%;max-height:82vh;border-radius:8px}.cx-view p{color:#fff;margin:10px 0 0;font-size:14px;text-align:center}',
+      '.cx-ph.off{opacity:.45}',
       '@keyframes cxIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.cx-b.cx-in{animation:none}}',
     ].join('');
     document.head.appendChild(st);
@@ -14352,6 +14370,47 @@ var Chat = (() => {
       <label><input type="checkbox" id="cxPmulti" ${sheet.multi ? 'checked' : ''}> Plusieurs réponses possibles</label>
       <div class="cx-sh-b"><button type="button" data-cxsheetno>Annuler</button><button type="submit">Créer le sondage</button></div></form></div>`;
   }
+  /* ---------- (2.04) rooms: « U13 · Parents » next to « U13 » ---------- */
+  const isParents = c => / · Parents$/.test(c || '');
+  const roomTitle = c => isParents(c) ? '👪 ' + c.replace(/ · Parents$/, '') + ' · Parents' : c;
+  const roomLabel = (c, cats) => { const base = c.replace(/ · Parents$/, ''); const both = cats.includes(base) && cats.includes(base + ' · Parents');
+    return both ? (isParents(c) ? '👪 Parents' : '⚽ Joueurs') + (new Set(cats.map(x => x.replace(/ · Parents$/, ''))).size > 1 ? ' ' + base : '') : c; };
+  /* ---------- (2.04) photos: loaded when shown, a big view when touched ---------- */
+  function photoOf(id) {
+    if (imgs.has(id)) return Promise.resolve(imgs.get(id));
+    if (!imgAsk.has(id)) imgAsk.set(id, o.img(view.cat, id).then(v => { const ok = typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(v); if (ok) imgs.set(id, v); return ok ? v : null; }).catch(() => { imgAsk.delete(id); return null; }));
+    return imgAsk.get(id);
+  }
+  function loadImgs() {
+    if (!box || !o || !o.img) return;
+    box.querySelectorAll('[data-cximg]').forEach(el => { if (el.querySelector('img')) return; const id = +el.dataset.cximg; if (!id) return;
+      photoOf(id).then(v => { const now = box && box.querySelector(`[data-cximg="${id}"]`); if (v && now && !now.querySelector('img')) { const near = nearBottom(); now.innerHTML = `<img alt="Photo" src="${v}">`; if (near) toBottom(); } }); });
+  }
+  function viewPhoto(src, caption) {
+    const v = document.createElement('div'); v.className = 'cx-view'; v.innerHTML = `<img alt="Photo" src="${src}"><p>${caption ? esc(caption) + '<br>' : ''}Touche pour fermer</p>`;
+    v.onclick = () => v.remove(); document.body.appendChild(v);
+  }
+  // the phone makes the photo smaller (at most 1280 px, JPEG): a few hundred Ko instead of several Mo
+  function shrink(file) {
+    return new Promise((res, rej) => {
+      const u = URL.createObjectURL(file), im = new Image();
+      im.onload = () => { try { let w = im.naturalWidth, h = im.naturalHeight, max = 1280, q = .74, out = '';
+          for (let k = 0; k < 4; k++) { const r = Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.round(w * r); c.height = Math.round(h * r);
+            c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', q); if (out.length < 650000) break; max = Math.round(max * .8); q -= .08; }
+          URL.revokeObjectURL(u); out.length < 690000 ? res(out) : rej(new Error('PHOTO')); } catch (e) { URL.revokeObjectURL(u); rej(e); } };
+      im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('PHOTO')); }; im.src = u;
+    });
+  }
+  async function sendPhoto(file) {
+    let data; try { data = await shrink(file); } catch (e) { return (o.toast || alert)(nice(e), true); }
+    const t = $('#cxText'), cap = (t ? t.value : '').trim();
+    const m = { id: 'p' + (++pend), at: new Date().toISOString(), name: 'moi', kind: o.kind || 'player', mine: true, body: cap, img: true, local: data, pend: true };
+    view.msgs.push(m); draft = ''; if (t) { t.value = ''; grow(); } drawList(true);
+    queue = queue.then(async () => {
+      try { await o.photo(view.cat, data, cap); m.ok = true; lastPoll = 0; await load(false); }
+      catch (e) { m.pend = false; m.fail = true; drawList(false); if (/MOT_INTERDIT/.test((e.code || '') + e.message)) { view.msgs = view.msgs.filter(x => x !== m); draft = cap; drawAll(); } (o.toast || alert)(nice(e), true); }
+    });
+  }
   /* ---------- the messages ---------- */
   // the key of a message for the grouping: same person, less than 5 minutes after the one before, same day
   function rowHtml(m, prev) {
@@ -14359,7 +14418,8 @@ var Chat = (() => {
     const first = !prev || prev.who !== (m.mine ? 'me' : m.name) || new Date(m.at) - new Date(prev.at) > GROUP || dayOf(prev.at) !== dayOf(m.at);
     const day = !prev || dayOf(prev.at) !== dayOf(m.at) ? `<div class="cx-day">${esc(dayOf(m.at))}</div>` : '';
     const big = !m.deleted && onlyEmoji(m.body);
-    const body = m.deleted ? '<span class="cx-gone">🚫 Message supprimé</span>' : m.poll && pollOf(m.id) ? pollHtml(pollOf(m.id)) : linkify(m.body);
+    const pic = m.img && !m.deleted ? `<span class="cx-img" data-cximg="${m.id}">${m.local || imgs.get(m.id) ? `<img alt="Photo" src="${m.local || imgs.get(m.id)}">` : ''}</span>` : '';
+    const body = m.deleted ? '<span class="cx-gone">🚫 Message supprimé</span>' : m.poll && pollOf(m.id) ? pollHtml(pollOf(m.id)) : pic + (m.body ? linkify(m.body) : '');
     const av = m.mine ? '' : `<span class="cx-av ${first ? '' : 'ghost'}" style="background:${color(m.name)}" aria-hidden="true">${esc(initials(m.name))}</span>`;
     const name = !m.mine && first ? `<span class="cx-name" style="color:${color(m.name)}">${esc(m.name.replace(/^Coach\s+/, ''))}${m.kind === 'coach' ? '<span class="cx-coach">COACH</span>' : ''}</span>` : '';
     const st = m.fail ? '⚠️' : m.ok ? '✓' : m.pend ? '🕓' : '';
@@ -14368,7 +14428,7 @@ var Chat = (() => {
     const rx = (view && view.reacts && view.reacts[m.id]) || [];
     const rxs = rx.length && !m.deleted ? `<div class="cx-rxs ${m.mine ? 'mine' : ''}">${rx.map(r => `<button class="${r.me ? 'me' : ''}" data-cxrx="${m.id}:${r.e}" title="${esc((r.who || []).join(', '))}">${r.e} ${r.n}</button>`).join('')}</div>` : '';
     return `${day}<div class="cx-row ${m.mine ? 'mine' : ''} ${first ? 'first' : ''} ${m.kind === 'coach' ? 'coach' : ''}" data-cx="${m.id}">${av}
-      <div class="cx-b ${animate && !drawn.has(m.id) ? 'cx-in' : ''} ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${quote}${body}<span class="cx-t">${flag}${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
+      <div class="cx-b ${animate && !drawn.has(m.id) ? 'cx-in' : ''} ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.img && !m.deleted ? 'photo' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${quote}${body}<span class="cx-t">${flag}${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
       ${rxs}${m.fail ? `<div class="cx-retry" data-cxretry="${m.id}">Pas envoyé · toucher pour réessayer</div>` : ''}`;
   }
   // (2.03) the actions of a bubble: a reaction, answer, report, delete
@@ -14377,6 +14437,7 @@ var Chat = (() => {
     const canDel = m.mine || view.mod, canRep = !m.mine && o.report && o.kind !== 'coach';
     return `<div class="cx-menu" data-cxmenu="${m.id}"><div class="cx-rxpick">${RX.map(e => `<button class="${mine.has(e) ? 'me' : ''}" data-cxrx="${m.id}:${e}" aria-label="Réagir ${e}">${e}</button>`).join('')}</div>
       <div class="cx-mbtn">${canWrite() ? `<button data-cxreply="${m.id}">↩️ Répondre</button>` : ''}${canRep ? `<button class="rep ${sure === m.id ? 'go' : ''}" data-cxreport="${m.id}">${sure === m.id ? '🚩 Oui, prévenir les coachs' : '🚩 Signaler'}</button>` : ''}
+        ${view.mod && o.pin ? `<button data-cxpin="${view.pin && view.pin.id === m.id ? 0 : m.id}">${view.pin && view.pin.id === m.id ? '📌 Désépingler' : '📌 Épingler'}</button>` : ''}
         ${canDel ? `<button class="del" data-cxdel="${m.id}">🗑️ Supprimer</button>` : ''}<button data-cxno>Fermer</button></div></div>`;
   }
   const withWho = m => Object.assign(m, { who: m.mine ? 'me' : m.name });
@@ -14394,18 +14455,20 @@ var Chat = (() => {
     if (!view.cat) return '<div class="cx"><div class="cx-list"><div class="cx-empty"><div class="e">💬</div>Pas de chat pour l\'instant : tu n\'es dans aucune équipe.</div></div></div>';
     const cats = view.cats || [];
     return `<div class="cx" id="cx">
-      <div class="cx-top"><b>${esc(view.cat)}</b>${view.filtered ? '<span class="cx-shield" title="Les mots grossiers ou insultants sont bloqués">🛡️</span>' : ''}
+      <div class="cx-top"><b>${esc(roomTitle(view.cat))}</b>${view.filtered ? '<span class="cx-shield" title="Les mots grossiers ou insultants sont bloqués">🛡️</span>' : ''}
         <span class="cx-seg"><button class="${mode === 'chat' ? 'on' : ''}" data-cxmode="chat">💬 Chat</button><button class="${mode === 'polls' ? 'on' : ''}" data-cxmode="polls">📊 Sondages${openPolls() ? ` (${openPolls()})` : ''}</button></span><span class="cx-sp"></span>
-        ${cats.length > 1 ? `<span class="cx-cats">${cats.map(c => `<button class="${c === view.cat ? 'on' : ''}" data-cxcat="${esc(c)}">${esc(c)}</button>`).join('')}</span>` : ''}
+        ${cats.length > 1 ? `<span class="cx-cats">${cats.map(c => `<button class="${c === view.cat ? 'on' : ''}" data-cxcat="${esc(c)}">${esc(roomLabel(c, cats))}</button>`).join('')}</span>` : ''}
         ${o.mute && typeof view.muted === 'boolean' ? `<button class="cx-mute" data-cxmute="${view.muted ? 0 : 1}" title="${view.muted ? 'Notifications du chat coupées : toucher pour les remettre' : 'Couper les notifications du chat'}" aria-label="${view.muted ? 'Remettre les notifications' : 'Couper les notifications'}">${view.muted ? '🔕' : '🔔'}</button>` : ''}
-        ${view.mod && o.off ? `<button class="cx-mod" data-cxoff=""${view.off ? 0 : 1}">${view.off ? '🔓 Rouvrir' : '🔒 Fermer'}</button>` : ''}</div>
+        ${view.mod && o.photosOk && view.filtered ? `<button class="cx-mute cx-ph ${view.photos ? '' : 'off'}" data-cxphotos="${view.photos ? 0 : 1}" title="${view.photos ? 'Les joueurs peuvent envoyer des photos : toucher pour réserver les photos aux coachs' : 'Photos réservées aux coachs : toucher pour les ouvrir aux joueurs'}" aria-label="Photos des joueurs">📷</button>` : ''}
+        ${view.mod && o.off ? `<button class="cx-mod" data-cxoff="""${view.off ? 0 : 1}">${view.off ? '🔓 Rouvrir' : '🔒 Fermer'}</button>` : ''}</div>
+      ${view.pin && mode === 'chat' ? `<div class="cx-pin" data-cxgoto="${view.pin.id}">📌<span><b>${esc(String(view.pin.name || '').replace(/^Coach\s+/, ''))}</b> : ${esc(view.pin.body || (view.pin.img ? '📷 Photo' : ''))}</span></div>` : ''}
       ${view.off ? `<div class="cx-off">🔒 Chat fermé par les coachs${view.mod ? ' (toi, tu peux écrire)' : ''}</div>` : ''}
       <div class="cx-list" id="cxList">${listHtml()}</div>
       <button class="cx-new" id="cxNew" hidden>⬇ Nouveaux messages</button>
       ${canWrite() && mode === 'polls' && o.poll ? '<div class="cx-bar"><button class="cx-newpoll" data-cxnewpoll>＋ Nouveau sondage</button></div>' : ''}
       ${canWrite() && mode === 'chat' ? `<div class="cx-emo" id="cxEmo" hidden>${EMOJI.map(e => `<button data-cxemo="${e}">${e}</button>`).join('')}</div>
       ${replyTo ? `<div class="cx-replybar"><span>↩️ Réponse à <b>${esc(String(replyTo.name).replace(/^Coach\s+/, ''))}</b> : ${esc(replyTo.body || '')}</span><button type="button" data-cxreplyno aria-label="Ne plus répondre">✕</button></div>` : ''}
-      <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}
+      <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}${o.photo && (view.mod || view.photos) ? '<button type="button" class="cx-ic" data-cxphoto aria-label="Envoyer une photo">📷</button><input type="file" accept="image/*" id="cxFile" hidden>' : ''}
         <textarea id="cxText" rows="1" maxlength="500" placeholder="Message" aria-label="Message" enterkeyhint="send">${esc(draft)}</textarea>
         <button type="submit" class="cx-ic cx-send" id="cxSend" aria-label="Envoyer" ${draft.trim() ? '' : 'disabled'}>➤</button></form>
       ${o.note ? `<div class="cx-note">${esc(o.note)}</div>` : ''}` : ''}
@@ -14418,7 +14481,7 @@ var Chat = (() => {
   function drawAll() {
     if (!box) return;
     const l0 = $('#cxList'), keep = l0 && !nearBottom() ? l0.scrollTop : null, focus = document.activeElement && document.activeElement.id === 'cxText';
-    animate = false; box.innerHTML = shell(); animate = true; fit(); grow();
+    animate = false; box.innerHTML = shell(); animate = true; fit(); grow(); loadImgs();
     const l = $('#cxList'); if (l) l.scrollTop = keep == null ? l.scrollHeight : keep;
     if (focus) { const t = $('#cxText'); if (t) { t.focus({ preventScroll: true }); t.setSelectionRange(t.value.length, t.value.length); } }
   }
@@ -14426,7 +14489,7 @@ var Chat = (() => {
   function drawList(stick) {
     const l = $('#cxList'); if (!l) return drawAll();
     const was = nearBottom(), top = l.scrollTop;
-    l.innerHTML = listHtml();
+    l.innerHTML = listHtml(); loadImgs();
     if (armed != null && mode === 'chat') openMenu(armed, false);
     if (mode === 'polls') { l.scrollTop = top; return; }
     if (stick || was) l.scrollTop = l.scrollHeight; else { l.scrollTop = top; const n = $('#cxNew'); if (n) n.hidden = false; }
@@ -14481,11 +14544,12 @@ var Chat = (() => {
         const fresh = (r.msgs || []).filter(m => !had.has(m.id));
         const topSame = sameTop(r) && openPolls() === (r.polls || []).filter(p => !p.closed).length;
         if (JSON.stringify(r.polls || []) !== JSON.stringify(view.polls || []) || JSON.stringify(r.reacts || {}) !== JSON.stringify(view.reacts || {}) || JSON.stringify(r.reports || {}) !== JSON.stringify(view.reports || {})) changed = true;
-        if (r.muted !== view.muted) setTimeout(drawAll, 0);
-        Object.assign(view, { off: r.off, filtered: r.filtered, mod: r.mod, cats: r.cats || view.cats, polls: r.polls || [], reacts: r.reacts || {}, reports: r.reports || {}, muted: r.muted });
+        if (r.muted !== view.muted || r.photos !== view.photos || JSON.stringify(r.pin || null) !== JSON.stringify(view.pin || null)) setTimeout(drawAll, 0);
+        Object.assign(view, { off: r.off, filtered: r.filtered, mod: r.mod, cats: r.cats || view.cats, polls: r.polls || [], reacts: r.reacts || {}, reports: r.reports || {}, muted: r.muted, photos: r.photos, pin: r.pin || null });
         if (fresh.length) {
           // my messages back from the server: their copy replaces the ones shown at once
           let mine = fresh.filter(m => m.mine).length;
+          fresh.filter(m => m.mine && m.img).forEach(f => { const l = view.msgs.find(x => local(x) && x.local && x.ok); if (l) imgs.set(f.id, l.local); });
           const locals = view.msgs.filter(m => local(m) && !(m.ok && mine-- > 0));
           view.msgs = view.msgs.filter(m => !local(m)).concat(fresh, locals).slice(-250); changed = true;
         }
@@ -14568,7 +14632,7 @@ var Chat = (() => {
     el.addEventListener('input', e => {
       if (sheet) { if (e.target.id === 'cxPq') sheet.q = e.target.value; if (e.target.dataset.cxopt) sheet.opts[+e.target.dataset.cxopt] = e.target.value; if (e.target.id === 'cxPmulti') sheet.multi = e.target.checked; }
     });
-    el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; });
+    el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; if (e.target.id === 'cxFile' && e.target.files && e.target.files[0]) { sendPhoto(e.target.files[0]); e.target.value = ''; } });
     el.addEventListener('input', e => { if (e.target.id !== 'cxText') return; draft = e.target.value; grow(); const s = $('#cxSend'); if (s) s.disabled = !draft.trim(); });
     el.addEventListener('focusin', e => { if (e.target.id === 'cxText') setTimeout(() => { fit(); toBottom(); }, 250); });
     el.addEventListener('keydown', e => { if (e.target.id === 'cxText' && e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer:fine)').matches) { e.preventDefault(); send(e.target.value); } });
@@ -14594,6 +14658,13 @@ var Chat = (() => {
       const f = q('[data-cxoff]');
       if (f && o.off) { const off = f.dataset.cxoff === '1'; try { await o.off(off); view.off = off; drawAll(); (o.toast || (() => {}))(off ? '🔒 Chat fermé : les joueurs peuvent lire, plus écrire.' : '🔓 Chat rouvert.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       // (2.03) a reaction (in the menu or a chip under a bubble): shown at once
+      if (q('[data-cxphoto]')) { const f = $('#cxFile'); if (f) f.click(); return; }
+      const im = q('[data-cximg]'); if (im && !q('.cx-menu')) { const i = im.querySelector('img'); if (i) { const m = view.msgs.find(x => String(x.id) === im.dataset.cximg); viewPhoto(i.src, m && m.body); } return; }
+      const pn = q('[data-cxpin]'); if (pn && o.pin) { const id = +pn.dataset.cxpin || null; armed = null; closeMenu();
+        try { await o.pin(view.cat, id); view.pin = id ? (() => { const m = view.msgs.find(x => x.id === id); return m ? { id, name: m.name, body: (m.body || '').slice(0, 140), img: !!m.img } : null; })() : null; drawAll();
+          (o.toast || (() => {}))(id ? '📌 Épinglé en haut du chat.' : 'Message désépinglé.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
+      const ph = q('[data-cxphotos]'); if (ph && o.photosOk) { const on = ph.dataset.cxphotos === '1';
+        try { await o.photosOk(on); view.photos = on; drawAll(); (o.toast || (() => {}))(on ? '📷 Les joueurs peuvent envoyer des photos.' : '📷 Photos réservées aux coachs.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       const rx = q('[data-cxrx]'); if (rx && o.react) { const [id, e2] = rx.dataset.cxrx.split(':'); armed = null; sure = null; closeMenu(); return react(+id, e2); }
       const gt = q('[data-cxgoto]'); if (gt) { const r = el.querySelector(`.cx-row[data-cx="${gt.dataset.cxgoto}"]`); if (r) { r.scrollIntoView({ block: 'center', behavior: 'smooth' }); r.classList.add('flash'); setTimeout(() => r.classList.remove('flash'), 1400); } return; }
       const rp = q('[data-cxreply]'); if (rp) { const m = view.msgs.find(x => String(x.id) === rp.dataset.cxreply); if (m) { replyTo = { id: m.id, name: m.mine ? 'toi' : m.name, body: (m.body || '').slice(0, 90) }; armed = null; drawAll(); const t = $('#cxText'); if (t) t.focus(); } return; }
@@ -14616,7 +14687,8 @@ var Chat = (() => {
     });
   }
   /* el: the box; opts: { key (who / which team: a new key = a new chat), kind ('player' | 'coach'), note, load(cat, after), post(cat, body), del(cat, id), off(bool) (coaches),
-     poll(cat, q, opts, multi), vote(cat, id, opt), pollClose(cat, id, closed) (1.99), react(cat, id, emoji), report(cat, id), mute(on) (2.03), toast(msg, err) } */
+     poll(cat, q, opts, multi), vote(cat, id, opt), pollClose(cat, id, closed) (1.99), react(cat, id, emoji), report(cat, id), mute(on) (2.03),
+     photo(cat, dataUrl, caption), img(cat, id), pin(cat, id|null), photosOk(on) (2.04), toast(msg, err) } */
   function mount(el, opts) {
     if (!el) return; css();
     if (!o || o.key !== opts.key) { view = null; cat = ''; draft = ''; mode = 'chat'; sheet = null; whoOpen.clear(); replyTo = null; armed = null; sure = null; }
@@ -16327,18 +16399,25 @@ var Views = (() => {
   }
   /* ================= (1.96) the chat of the category: players (A and B) and coaches; the coach moderates ================= */
   function chat(root, teamId) {
+    if (teamId && /\|parents$/.test(teamId)) { S().ui.chatRoom = 'parents'; teamId = teamId.replace(/\|parents$/, ''); } // (2.04) a notification of the parents' room
+    else if (teamId) S().ui.chatRoom = 'joueurs';
     if (teamId && teamOf(teamId) && Auth.sees(teamId)) S().ui.teamId = teamId; // (1.98) opened from a chat notification
     const tid = activeTeam() || (Auth.teams()[0] && Auth.teams()[0].id), t = teamOf(tid);
     if (!t) { root.innerHTML = header('Chat des joueurs') + empty('Crée une équipe pour ouvrir le chat de la catégorie.'); return; }
     S().ui.teamId = tid;
-    root.innerHTML = `${header('Chat des joueurs', 'Les joueurs de la catégorie (A et B) et leurs coachs')}${teamSwitch()}
+    // (2.04) two rooms: the players' chat, the parents' chat (parents and coaches)
+    const room = S().ui.chatRoom === 'parents' ? 'parents' : 'joueurs', tk = t.id + (room === 'parents' ? '|parents' : '');
+    root.innerHTML = `${header('Chat', 'Joueurs ou parents de la catégorie, et leurs coachs')}${teamSwitch()}
+      <div class="chips chat-rooms"><button class="chip ${room === 'joueurs' ? 'on' : ''}" data-room="joueurs">⚽ Joueurs</button><button class="chip ${room === 'parents' ? 'on' : ''}" data-room="parents">👪 Parents</button></div>
       ${Cloud.ready() ? '<div id="chatBox"></div>' : '<p class="tip">Le chat passe par le serveur du club : connecte-toi pour discuter avec tes joueurs.</p>'}`;
     bindTeamSwitch(root, () => chat(root));
+    root.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { S().ui.chatRoom = b.dataset.room; Store.persistNow(); chat(root); });
     const box = $('#chatBox', root); if (!box) return;
-    Chat.mount(box, { key: 't:' + t.id, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(t.id, after),
-      post: (c, b, r) => Cloud.chatPost(t.id, b, r), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off),
-      poll: (c, q, opts, multi) => Cloud.chatPoll(t.id, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(t.id, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(t.id, id, closed),
-      react: (c, id, e) => Cloud.chatReact(t.id, id, e), mute: on => Cloud.chatMute(on) });
+    Chat.mount(box, { key: 't:' + tk, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(tk, after),
+      post: (c, b, r) => Cloud.chatPost(tk, b, r), del: (c, id) => Cloud.chatDel(tk, id), off: off => Cloud.chatOff(tk, off),
+      poll: (c, q, opts, multi) => Cloud.chatPoll(tk, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(tk, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(tk, id, closed),
+      react: (c, id, e) => Cloud.chatReact(tk, id, e), mute: on => Cloud.chatMute(on),
+      photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
   }
   return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat };
 })();
@@ -16350,7 +16429,7 @@ var App = (() => {
   // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
     ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
-    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs', 'chat', 'Chat'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['reglages', 'Réglages', 'settings'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['reglages', 'Réglages', 'settings'],
   ];
   const PHONE_MAIN = 5;
   // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
@@ -16487,7 +16566,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 104, UPD = AppCfg.key('update-tried');
+  const BUILD = 105, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

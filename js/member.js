@@ -45,6 +45,8 @@ const Member = (() => {
       if (/TROP_VITE/.test(m)) throw new Error('Doucement : attends quelques secondes entre deux messages.');
       if (/CHAT_FERME/.test(m)) throw new Error('Le chat est fermé pour l\'instant par les coachs.');
       if (/SONDAGE_FINI/.test(m)) throw new Error('Ce sondage est terminé.');
+      if (/PHOTOS_COACHS/.test(m)) throw new Error('Dans ce chat, seuls les coachs envoient des photos pour l\'instant.');
+      if (/\bPHOTO\b/.test(m)) throw new Error('Cette photo ne passe pas : essaie avec une autre.');
       if (/LIMITE_CHAT/.test(m)) throw new Error('Beaucoup de messages aujourd\'hui : réessaie demain.');
       if (/LIMITE/.test(m)) throw new Error('Tu as déjà envoyé 10 messages aujourd’hui : réessaie demain.');
       if (/CODE_PERSO/.test(m)) { const e = new Error('Ce code ne fonctionne pas. Vérifie-le, ou demande ton code au coach.'); e.code = 'CODE'; throw e; }
@@ -165,6 +167,10 @@ const Member = (() => {
       // (2.01) more comfortable for a finger: bigger small buttons, the well-being scale on two lines, small texts readable
       + '.b.small{min-height:40px}.b:disabled{opacity:.55}.wb-scale{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}.wb-scale button{min-height:44px!important;font-size:16px}'
       + '.gm-s small,.gm-src{font-size:12.5px!important}'
+      + '.bdg{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}.bdg span{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;text-align:center}'
+      + '.bdg b{font-size:28px;line-height:1}.bdg i{font-style:normal;font-size:11.5px;font-weight:700;line-height:1.2}.bdg-on{background:color-mix(in srgb,#c9a45c 22%,transparent)}.bdg-off{opacity:.38;filter:grayscale(1);border:1px dashed var(--line)}'
+      + '.lead-card h3{margin:10px 0 4px;font-size:15px}.lead{list-style:none;margin:0;padding:0}.lead li{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--line)}.lead li:last-child{border:0}'
+      + '.lead li span{width:24px;text-align:center;font-weight:800}.lead li b{flex:1}.lead li em{font-style:normal;font-weight:800}.lead li.me{background:color-mix(in srgb,#c9a45c 18%,transparent);border-radius:8px}'
       // (2.03) 7 or 8 tabs: a bit smaller, so « Bénévoles » or « Résultats » are not cut
       + '.tabbar[data-n="7"] .tab,.tabbar[data-n="8"] .tab{padding:6px 0 5px;gap:2px}.tabbar[data-n="7"] .tab .ti,.tabbar[data-n="8"] .tab .ti{font-size:19px}'
       + '.tabbar[data-n="7"] .tab span:not(.ti),.tabbar[data-n="8"] .tab span:not(.ti){font-size:10.5px;letter-spacing:-.2px}'
@@ -394,6 +400,31 @@ const Member = (() => {
       o.querySelector('form').addEventListener('submit', e => { e.preventDefault(); const v = inp.value.trim(); if (v) done(v); else inp.focus(); });
     });
   }
+  /* ---------- (2.04) the rankings of the category and the badges of the player (season, from the matches and the sessions) ---------- */
+  const BADGES = [
+    ['👟', 'Premier match', p => p.mp >= 1], ['⚽', 'Premier but', p => p.g >= 1], ['🅰️', 'Première passe décisive', p => p.a >= 1],
+    ['⏱️', 'Match en entier', p => p.full >= 1], ['🎯', '5 buts', p => p.g >= 5], ['🎩', 'Coup du chapeau', p => p.hat >= 1],
+    ['🧠', '5 passes décisives', p => p.a >= 5], ['🏟️', '10 matchs', p => p.mp >= 10], ['🏃', '10 entraînements', p => p.tr >= 10],
+    ['💯', 'Toujours là (90 % des séances)', p => p.trt >= 8 && p.tr / p.trt >= .9], ['🔥', '10 buts', p => p.g >= 10], ['📅', '30 entraînements', p => p.tr >= 30]];
+  function leaders(L, who) {
+    if (!L || !Array.isArray(L.players)) return '';
+    const me = L.players.find(p => p.me); let h = '';
+    if (me) {
+      const got = BADGES.filter(b => b[2](me)), next = BADGES.filter(b => !b[2](me)).slice(0, 3);
+      h += `<h2>🏅 ${who === 'toi' ? 'Mes badges' : 'Les badges de ' + esc(who)}</h2><div class="card bdg-card"><div class="bdg">${got.map(b => `<span class="bdg-on" title="${esc(b[1])}"><b>${b[0]}</b><i>${esc(b[1])}</i></span>`).join('')}
+        ${next.map(b => `<span class="bdg-off" title="À gagner : ${esc(b[1])}"><b>${b[0]}</b><i>${esc(b[1])}</i></span>`).join('')}</div>
+        <p class="info small">${got.length ? `${got.length} badge${got.length > 1 ? 's' : ''} sur ${BADGES.length} cette saison.` : 'Les premiers badges arrivent avec les premiers matchs et entraînements.'} En gris : les prochains à gagner.</p></div>`;
+    }
+    if (L.hidden) return h;
+    const top = (key, fmt, min) => L.players.filter(p => min(p)).sort((x, y) => key(y) - key(x) || x.name.localeCompare(y.name)).slice(0, 5)
+      .map((p, i) => `<li class="${p.me ? 'me' : ''}"><span>${['🥇', '🥈', '🥉', '4', '5'][i]}</span><b>${esc(p.me ? (who === 'toi' ? 'Toi' : p.name) : p.name)}</b><em>${fmt(p)}</em></li>`).join('');
+    const g = top(p => p.g, p => p.g + ' but' + (p.g > 1 ? 's' : ''), p => p.g > 0), a = top(p => p.a, p => p.a + ' passe' + (p.a > 1 ? 's' : ''), p => p.a > 0);
+    const t = top(p => p.tr / p.trt, p => Math.round(100 * p.tr / p.trt) + ' %', p => p.trt >= 4);
+    if (!g && !a && !t) return h;
+    return h + `<h2>🏆 Classements ${esc(L.cat || '')}</h2><div class="card lead-card">
+      ${g ? `<h3>⚽ Buteurs</h3><ol class="lead">${g}</ol>` : ''}${a ? `<h3>🅰️ Passeurs</h3><ol class="lead">${a}</ol>` : ''}${t ? `<h3>🏃 Assiduité aux entraînements</h3><ol class="lead">${t}</ol>` : ''}
+      <p class="info small">Depuis le début de la saison, d'après les feuilles de match et les présences notées par les coachs.</p></div>`;
+  }
   function askReason(title) {
     sheetCss();
     return new Promise(res => {
@@ -432,5 +463,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();

@@ -7,6 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hh = x => String(x || '').replace(':', 'h');
   const fmt = (d, o = { weekday: 'long', day: 'numeric', month: 'long' }) => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', o) : '';
+  let lead = null; // (2.04) rankings of the category, badges
   let code = Member.current(), data = null, tips = []; // tips (1.65): the coach's suggestions for the child
   if (!code) { location.replace('moi.html' + location.hash); return; }
 
@@ -125,7 +126,7 @@
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, (data.me || {}).firstName || kid())}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Pour ${esc(kid())} : physique, technique ou tactique, seul ou à plusieurs. Ses footings (temps, distance) et l'envoi au coach.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
-        { id: 'resultats', icon: '🏆', label: 'Résultats', html: past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : '', empty: 'Pas encore de résultat.' },
+        { id: 'resultats', icon: '🏆', label: 'Résultats', html: `${Member.leaders(lead, kid())}${past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : ''}`, empty: 'Pas encore de résultat.' }, // (2.04) badges and rankings
         { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.97) the chat of the category, here too (under 16 the family opens this page)
         { id: 'coachs', icon: '📞', label: 'Coachs', html: (data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '', empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
         { id: 'moi', icon: '👤', label: 'Moi', html: `<h2>Réglages</h2>${Member.notifyCard('parents')}${Member.tabPosCard()}
@@ -134,25 +135,26 @@
           ${Member.privacy()}` },
       ])}
       <div id="phView" class="ph-view" hidden></div>`;
-    if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', note: `Les messages partent au nom de ${kid()}.`, toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
+    if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', note: `👪 Parents : entre parents et coachs. ⚽ Joueurs : les messages partent au nom de ${kid()}.`, toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0, p_room: 'all' }).catch(e => { if (/pas encore prêt/.test(e.message)) return rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }); throw e; }),
       post: (c, b, r) => rpc('member_chat_post', Object.assign({ p_code: code, p_cat: c, p_body: b }, r ? { p_reply: r } : {})), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
       poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),
       react: (c, id, e) => rpc('member_chat_react', { p_code: code, p_cat: c, p_id: id, p_emo: e }), report: (c, id) => rpc('member_chat_report', { p_code: code, p_cat: c, p_id: id }),
-      mute: on => rpc('member_chat_mute', { p_code: code, p_on: on }) });
+      mute: on => rpc('member_chat_mute', { p_code: code, p_on: on }),
+      photo: (c, img, b) => rpc('member_chat_photo', { p_code: code, p_cat: c, p_img: img, p_body: b || null }), img: (c, id) => rpc('member_chat_img', { p_code: code, p_cat: c, p_id: id }) });
   }
 
   // (2.01) everything asked at the same time, the page drawn twice; another child: nothing of the one before
   let loadTok = 0, lastLoad = 0;
   async function load(quiet) {
     const tok = ++loadTok, c = Member.current(); lastLoad = Date.now();
-    if (c !== code) { code = c; data = null; tips = []; Object.keys(photoData).forEach(k => delete photoData[k]); Object.keys(photoAsk).forEach(k => delete photoAsk[k]); }
+    if (c !== code) { code = c; data = null; tips = []; lead = null; Object.keys(photoData).forEach(k => delete photoData[k]); Object.keys(photoAsk).forEach(k => delete photoAsk[k]); }
     try {
       const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
       data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos();
-      const [, t] = await Promise.all([Member.replies(code, data), Member.tips(code), Injury.load(code).catch(() => null)]);
+      const [, t, ld] = await Promise.all([Member.replies(code, data), Member.tips(code), Injury.load(code).catch(() => null).then(() => rpc('member_leaders', { p_code: code })).catch(() => null)]);
       if (tok !== loadTok) return;
-      tips = t || []; render(); loadPhotos();
+      tips = t || []; lead = ld || null; render(); loadPhotos();
     }
     catch (e) {
       if (tok !== loadTok) return;

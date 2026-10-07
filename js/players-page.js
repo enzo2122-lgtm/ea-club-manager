@@ -7,6 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hh = x => String(x || '').replace(':', 'h');
   const fmt = (d, o = { weekday: 'long', day: 'numeric', month: 'long' }) => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', o) : '';
+  let lead = null; // (2.04) rankings of the category, badges
   let code = Member.current(), data = null, extra = null, tips = [], vids = [], prof = null; // vids, prof (1.81): highlights sent by the coaches, his profile; // tips (1.65): the coach's suggestions for him // extra (1.60): tables of the category + his whole season (member_standings)
   if (!code) { location.replace('moi.html' + location.hash); return; }
 
@@ -223,7 +224,7 @@
         { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.96) the chat of his category (players and coaches)
         { id: 'saison', icon: '📊', label: 'Saison', html: `${my.conv || my.f.mp ? `<h2>Ma saison</h2><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div>${my.yc || my.rc ? `<div><b>${my.yc ? '🟨' + my.yc : ''}${my.rc ? ' 🟥' + my.rc : ''}</b><span>cartons</span></div>` : ''}${my.sessions && my.sessions.total ? `<div><b>${Math.round(my.sessions.present / my.sessions.total * 100)} %</b><span>présence aux séances (${my.sessions.present}/${my.sessions.total})</span></div>` : ''}</div>${my.teams && Object.keys(my.teams).length > 1 ? `<p class="info">Joué avec : ${Object.entries(my.teams).map(([t, n]) => `<b>${esc(t)}</b> (${n})`).join(' · ')}</p>` : ''}<p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
           ${past.length ? `<h2>Résultats</h2>${past.slice(0, 12).map(pastCard).join('')}` : ''}
-          ${standings()}`, empty: 'Ta saison s\'affichera ici après tes premiers matchs.' },
+          ${Member.leaders(lead, 'toi')}${standings()}`, empty: 'Ta saison s\'affichera ici après tes premiers matchs.' }, // (2.04) badges and rankings
         { id: 'videos', icon: '🎬', label: 'Vidéos', html: videosTab() },
         { id: 'pronos', icon: '🎯', label: 'Pronos', html: '<div class="card" id="gameBox"></div>' },
         { id: 'coachs', icon: '💬', label: 'Coach', html: `${msgCard()}${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}`, empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
@@ -237,7 +238,8 @@
       poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),
       react: (c, id, e) => rpc('member_chat_react', { p_code: code, p_cat: c, p_id: id, p_emo: e }), report: (c, id) => rpc('member_chat_report', { p_code: code, p_cat: c, p_id: id }),
-      mute: on => rpc('member_chat_mute', { p_code: code, p_on: on }) });
+      mute: on => rpc('member_chat_mute', { p_code: code, p_on: on }),
+      photo: (c, img, b) => rpc('member_chat_photo', { p_code: code, p_cat: c, p_img: img, p_body: b || null }), img: (c, id) => rpc('member_chat_img', { p_code: code, p_cat: c, p_id: id }) });
     // (1.61) the predictions game of his category (players and coaches)
     if (typeof Game !== 'undefined') Game.mount($('#gameBox'), { load: () => rpc('member_game', { p_code: code }), bet: (e, h, a, ko) => rpc('member_game_bet', { p_code: code, p_event: e, p_h: h, p_a: a, p_kickoff: ko }), fav: f => rpc('member_game_fav', { p_code: code, p_fav: f }), toast, quiet: true });
   }
@@ -246,15 +248,15 @@
   let loadTok = 0, lastLoad = 0;
   async function load(quiet) {
     const tok = ++loadTok, c = Member.current(); lastLoad = Date.now();
-    if (c !== code) { code = c; data = null; extra = null; tips = []; vids = []; prof = null; draft = null; msgDraft = ''; wbNote = ''; Object.keys(wbVals).forEach(k => delete wbVals[k]); Object.keys(sess).forEach(k => delete sess[k]); }
+    if (c !== code) { code = c; data = null; extra = null; lead = null; tips = []; vids = []; prof = null; draft = null; msgDraft = ''; wbNote = ''; Object.keys(wbVals).forEach(k => delete wbVals[k]); Object.keys(sess).forEach(k => delete sess[k]); }
     try {
       const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
       data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render();
       const soft = p => p.catch(() => undefined); // a club server not yet updated: that part stays empty
-      const [, t, , v, pr, st] = await Promise.all([Member.replies(code, data), Member.tips(code), soft(Injury.load(code)),
-        soft(rpc('member_videos', { p_code: code })), soft(rpc('member_profile', { p_code: code })), soft(rpc('member_standings', { p_code: code }))]);
+      const [, t, , v, pr, st, ld] = await Promise.all([Member.replies(code, data), Member.tips(code), soft(Injury.load(code)),
+        soft(rpc('member_videos', { p_code: code })), soft(rpc('member_profile', { p_code: code })), soft(rpc('member_standings', { p_code: code })), soft(rpc('member_leaders', { p_code: code }))]);
       if (tok !== loadTok) return;
-      tips = t || []; vids = v || []; if (pr !== undefined) prof = pr || {}; if (st) extra = st;
+      tips = t || []; vids = v || []; if (pr !== undefined) prof = pr || {}; if (st) extra = st; lead = ld || null;
       render();
     }
     catch (e) {

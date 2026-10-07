@@ -3,7 +3,7 @@ const App = (() => {
   // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
     ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
-    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs', 'chat', 'Chat'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['reglages', 'Réglages', 'settings'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['reglages', 'Réglages', 'settings'],
   ];
   const PHONE_MAIN = 5;
   // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
@@ -140,7 +140,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 104, UPD = AppCfg.key('update-tried');
+  const BUILD = 105, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

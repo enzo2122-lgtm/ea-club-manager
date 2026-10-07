@@ -1139,18 +1139,25 @@ const Views = (() => {
   }
   /* ================= (1.96) the chat of the category: players (A and B) and coaches; the coach moderates ================= */
   function chat(root, teamId) {
+    if (teamId && /\|parents$/.test(teamId)) { S().ui.chatRoom = 'parents'; teamId = teamId.replace(/\|parents$/, ''); } // (2.04) a notification of the parents' room
+    else if (teamId) S().ui.chatRoom = 'joueurs';
     if (teamId && teamOf(teamId) && Auth.sees(teamId)) S().ui.teamId = teamId; // (1.98) opened from a chat notification
     const tid = activeTeam() || (Auth.teams()[0] && Auth.teams()[0].id), t = teamOf(tid);
     if (!t) { root.innerHTML = header('Chat des joueurs') + empty('Crée une équipe pour ouvrir le chat de la catégorie.'); return; }
     S().ui.teamId = tid;
-    root.innerHTML = `${header('Chat des joueurs', 'Les joueurs de la catégorie (A et B) et leurs coachs')}${teamSwitch()}
+    // (2.04) two rooms: the players' chat, the parents' chat (parents and coaches)
+    const room = S().ui.chatRoom === 'parents' ? 'parents' : 'joueurs', tk = t.id + (room === 'parents' ? '|parents' : '');
+    root.innerHTML = `${header('Chat', 'Joueurs ou parents de la catégorie, et leurs coachs')}${teamSwitch()}
+      <div class="chips chat-rooms"><button class="chip ${room === 'joueurs' ? 'on' : ''}" data-room="joueurs">⚽ Joueurs</button><button class="chip ${room === 'parents' ? 'on' : ''}" data-room="parents">👪 Parents</button></div>
       ${Cloud.ready() ? '<div id="chatBox"></div>' : '<p class="tip">Le chat passe par le serveur du club : connecte-toi pour discuter avec tes joueurs.</p>'}`;
     bindTeamSwitch(root, () => chat(root));
+    root.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { S().ui.chatRoom = b.dataset.room; Store.persistNow(); chat(root); });
     const box = $('#chatBox', root); if (!box) return;
-    Chat.mount(box, { key: 't:' + t.id, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(t.id, after),
-      post: (c, b, r) => Cloud.chatPost(t.id, b, r), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off),
-      poll: (c, q, opts, multi) => Cloud.chatPoll(t.id, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(t.id, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(t.id, id, closed),
-      react: (c, id, e) => Cloud.chatReact(t.id, id, e), mute: on => Cloud.chatMute(on) });
+    Chat.mount(box, { key: 't:' + tk, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(tk, after),
+      post: (c, b, r) => Cloud.chatPost(tk, b, r), del: (c, id) => Cloud.chatDel(tk, id), off: off => Cloud.chatOff(tk, off),
+      poll: (c, q, opts, multi) => Cloud.chatPoll(tk, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(tk, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(tk, id, closed),
+      react: (c, id, e) => Cloud.chatReact(tk, id, e), mute: on => Cloud.chatMute(on),
+      photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
   }
   return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat };
 })();

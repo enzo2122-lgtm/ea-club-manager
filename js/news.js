@@ -5,6 +5,13 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 60, date: '2026-10-08', title: 'Photos, parents, relances et badges 🏅', items: [
+      ['📷', 'Chat : envoie une photo (📷). Chez les jeunes, seuls les coachs en envoient, sauf si un coach ouvre les photos aux joueurs.'],
+      ['📌', 'Les coachs épinglent un message en haut du chat (horaires, infos importantes).'],
+      ['👪', 'Le chat des parents : par catégorie, entre parents et coachs (covoiturage, organisation). Espace parents → onglet Chat → « Parents ».'],
+      ['⏰', 'La veille à 18 h, ceux qui n\'ont pas répondu au match ou à l\'entraînement reçoivent un rappel ; les coachs ont la liste.'],
+      ['🏆', 'Classements de la catégorie (buteurs, passeurs, assiduité) et badges à gagner dans la saison. Chez les plus petits (U6 à U9) : les badges seulement.'],
+    ] },
     { n: 59, date: '2026-10-07', title: 'Le chat en mieux 💬', items: [
       ['👆', 'Touche une bulle : réagis (👍 ❤️ 😂 ⚽ 🔥 👏), réponds à ce message (la citation s\'affiche), signale-le ou supprime-le.'],
       ['🚩', '« Signaler » : les coachs de la catégorie sont prévenus tout de suite.'],
