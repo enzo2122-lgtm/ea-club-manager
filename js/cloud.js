@@ -16,6 +16,10 @@ const Cloud = (() => {
   // A responsable's login is his « responsable code »
   const adminKey = () => (session() && session().admin ? token() : '');
   const ERRORS = {
+    MOT_INTERDIT: 'Message non envoyé : un mot grossier ou insultant n\'est pas accepté dans ce chat.',
+    TROP_VITE: 'Doucement : attends quelques secondes entre deux messages.',
+    CHAT_FERME: 'Le chat est fermé.',
+    LIMITE_CHAT: 'Beaucoup de messages aujourd\'hui : réessaie demain.',
     COMPTE_INCONNU: 'Aucun compte à ce nom dans ce club.',
     CLUB_INCONNU: 'Aucun club avec ce code. Vérifie le code du club (demande-le à ton responsable).',
     CLUB_SUSPENDU: 'L\'accès de ce club est suspendu : contacte Clubbo.',
@@ -121,6 +125,11 @@ const Cloud = (() => {
     // backups
     // (1.61) the predictions game
     game: team => rpc('club_game', { p_team: team }),
+    // (1.96) the chat of a category (players and coaches)
+    chat: (team, after) => rpc('club_chat', { p_team: team, p_after: after || 0 }),
+    chatPost: (team, body) => rpc('club_chat_post', { p_team: team, p_body: body }),
+    chatDel: (team, id) => rpc('club_chat_del', { p_team: team, p_id: id }),
+    chatOff: (team, off) => rpc('club_chat_off', { p_team: team, p_off: off }),
     gameBet: (ev, h, a, ko) => rpc('club_game_bet', { p_event: ev, p_h: h, p_a: a, p_kickoff: ko }),
     gameFav: f => rpc('club_game_fav', { p_fav: f }),
     backups: () => rpc('club_backups', { admin_k: adminKey() }),
