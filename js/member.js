@@ -92,7 +92,7 @@ const Member = (() => {
       ${PREVIEW ? `<a class="b small lnk" href="${other[0]}#c=${esc(c)}&preview=1">${other[1]}</a>` : `<a class="b small lnk" href="moi.html#add=1">＋ ${kind === 'parents' ? 'Un autre enfant' : 'Un autre code'}</a><a class="b small lnk" href="${other[0]}">${other[1]}</a><button class="b small" data-forget="${esc(c)}">Se déconnecter</button>`}</span></div>`;
   }
   function privacy() {
-    return `<div class="card privacy"><p class="info">🔒 <a href="confidentialite.html">Confidentialité</a> : tes données ne sont vues que par les coachs de ta catégorie et les responsables du club.</p>
+    return `<div class="card privacy"><p class="info">🔒 <a href="confidentialite.html">Confidentialité</a> : ta fiche, ta santé et tes contacts ne sont vus que par les coachs de ta catégorie et les responsables du club. Ce que tu écris ou envoies dans le chat est vu par ta catégorie (photos effacées après 90 jours, messages après 1 an).</p>
       <button class="b small" data-forgetme>🗑️ Supprimer mes données</button></div>`;
   }
   // the request goes to the coaches of the category (they delete the player's file)
@@ -111,6 +111,68 @@ const Member = (() => {
   const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && location.protocol !== 'file:';
   const ios = () => /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   // the card (filled once the club's server has answered)
+  /* ---------- (2.05) « install the app »: a guide step by step for the phone in hand (iPhone, Android, an app's browser) ---------- */
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; document.dispatchEvent(new Event('member-redraw')); });
+  window.addEventListener('appinstalled', () => { installEvt = null; document.dispatchEvent(new Event('member-redraw')); });
+  const LATER = () => AppCfg.key('install-later');
+  const ua = () => navigator.userAgent || '';
+  const inApp = () => /FBAN|FBAV|Instagram|Snapchat|TikTok|Line\/|LinkedInApp|; wv\)/.test(ua());
+  const android = () => /Android/.test(ua());
+  const platform = () => inApp() ? 'inapp' : ios() ? (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua()) ? 'ios-other' : 'ios') : android() ? 'android' : 'desktop';
+  const SHARE = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="vertical-align:-5px"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 10H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-2" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/></svg>';
+  function installCard(kind) {
+    if (PREVIEW) return '';
+    if (standalone()) {
+      // installed: the last step, the notifications
+      if (!pushOk()) return '';
+      if (!nAsked) { nAsked = true; refreshNotify(); }
+      return nState === false ? `<div class="card inst-card"><p><b>🔔 Dernière étape</b> : active les notifications pour être prévenu (convocations, chat, changements).</p><button class="b yes on" data-mnotif="on" data-kind="${kind}">Activer les notifications</button></div>` : '';
+    }
+    let later = 0; try { later = +localStorage.getItem(LATER()) || 0; } catch (e) {}
+    if (Date.now() - later < 5 * 864e5 || platform() === 'desktop') return '';
+    return `<div class="card inst-card"><p><b>📲 Installe l'appli sur ton téléphone</b><br><span class="info">Une icône comme une vraie appli, les notifications et le compteur de nouveautés. 1 minute.</span></p>
+      <div class="btns">${installEvt ? '<button class="b yes on" data-inst="go">📲 Installer</button>' : '<button class="b yes on" data-inst="how">📲 Comment faire</button>'}<button class="b small" data-inst="later">Plus tard</button></div></div>`;
+  }
+  function installSheet() {
+    sheetCss();
+    const p = platform(), code = pretty(current() || ''), step = (n, h) => `<li><span class="inst-n">${n}</span><div>${h}</div></li>`;
+    const codeStep = code ? `Ouvre l'appli avec la <b>nouvelle icône</b>, puis entre ton code : <span class="inst-code">${esc(code)}</span> <button class="b small" type="button" data-inst="copy">📋 Copier</button><br><span class="info small">Sur iPhone, l'appli installée ne connaît pas encore ton code : il faut le donner une fois.</span>` : 'Ouvre l\'appli avec la <b>nouvelle icône</b>.';
+    const steps = p === 'inapp' ? `<p class="info">Tu as ouvert le lien dans une autre appli (Facebook, Instagram…) : elle ne sait pas installer.</p><ol class="inst">
+        ${step(1, 'Touche <b>⋯</b> ou <b>⋮</b> en haut de l\'écran.')}${step(2, 'Choisis <b>« Ouvrir dans Safari »</b> (iPhone) ou <b>« Ouvrir dans Chrome »</b> (Android).')}${step(3, 'Reviens ici et touche « Installer l\'appli ».')}</ol>
+        <p><button class="b small" type="button" data-inst="link">🔗 Copier le lien de la page</button></p>`
+      : p === 'ios' || p === 'ios-other' ? `<ol class="inst">
+        ${step(1, `Touche le bouton <b>Partager</b> ${SHARE} ${p === 'ios' ? 'en bas de l\'écran (en haut à droite sur iPad). <span class="info small">Pas de barre en bas ? Touche d\'abord le bas de l\'écran ou ⋯.</span>' : 'en haut à droite de Chrome.'}`)}
+        ${step(2, 'Fais défiler et touche <b>« Sur l\'écran d\'accueil »</b> ⊞.')}
+        ${step(3, 'Touche <b>« Ajouter »</b> en haut à droite. L\'icône du club apparaît sur ton écran.')}
+        ${step(4, codeStep)}
+        ${step(5, 'Dans l\'appli : touche <b>« Activer les notifications »</b> puis <b>« Autoriser »</b>.')}</ol>
+        ${p === 'ios-other' ? '<p class="info small">Si tu ne trouves pas « Sur l\'écran d\'accueil », ouvre cette page dans <b>Safari</b> : ça marche toujours.</p>' : ''}`
+      : `<ol class="inst">${step(1, 'Touche le menu <b>⋮</b> en haut à droite de Chrome.')}${step(2, 'Touche <b>« Installer l\'appli »</b> ou <b>« Ajouter à l\'écran d\'accueil »</b>.')}
+        ${step(3, 'Confirme avec <b>« Installer »</b>, puis ouvre l\'appli avec la nouvelle icône (ton code est gardé).')}${step(4, 'Touche <b>« Activer les notifications »</b> puis <b>« Autoriser »</b>.')}</ol>`;
+    const o = document.createElement('div'); o.className = 'rs-back';
+    o.innerHTML = `<div class="rs-sheet inst-sheet" role="dialog" aria-label="Installer l'appli"><h3>📲 Installer l'appli</h3>${steps}<div class="btns"><button class="b" type="button" data-x>Fermer</button></div></div>`;
+    document.body.appendChild(o);
+    o.addEventListener('click', async e => {
+      if (e.target === o || e.target.closest('[data-x]')) return o.remove();
+      const b = e.target.closest('[data-inst]'); if (!b) return;
+      const copy = async t => { try { await navigator.clipboard.writeText(t); b.textContent = '✓ Copié'; } catch (err) { prompt('Copie ceci :', t); } };
+      if (b.dataset.inst === 'copy') copy(code);
+      if (b.dataset.inst === 'link') copy(location.href.split('#')[0]);
+    });
+  }
+  async function installClick(b) {
+    const k = b.dataset.inst;
+    if (k === 'later') { try { localStorage.setItem(LATER(), Date.now()); } catch (e) {} document.dispatchEvent(new Event('member-redraw')); return; }
+    if (k === 'go' && installEvt) { const e = installEvt; installEvt = null; e.prompt(); try { await e.userChoice; } catch (err) {} document.dispatchEvent(new Event('member-redraw')); return; }
+    installSheet();
+  }
+  // (2.05) the rankings: a player may say he does not want to be in them
+  function optoutCard(L) {
+    if (!L || L.hidden || typeof L.optout !== 'boolean') return '';
+    return `<div class="card"><p class="info">🏆 <b>Classements de la catégorie</b> : ${L.optout ? 'tu n\'y apparais pas pour les autres (tu vois toujours tes chiffres et tes badges).' : 'ton prénom et tes chiffres (buts, passes, présences) y apparaissent pour ta catégorie.'}</p>
+      <button class="b small" data-optout="${L.optout ? 0 : 1}">${L.optout ? 'Apparaître dans les classements' : 'Ne pas apparaître dans les classements'}</button></div>`;
+  }
   function notifyCard(kind) {
     if (PREVIEW) return '';
     // (iPhone) the notifications only work from the home screen icon, in Safari as in Chrome (Chrome on iPhone says it can, then fails)
@@ -167,6 +229,9 @@ const Member = (() => {
       // (2.01) more comfortable for a finger: bigger small buttons, the well-being scale on two lines, small texts readable
       + '.b.small{min-height:40px}.b:disabled{opacity:.55}.wb-scale{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}.wb-scale button{min-height:44px!important;font-size:16px}'
       + '.gm-s small,.gm-src{font-size:12.5px!important}'
+      + '.inst-card{border-left:5px solid #2563eb}.inst-card p{margin:0 0 8px}.inst{list-style:none;margin:8px 0;padding:0;display:flex;flex-direction:column;gap:10px}.inst li{display:flex;gap:10px;align-items:flex-start;line-height:1.45}'
+      + '.inst-n{flex:none;width:28px;height:28px;border-radius:50%;background:#2563eb;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}.inst-code{display:inline-block;font:800 18px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;padding:4px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}'
+      + '.inst-sheet{max-height:88vh;overflow-y:auto}'
       + '.bdg{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}.bdg span{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;text-align:center}'
       + '.bdg b{font-size:28px;line-height:1}.bdg i{font-style:normal;font-size:11.5px;font-weight:700;line-height:1.2}.bdg-on{background:color-mix(in srgb,#c9a45c 22%,transparent)}.bdg-off{opacity:.38;filter:grayscale(1);border:1px dashed var(--line)}'
       + '.lead-card h3{margin:10px 0 4px;font-size:15px}.lead{list-style:none;margin:0;padding:0}.lead li{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--line)}.lead li:last-child{border:0}'
@@ -360,6 +425,7 @@ const Member = (() => {
     if (e.target.closest('[data-mupdate]')) { updateApp(); return true; }
     const tb = e.target.closest('[data-tab]'); if (tb && !tb.closest('#psOverlay, .ps-in')) { showTab(tb); return true; } // (2.01) not the tabs of « Mon entraînement perso »
     const tf = e.target.closest('[data-tipfile]'); if (tf) { openTipFile(tf.dataset.tipfile); return true; }
+    const ib = e.target.closest('[data-inst]'); if (ib && !ib.closest('.inst-sheet')) { installClick(ib); return true; }
     const nb = e.target.closest('[data-mnotif]'); if (nb) { setNotify(nb.dataset.mnotif === 'on', nb.dataset.kind); return true; }
     if (e.target.closest('[data-forgetme]')) { forgetMe(/parents/.test(location.pathname) ? 'parents' : 'joueur'); return true; }
     const u = e.target.closest('[data-usecode]'); if (u) { use(u.dataset.usecode); reload(); return true; }
@@ -463,5 +529,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();

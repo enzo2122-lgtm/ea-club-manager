@@ -121,7 +121,7 @@
     // (1.64) in tabs: matches (présent / absent, covoiturage, coup de main), sessions, results, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'parents')}
       ${Member.tabs('parents', [
-        { id: 'matchs', icon: '⚽', label: 'Matchs', html: `${Injury.card(kid())}<h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}` },
+        { id: 'matchs', icon: '⚽', label: 'Matchs', html: `${Member.installCard('parents')}${Injury.card(kid())}<h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}` },
         { id: 'benevoles', icon: '🙋', label: 'Bénévoles', html: (() => { const l = up.filter(m => volBox(m)); return l.length ? `<h2>Coup de main les jours de match</h2><p class="info">Buvette, arbitre de touche, délégué, lavage des maillots… Inscris-toi en un geste.</p>${l.map(m => `<article class="card ${m.home ? 'home' : 'away'} ${Member.kindCls(m)}" data-m="${esc(m.id)}">${Member.kindBadge(m)}<div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(String(m.time).replace(':', 'h')) : ''}</div><div class="m-title">${m.home ? '🏠 contre' : '🚌 chez'} ${esc(m.opponent || '?')}</div>${volBox(m)}</article>`).join('')}` : ''; })(), empty: 'Pas de besoin de bénévoles pour les prochains matchs.' },
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, (data.me || {}).firstName || kid())}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
@@ -129,7 +129,7 @@
         { id: 'resultats', icon: '🏆', label: 'Résultats', html: `${Member.leaders(lead, kid())}${past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : ''}`, empty: 'Pas encore de résultat.' }, // (2.04) badges and rankings
         { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.97) the chat of the category, here too (under 16 the family opens this page)
         { id: 'coachs', icon: '📞', label: 'Coachs', html: (data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '', empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
-        { id: 'moi', icon: '👤', label: 'Moi', html: `<h2>Réglages</h2>${Member.notifyCard('parents')}${Member.tabPosCard()}
+        { id: 'moi', icon: '👤', label: 'Moi', html: `<h2>Réglages</h2>${Member.notifyCard('parents')}${Member.tabPosCard()}${Member.optoutCard(lead)}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil ») pour la retrouver. Le code de ton enfant est personnel : ne le donne à personne. Une question ? Écris au coach.</p>
           ${Member.privacy()}` },
@@ -192,6 +192,7 @@
     if (ph) { e.preventDefault(); const v = $('#phView'); v.innerHTML = '<p>Chargement de la photo…</p>'; v.hidden = false;
       photo(ph.dataset.photo).then(src => { v.innerHTML = src ? `<img alt="Photo du match" src="${src}"><p>Touche pour fermer</p>` : '<p>Photo indisponible. Touche pour fermer</p>'; }); return; }
     if (e.target.closest('#phView')) { $('#phView').hidden = true; return; }
+    const oo = e.target.closest('[data-optout]'); if (oo) { (async () => { oo.disabled = true; try { await rpc('member_leader_optout', { p_code: code, p_on: oo.dataset.optout === '1' }); lead = await rpc('member_leaders', { p_code: code }); render(); toast(oo.dataset.optout === '1' ? `${kid()} n'apparaît plus dans les classements.` : `${kid()} apparaît dans les classements.`); } catch (err) { oo.disabled = false; toast(err.message, true); } })(); return; } // (2.05)
     const v = e.target.closest('[data-vol]'); if (v) { volunteer(v.closest('[data-m]').dataset.m, v.dataset.vol, v.dataset.label, !!v.dataset.rm); return; }
     const tb = e.target.closest('[data-tans]'); if (tb) { answer(tb.closest('[data-t]').dataset.t, tb.dataset.tans, 0, 'training'); return; }
     const b = e.target.closest('[data-ans]'); if (!b) return;

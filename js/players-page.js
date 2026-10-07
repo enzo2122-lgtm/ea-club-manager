@@ -217,7 +217,7 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}${Injury.card()}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.installCard('joueurs')}${wbCard(now)}${Injury.card()}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
@@ -228,7 +228,7 @@
         { id: 'videos', icon: '🎬', label: 'Vidéos', html: videosTab() },
         { id: 'pronos', icon: '🎯', label: 'Pronos', html: '<div class="card" id="gameBox"></div>' },
         { id: 'coachs', icon: '💬', label: 'Coach', html: `${msgCard()}${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}`, empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
-        { id: 'moi', icon: '👤', label: 'Moi', html: `${profileCard()}<h2>Réglages</h2>${Member.notifyCard('joueurs')}${Member.tabPosCard()}
+        { id: 'moi', icon: '👤', label: 'Moi', html: `${profileCard()}<h2>Réglages</h2>${Member.notifyCard('joueurs')}${Member.tabPosCard()}${Member.optoutCard(lead)}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
           ${Member.privacy()}` },
@@ -302,6 +302,7 @@
     const c = e.target.closest('[data-cal]');
     if (c) { const m = data.matches.find(x => x.id === c.dataset.cal); const a = document.createElement('a'); if (!m) return; a.href = URL.createObjectURL(new Blob([ics(m)], { type: 'text/calendar;charset=utf-8' })); setTimeout(() => URL.revokeObjectURL(a.href), 30000); a.download = `match-${m.date}.ics`; document.body.appendChild(a); a.click(); a.remove(); return; }
     const wb = e.target.closest('[data-wb]'); if (wb) { wbVals[wb.dataset.wb] = +wb.dataset.v; document.querySelectorAll(`[data-wb="${wb.dataset.wb}"]`).forEach(x => x.classList.toggle('on', x === wb)); return; }
+    const oo = e.target.closest('[data-optout]'); if (oo) { only('optout', async () => { try { await rpc('member_leader_optout', { p_code: code, p_on: oo.dataset.optout === '1' }); lead = await rpc('member_leaders', { p_code: code }); render(); toast(oo.dataset.optout === '1' ? 'Tu n\'apparais plus dans les classements.' : 'Tu apparais dans les classements.'); } catch (err) { toast(err.message, true); } }); return; } // (2.05)
     if (e.target.closest('[data-wbsend]')) { only('wbsend', wbSend); return; }
     const sb = e.target.closest('[data-sess]'); if (sb) { const x = sess[sb.dataset.sess]; if (x && x.data) { x.open = !x.open; render(); } else loadSession(sb.dataset.sess); return; }
     const stb = e.target.closest('[data-st]'); if (stb) { stTeam = stb.dataset.st; render(); return; }
