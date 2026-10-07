@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 62, date: '2026-10-08', title: 'Partage les résultats 📣', items: [
+      ['📣', 'Coachs : sur un match joué, onglet « Après » → « Partager le résultat ». Une belle image (score, catégorie, blason) à envoyer sur WhatsApp, Facebook, Instagram, X, Telegram, SMS ou e-mail.'],
+      ['🗓️', 'Résultats du club : un bouton 📣 par week-end crée l\'image de tous les scores du week-end.'],
+      ['⚽', 'Joueurs et parents : « Partager » sous chaque résultat, et « Partager ma saison » (matchs, buts, passes, badges).'],
+      ['🔒', 'Les buteurs ne s\'affichent que si tu le choisis (décoché par défaut chez les jeunes).'],
+    ] },
     { n: 61, date: '2026-10-08', title: 'Installer l\'appli en 1 minute, et vos données', items: [
       ['📲', 'Espaces joueurs et parents : « Installe l\'appli » guide pas à pas selon le téléphone (iPhone, Android, lien ouvert dans Facebook ou Instagram), avec ton code à copier. Une fois installée : « Activer les notifications ».'],
       ['🔒', 'Confidentialité mise à jour : qui voit quoi dans le chat et les classements, protections des jeunes, durées (photos du chat 90 jours, messages 1 an).'],

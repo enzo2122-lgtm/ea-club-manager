@@ -229,6 +229,7 @@ const Member = (() => {
       // (2.01) more comfortable for a finger: bigger small buttons, the well-being scale on two lines, small texts readable
       + '.b.small{min-height:40px}.b:disabled{opacity:.55}.wb-scale{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}.wb-scale button{min-height:44px!important;font-size:16px}'
       + '.gm-s small,.gm-src{font-size:12.5px!important}'
+      + '.row-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.row-h h2{margin-right:auto}'
       + '.inst-card{border-left:5px solid #2563eb}.inst-card p{margin:0 0 8px}.inst{list-style:none;margin:8px 0;padding:0;display:flex;flex-direction:column;gap:10px}.inst li{display:flex;gap:10px;align-items:flex-start;line-height:1.45}'
       + '.inst-n{flex:none;width:28px;height:28px;border-radius:50%;background:#2563eb;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}.inst-code{display:inline-block;font:800 18px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;padding:4px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}'
       + '.inst-sheet{max-height:88vh;overflow-y:auto}'
@@ -472,6 +473,19 @@ const Member = (() => {
     ['⏱️', 'Match en entier', p => p.full >= 1], ['🎯', '5 buts', p => p.g >= 5], ['🎩', 'Coup du chapeau', p => p.hat >= 1],
     ['🧠', '5 passes décisives', p => p.a >= 5], ['🏟️', '10 matchs', p => p.mp >= 10], ['🏃', '10 entraînements', p => p.tr >= 10],
     ['💯', 'Toujours là (90 % des séances)', p => p.trt >= 8 && p.tr / p.trt >= .9], ['🔥', '10 buts', p => p.g >= 10], ['📅', '30 entraînements', p => p.tr >= 30]];
+  // (2.06) the badges won, as a row of emojis (for the picture « Ma saison »)
+  const badgesOf = L => { const me = L && Array.isArray(L.players) && L.players.find(p => p.me); return me ? BADGES.filter(b => b[2](me)).map(b => b[0]).join(' ') : ''; };
+  // (2.06) the picture of a result, from a match of member_view (the club's name, its crest, the child's goals if the family wants)
+  function shareMatch(d, m, who) {
+    const club = (d.club && d.club.name) || 'Le club', im = document.getElementById('clubCrest'), crest = (d.club && /^data:image\//.test(d.club.crest || '') && d.club.crest) || (im && im.src) || '';
+    const r = +m.gf > +m.ga ? 'V' : +m.gf < +m.ga ? 'D' : 'N', goals = +(m.my && m.my.g) || 0, [h, a, hs, as] = m.home ? [club, m.opponent || '?', m.gf, m.ga] : [m.opponent || '?', club, m.ga, m.gf];
+    const tag = Share.tagOf(club), date = new Date(m.date + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    Share.open({ title: 'Partager le résultat', filename: `${m.team || 'match'}-${m.date}`.replace(/\s+/g, '-'), url: Share.appUrl(),
+      option: goals ? { label: `Afficher ${who === 'toi' ? 'mes buts' : 'les buts de ' + who}`, on: false } : null,
+      make: o => Share.result({ club, crest, cat: m.team, competition: m.competition, home: m.home, us: club, them: m.opponent || '?', gf: m.gf, ga: m.ga, date, place: m.place,
+        scorers: o.on && goals ? [((d.me && d.me.name) || who) + (goals > 1 ? ' ×' + goals : '')] : [], tag }),
+      textOf: o => `${{ V: '✅ Victoire', N: '🟰 Match nul', D: '❌ Défaite' }[r]}${m.team ? ' · ' + m.team : ''}\n${h} ${hs} – ${as} ${a}${o.on && goals ? `\n⚽ ${(d.me && d.me.name) || who}${goals > 1 ? ' ×' + goals : ''}` : ''}\n${tag}` });
+  }
   function leaders(L, who) {
     if (!L || !Array.isArray(L.players)) return '';
     const me = L.players.find(p => p.me); let h = '';
@@ -529,5 +543,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();
