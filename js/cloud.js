@@ -128,7 +128,9 @@ const Cloud = (() => {
     game: team => rpc('club_game', { p_team: team }),
     // (1.96) the chat of a category (players and coaches)
     chat: (team, after) => rpc('club_chat', { p_team: team, p_after: after || 0 }),
-    chatPost: (team, body) => rpc('club_chat_post', { p_team: team, p_body: body }),
+    chatPost: (team, body, reply) => rpc('club_chat_post', Object.assign({ p_team: team, p_body: body }, reply ? { p_reply: reply } : {})),
+    chatReact: (team, id, emo) => rpc('club_chat_react', { p_team: team, p_id: id, p_emo: emo }),
+    chatMute: on => rpc('club_chat_mute', { p_on: on }),
     chatDel: (team, id) => rpc('club_chat_del', { p_team: team, p_id: id }),
     chatOff: (team, off) => rpc('club_chat_off', { p_team: team, p_off: off }),
     chatPoll: (team, q, opts, multi) => rpc('club_chat_poll', { p_team: team, p_q: q, p_opts: opts, p_multi: multi }),

@@ -1,0 +1,57 @@
+/* Style commun des pages des familles (joueurs.html, parents.html, moi.html) : gardé une fois sur le téléphone.
+   Chaque page garde ensuite son propre style (après celui-ci). */
+:root { --bg: #f3f4f8; --surface: #fff; --ink: #14172b; --muted: #5d6275; --line: #e2e4ec; --brand: #8c1024; --navy: #0e1d45;
+  --yes: #15803d; --yes-bg: #dcfce7; --no: #b91c1c; --no-bg: #fee2e2; --home: #e8f6ec; --away: #e8effc; --r: 16px; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0d1020; --surface: #171b31; --ink: #eef0f7; --muted: #a2a8bd; --line: #2a3050; --brand: #e0506a; --navy: #0e1d45;
+    --yes: #4ade80; --yes-bg: #133222; --no: #f87171; --no-bg: #3a1618; --home: #14281c; --away: #152036; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+header.top { background: var(--navy); color: #fff; padding: calc(env(safe-area-inset-top) + 18px) 16px 22px; }
+.top-in, main { max-width: 720px; margin: 0 auto; }
+.top-in { display: flex; gap: 14px; align-items: center; }
+.top img { width: 56px; height: 56px; }
+.top p { margin: 0; opacity: .8; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+.top h1 { margin: 2px 0 0; font-size: 26px; line-height: 1.15; }
+main { padding: 16px 16px calc(env(safe-area-inset-bottom) + 40px); }
+h2 { font-size: 19px; margin: 26px 0 10px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin-bottom: 12px; }
+.card.home { background: linear-gradient(var(--home), var(--home)) padding-box; }
+.card.away { background: linear-gradient(var(--away), var(--away)) padding-box; }
+.m-date { font-weight: 800; text-transform: capitalize; }
+.m-title { font-size: 18px; font-weight: 800; margin: 2px 0 6px; }
+.m-title i { font-style: normal; font-weight: 500; color: var(--muted); }
+.tag { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); margin-right: 6px; }
+.info { margin: 4px 0; color: var(--muted); }
+.info b { color: var(--ink); }
+a { color: var(--brand); }
+.score { font-size: 22px; font-weight: 800; }
+.res { font-weight: 800; padding: 2px 8px; border-radius: 8px; margin-left: 8px; font-size: 14px; }
+.res.V { background: var(--yes-bg); color: var(--yes); } .res.D { background: var(--no-bg); color: var(--no); } .res.N { background: var(--bg); color: var(--muted); }
+.kids { list-style: none; padding: 0; margin: 12px 0 0; border-top: 1px solid var(--line); }
+.kid { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.kid.mine { background: color-mix(in srgb, var(--brand) 8%, transparent); margin: 0 -10px; padding: 10px; border-radius: 10px; }
+.kid .nm { flex: 1 1 140px; font-weight: 700; }
+.kid .st { font-size: 14px; color: var(--muted); min-width: 92px; }
+.kid .st.oui { color: var(--yes); font-weight: 700; } .kid .st.non { color: var(--no); font-weight: 700; }
+.btns { display: flex; gap: 6px; flex-wrap: wrap; }
+button, select { font: inherit; }
+.b { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 700; cursor: pointer; }
+.b.yes.on { background: var(--yes); border-color: var(--yes); color: #fff; }
+.b.no.on { background: var(--no); border-color: var(--no); color: #fff; }
+.b:disabled { opacity: .5; }
+.seats { min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 8px; }
+.sum { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.car { padding: 8px 0; border-top: 1px dashed var(--line); }
+.car b { display: block; }
+.muted { color: var(--muted); } .small { font-size: 14px; }
+.tip { background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 12px; color: var(--muted); font-size: 14px; }
+.empty { text-align: center; color: var(--muted); padding: 30px 10px; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px); transform: translate(-50%, 150%); background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 12px; font-weight: 700; transition: transform .25s; max-width: calc(100% - 32px); z-index: 5; }
+.toast.show { transform: translate(-50%, 0); visibility: visible; }
+.toast:not(.show) { visibility: hidden; transition: transform .25s, visibility 0s .25s; } /* (1.64) caché : plus de point noir en bas sur iPhone */
+.toast.err { background: var(--no); color: #fff; }
+.tr { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.tr:last-child { border-bottom: 0; }
+.tr .d { font-weight: 700; min-width: 110px; text-transform: capitalize; }

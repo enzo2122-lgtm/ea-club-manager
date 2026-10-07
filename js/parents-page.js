@@ -135,9 +135,11 @@
       ])}
       <div id="phView" class="ph-view" hidden></div>`;
     if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', note: `Les messages partent au nom de ${kid()}.`, toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
-      post: (c, b) => rpc('member_chat_post', { p_code: code, p_cat: c, p_body: b }), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
+      post: (c, b, r) => rpc('member_chat_post', Object.assign({ p_code: code, p_cat: c, p_body: b }, r ? { p_reply: r } : {})), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
       poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),
-      pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }) });
+      pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),
+      react: (c, id, e) => rpc('member_chat_react', { p_code: code, p_cat: c, p_id: id, p_emo: e }), report: (c, id) => rpc('member_chat_report', { p_code: code, p_cat: c, p_id: id }),
+      mute: on => rpc('member_chat_mute', { p_code: code, p_on: on }) });
   }
 
   // (2.01) everything asked at the same time, the page drawn twice; another child: nothing of the one before

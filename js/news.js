@@ -5,6 +5,13 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 59, date: '2026-10-07', title: 'Le chat en mieux 💬', items: [
+      ['👆', 'Touche une bulle : réagis (👍 ❤️ 😂 ⚽ 🔥 👏), réponds à ce message (la citation s\'affiche), signale-le ou supprime-le.'],
+      ['🚩', '« Signaler » : les coachs de la catégorie sont prévenus tout de suite.'],
+      ['🌙', 'Heures calmes : pas de notification du chat aux jeunes entre 22 h et 7 h (les messages restent là).'],
+      ['🔕', 'La cloche en haut du chat coupe (ou remet) ses notifications.'],
+      ['📱', 'Coachs : sur téléphone, les en-têtes chargés gardent 2 boutons, les autres sont dans « ⋯ ». Familles : onglets lisibles, pages plus légères. Synchro plus économe pour les gros clubs.'],
+    ] },
     { n: 58, date: '2026-10-07', title: 'La page du match plus réactive', items: [
       ['⚡', 'Page d\'un match : un but, une passe, le score ou un convoqué se mettent à jour tout de suite, sans redessiner toute la page. La page se remet complètement à jour une seconde et demie après le dernier appui.'],
     ] },
