@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.81';
+  const VERSION = '1.91';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -5545,7 +5545,7 @@ var People = (() => {
     const tile = (v, l, cls = '') => `<div class="tile ${cls}"><b>${v}</b><span>${l}</span></div>`;
     const recentTr = s.att.list.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
     root.innerHTML = `<header class="page-head"><div><h1>${p.number ? `<span class="pnum big">${esc(p.number)}</span> ` : ''}${esc(name(p))}</h1>
-        <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
+        <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
       ${UI.kindSeg()}
       <div class="tiles">
@@ -5556,6 +5556,7 @@ var People = (() => {
       <p class="muted small">Saison ${esc(seasonLabel())} · les présences comptent les séances où le coach a fait l'appel.</p>
       <div class="cards2">
         ${Health.playerCard(p)}
+        ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
         ${Progress.card(p)}
         ${Tips.card(p)}
         ${Tests.card(p)}
@@ -8011,7 +8012,7 @@ var Live = (() => {
     SP().score.forEach(e => { o[e.k] = [e.ic, e.l, e.us ? '#15803d' : '#be123c']; });
     o.sub = ['🔁', 'Changement', '#2563eb'];
     SP().extra.forEach(([k, ic, l, c]) => { o[k] = [ic, l, c]; });
-    if (!SP().sets) o.chance = ['🎯', 'Occasion', '#0891b2'];
+    if (!SP().sets) { o.chance = ['🎯', 'Occasion', '#0891b2']; o.chanceThem = ['⚠️', 'Occasion adverse', '#b45309']; o.post = ['🥅', 'Poteau / barre', '#0e7490']; } // (1.88) both teams, for the automatic highlights
     o.injury = ['🚑', 'Blessure', '#9333ea']; o.note = ['📝', 'Note', '#475569'];
     return o;
   }
@@ -8205,7 +8206,7 @@ var Live = (() => {
     let body = '';
     if (isUs(ev)) body = `<div class="lbl">${SP().scorer[0]}</div>${pick('player', on.length ? on : all.map(p => p.id), csc ? `<button class="chip ${ev.player === 'csc' ? 'on' : ''}" data-k="player" data-v="csc">CSC adverse</button>` : '')}<div class="lbl">${SP().assist}</div>${pick('assist', on.length ? on : all.map(p => p.id), `<button class="chip ${!ev.assist ? 'on' : ''}" data-k="assist" data-v="">Aucune</button>`)}`;
     else if (ev.type === 'sub') body = `<div class="lbl">Sort</div>${pick('out', on.length ? on : all.map(p => p.id))}<div class="lbl">Entre</div>${pick('in', benchIds.length ? benchIds : all.map(p => p.id))}`;
-    else if (ev.type !== 'note' && !isThem(ev)) body = `<div class="lbl">Joueur ${ev.type === 'chance' || ev.type === 'injury' ? '(facultatif)' : ''}</div>${pick('player', ev.type === 'chance' || ev.type === 'injury' ? all.map(p => p.id) : on.length ? on : all.map(p => p.id))}`;
+    else if (ev.type !== 'note' && ev.type !== 'chanceThem' && !isThem(ev)) body = `<div class="lbl">Joueur ${ev.type === 'chance' || ev.type === 'post' || ev.type === 'injury' ? '(facultatif)' : ''}</div>${pick('player', ev.type === 'chance' || ev.type === 'post' || ev.type === 'injury' ? all.map(p => p.id) : on.length ? on : all.map(p => p.id))}`;
     body += `<label class="fld"><span>${ev.type === 'note' ? 'Note' : 'Précision (facultatif)'}</span><input id="lvText" value="${esc(ev.text || '')}" maxlength="120" placeholder="${isThem(ev) ? 'ex : sur contre-attaque, erreur de placement' : 'ex : après une belle combinaison'}"></label>
       <label class="fld inline"><span>${SP().sets ? 'Set' : 'Minute'}</span><input id="lvMin" value="${esc(ev.min)}" maxlength="8" style="max-width:90px"></label>`;
     modal({ title: `${EV[ev.type][0]} ${EV[ev.type][1]} · ${ev.min}`, noFocus: true, body,
@@ -8230,7 +8231,7 @@ var Live = (() => {
 
   /* ---------- the match video: sequences from the live events ----------
      kick-off (and start of the 2nd half) located in the video → each event at its moment */
-  const tagOf = e => isUs(e) ? 'but' : isThem(e) ? 'encaisse' : ({ chance: 'occasion', yellow: 'erreur', red: 'erreur', two: 'erreur', foul: 'erreur', err: 'erreur', save: 'autre', reb: 'autre', stl: 'autre', ace: 'but', block: 'autre', injury: 'autre', note: 'autre' })[e.type];
+  const tagOf = e => isUs(e) ? 'but' : isThem(e) ? 'encaisse' : ({ chance: 'occasion', post: 'occasion', chanceThem: 'autre', yellow: 'erreur', red: 'erreur', two: 'erreur', foul: 'erreur', err: 'erreur', save: 'autre', reb: 'autre', stl: 'autre', ace: 'but', block: 'autre', injury: 'autre', note: 'autre' })[e.type];
   function videoClips(m, rec, ko1, ko2) {
     const l = m.live; if (!l || !l.periods.length) return [];
     const p1 = l.periods[0].start, p2 = l.periods[1] && l.periods[1].start;
@@ -8267,14 +8268,16 @@ var Health = (() => {
   /* ---------- availability ---------- */
   // the unavailability running on a day (the return date is the first day he is back)
   const on = (p, date = today()) => (p && p.unavail || []).find(u => u.from <= date && (!u.to || date < u.to)) || null;
-  const label = u => `${KINDS[u.kind][0]} ${KINDS[u.kind][1]}${u.part ? ' · ' + u.part : u.reason ? ' · ' + u.reason : ''}${u.to ? ' · retour le ' + fmt(u.to) : ' · retour à confirmer'}`;
+  // (1.81) the part with its side and the kind of injury; « 📱 » when the player or his parents reported it
+  const side = u => u.side && typeof BodyMap !== 'undefined' ? ' ' + BodyMap.SIDE[u.side] : '';
+  const label = u => `${KINDS[u.kind][0]} ${KINDS[u.kind][1]}${u.part ? ' · ' + u.part + side(u) : u.reason ? ' · ' + u.reason : ''}${u.type ? ' · ' + u.type.toLowerCase() : ''}${u.to ? ' · retour le ' + fmt(u.to) : ' · retour à confirmer'}${u.self ? (u.parent ? ' · 📱 signalé par les parents' : ' · 📱 signalé par le joueur') : ''}`;
   // the small sign before a name (convocation, call of a session)
   const flag = (p, date) => { const u = on(p, date); return u ? `<span class="hl-flag" title="${esc(label(u))}" aria-label="${esc(label(u))}">${KINDS[u.kind][0]}</span>` : ''; };
 
   function dialog(p, done, u) {
-    const e = Object.assign({ kind: 'injury', from: today(), to: '', part: '', reason: '', note: '' }, u || {});
+    const e = Object.assign({ kind: 'injury', from: today(), to: '', part: '', zone: '', side: '', type: '', reason: '', note: '' }, u || {});
     const body = () => `<div class="chips">${Object.entries(KINDS).map(([k, [ic, l]]) => `<button class="chip ${e.kind === k ? 'on' : ''}" data-kind="${k}">${ic} ${l}</button>`).join('')}</div>
-      ${e.kind === 'injury' ? `<div class="lbl">Où ?</div><div class="chips hl-parts">${PARTS.map(x => `<button class="chip ${e.part === x ? 'on' : ''}" data-part="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
+      ${e.kind === 'injury' ? `<div class="hl-bm">${BodyMap.html(e, { noDays: true })}</div>${e.part && !e.zone ? `<p class="muted small">Zone : ${esc(e.part)}</p>` : ''}` : ''}
       ${e.kind === 'away' ? `<div class="lbl">Pourquoi ?</div><div class="chips">${AWAY.map(x => `<button class="chip ${e.reason === x ? 'on' : ''}" data-reason="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
       <div class="row2"><label class="fld"><span>Depuis le</span><input type="date" id="hlFrom" value="${esc(e.from)}"></label>
         <label class="fld"><span>${e.kind === 'susp' ? 'Rejoue le' : 'Retour prévu le'}</span><input type="date" id="hlTo" value="${esc(e.to)}"></label></div>
@@ -8284,6 +8287,7 @@ var Health = (() => {
       onOpen: r => {
         const keep = () => { e.from = $('#hlFrom', r).value || e.from; e.to = $('#hlTo', r).value; e.note = $('#hlNote', r).value; };
         r.querySelector('#hlBody').onclick = ev => {
+          if (BodyMap.click(ev, e)) { keep(); r.querySelector('#hlBody').innerHTML = body(); return; } // (1.81) the body: zone, injury, kind
           const b = ev.target.closest('button'); if (!b) return; keep();
           if (b.dataset.kind) e.kind = b.dataset.kind; if (b.dataset.part) e.part = b.dataset.part; if (b.dataset.reason) e.reason = b.dataset.reason;
           if (b.dataset.plus) e.to = addDays(e.from || today(), +b.dataset.plus);
@@ -8294,7 +8298,7 @@ var Health = (() => {
         { label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           e.from = $('#hlFrom', r).value || today(); e.to = $('#hlTo', r).value; e.note = $('#hlNote', r).value.trim();
           if (e.to && e.to <= e.from) { toast('Le retour doit être après le début', 'err'); return false; }
-          if (e.kind !== 'injury') e.part = ''; if (e.kind !== 'away') e.reason = '';
+          if (e.kind !== 'injury') { e.part = ''; e.zone = ''; e.side = ''; e.type = ''; } if (e.kind !== 'away') e.reason = '';
           const list = p.unavail = (p.unavail || []).filter(x => x.id !== e.id);
           list.push(Object.assign(e, { id: e.id || Store.uid(), by: (Auth.current() || {}).id || null })); list.sort((a, b) => b.from.localeCompare(a.from));
           Store.upsert('players', p); toast(u ? 'Modifié' : `${Store.shortName(p)} : ${KINDS[e.kind][1].toLowerCase()}`); done && done();
@@ -8361,7 +8365,7 @@ var Health = (() => {
     const load = ps.map(p => [p, risk(p.id)]).filter(([, r]) => r.acute || r.chronic).sort((a, b) => (b[1].ratio || 0) - (a[1].ratio || 0));
     root.innerHTML = `<header class="page-head"><div><h1>🚑 Infirmerie</h1><p class="sub">Blessés, malades, absents, suspendus · charge d'entraînement</p></div>
       <div class="head-actions"><a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a><button class="btn primary" data-hl="new">${I.plus}<span>Déclarer un joueur</span></button></div></header>
-      <div class="hl-sum">${Object.entries(KINDS).map(([k, [ic, l]]) => `<span>${ic} <b>${now.filter(([, u]) => u.kind === k).length}</b> ${l.toLowerCase()}${now.filter(([, u]) => u.kind === k).length > 1 ? 's' : ''}</span>`).join('')}</div>
+      ${followCard()}<div class="hl-sum">${Object.entries(KINDS).map(([k, [ic, l]]) => `<span>${ic} <b>${now.filter(([, u]) => u.kind === k).length}</b> ${l.toLowerCase()}${now.filter(([, u]) => u.kind === k).length > 1 ? 's' : ''}</span>`).join('')}</div>
       <h2 class="section">Indisponibles aujourd'hui (${now.length})</h2>
       <div class="list">${now.map(([p, u]) => `<div class="list-item hl-item k-${u.kind}"><a class="li-main" href="#/joueur/${p.id}"><b>${KINDS[u.kind][0]} ${esc(Store.fullName(p))}</b><span class="muted">${esc(teamsOf(p))} · ${esc(label(u).replace(/^\S+ /, ''))}${u.to ? ` · ${days(t, u.to)} j` : ''}${u.note ? ' · ' + esc(u.note) : ''}</span></a>
         <button class="btn soft" data-hlback="${p.id}|${u.id}">💪 De retour</button></div>`).join('') || '<p class="muted">Personne : tout le monde est disponible. 💪</p>'}</div>
@@ -8384,6 +8388,30 @@ var Health = (() => {
     };
   }
   const count = () => S().players.filter(Auth.seesPerson).filter(p => on(p)).length;
+
+  /* ---------- (1.81) news of the injured: a reminder to the coaches every 3 days (at once when the player reported it himself) ---------- */
+  const EVERY = 3;
+  function followUps() {
+    const t = today();
+    return S().players.filter(Auth.seesPerson).map(p => { const u = on(p, t); if (!u || u.kind !== 'injury') return null;
+      const checks = u.checks || [], last = checks.length ? checks[checks.length - 1] : null;
+      const due = last ? days(last, t) >= EVERY : (u.self || days(u.from, t) >= EVERY);
+      return due ? { p, u, last, since: days(u.from, t) } : null; }).filter(Boolean).sort((a, b) => b.since - a.since);
+  }
+  function followCard() {
+    const l = followUps(); if (!l.length) return '';
+    return `<section class="card hl-follow"><h2>📞 Prendre des nouvelles des blessés (${l.length})</h2><p class="muted small">Un petit appel ou un message : ça compte beaucoup pour un joueur blessé. Rappel tous les ${EVERY} jours.</p>
+      ${l.map(({ p, u, last, since }) => `<div class="hl-fu" data-fu="${p.id}|${u.id}"><a href="#/joueur/${p.id}"><b>${esc(Store.fullName(p))}</b><span class="muted small">${esc(label(u).replace(/^\S+ \S+ · /, ''))} · blessé depuis ${since} j · ${last ? 'nouvelles prises le ' + esc(fmt(last)) : 'pas encore de nouvelles'}</span></a>
+        <span class="chips">${p.phone ? `<a class="btn soft" href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ''))}">📞<span>Appeler</span></a>` : ''}<button class="btn primary" data-hlcheck="${p.id}|${u.id}">✓<span>Nouvelles prises</span></button></span></div>`).join('')}</section>`;
+  }
+  // « Nouvelles prises »: kept on the injury (shared with the other coaches), the line leaves the list
+  if (typeof document !== 'undefined') document.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-hlcheck]'); if (!b) return;
+    const [pid, uid] = b.dataset.hlcheck.split('|'), p = Store.get('players', pid), u = p && (p.unavail || []).find(x => x.id === uid); if (!u) return;
+    u.checks = [...(u.checks || []), today()].slice(-30); Store.upsert('players', p);
+    const row = b.closest('.hl-fu'), card = b.closest('.hl-follow'); if (row) row.remove(); if (card && !card.querySelector('.hl-fu')) card.remove();
+    toast(`Noté : nouvelles de ${Store.shortName(p)} prises 💚`);
+  });
 
   /* ---------- well-being: mood, mental, sleep, legs, soreness (1 to 10), filled in by the player on his page ---------- */
   const WB = [['mood', '🙂', 'Ressenti'], ['mental', '🧠', 'Mental'], ['sleep', '😴', 'Sommeil'], ['legs', '🦵', 'Jambes'], ['sore', '💪', 'Courbatures']];
@@ -8412,7 +8440,7 @@ var Health = (() => {
         return `<a href="#/joueur/${p.id}" class="${a <= 4.5 ? 'high' : ''}"><span>${esc(Store.fullName(p))}</span><b>${a.toFixed(1).replace('.', ',')}</b><i>${l.length} réponse${l.length > 1 ? 's' : ''} · moyenne sur 10</i></a>`; }).join('')}</div>`;
   }
 
-  return { on, flag, label, dialog, playerCard, click, rpeBox, rpeClick, risk, page, count, KINDS, WB, wellnessCard, wellnessSection, toCall };
+  return { followCard, followUps, on, flag, label, dialog, playerCard, click, rpeBox, rpeClick, risk, page, count, KINDS, WB, wellnessCard, wellnessSection, toCall };
 })();
 
 ;
@@ -13328,9 +13356,44 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
-    { n: 37, date: '2026-10-07', title: 'Programme par semaine, vidéos jusqu\'à 1 Go', items: [
+    { n: 47, date: '2026-10-07', title: 'Programme par semaine, vidéos jusqu\'à 1 Go', items: [
       ['📅', 'Espaces joueur et parents : le programme (entraînements et matchs) rangé par semaine — cette semaine et la suivante ouvertes, les autres semaines et les mois suivants en menus repliés, avec les réponses qui manquent.'],
       ['🎬', 'Bibliothèque et briefings vidéo : les vidéos jusqu\'à 1 Go (un match entier) pour faire les highlights.'],
+    ] },
+    { n: 46, date: '2026-10-07', title: 'Un analyste vidéo qui ne dort jamais 🧠', items: [
+      ['🧠', "Highlights automatiques → option « Analyse par IA (Gemini) » : l'IA de Google regarde le match et repère buts, tirs, poteaux, arrêts des deux équipes. Chaque coach met sa propre clé Google (quota gratuit, puis Google le facture directement)."],
+    ] },
+    { n: 45, date: '2026-10-07', title: 'YouTube entre dans la salle de montage ▶️', items: [
+      ['▶️', "Highlights automatiques avec un lien YouTube : la vidéo s'affiche dans la fenêtre, ⏱️ règle le coup d'envoi en un geste, et chaque moment se prévisualise. Pour le repérage au son, ajoute le fichier de la vidéo."],
+    ] },
+    { n: 44, date: '2026-10-07', title: 'Le monteur vidéo ne prend pas de pause café 🎬🤖', items: [
+      ['🤖', "Match → Après → Highlights → « Créer automatiquement » : l'appli écoute le son de la vidéo (cris, sifflets) et place les actions du direct. Tu valides en 2 minutes au lieu de revoir tout le match."],
+      ['🥅', "Match en direct : nouveaux boutons « Poteau / barre » et « Occasion adverse », pour les highlights des deux équipes."],
+      ['🔍', "Lecteur vidéo : zoom à deux doigts, double-tap ou ＋/－, et boutons ⏪ ⏯ ⏩."],
+    ] },
+    { n: 43, date: '2026-10-07', title: 'Les blessures arrivent en groupe 🤕🤕', items: [
+      ['🚑', "Joueurs et parents peuvent signaler plusieurs blessures en une fois (« ＋ Ajouter une autre blessure »), jusqu'à 5."],
+    ] },
+    { n: 42, date: '2026-10-07', title: 'Le lecteur vidéo a pris des vitamines 📼', items: [
+      ['🎬', "Highlights : le lecteur intégré lit aussi Dropbox et les fichiers MP4, MOV, WebM, 3GP. Pour un AVI ou un MPG (que les navigateurs ne savent pas lire), il propose de le télécharger."],
+    ] },
+    { n: 41, date: '2026-10-07', title: 'Footclubs, troisième round : KO 🥊', items: [
+      ['📥', "Favori Footclubs : à la fin de la lecture, un bouton « Envoyer à l'appli » apparaît sur Footclubs. Ça marche même quand l'appli est installée sur le PC."],
+    ] },
+    { n: 40, date: '2026-10-07', title: 'Footclubs, deuxième round 🥊', items: [
+      ['📥', "Favori Footclubs : l'appli s'ouvre dès le clic (plus de fenêtre bloquée), il ouvre la liste des licences tout seul, et un bandeau montre qu'il travaille."],
+    ] },
+    { n: 39, date: '2026-10-07', title: 'Footclubs, on a trouvé ta cachette', items: [
+      ['🔎', 'Favori Footclubs : il trouve la liste des licences même cachée dans un cadre dans un cadre. Si ça coince, il dit enfin pourquoi.'],
+    ] },
+    { n: 38, date: '2026-10-07', title: 'Le bonhomme est allé à la muscu 💪', items: [
+      ['🦵', 'Blessures : un vrai corps humain (muscles) à toucher. Chaque zone propose l\'avant et l\'arrière : cuisse → quadriceps ou ischios, jambe → mollet, cheville → Achille.'],
+    ] },
+    { n: 37, date: '2026-10-07', title: 'Silence, on tourne 🎬', items: [
+      ['🎬', 'Match → onglet Après : « Highlights » (liens vidéo + minute), puis « Envoyer aux joueurs ». Ils les regardent dans l\'appli, pop-corn non fourni.'],
+      ['💬', 'Les joueurs écrivent au coach (message, idée, bug) : notification sur ton téléphone.'],
+      ['🧍', 'Profil joueur : poids, taille, pied fort, points forts et faibles, IMC calculé tout seul.'],
+      ['🦴', 'Blessures : joueurs et parents touchent la zone sur un vrai corps humain (muscles), choisissent la blessure, le type et la durée. Tu es prévenu, et l\'Infirmerie te rappelle de prendre des nouvelles tous les 3 jours.'],
     ] },
     { n: 36, date: '2026-10-07', title: 'Tout le programme au même endroit', items: [
       ['📅', 'Espaces joueur et parents, onglet Séances : les entraînements ET les matchs à venir, par date, avec « dispo / pas dispo » sur chaque match.'],
@@ -13509,11 +13572,15 @@ var News = (() => {
     modal({ title: title || '🎉 Quoi de neuf ?', noFocus: true, body: list.map(block).join(''), actions: [{ label: 'C\'est parti !', kind: 'primary' }] });
   }
   // after an update: the news not seen yet on this device (a new install starts from the latest)
+  // (1.81) a bénévole or a referee (not a coach): only what is new, short (no bug fixed, no detail)
+  const FIX = /^(🐛|🐞|🔧|🩹|🛠️)$/, fixText = /corrig|r[ée]par|bug|plantait|ne marchait/i;
+  const brief = list => list.map(e => Object.assign({}, e, { items: e.items.filter(([ic, tx]) => !FIX.test(ic) && !fixText.test(tx)).slice(0, 2).map(([ic, tx]) => [ic, String(tx).split(/[.:(]/)[0]]) })).filter(e => e.items.length).slice(0, 3);
   function check() {
     const s = seen();
     const fresh = s ? LIST.filter(e => e.n > s) : LIST.slice(0, 2);
     setSeen(latest());
-    if (fresh.length) setTimeout(() => show(fresh), 700);
+    const pv = Auth.preview(), list = pv && pv.role !== 'coach' ? brief(fresh) : fresh;
+    if (list.length) setTimeout(() => show(list), 700);
   }
   const all = () => show(LIST, '📰 Les nouveautés');
   return { check, all, LIST };
@@ -13548,23 +13615,30 @@ const D={source:'assistcoachai',effectif:{players:(eff.players||[]).filter(p=>!p
 let n=0;const send=()=>{try{w.postMessage({type:'club-import',source:'assistcoachai',payload:D},new URL(A).origin);}catch(e){}};
 addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'&&!n++)send();});}catch(e){alert('Lecture impossible : '+e.message);}})()`;
     // Footclubs shows the list 30 by 30 (« De 1 à 30 sur 361 »): the bookmark reads every page (« page suivante », reading only)
-    const fc = `(async()=>{const A=${A};const RG=/De (\\d+) à (\\d+) sur (\\d+)/;
+    // (1.83) every frame, at any depth; the counter with any space (Footclubs puts non-breaking spaces); one page only if there is no counter;
+    // an error is shown (it was silent)
+    const fc = `(async()=>{const A=${A};const RG=/De\\s+(\\d+)\\s+à\\s+(\\d+)\\s+sur\\s+(\\d+)/i,DT=/^\\d{2}\\/\\d{2}\\/\\d{4}$/;
 if(!/footclubs\\.fff\\.fr$/.test(location.host)){alert('Ouvre Footclubs (connecté), puis touche ce favori.');return;}
-const w=window.open(A+'#/recevoir-source','clubimport');const T=window.top;
-const find=()=>{const wins=[T];for(const f of T.document.querySelectorAll('frame,iframe')){try{if(f.contentWindow&&f.contentWindow.document)wins.push(f.contentWindow);}catch(e){}}return wins.find(x=>{try{return RG.test(x.document.body.innerText);}catch(e){return false;}});};
+const T=window.top;const all=()=>{const out=[];const go=(x,d)=>{out.push(x);if(d>4)return;let fs=[];try{fs=x.document.querySelectorAll('frame,iframe');}catch(e){return;}for(const f of fs){try{if(f.contentWindow&&f.contentWindow.document)go(f.contentWindow,d+1);}catch(e){}}};go(T,0);return out;};
+const txt=x=>{try{return x.document.body?x.document.body.innerText:'';}catch(e){return '';}};
+const dates=x=>{try{return [...x.document.querySelectorAll('td')].filter(td=>DT.test(td.innerText.trim())).length;}catch(e){return 0;}};
+const find=()=>{const ws=all();return ws.find(x=>RG.test(txt(x))&&dates(x)>0)||ws.find(x=>dates(x)>=3)||null;};
 let W=find();
 if(!W){try{const M=T.frames['menu'],a=[...M.document.querySelectorAll('a')].find(x=>/'LILIST'/.test(x.getAttribute('onclick')||''));M.gestOpen(a,'2',1,'LILIST');}catch(e){}for(let k=0;k<80&&!W;k++){await new Promise(r=>setTimeout(r,250));W=find();}}
-if(!W){try{w.close();}catch(e){}alert('Connecte-toi à Footclubs (page d\\'accueil du club), puis touche à nouveau ce favori.');return;}
-let ready=false,data=null;
-const send=()=>{if(ready&&data){w.postMessage({type:'club-import',source:'footclubs',payload:data},new URL(A).origin);data=null;}};
-addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'){ready=true;send();}});
-const range=()=>{const m=RG.exec(W.document.body.innerText);return m?[+m[1],+m[2],+m[3]]:null;};
+if(!W){const ws=all();alert('Liste des licences introuvable ('+ws.length+' cadre'+(ws.length>1?'s':'')+' lus). Ouvre Licences → liste des licences (le tableau avec les dates de naissance), puis touche à nouveau ce favori.');return;}
+const box=(html,btn)=>{try{const d=W.document;let b=d.getElementById('clubImp');if(!b){b=d.createElement('div');b.id='clubImp';b.style.cssText='position:fixed;top:8px;right:8px;z-index:99999;padding:14px 18px;background:#0e1d45;color:#fff;font:bold 15px sans-serif;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.35);max-width:340px';d.body.appendChild(b);}b.innerHTML=html;return b;}catch(e){return null;}};
+try{box('📥 Lecture des licences pour l\\'appli… ne touche à rien');
+const range=()=>{const m=RG.exec(txt(W));return m?[+m[1],+m[2],+m[3]]:null;};
 const wait=async s=>{for(let k=0;k<80;k++){await new Promise(r=>setTimeout(r,250));try{const r=range();if(r&&r[0]===s)return true;}catch(e){}}return false;};
-const rows=[],seen={};const grab=()=>{for(const tr of W.document.querySelectorAll('tr')){const c=[...tr.cells].map(x=>x.innerText.trim());const i=c.findIndex(x=>/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(x));
+const rows=[],seen={};const grab=()=>{for(const tr of W.document.querySelectorAll('tr')){const c=[...tr.cells].map(x=>x.innerText.trim());const i=c.findIndex(x=>DT.test(x));
 if(i>0&&/[A-Z]/.test(c[i-1])&&c[i+1]){const k=c[i-1]+c[i]+c[i+1];if(!seen[k]){seen[k]=1;rows.push({name:c[i-1],birth:c[i],cat:c[i+1]||'',date:c[i+2]||'',etat:c[i+3]||'',lic:(tr.innerHTML.match(/selectPersonne\\('(\\d+)'/)||[])[1]||''});}}}};
-let r=range();if(r&&r[0]!==1){W.otherlist(W.firstlist,W.name,'F');await wait(1);}
-for(let p=0;p<80;p++){grab();r=range();if(!r||r[1]>=r[2])break;const nx=r[1]+1;W.otherlist(W.nextlist,W.name,'N');if(!await wait(nx))break;}
-data={rows,total:(range()||[0,0,rows.length])[2]};send();})()`;
+const paged=typeof W.otherlist==='function';let r=range();if(paged&&r&&r[0]!==1){W.otherlist(W.firstlist,W.name,'F');await wait(1);}
+for(let p=0;p<80;p++){grab();r=range();if(r)box('📥 Lecture des licences… '+r[1]+' / '+r[2]+'<br><small>ne touche à rien</small>');if(!paged||!r||r[1]>=r[2])break;const nx=r[1]+1;W.otherlist(W.nextlist,W.name,'N');if(!await wait(nx))break;}
+if(!rows.length){alert('Aucune licence lue dans ce tableau. Envoie une capture de la liste au créateur de l\\'appli.');return;}
+const url=A+'#/recevoir-source/fc='+encodeURIComponent(JSON.stringify({rows,total:(range()||[0,0,rows.length])[2]}));
+const b=box('✅ '+rows.length+' licences lues<br><button id="clubImpGo" style="margin-top:10px;padding:12px 16px;font:bold 16px sans-serif;border:0;border-radius:10px;background:#c9a45c;color:#14172b;cursor:pointer">Envoyer à l\\'appli →</button>');
+const go=b&&b.querySelector('#clubImpGo');if(go)go.onclick=()=>{const w=W.open(url,'_blank');if(!w)location.href=url;box('✅ Envoyé : regarde l\\'appli (onglet ou fenêtre de l\\'appli).');};else if(confirm(rows.length+' licences lues. Ouvrir l\\'appli pour les importer ?'))W.open(url,'_blank');
+}catch(e){alert('Footclubs : lecture impossible ('+e.message+')');}})()`;
     const link = code => 'javascript:' + encodeURIComponent(code.replace(/\n/g, ''));
     // (1.40) the club's page on epreuves.fff.fr (public): the results shown and the official table of each of our divisions
     const ff = `(async()=>{const A=${A};const cm=/\\/competition\\/club\\/(\\d+)/.exec(location.pathname);
@@ -13618,7 +13692,18 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
   const DRAG = "event.preventDefault();alert('Ce bouton ne se touche pas ici : fais-le GLISSER (clic maintenu) jusqu\\'à la barre des favoris de ton navigateur. Ensuite, utilise ce favori sur le site concerné (AssistCoachAI, Footclubs ou la FFF), pas dans l\\'appli.')";
 
   /* ---------- the app opened by a bookmark ---------- */
-  function receive() {
+  // (1.85) Footclubs: the data come in the address (#/recevoir-source/fc=…), so it works even when the app is installed
+  // (Chrome then opens it in the app's own window, without « opener »); the address is cleaned at once
+  function fromLink(raw) {
+    if (!raw) { const m = location.hash.match(/^#\/recevoir-source\/fc=(.+)$/); if (!m) return false; raw = m[1]; history.replaceState(null, '', location.pathname + location.search + '#/'); }
+    let P; try { P = JSON.parse(decodeURIComponent(raw)); } catch (e) { toast('Données Footclubs illisibles : refais la lecture.', 'err'); return true; }
+    if (!Auth.isAdmin()) { toast('Réservé à un responsable du club.', 'err'); return true; }
+    try { footclubs(P); } catch (err) { console.error(err); toast(err.message || 'Données illisibles', 'err'); }
+    return true;
+  }
+  addEventListener('hashchange', () => { if (/^#\/recevoir-source\/fc=/.test(location.hash) && Auth.current()) fromLink(); });
+  function receive(fc) {
+    if (fc) { fromLink(fc); return; }
     if (!window.opener) return toast('Ouvre cette page avec le favori, depuis AssistCoachAI ou Footclubs.', 'err');
     const b = UI.busy('Réception des données…');
     let got = false;
@@ -14040,6 +14125,511 @@ var Game = (() => {
 })();
 
 ;
+/* ===== vplayer.js ===== */
+/* (1.81) A video player inside the app: YouTube, Vimeo, Dailymotion, Google Drive, Streamable or a video file (mp4, webm…).
+   Shared by the coach's app (highlights of a match) and the players' page (videos sent by the coach). Other links open in a new tab. */
+var VPlayer = (() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // « 1:23 », « 83 » or « 1m23 » → seconds
+  const secs = t => { const s = String(t || '').trim(); if (!s) return 0; if (/^\d+$/.test(s)) return +s; const p = s.split(/[:hm]/).map(x => +x || 0); return p.reduce((a, x) => a * 60 + x, 0); };
+  const mmss = n => n ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}` : '';
+  // the embeddable address of a link (null: not playable here)
+  function src(url, start) {
+    const u = String(url || '').trim(); if (!/^https:\/\/|^http:\/\/localhost[:/]/.test(u)) return null; // localhost: the tests
+    const st = secs(start) || secs((u.match(/[?&#]t=(\d+[hms\d]*)/) || [])[1]);
+    let m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/);
+    if (m) return { kind: 'frame', url: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0&playsinline=1${st ? '&start=' + st : ''}` };
+    if ((m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/))) return { kind: 'frame', url: `https://player.vimeo.com/video/${m[1]}${st ? '#t=' + st + 's' : ''}` };
+    if ((m = u.match(/dai(?:lymotion\.com\/video|\.ly)\/([a-z0-9]+)/i))) return { kind: 'frame', url: `https://www.dailymotion.com/embed/video/${m[1]}${st ? '?start=' + st : ''}` };
+    if ((m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) return { kind: 'frame', url: `https://drive.google.com/file/d/${m[1]}/preview` };
+    if ((m = u.match(/streamable\.com\/([a-z0-9]+)/i))) return { kind: 'frame', url: `https://streamable.com/e/${m[1]}` };
+    // (1.86) Dropbox: the file itself; any video file is tried in the player (MP4, WebM, MOV play everywhere; AVI, MPG, MKV, WMV: a message if the browser can't)
+    if (/dropbox\.com\//.test(u)) { try { const x = new URL(u); x.searchParams.delete('dl'); x.searchParams.set('raw', '1'); x.hash = st ? 't=' + st : ''; return { kind: 'video', url: x.href }; } catch (e) { return null; } }
+    if (/\.(mp4|webm|ogg|ogv|mov|m4v|3gp|mpe?g|mpg4|avi|mkv|wmv|flv|ts)(\?|#|$)/i.test(u)) return { kind: 'video', url: u + (st ? '#t=' + st : '') };
+    return null;
+  }
+  const label = url => { const h = (String(url).match(/^https:\/\/(?:www\.)?([^/]+)/) || [])[1] || 'lien'; return /youtu/.test(h) ? 'YouTube' : /vimeo/.test(h) ? 'Vimeo' : /drive\.google/.test(h) ? 'Google Drive' : h; };
+  function css() {
+    if (document.getElementById('vpCss')) return;
+    const st = document.createElement('style'); st.id = 'vpCss';
+    st.textContent = '.vp-back{position:fixed;inset:0;z-index:120;background:rgba(5,8,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}'
+      + '.vp-box{width:min(960px,100%)}.vp-frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}.vp-frame iframe,.vp-frame video{position:absolute;inset:0;width:100%;height:100%;border:0}'
+      + '.vp-zoom{position:absolute;inset:0;transform-origin:0 0;will-change:transform}.vp-frame:has(video){touch-action:none}.vp-frame.zoomed{cursor:grab}.vp-pan{position:absolute;inset:0;z-index:2;cursor:grab;touch-action:none;background:rgba(255,255,255,.03);outline:2px dashed rgba(226,194,125,.7);outline-offset:-2px}'
+      + '.vp-tools{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;margin-top:8px;color:#fff}.vp-tools button{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:10px;padding:9px 13px;font:inherit;font-weight:700;cursor:pointer;min-width:44px}.vp-tools button.on{background:#c9a45c;color:#14172b}.vp-zl{min-width:56px;text-align:center}'
+      + '.vp-hint{color:rgba(255,255,255,.65);font-size:13px;text-align:center;margin:6px 0 0}'
+      + '.vp-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#fff;margin-bottom:8px}.vp-bar b{font-size:16px}.vp-bar button,.vp-bar a{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}'
+      + '.vp-list{display:grid;gap:8px}.vp-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line,#ddd);background:var(--surface,#fff);color:inherit;font:inherit;text-align:left;cursor:pointer;width:100%}'
+      + '.vp-item .pl{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#be123c;color:#fff;font-size:15px}.vp-item small{display:block;opacity:.7}';
+    document.head.appendChild(st);
+  }
+  /* (1.88) the zoom of the player: two fingers, double-tap, ＋ / －; one finger moves the zoomed image.
+     A video file: everything on the image (its own buttons ⏪ ⏯ ⏩, because the native ones are zoomed too).
+     YouTube and the others (a frame that keeps the touches): ＋ / － and « ✋ Déplacer » (a layer over the frame while moving). */
+  function zoom(frame, tools) {
+    const box = frame.querySelector('.vp-zoom'), v = frame.querySelector('video'), pan = frame.querySelector('.vp-pan'), lbl = tools.querySelector('.vp-zl');
+    let z = 1, x = 0, y = 0;
+    const clamp = () => { const W = frame.clientWidth, H = frame.clientHeight; x = Math.min(0, Math.max(W - W * z, x)); y = Math.min(0, Math.max(H - H * z, y)); };
+    const apply = () => { clamp(); box.style.transform = `translate(${x}px,${y}px) scale(${z})`; lbl.textContent = Math.round(z * 100) + ' %'; frame.classList.toggle('zoomed', z > 1); };
+    const at = (px, py, nz) => { nz = Math.min(5, Math.max(1, nz)); x = px - (px - x) * nz / z; y = py - (py - y) * nz / z; z = nz; apply(); };
+    const mid = () => [frame.clientWidth / 2, frame.clientHeight / 2];
+    tools.onclick = e => {
+      const b = e.target.closest('[data-vz]'); if (!b) return; const k = b.dataset.vz;
+      if (k === 'in') at(...mid(), z * 1.5); else if (k === 'out') at(...mid(), z / 1.5); else if (k === 'reset') { z = 1; x = y = 0; apply(); }
+      else if (k === 'play' && v) v.paused ? v.play() : v.pause(); else if (k === 'back' && v) v.currentTime = Math.max(0, v.currentTime - 5); else if (k === 'fwd' && v) v.currentTime += 5;
+      else if (k === 'pan' && pan) { pan.hidden = !pan.hidden; b.classList.toggle('on', !pan.hidden); }
+    };
+    // the touches: on the video itself, or on the « Déplacer » layer over a YouTube frame
+    const surf = v ? frame : pan; if (!surf) return;
+    const pts = new Map(); let last = null, tap = 0;
+    const rel = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    surf.addEventListener('pointerdown', e => {
+      if (v && e.target.closest('.vp-tools')) return;
+      pts.set(e.pointerId, rel(e)); if (pts.size === 2 || z > 1 || !v) { try { surf.setPointerCapture(e.pointerId); } catch (x) {} }
+      if (pts.size === 2) { const [a, b] = [...pts.values()]; last = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z }; }
+    });
+    surf.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return; const p = rel(e), q = pts.get(e.pointerId);
+      if (pts.size === 2 && last) { pts.set(e.pointerId, p); const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); at((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, last.z * d / last.d); e.preventDefault(); return; }
+      if (z > 1 || !v) { x += p[0] - q[0]; y += p[1] - q[1]; pts.set(e.pointerId, p); apply(); e.preventDefault(); }
+    });
+    const up = e => {
+      if (!pts.has(e.pointerId)) return; const p = rel(e); pts.delete(e.pointerId); if (pts.size < 2) last = null;
+      if (v && e.pointerType === 'touch' && pts.size === 0) { const now = Date.now(); if (now - tap < 300) { z > 1 ? (z = 1, x = y = 0, apply()) : at(p[0], p[1], 2.5); tap = 0; } else tap = now; }
+    };
+    surf.addEventListener('pointerup', up); surf.addEventListener('pointercancel', up);
+    if (v) frame.addEventListener('dblclick', e => { e.preventDefault(); const p = rel(e); z > 1 ? (z = 1, x = y = 0, apply()) : at(p[0], p[1], 2.5); });
+    frame.addEventListener('wheel', e => { if (!v && pan.hidden) return; e.preventDefault(); const p = rel(e); at(p[0], p[1], z * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }, { passive: false });
+    addEventListener('resize', apply);
+  }
+  // opens the player over the page
+  function open(url, start, title) {
+    css(); const s = src(url, start);
+    if (!s) { window.open(url, '_blank', 'noopener'); return; }
+    const o = document.createElement('div'); o.className = 'vp-back';
+    o.innerHTML = `<div class="vp-box"><div class="vp-bar"><b>${esc(title || 'Vidéo')}</b><span><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">↗</a> <button type="button" data-vpx>✕ Fermer</button></span></div>
+      <div class="vp-frame"><div class="vp-zoom">${s.kind === 'video' ? `<video src="${esc(s.url)}" controls autoplay playsinline></video>` : `<iframe src="${esc(s.url)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`}</div>${s.kind === 'video' ? '' : '<div class="vp-pan" hidden></div>'}</div>
+      <div class="vp-tools">${s.kind === 'video' ? '<button type="button" data-vz="back">⏪ 5 s</button><button type="button" data-vz="play">⏯</button><button type="button" data-vz="fwd">5 s ⏩</button>' : '<button type="button" data-vz="pan">✋ Déplacer</button>'}
+        <button type="button" data-vz="out" aria-label="Dézoomer">－</button><b class="vp-zl">100 %</b><button type="button" data-vz="in" aria-label="Zoomer">＋</button><button type="button" data-vz="reset">⟲</button></div>
+      <p class="vp-hint">${s.kind === 'video' ? 'Zoom : deux doigts, double-tap ou ＋ / －. Zoomé : glisse un doigt pour te déplacer.' : 'Zoom : ＋ / －, puis « ✋ Déplacer » pour bouger l\'image (re-touche-le pour retrouver les commandes de la vidéo).'}</p></div>`;
+    const close = () => { o.remove(); document.removeEventListener('keydown', key); };
+    const key = e => { if (e.key === 'Escape') close(); };
+    o.onclick = e => { if (e.target === o || e.target.closest('[data-vpx]')) close(); };
+    document.addEventListener('keydown', key); document.body.appendChild(o);
+    // a format the browser can't read (AVI, MPG, WMV…): say it, and offer to download it
+    zoom(o.querySelector('.vp-frame'), o.querySelector('.vp-tools'));
+    const v = o.querySelector('video'); if (v) v.onerror = () => { const f = o.querySelector('.vp-frame'); f.style.aspectRatio = 'auto'; f.innerHTML = `<div style="padding:24px;color:#fff;text-align:center;line-height:1.5"><p>😕 Ce format de vidéo ne se lit pas dans le navigateur (souvent AVI, MPG ou WMV).</p><p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" download style="color:#e2c27d;font-weight:700">⬇️ Télécharger la vidéo</a></p><p style="opacity:.75;font-size:14px">Coach : mets plutôt la vidéo en MP4, ou sur YouTube (en « non répertoriée ») ou Google Drive.</p></div>`; };
+  }
+  // a list of clips: [{ url, t, title }] → buttons that open the player (data-vp…)
+  function list(clips) {
+    css();
+    return `<div class="vp-list">${(clips || []).filter(c => c && c.url).map(c => `<button type="button" class="vp-item" data-vp="${esc(c.url)}" data-vpt="${esc(c.t || '')}" data-vptitle="${esc(c.title || '')}"><span class="pl">▶</span><span><b>${esc(c.title || 'Vidéo')}</b><small>${esc(label(c.url))}${secs(c.t) ? ' · à ' + mmss(secs(c.t)) : ''}</small></span></button>`).join('')}</div>`;
+  }
+  // a click on one of these buttons (delegated by the page); true when handled
+  function onClick(e) { const b = e.target.closest('[data-vp]'); if (!b) return false; open(b.dataset.vp, b.dataset.vpt, b.dataset.vptitle); return true; }
+  return { open, list, onClick, src, secs, mmss };
+})();
+
+;
+/* ===== highlights.js ===== */
+/* (1.81) Highlights of a match (coach and responsable, tab « Après »): the best moments as video links (YouTube, Drive, Veo…),
+   each with its title and its start time, then « Envoyer aux joueurs »: they see them in their space (tab Vidéos) and get a notification. */
+var Highlights = (() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  function html(m) {
+    const cl = m.highlights || [];
+    return `<section class="card hl-card"><h2>🎬 Highlights du match</h2>
+      <p class="muted small">Colle le lien de chaque vidéo (YouTube, Google Drive, Dropbox, Vimeo, Veo, fichier MP4, MOV, WebM…) avec un titre et, si besoin, la minute où ça commence. Les joueurs les regardent dans l'appli. Les AVI, MPG ou WMV ne se lisent pas dans un navigateur : convertis-les en MP4 ou mets-les sur YouTube (« non répertoriée »).</p>
+      ${cl.length ? VPlayer.list(cl) + `<div class="chips" style="margin-top:6px">${cl.map(c => `<button class="chip" data-hldel="${esc(c.id)}">✕ ${esc(c.title || 'Vidéo')}</button>`).join('')}</div>` : ''}
+      <div class="row3" style="margin-top:10px">
+        <label class="fld"><span>Titre</span><input id="hlTitle" maxlength="80" placeholder="But de Yanis, 23e"></label>
+        <label class="fld"><span>Lien de la vidéo</span><input id="hlUrl" inputmode="url" placeholder="https://youtu.be/…"></label>
+        <label class="fld"><span>Début (min:s)</span><input id="hlT" maxlength="8" placeholder="1:23"></label>
+      </div>
+      <div class="chips"><button class="btn primary" data-hlauto>🤖 Créer automatiquement</button><button class="btn soft" data-hladd>＋ Ajouter la vidéo</button>
+        ${cl.length ? `<button class="btn primary" data-hlsend>📣 ${m.hlSent ? 'Renvoyer aux joueurs' : 'Envoyer aux joueurs'}</button>` : ''}</div>
+      ${m.hlSent ? `<p class="muted small">✓ Envoyé le ${esc(new Date(m.hlSent).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }))} : les joueurs de l'équipe les voient dans l'onglet « Vidéos ».</p>` : ''}</section>`;
+  }
+  // box: the element to fill; save: stores the match; toast: the message bar
+  function mount(box, m, save, toast) {
+    if (!box) return;
+    const draw = () => { box.innerHTML = html(m); };
+    draw();
+    box.onclick = e => {
+      if (VPlayer.onClick(e)) return;
+      if (e.target.closest('[data-hlauto]')) return AutoHL.open(m, save, draw); // (1.88) from the sound of the video and the live match
+      const d = e.target.closest('[data-hldel]');
+      if (d) { if (!confirm('Retirer cette vidéo ?')) return; m.highlights = (m.highlights || []).filter(c => c.id !== d.dataset.hldel); save(); return draw(); }
+      if (e.target.closest('[data-hladd]')) {
+        const url = box.querySelector('#hlUrl').value.trim(), title = box.querySelector('#hlTitle').value.trim(), t = box.querySelector('#hlT').value.trim();
+        if (!/^https:\/\//.test(url)) return toast('Colle un lien qui commence par https://', true);
+        m.highlights = [...(m.highlights || []), { id: uid(), url, title: title || 'Action ' + ((m.highlights || []).length + 1), t }];
+        save(); draw(); toast(VPlayer.src(url) ? 'Vidéo ajoutée ✓' : 'Ajoutée ✓ (ce lien s\'ouvrira dans un nouvel onglet)'); return;
+      }
+      if (e.target.closest('[data-hlsend]')) {
+        m.hlSent = new Date().toISOString(); save(); draw();
+        toast('Envoyé : les joueurs sont prévenus 🎬');
+      }
+    };
+  }
+  return { mount, html };
+})();
+
+;
+/* ===== autohl.js ===== */
+/* (1.88) Highlights made by the app (coach, page of a match → Highlights → « 🤖 Créer automatiquement »).
+   Two sources, merged:
+   - the sound of the match video (a file on the coach's device, read on the device, nothing sent): the moments where the noise jumps
+     (shouts, whistles, applause) above the usual level of the minute around them;
+   - the actions noted during the live match (goals of both teams, chances, post, saves, cards), placed in the video
+     thanks to the time of the kick-off in the video.
+   The coach checks the proposals (a preview of each one), names them (goal, chance, post… us or them) and adds them to the highlights,
+   with the online link of the same video (YouTube, Drive…) so the players can watch them. */
+var AutoHL = (() => {
+  const { esc, toast, modal } = UI;
+  const MP4BOX = 'https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js';
+  const BIN = 0.5; // seconds per loudness value
+  const loadScript = src => new Promise((ok, ko) => { if (window.MP4Box) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => ko(new Error('Pas de connexion internet pour charger l\'outil d\'analyse.')); document.head.appendChild(s); });
+  const mmss = n => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
+
+  /* ---------- 1. the loudness of the sound, every half second (MP4 / MOV: the audio track only is decoded) ---------- */
+  async function loudness(file, progress) {
+    await loadScript(MP4BOX);
+    if (typeof AudioDecoder === 'undefined') throw new Error('Ton navigateur ne sait pas analyser le son : utilise Chrome ou Edge à jour (ou Safari récent).');
+    return new Promise((resolve, reject) => {
+      const mp = MP4Box.createFile(), sums = [], cnts = [];
+      let track = null, decoder = null, total = 1, got = 0, finished = false, failed = false;
+      const fail = e => { if (failed || finished) return; failed = true; reject(e instanceof Error ? e : new Error(String(e))); };
+      const finish = async () => {
+        if (finished || failed) return; finished = true;
+        try { if (decoder && decoder.state === 'configured') await decoder.flush(); } catch (e) {}
+        const db = sums.map((s, i) => 10 * Math.log10((s || 0) / Math.max(1, cnts[i] || 0) + 1e-10));
+        resolve(db);
+      };
+      mp.onError = e => fail(new Error('Vidéo illisible (' + e + '). Utilise un fichier MP4 ou MOV.'));
+      mp.onReady = info => {
+        track = (info.audioTracks || [])[0]; if (!track) return fail(new Error('Cette vidéo n\'a pas de son : impossible de repérer les moments forts au bruit.'));
+        total = track.nb_samples || 1;
+        let desc; try { const en = mp.getTrackById(track.id).mdia.minf.stbl.stsd.entries[0]; desc = en.esds.esd.descs[0].descs[0].data; } catch (e) {}
+        decoder = new AudioDecoder({
+          output: ad => {
+            try {
+              const n = ad.numberOfFrames, a = new Float32Array(n); ad.copyTo(a, { planeIndex: 0, format: 'f32-planar' });
+              const t0 = ad.timestamp / 1e6, sr = ad.sampleRate, step = Math.max(1, Math.floor(sr * BIN / 8));
+              for (let i = 0; i < n; i += 4) { const b = Math.floor((t0 + i / sr) / BIN); sums[b] = (sums[b] || 0) + a[i] * a[i]; cnts[b] = (cnts[b] || 0) + 1; }
+              void step;
+            } catch (e) {} finally { ad.close(); }
+          }, error: e => fail(new Error('Son illisible : ' + e.message)) });
+        try { decoder.configure({ codec: track.codec, sampleRate: track.audio.sample_rate, numberOfChannels: track.audio.channel_count, description: desc }); }
+        catch (e) { return fail(new Error('Format du son non pris en charge (' + track.codec + ').')); }
+        mp.setExtractionOptions(track.id, null, { nbSamples: 400 }); mp.start();
+      };
+      mp.onSamples = (id, user, samples) => {
+        for (const s of samples) { try { decoder.decode(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: s.data })); } catch (e) {} }
+        got += samples.length; mp.releaseUsedSamples(id, samples[samples.length - 1].number + 1);
+        progress(Math.min(0.99, got / total)); if (got >= total) finish();
+      };
+      // the file is given piece by piece (a match is several GB): MP4Box says where to read next (it jumps over the images)
+      (async () => {
+        const CH = 4 << 20; let off = 0, same = 0;
+        while (off < file.size && !finished && !failed) {
+          const buf = await file.slice(off, off + CH).arrayBuffer(); buf.fileStart = off;
+          const next = mp.appendBuffer(buf);
+          if (typeof next === 'number' && next !== off) { off = next; same = 0; } else { off += buf.byteLength; if (++same > 3) off += CH; }
+          if (!track) progress(Math.min(0.2, off / file.size / 5));
+        }
+        mp.flush(); setTimeout(finish, 400);
+      })().catch(fail);
+    });
+  }
+
+  /* ---------- 2. the loud moments: well above the level of the minute around them ---------- */
+  function peaks(db, max = 22) {
+    const n = db.length; if (n < 20) return [];
+    const W = Math.round(30 / BIN), base = new Array(n), sm = new Array(n);
+    for (let i = 0; i < n; i++) { const w = db.slice(Math.max(0, i - W), Math.min(n, i + W)).filter(Number.isFinite).sort((a, b) => a - b); base[i] = w[Math.floor(w.length / 2)] || -100; }
+    for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let j = i - 1; j <= i + 1; j++) if (j >= 0 && j < n && Number.isFinite(db[j])) { s += db[j]; c++; } sm[i] = c ? s / c - base[i] : 0; }
+    const cand = []; for (let i = 1; i < n - 1; i++) if (sm[i] >= 5 && sm[i] >= sm[i - 1] && sm[i] >= sm[i + 1]) cand.push({ t: i * BIN, score: sm[i] });
+    cand.sort((a, b) => b.score - a.score); const out = [];
+    for (const c of cand) { if (out.length >= max) break; if (out.every(o => Math.abs(o.t - c.t) > 40)) out.push(c); }
+    return out.sort((a, b) => a.t - b.t);
+  }
+
+  /* ---------- 3. the actions noted live, placed in the video ---------- */
+  const KEEP = { chance: ['chance', '🎯 Occasion'], post: ['post', '🥅 Poteau / barre'], chanceThem: ['chanceThem', '⚠️ Occasion adverse'], save: ['save', '🧤 Arrêt'], yellow: ['card', '🟨 Carton'], red: ['card', '🟥 Carton rouge'] };
+  function liveMoments(m, k1, k2) {
+    const l = m.live || {}, per = l.periods || [], evs = (l.events || []).slice().sort((a, b) => a.wall - b.wall), out = [];
+    if (k1 == null) return out;
+    const kick = p => p === 2 && k2 != null ? k2 : p > 1 && per[p - 1] && per[0] ? k1 + (per[p - 1].start - per[0].start) / 1000 : k1;
+    evs.forEach(e => {
+      const sc = Sport.scoreOf(e.type), keep = KEEP[e.type]; if (!sc && !keep) return;
+      const p = e.period || 1, start = per[p - 1] && per[p - 1].start;
+      const tv = start && e.wall ? kick(p) + (e.wall - start) / 1000 : k1 + (+e.min || 0) * 60;
+      const who = e.player ? Store.shortName(Store.get('players', e.player) || {}) : '';
+      out.push({ t: Math.max(0, tv), src: 'live', kind: sc ? (sc.us ? 'goalUs' : 'goalThem') : keep[0], title: sc ? (sc.us ? `⚽ But${who ? ' de ' + who : ''}` : '⚽ But adverse') : `${keep[1]}${who ? ' · ' + who : ''}`, min: e.min });
+    });
+    return out;
+  }
+
+  /* ---------- 4. the window: the video, the proposals, the check ---------- */
+  const KINDS = [['goalUs', '⚽ But (nous)'], ['goalThem', '⚽ But (eux)'], ['chance', '🎯 Occasion (nous)'], ['chanceThem', '⚠️ Occasion (eux)'], ['post', '🥅 Poteau'], ['save', '🧤 Arrêt'], ['card', '🟨 Carton']];
+  /* ---------- (1.90) 5. the analysis by artificial intelligence (Google Gemini), paid by the coach himself at Google ----------
+     His own key (Google AI Studio: a free quota, then Google bills him), kept on this device only. Gemini watches the video
+     (a YouTube link, or the file up to 2 GB) and gives the moments of both teams. Nothing goes through the club's server. */
+  const GKEY = () => AppCfg.key('gemini-key');
+  const gKey = () => { try { return localStorage.getItem(GKEY()) || ''; } catch (e) { return ''; } };
+  const setGKey = k => { try { k ? localStorage.setItem(GKEY(), k) : localStorage.removeItem(GKEY()); } catch (e) {} };
+  const GAPI = 'https://generativelanguage.googleapis.com';
+  const MODELS = ['gemini-flash-latest', 'gemini-2.5-flash'];
+  async function gUpload(file, key, progress) {
+    if (file.size > 2e9) throw new Error('Fichier de plus de 2 Go : Gemini ne le prend pas. Mets la vidéo sur YouTube (« non répertoriée » ne marche pas : « publique ») ou coupe-la en deux mi-temps.');
+    const type = file.type || 'video/mp4';
+    const s = await fetch(GAPI + '/upload/v1beta/files', { method: 'POST', headers: { 'x-goog-api-key': key, 'X-Goog-Upload-Protocol': 'resumable', 'X-Goog-Upload-Command': 'start', 'X-Goog-Upload-Header-Content-Length': String(file.size), 'X-Goog-Upload-Header-Content-Type': type, 'Content-Type': 'application/json' }, body: JSON.stringify({ file: { display_name: 'match' } }) });
+    if (!s.ok) throw new Error(await gErr(s));
+    const up = s.headers.get('x-goog-upload-url'); if (!up) throw new Error('Envoi refusé par Google.');
+    progress('Envoi de la vidéo chez Google… (plusieurs minutes pour un match entier)');
+    const r = await fetch(up, { method: 'POST', headers: { 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' }, body: file });
+    if (!r.ok) throw new Error(await gErr(r));
+    let fl = (await r.json()).file;
+    for (let i = 0; i < 180 && fl.state !== 'ACTIVE'; i++) {
+      if (fl.state === 'FAILED') throw new Error('Google n\'a pas pu lire la vidéo.');
+      progress('Google prépare la vidéo…'); await new Promise(z => setTimeout(z, 5000));
+      fl = await (await fetch(GAPI + '/v1beta/' + fl.name, { headers: { 'x-goog-api-key': key } })).json();
+    }
+    return { uri: fl.uri, mime: fl.mimeType || type };
+  }
+  async function gErr(r) { let m = ''; try { m = ((await r.json()).error || {}).message || ''; } catch (e) {} return r.status === 400 && /API key/i.test(m) ? 'Clé Gemini refusée : vérifie-la.' : r.status === 429 ? 'Quota Google dépassé : active la facturation dans Google AI Studio, ou réessaie demain.' : r.status === 403 ? 'Accès refusé par Google (clé, facturation ou vidéo non publique).' : 'Google : ' + (m || r.status); }
+  async function gemini({ key, link, file, club, opp, colors }, progress) {
+    const src = file ? await gUpload(file, key, progress) : { uri: link, mime: 'video/*' };
+    progress('L\'intelligence artificielle regarde le match… (1 à 3 minutes)');
+    const prompt = `Tu regardes la vidéo d'un match de football amateur : ${club} contre ${opp || 'l\'adversaire'}${colors ? '. ' + club + ' joue en ' + colors : ''}.
+Repère TOUS les moments forts des DEUX équipes : buts, tirs cadrés, tirs sur le poteau ou la barre, grosses occasions, arrêts du gardien, cartons.
+Pour chacun, donne le moment de la vidéo où l'action commence (format m:ss ou h:mm:ss), son type, l'équipe (nous = ${club}, eux = l'adversaire) et une description courte en français (10 mots maximum).
+Réponds seulement avec la liste JSON.`;
+    const schema = { type: 'ARRAY', items: { type: 'OBJECT', properties: { t: { type: 'STRING' }, kind: { type: 'STRING', enum: ['goal', 'shot', 'post', 'chance', 'save', 'card'] }, team: { type: 'STRING', enum: ['nous', 'eux'] }, desc: { type: 'STRING' } }, required: ['t', 'kind', 'team'] } };
+    let last = '';
+    for (const model of MODELS) {
+      const r = await fetch(`${GAPI}/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ file_data: { file_uri: src.uri, mime_type: src.mime } }, { text: prompt }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: schema, mediaResolution: 'MEDIA_RESOLUTION_LOW', temperature: 0.2 } }) });
+      if (r.status === 404) { last = 'modèle introuvable'; continue; }
+      if (!r.ok) throw new Error(await gErr(r));
+      const j = await r.json(), txt = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map(p => p.text || '').join('');
+      let list; try { list = JSON.parse(txt); } catch (e) { throw new Error('Réponse de l\'IA illisible : réessaie.'); }
+      const tsec = s => String(s || '').split(':').map(Number).reduce((a, x) => a * 60 + (x || 0), 0);
+      const K = { goal: ['goal', '⚽ But'], shot: ['chance', '🎯 Tir'], post: ['post', '🥅 Poteau / barre'], chance: ['chance', '🎯 Occasion'], save: ['save', '🧤 Arrêt'], card: ['card', '🟨 Carton'] };
+      return (Array.isArray(list) ? list : []).map(x => { const k = K[x.kind] || K.chance, them = x.team === 'eux';
+        const kind = k[0] === 'goal' ? (them ? 'goalThem' : 'goalUs') : k[0] === 'chance' && them ? 'chanceThem' : k[0];
+        return { t: tsec(x.t), src: 'ai', kind, title: `${k[1]}${them ? ' adverse' : ''}${x.desc ? ' · ' + String(x.desc).slice(0, 60) : ''}` }; }).filter(x => x.t >= 0);
+    }
+    throw new Error('Gemini indisponible (' + last + ').');
+  }
+  const BEFORE = { live: 12, sound: 15, ai: 6 }; // the clip starts a little before the action (the noise comes after it)
+  function open(m, save, done) {
+    const st = { file: null, url: null, db: null, sound: [], k1: m.videoKick1 || '', k2: m.videoKick2 || '', link: m.videoUrl || '', list: [], busy: '', ai: [], aiOpen: false, colors: m.ourColors || '' };
+    const merge = () => {
+      const live = liveMoments(m, VPlayer.secs(st.k1) || (st.k1 === '0:00' || st.k1 === '0' ? 0 : null), st.k2 ? VPlayer.secs(st.k2) : null);
+      const ai = st.ai.filter(a => live.every(l => Math.abs(l.t - a.t) > 20)).map(x => Object.assign({ keep: true }, x));
+      const all = [...live.map(x => Object.assign({ keep: true }, x)), ...ai, ...st.sound.filter(s => live.every(l => Math.abs(l.t - s.t) > 25) && ai.every(a => Math.abs(a.t - s.t) > 25)).map((s, i) => ({ t: s.t, src: 'sound', kind: '', title: `🔊 Action chaude ${i + 1}`, score: s.score, keep: true }))];
+      const old = {}; st.list.forEach(x => { old[x.src + Math.round(x.t)] = x; });
+      st.list = all.sort((a, b) => a.t - b.t).map(x => Object.assign(x, old[x.src + Math.round(x.t)] ? { keep: old[x.src + Math.round(x.t)].keep, kind: old[x.src + Math.round(x.t)].kind || x.kind, title: old[x.src + Math.round(x.t)].title } : {}));
+    };
+    const hasLive = ((m.live || {}).events || []).some(e => Sport.scoreOf(e.type) || KEEP[e.type]);
+    const body = () => {
+      const n = st.list.filter(x => x.keep).length;
+      return `<p class="muted small">Gratuit. ${hasLive ? 'L\'appli place les actions notées pendant le match en direct, et' : 'L\'appli'} repère au son les moments où le bruit monte (cris, sifflets, applaudissements) si tu lui donnes le fichier. Tu vérifies, tu nommes, tu ajoutes.</p>
+        <div class="ahl-step"><b>1. La vidéo complète du match</b>
+          <label class="fld"><span>Son lien en ligne (YouTube « non répertoriée », Drive, Dropbox…) : c'est lui que les joueurs regardent</span><input id="ahlLink" class="ahl-link" inputmode="url" placeholder="https://youtu.be/…" value="${esc(st.link)}"></label>
+          <p class="muted small">Et, pour repérer aussi les moments au son, le fichier de la même vidéo (MP4 ou MOV, même plusieurs Go ; il n'est envoyé nulle part). YouTube ne laisse pas écouter le son de ses vidéos.</p>
+          <label class="btn soft ahl-file">📁 ${st.file ? esc(st.file.name) : 'Choisir le fichier (facultatif)'}<input type="file" accept="video/mp4,video/quicktime,video/*" id="ahlFile" hidden></label>
+          ${st.busy ? `<p class="ahl-busy">⏳ ${esc(st.busy)}</p>` : st.db ? `<p class="muted small">✓ Son analysé : ${st.sound.length} moment${st.sound.length > 1 ? 's' : ''} fort${st.sound.length > 1 ? 's' : ''} repéré${st.sound.length > 1 ? 's' : ''}.</p>` : ''}</div>
+        <details class="ahl-step ahl-ai" ${st.aiOpen ? 'open' : ''}><summary><b>🧠 Option : analyse par intelligence artificielle (Gemini)</b> <span class="muted small">payée par toi chez Google</span></summary>
+          <p class="muted small">L'IA de Google regarde vraiment le match (le lien YouTube <b>publique</b>, ou le fichier jusqu'à 2 Go) et repère buts, tirs, poteaux, arrêts et cartons des deux équipes. C'est ta propre clé : Google te donne un quota gratuit, puis te facture directement (environ 0,10 € à 1 € par match). Le club et l'appli ne paient rien et ne voient pas ta clé, qui reste sur cet appareil.</p>
+          <p><a class="btn soft" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">🔑 Créer ma clé Gemini (Google AI Studio)</a> <a class="btn soft" href="https://aistudio.google.com/usage" target="_blank" rel="noopener noreferrer">💳 Facturation et consommation</a></p>
+          <label class="fld"><span>Ma clé Gemini</span><input id="ahlGKey" type="password" autocomplete="off" placeholder="AIza…" value="${esc(gKey())}"></label>
+          <label class="fld"><span>Notre maillot (aide l'IA à reconnaître les équipes)</span><input id="ahlColors" maxlength="60" placeholder="bleu et rouge" value="${esc(st.colors)}"></label>
+          <label class="consent"><input type="checkbox" id="ahlOk"> <span>La vidéo part chez Google. Pour des joueurs mineurs, les parents ont donné leur accord à la diffusion de leur image.</span></label>
+          <button type="button" class="btn primary" data-ahl="ai">🧠 Analyser avec Gemini</button>${st.ai.length ? ` <span class="muted small">✓ ${st.ai.length} moment${st.ai.length > 1 ? 's' : ''} trouvé${st.ai.length > 1 ? 's' : ''} par l'IA</span>` : ''}</details>
+        ${hasLive ? `<div class="ahl-step"><b>2. Le coup d'envoi dans la vidéo</b> <span class="muted small">(pour placer les actions du direct)</span>
+          <div class="row3"><label class="fld"><span>1re mi-temps à</span><input id="ahlK1" placeholder="2:35" value="${esc(st.k1)}"></label><label class="fld"><span>2e mi-temps à (si la vidéo est coupée)</span><input id="ahlK2" placeholder="52:10" value="${esc(st.k2)}"></label>
+          ${P ? '<div class="fld"><span>&nbsp;</span><button type="button" class="btn soft" data-ahl="k1now">⏱️ Mettre l\'instant de la vidéo</button></div>' : ''}</div>
+          ${P ? '<p class="muted small">Mets la vidéo au coup d\'envoi, puis touche ⏱️.</p>' : ''}</div>` : ''}
+        ${st.list.length ? `<div class="ahl-step"><b>${hasLive ? 3 : 2}. Les moments proposés</b> <span class="muted small">(décoche ceux à jeter, choisis ce que c'est)</span>
+          <div class="ahl-list">${st.list.map((x, i) => `<div class="ahl-row ${x.keep ? '' : 'off'}"><label class="ahl-ck"><input type="checkbox" data-ahlk="${i}" ${x.keep ? 'checked' : ''}><b>${mmss(Math.max(0, x.t - BEFORE[x.src]))}</b></label>
+            ${P ? `<button type="button" class="btn soft ahl-play" data-ahlp="${i}">▶</button>` : ''}<input class="ahl-title" data-ahlt="${i}" value="${esc(x.title)}" maxlength="80">
+            <select data-ahls="${i}"><option value="">C'est…</option>${KINDS.map(([k, l]) => `<option value="${k}" ${x.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+            <span class="muted small">${x.src === 'live' ? '📱 direct' : x.src === 'ai' ? '🧠 IA' : '🔊 bruit'}</span></div>`).join('')}</div></div>` : ''}
+        ${!st.list.length && !st.busy ? `<p class="tip">${hasLive ? 'Aucune action du direct placée pour l\'instant : indique le coup d\'envoi, ou' : 'Pas d\'actions notées en direct pour ce match :'} choisis le fichier de la vidéo pour repérer les moments au son.</p>` : ''}
+        <p class="muted small">${n} extrait${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''}.</p>`;
+    };
+    let root = null, P = null, ytp = null;
+    const ytId = u => (String(u || '').match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/) || [])[1];
+    // the player: the file, or YouTube (its API gives the time and seeks); kept between the redraws
+    function setMedia() {
+      const box = root && root.querySelector('#ahlMedia'); if (!box) return;
+      if (st.url) { if (!box.querySelector('video')) box.innerHTML = `<video src="${st.url}" controls playsinline preload="metadata"></video>`; const v = box.querySelector('video'); P = { time: () => v.currentTime, seek: s => { v.currentTime = s; v.play(); } }; ytp = null; return; }
+      const id = ytId(st.link);
+      if (!id) { box.innerHTML = ''; P = null; ytp = null; return; }
+      if (ytp && ytp.__id === id) return;
+      box.innerHTML = '<div class="ahl-yt"><div id="ahlYT"></div></div>'; P = null;
+      loadYT().then(() => { ytp = new YT.Player('ahlYT', { videoId: id, host: 'https://www.youtube-nocookie.com', playerVars: { playsinline: 1, rel: 0 }, events: { onReady: () => { P = { time: () => ytp.getCurrentTime(), seek: s => { ytp.seekTo(s, true); ytp.playVideo(); } }; draw(); } } }); ytp.__id = id; })
+        .catch(() => toast('Lecteur YouTube indisponible (connexion ?)', 'err'));
+    }
+    const draw = () => { if (!root) return; const b = root.querySelector('#ahlBody'), sc = b.scrollTop; b.innerHTML = body(); b.scrollTop = sc; };
+    const readInputs = () => { if (!root) return; const g = id => (root.querySelector(id) || {}).value; if (root.querySelector('#ahlK1')) { st.k1 = g('#ahlK1').trim(); st.k2 = g('#ahlK2').trim(); } if (root.querySelector('#ahlLink')) st.link = g('#ahlLink').trim(); };
+    async function runAI() {
+      readInputs(); const key = gKey();
+      if (!key) { toast('Crée ta clé Gemini (bouton 🔑) et colle-la', 'err'); return; }
+      if (!root.querySelector('#ahlOk').checked) { toast('Coche la case sur l\'accord des parents', 'err'); return; }
+      const yt = /youtu\.?be/.test(st.link);
+      if (!st.file && !yt) { toast('Il faut le lien YouTube publique de la vidéo, ou son fichier', 'err'); return; }
+      m.ourColors = st.colors; st.busy = 'Connexion à Google…'; draw();
+      try {
+        st.ai = await gemini({ key, link: st.link, file: yt ? null : st.file, club: (Store.state.club || {}).name || 'notre équipe', opp: m.opponent, colors: st.colors }, msg => { st.busy = msg; const el = root.querySelector('.ahl-busy'); if (el) el.textContent = '⏳ ' + msg; else draw(); });
+        st.busy = ''; merge(); draw(); toast(st.ai.length ? `L'IA a trouvé ${st.ai.length} moment${st.ai.length > 1 ? 's' : ''} : vérifie-les ✓` : 'L\'IA n\'a rien trouvé dans cette vidéo.');
+      } catch (e) { st.busy = ''; draw(); toast(e.message || 'Analyse IA impossible', 'err'); }
+    }
+    async function analyse(file) {
+      if (st.url) URL.revokeObjectURL(st.url);
+      st.file = file; st.url = URL.createObjectURL(file); st.db = null; st.sound = []; st.busy = 'Lecture du son… 0 %'; root.querySelector('#ahlMedia').innerHTML = ''; setMedia(); draw();
+      try {
+        let lastDraw = 0;
+        st.db = await loudness(file, p => { const now = Date.now(); if (now - lastDraw > 500) { lastDraw = now; st.busy = `Lecture du son… ${Math.round(p * 100)} %`; const el = root && root.querySelector('.ahl-busy'); if (el) el.textContent = '⏳ ' + st.busy; } });
+        st.sound = peaks(st.db); st.busy = ''; merge(); draw();
+        if (!st.sound.length) toast('Pas de moment fort repéré au son (vidéo très calme ou sans son).');
+      } catch (e) { st.busy = ''; draw(); toast(e.message || 'Analyse impossible', 'err'); }
+    }
+    modal({ title: '🤖 Highlights automatiques', noFocus: true, wide: true, body: `<div class="ahl"><div id="ahlMedia"></div><div id="ahlBody">${(merge(), body())}</div></div>`,
+      onOpen: r => {
+        root = r; css(); setMedia();
+        r.addEventListener('change', e => {
+          if (e.target.id === 'ahlFile' && e.target.files[0]) return analyse(e.target.files[0]);
+          const k = e.target.dataset.ahlk; if (k != null) { st.list[+k].keep = e.target.checked; return draw(); }
+          const s = e.target.dataset.ahls; if (s != null) { const x = st.list[+s]; x.kind = e.target.value; const l = (KINDS.find(z => z[0] === x.kind) || [])[1]; if (l && /^🔊|^(⚽|🎯|⚠️|🥅|🧤|🟨)/.test(x.title)) x.title = l.replace(/ \((nous|eux)\)/, x.kind.endsWith('Them') ? ' adverse' : ''); return draw(); }
+          if (e.target.id === 'ahlK1' || e.target.id === 'ahlK2') { readInputs(); merge(); draw(); }
+          if (e.target.id === 'ahlLink') { st.link = e.target.value.trim(); setMedia(); draw(); }
+        });
+        r.addEventListener('input', e => { if (e.target.id === 'ahlGKey') setGKey(e.target.value.trim()); if (e.target.id === 'ahlColors') st.colors = e.target.value; const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
+        r.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('ahl-ai')) st.aiOpen = e.target.open; }, true);
+        r.addEventListener('click', e => {
+          if (e.target.closest('[data-ahl="ai"]')) { runAI(); return; }
+          const p = e.target.closest('[data-ahlp]'); if (p) { const x = st.list[+p.dataset.ahlp]; if (P) { P.seek(Math.max(0, x.t - BEFORE[x.src])); r.querySelector('#ahlMedia').scrollIntoView({ block: 'nearest' }); } return; }
+          if (e.target.closest('[data-ahl="k1now"]')) { if (P) { readInputs(); st.k1 = mmss(P.time()); merge(); draw(); } }
+        });
+      },
+      actions: [{ label: 'Fermer' }, { label: 'Ajouter aux highlights', kind: 'primary', onClick: () => {
+        readInputs();
+        const keep = st.list.filter(x => x.keep);
+        if (!keep.length) { toast('Aucun extrait sélectionné', 'err'); return false; }
+        if (!/^https:\/\//.test(st.link)) { toast('Colle le lien en ligne de la vidéo (YouTube, Drive…) : c\'est lui que les joueurs regardent', 'err'); const i = root.querySelector('#ahlLink'); if (i) i.focus(); return false; }
+        m.videoUrl = st.link; m.videoKick1 = st.k1; m.videoKick2 = st.k2;
+        const have = new Set((m.highlights || []).map(c => c.url + '|' + c.t));
+        const add = keep.map(x => ({ id: Math.random().toString(36).slice(2, 10), url: st.link, t: mmss(Math.max(0, x.t - BEFORE[x.src])), title: x.title, kind: x.kind || '', auto: true })).filter(c => !have.has(c.url + '|' + c.t));
+        m.highlights = [...(m.highlights || []), ...add].sort((a, b) => VPlayer.secs(a.t) - VPlayer.secs(b.t));
+        save(); if (st.url) URL.revokeObjectURL(st.url); done && done(); toast(`${add.length} extrait${add.length > 1 ? 's' : ''} ajouté${add.length > 1 ? 's' : ''} : vérifie, puis « Envoyer aux joueurs » 🎬`);
+      } }] });
+  }
+  const loadYT = () => window.YT && YT.Player ? Promise.resolve() : new Promise((ok, ko) => { const prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { if (prev) prev(); ok(); }; const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; s.onerror = ko; document.head.appendChild(s); });
+  function css() {
+    if (document.getElementById('ahlCss')) return;
+    const s = document.createElement('style'); s.id = 'ahlCss';
+    s.textContent = '.ahl-step{margin:12px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.ahl-step>b{display:block;margin-bottom:6px}.ahl-file{display:inline-flex;cursor:pointer;margin:4px 0}'
+      + '.ahl video{width:100%;max-height:40vh;background:#000;border-radius:10px}.ahl-yt{position:relative;aspect-ratio:16/9;max-height:40vh;background:#000;border-radius:10px;overflow:hidden}.ahl-yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}#ahlMedia{position:sticky;top:0;z-index:1}.ahl-busy{font-weight:700}.ahl-ai summary{cursor:pointer}.ahl-ai .btn{margin:4px 4px 4px 0}.ahl-list{display:grid;gap:6px;max-height:46vh;overflow:auto}'
+      + '.ahl-row{display:grid;grid-template-columns:auto auto minmax(140px,1fr) minmax(0,150px) auto;gap:6px;align-items:center;padding:6px;border-radius:10px;background:var(--bg)}.ahl-row.off{opacity:.45}.ahl-ck{display:flex;gap:6px;align-items:center;white-space:nowrap}'
+      + '.ahl-title,.ahl-row select,.ahl-link{min-height:38px;border-radius:10px;border:1px solid var(--line);padding:0 8px;font:inherit;background:var(--surface);color:var(--ink);min-width:0}.ahl-link{width:100%;box-sizing:border-box}'
+      + '@media (max-width:640px){.ahl-row{grid-template-columns:auto auto 1fr}.ahl-row select{grid-column:1/3}.ahl-row>span{grid-column:3}}';
+    document.head.appendChild(s);
+  }
+  return { open, loudness, peaks, liveMoments };
+})();
+
+;
+/* ===== bodymap.js ===== */
+/* (1.81) A realistic human body (muscles) to point at the painful zone: a touch on a zone gives the usual injuries there
+   (groin, hamstrings, knee ligaments…). Shared by the coach's app (Infirmerie) and the players' and parents' pages.
+   html(sel) draws it; sel = { zone, side, part, type, days }. The page calls click(e, sel) and redraws when it returns true. */
+var BodyMap = (() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // zone: [name, the usual injuries]
+  const ZONES = {
+    head: ['Tête', ['Commotion (choc à la tête)', 'Nez', 'Mâchoire / dents', 'Arcade', 'Œil']],
+    neck: ['Cou / nuque', ['Torticolis', 'Cervicales', 'Coup du lapin']],
+    shoulder: ['Épaule', ['Luxation de l\'épaule', 'Clavicule', 'Coiffe des rotateurs', 'Acromio-claviculaire']],
+    arm: ['Bras / coude', ['Coude', 'Avant-bras', 'Biceps', 'Triceps']],
+    hand: ['Poignet / main', ['Entorse du poignet', 'Doigt', 'Pouce', 'Main']],
+    chest: ['Poitrine / haut du dos', ['Côtes', 'Pectoraux', 'Sternum', 'Haut du dos (dorsales)', 'Omoplate', 'Trapèzes']],
+    abdo: ['Ventre / bas du dos', ['Abdominaux', 'Obliques', 'Bas du dos (lombaires)', 'Lumbago', 'Point de côté']],
+    groin: ['Aine / hanche / fessier', ['Aine (adducteurs)', 'Pubalgie', 'Psoas (fléchisseur de hanche)', 'Hanche', 'Fessier', 'Sciatique']],
+    thigh: ['Cuisse', ['Ischio-jambiers (arrière)', 'Quadriceps (devant)', 'Adducteurs (intérieur)', 'Élongation des ischios', 'Déchirure des ischios', 'Contusion (béquille)']],
+    knee: ['Genou', ['Ligament croisé (LCA)', 'Ligament latéral interne', 'Ligament latéral externe', 'Ménisque', 'Rotule / tendon rotulien']],
+    shin: ['Jambe / mollet', ['Mollet', 'Tennis leg (déchirure du mollet)', 'Tibia (périostite)', 'Péroné', 'Contusion (coup de crampon)', 'Crampe']],
+    ankle: ['Cheville / Achille', ['Entorse de la cheville', 'Ligaments de la cheville', 'Malléole', 'Tendon d\'Achille']],
+    foot: ['Pied', ['Orteil', 'Voûte plantaire', 'Métatarse', 'Dessus du pied', 'Talon', 'Aponévrose plantaire']],
+    upback: ['Haut du dos', ['Dorsales', 'Omoplate', 'Trapèzes']],
+    lowback: ['Bas du dos', ['Lombaires', 'Lumbago', 'Sciatique']],
+    glute: ['Fessier', ['Fessier', 'Sciatique', 'Pyramidal']],
+    ham: ['Arrière de la cuisse', ['Ischio-jambiers', 'Élongation des ischios', 'Déchirure des ischios']],
+    calf: ['Mollet', ['Mollet', 'Tennis leg (déchirure du mollet)', 'Crampe']],
+    achilles: ['Talon / Achille', ['Tendon d\'Achille', 'Talon', 'Aponévrose plantaire']],
+  };
+  const TYPES = ['Entorse', 'Contracture', 'Élongation', 'Déchirure', 'Choc / contusion', 'Tendinite', 'Fracture', 'Luxation', 'Douleur', 'Autre'];
+  const DAYS = [[3, 'Quelques jours'], [7, '1 semaine'], [14, '2 semaines'], [21, '3 semaines'], [30, '1 mois'], [42, '6 semaines'], [90, '3 mois'], [0, 'Je ne sais pas']];
+  // the picture: a body with its muscles (johnbloor, Pixabay, CC0, through Wikimedia Commons), 536 × 1220; the clickable zones over it.
+  // A shape is drawn on the left of the picture (his right side); MIR copies it to the other side.
+  const IMG = 'img/corps-face.jpg', W = 536, H = 1220;
+  const MIR = ` transform="matrix(-1 0 0 1 ${W} 0)"`, mir = el => el.replace(/^<(\w+)/, '<$1' + MIR);
+  const P = {
+    head: '<ellipse cx="268" cy="108" rx="62" ry="88"/>', neck: '<rect x="222" y="190" width="92" height="52" rx="18"/>',
+    shoulder: '<circle cx="158" cy="288" r="44"/>',
+    chest: '<path d="M200,248 L336,248 L352,300 L346,378 L190,378 L184,300 Z"/>',
+    abdo: '<path d="M196,378 L340,378 L338,450 L344,528 L192,528 L198,450 Z"/>',
+    groin: '<path d="M178,528 L358,528 L366,600 L300,660 L268,668 L236,660 L170,600 Z"/>',
+    arm: '<polygon points="128,318 180,330 168,470 128,600 76,610 98,470"/>',
+    hand: '<ellipse cx="55" cy="662" rx="50" ry="56"/>',
+    thigh: '<polygon points="168,600 236,662 262,690 256,826 190,826 168,700"/>',
+    knee: '<ellipse cx="222" cy="856" rx="40" ry="40"/>',
+    shin: '<polygon points="186,894 256,894 250,1060 202,1060"/>',
+    ankle: '<ellipse cx="224" cy="1088" rx="32" ry="24"/>',
+    foot: '<ellipse cx="208" cy="1152" rx="58" ry="50"/>',
+  };
+  const two = (z, el) => [[z, 'd', el], [z, 'g', mir(el)]];
+  const SHAPES = [['head', '', P.head], ['neck', '', P.neck], ['chest', '', P.chest], ['abdo', '', P.abdo], ['groin', '', P.groin],
+    ...two('shoulder', P.shoulder), ...two('arm', P.arm), ...two('hand', P.hand), ...two('thigh', P.thigh), ...two('knee', P.knee),
+    ...two('shin', P.shin), ...two('ankle', P.ankle), ...two('foot', P.foot)];
+  const SIDE = { d: 'droit', g: 'gauche' };
+  function css() {
+    if (document.getElementById('bmCss')) return;
+    const st = document.createElement('style'); st.id = 'bmCss';
+    st.textContent = '.bm{display:flex;justify-content:center;margin:6px 0}.bm figure{margin:0;text-align:center}.bm figcaption{font-size:11px;opacity:.6}'
+      + '.bm svg{width:min(230px,62vw);height:auto;touch-action:manipulation;display:block}'
+      + '.bm [data-bz]{fill:rgba(220,38,38,0);stroke:none;cursor:pointer;transition:fill .15s}.bm [data-bz]:hover{fill:rgba(239,68,68,.28)}.bm [data-bz].on{fill:rgba(220,38,38,.55);stroke:#b91c1c;stroke-width:4}'
+      + '.bm-sug{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.bm-sug button,.bm-chips button{border:1px solid #d6d0cb;background:#fff;color:#14172b;border-radius:999px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer}'
+      + '.bm-sug button.on,.bm-chips button.on{background:#dc2626;border-color:#dc2626;color:#fff}.bm-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}.bm-lbl{font-weight:700;margin:10px 0 2px}'
+      + '@media (prefers-color-scheme: dark){.bm-sug button,.bm-chips button{background:#18223f;color:#eceef6;border-color:#263156}}';
+    document.head.appendChild(st);
+  }
+  const view = sel => `<figure><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="Le corps"><image href="${IMG}" width="${W}" height="${H}"/>${SHAPES.map(([z, s, el]) => el.replace(/^<(\w+)/, `<$1 data-bz="${z}" data-bs="${s}" class="${sel.zone === z && (sel.side || '') === s ? 'on' : ''}"`).replace('/>', `><title>${esc(ZONES[z][0] + (s ? ' ' + SIDE[s] : ''))}</title></${el.match(/^<(\w+)/)[1]}>`)).join('')}</svg><figcaption>Sa droite est à ta gauche · avant et arrière du corps</figcaption></figure>`;
+  // the body, the injuries of the chosen zone, the kind, the time to recover (opts.noDays: without the time)
+  function html(sel, opts = {}) {
+    css(); const z = ZONES[sel.zone];
+    return `<p class="bm-lbl">1. Touche la zone douloureuse</p><div class="bm">${view(sel)}</div>
+      ${z ? `<p class="bm-lbl">2. ${esc(z[0])}${sel.side ? ' ' + SIDE[sel.side] : ''} : c'est plutôt…</p><div class="bm-sug">${z[1].map(x => `<button type="button" class="${sel.part === x ? 'on' : ''}" data-bpart="${esc(x)}">${esc(x)}</button>`).join('')}<button type="button" class="${sel.part === z[0] ? 'on' : ''}" data-bpart="${esc(z[0])}">Je ne sais pas</button></div>` : ''}
+      ${z ? `<p class="bm-lbl">3. Le type de blessure</p><div class="bm-chips">${TYPES.map(x => `<button type="button" class="${sel.type === x ? 'on' : ''}" data-btype="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
+      ${z && !opts.noDays ? `<p class="bm-lbl">4. Temps de rétablissement estimé</p><div class="bm-chips">${DAYS.map(([n, l]) => `<button type="button" class="${sel.days === n ? 'on' : ''}" data-bdays="${n}">${l}</button>`).join('')}</div>` : ''}`;
+  }
+  function click(e, sel) {
+    const z = e.target.closest('[data-bz]');
+    if (z) { const nz = z.dataset.bz; if (nz !== sel.zone) { sel.part = ''; } sel.zone = nz; sel.side = z.dataset.bs || ''; if (!sel.part) sel.part = ''; return true; }
+    const p = e.target.closest('[data-bpart]'); if (p) { sel.part = p.dataset.bpart; return true; }
+    const t = e.target.closest('[data-btype]'); if (t) { sel.type = sel.type === t.dataset.btype ? '' : t.dataset.btype; return true; }
+    const d = e.target.closest('[data-bdays]'); if (d) { sel.days = +d.dataset.bdays; return true; }
+    return false;
+  }
+  // « Ischio-jambiers (gauche) »
+  const partLabel = sel => sel.part ? sel.part + (sel.side ? ` (${SIDE[sel.side]})` : '') : '';
+  return { html, click, partLabel, ZONES, TYPES, DAYS, SIDE };
+})();
+
+;
 /* ===== views.js ===== */
 /* Views: every screen of the app except the board editor. */
 var Views = (() => {
@@ -14209,6 +14799,7 @@ var Views = (() => {
       ${Onboard.planCard()}
       ${Quick.matchDayCard()}
       ${Quick.tomorrowCard()}
+      ${Health.followCard()}
       ${Quick.backupCard()}
       ${President.homeReminder()}
       ${Weather.placeholder()}
@@ -14764,6 +15355,7 @@ var Views = (() => {
         <div ${panel('apres')}>
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${Sources.sheetCard(m)}
+        <div id="hlBox"></div>
         <h2 class="section">Score</h2>
         <section class="card">
           <label class="switch"><input type="checkbox" id="mPlayed" ${m.played ? 'checked' : ''}><span>Le match est joué</span></label>
@@ -14786,6 +15378,7 @@ var Views = (() => {
       Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m);
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
       Media.mount(root); Library.mountDocs($('#docsBox', root), m, save);
+      Highlights.mount($('#hlBox', root), m, save, toast);
     };
     const cheer = before => { if (Ratings.result(m) === 'V' && before !== 'V') Ratings.celebrate(); };
     const setMin = (pid, v) => { const mm = m.minutes = m.minutes || {}; if (v === '' || v == null) delete mm[pid]; else mm[pid] = Math.max(0, Math.min(150, Math.round(+v) || 0)); };
@@ -15271,7 +15864,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 82, UPD = AppCfg.key('update-tried');
+  const BUILD = 92, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -15330,6 +15923,7 @@ var App = (() => {
     const recv = (location.hash.match(/^#\/recevoir\/([\w-]+)/) || [])[1];
     // (1.39) opened by the « AssistCoachAI / Footclubs → app » bookmark: the data arrive from the site
     const fromSite = /^#\/recevoir-source/.test(location.hash);
+    const fcData = (location.hash.match(/^#\/recevoir-source\/fc=(.+)$/) || [])[1]; // (1.85) the Footclubs data in the address
     if (fromSite) history.replaceState(null, '', location.pathname + location.search + '#/');
     if (recv) history.replaceState(null, '', location.pathname + location.search + '#/entrainements');
     const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
@@ -15342,7 +15936,7 @@ var App = (() => {
     window.addEventListener('hashchange', route);
     route();
     if (recv) Views.receiveLink(recv);
-    else if (fromSite) Sources.receive();
+    else if (fromSite) Sources.receive(fcData);
     else if (Auth.current()) News.check(); // after an update: « Quoi de neuf ? »
     Sync.start();
     // After the first exchange with the server: categories U6 … Vétérans for the new season

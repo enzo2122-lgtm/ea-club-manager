@@ -18,14 +18,16 @@ const Health = (() => {
   /* ---------- availability ---------- */
   // the unavailability running on a day (the return date is the first day he is back)
   const on = (p, date = today()) => (p && p.unavail || []).find(u => u.from <= date && (!u.to || date < u.to)) || null;
-  const label = u => `${KINDS[u.kind][0]} ${KINDS[u.kind][1]}${u.part ? ' · ' + u.part : u.reason ? ' · ' + u.reason : ''}${u.to ? ' · retour le ' + fmt(u.to) : ' · retour à confirmer'}`;
+  // (1.81) the part with its side and the kind of injury; « 📱 » when the player or his parents reported it
+  const side = u => u.side && typeof BodyMap !== 'undefined' ? ' ' + BodyMap.SIDE[u.side] : '';
+  const label = u => `${KINDS[u.kind][0]} ${KINDS[u.kind][1]}${u.part ? ' · ' + u.part + side(u) : u.reason ? ' · ' + u.reason : ''}${u.type ? ' · ' + u.type.toLowerCase() : ''}${u.to ? ' · retour le ' + fmt(u.to) : ' · retour à confirmer'}${u.self ? (u.parent ? ' · 📱 signalé par les parents' : ' · 📱 signalé par le joueur') : ''}`;
   // the small sign before a name (convocation, call of a session)
   const flag = (p, date) => { const u = on(p, date); return u ? `<span class="hl-flag" title="${esc(label(u))}" aria-label="${esc(label(u))}">${KINDS[u.kind][0]}</span>` : ''; };
 
   function dialog(p, done, u) {
-    const e = Object.assign({ kind: 'injury', from: today(), to: '', part: '', reason: '', note: '' }, u || {});
+    const e = Object.assign({ kind: 'injury', from: today(), to: '', part: '', zone: '', side: '', type: '', reason: '', note: '' }, u || {});
     const body = () => `<div class="chips">${Object.entries(KINDS).map(([k, [ic, l]]) => `<button class="chip ${e.kind === k ? 'on' : ''}" data-kind="${k}">${ic} ${l}</button>`).join('')}</div>
-      ${e.kind === 'injury' ? `<div class="lbl">Où ?</div><div class="chips hl-parts">${PARTS.map(x => `<button class="chip ${e.part === x ? 'on' : ''}" data-part="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
+      ${e.kind === 'injury' ? `<div class="hl-bm">${BodyMap.html(e, { noDays: true })}</div>${e.part && !e.zone ? `<p class="muted small">Zone : ${esc(e.part)}</p>` : ''}` : ''}
       ${e.kind === 'away' ? `<div class="lbl">Pourquoi ?</div><div class="chips">${AWAY.map(x => `<button class="chip ${e.reason === x ? 'on' : ''}" data-reason="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
       <div class="row2"><label class="fld"><span>Depuis le</span><input type="date" id="hlFrom" value="${esc(e.from)}"></label>
         <label class="fld"><span>${e.kind === 'susp' ? 'Rejoue le' : 'Retour prévu le'}</span><input type="date" id="hlTo" value="${esc(e.to)}"></label></div>
@@ -35,6 +37,7 @@ const Health = (() => {
       onOpen: r => {
         const keep = () => { e.from = $('#hlFrom', r).value || e.from; e.to = $('#hlTo', r).value; e.note = $('#hlNote', r).value; };
         r.querySelector('#hlBody').onclick = ev => {
+          if (BodyMap.click(ev, e)) { keep(); r.querySelector('#hlBody').innerHTML = body(); return; } // (1.81) the body: zone, injury, kind
           const b = ev.target.closest('button'); if (!b) return; keep();
           if (b.dataset.kind) e.kind = b.dataset.kind; if (b.dataset.part) e.part = b.dataset.part; if (b.dataset.reason) e.reason = b.dataset.reason;
           if (b.dataset.plus) e.to = addDays(e.from || today(), +b.dataset.plus);
@@ -45,7 +48,7 @@ const Health = (() => {
         { label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           e.from = $('#hlFrom', r).value || today(); e.to = $('#hlTo', r).value; e.note = $('#hlNote', r).value.trim();
           if (e.to && e.to <= e.from) { toast('Le retour doit être après le début', 'err'); return false; }
-          if (e.kind !== 'injury') e.part = ''; if (e.kind !== 'away') e.reason = '';
+          if (e.kind !== 'injury') { e.part = ''; e.zone = ''; e.side = ''; e.type = ''; } if (e.kind !== 'away') e.reason = '';
           const list = p.unavail = (p.unavail || []).filter(x => x.id !== e.id);
           list.push(Object.assign(e, { id: e.id || Store.uid(), by: (Auth.current() || {}).id || null })); list.sort((a, b) => b.from.localeCompare(a.from));
           Store.upsert('players', p); toast(u ? 'Modifié' : `${Store.shortName(p)} : ${KINDS[e.kind][1].toLowerCase()}`); done && done();
@@ -112,7 +115,7 @@ const Health = (() => {
     const load = ps.map(p => [p, risk(p.id)]).filter(([, r]) => r.acute || r.chronic).sort((a, b) => (b[1].ratio || 0) - (a[1].ratio || 0));
     root.innerHTML = `<header class="page-head"><div><h1>🚑 Infirmerie</h1><p class="sub">Blessés, malades, absents, suspendus · charge d'entraînement</p></div>
       <div class="head-actions"><a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a><button class="btn primary" data-hl="new">${I.plus}<span>Déclarer un joueur</span></button></div></header>
-      <div class="hl-sum">${Object.entries(KINDS).map(([k, [ic, l]]) => `<span>${ic} <b>${now.filter(([, u]) => u.kind === k).length}</b> ${l.toLowerCase()}${now.filter(([, u]) => u.kind === k).length > 1 ? 's' : ''}</span>`).join('')}</div>
+      ${followCard()}<div class="hl-sum">${Object.entries(KINDS).map(([k, [ic, l]]) => `<span>${ic} <b>${now.filter(([, u]) => u.kind === k).length}</b> ${l.toLowerCase()}${now.filter(([, u]) => u.kind === k).length > 1 ? 's' : ''}</span>`).join('')}</div>
       <h2 class="section">Indisponibles aujourd'hui (${now.length})</h2>
       <div class="list">${now.map(([p, u]) => `<div class="list-item hl-item k-${u.kind}"><a class="li-main" href="#/joueur/${p.id}"><b>${KINDS[u.kind][0]} ${esc(Store.fullName(p))}</b><span class="muted">${esc(teamsOf(p))} · ${esc(label(u).replace(/^\S+ /, ''))}${u.to ? ` · ${days(t, u.to)} j` : ''}${u.note ? ' · ' + esc(u.note) : ''}</span></a>
         <button class="btn soft" data-hlback="${p.id}|${u.id}">💪 De retour</button></div>`).join('') || '<p class="muted">Personne : tout le monde est disponible. 💪</p>'}</div>
@@ -135,6 +138,30 @@ const Health = (() => {
     };
   }
   const count = () => S().players.filter(Auth.seesPerson).filter(p => on(p)).length;
+
+  /* ---------- (1.81) news of the injured: a reminder to the coaches every 3 days (at once when the player reported it himself) ---------- */
+  const EVERY = 3;
+  function followUps() {
+    const t = today();
+    return S().players.filter(Auth.seesPerson).map(p => { const u = on(p, t); if (!u || u.kind !== 'injury') return null;
+      const checks = u.checks || [], last = checks.length ? checks[checks.length - 1] : null;
+      const due = last ? days(last, t) >= EVERY : (u.self || days(u.from, t) >= EVERY);
+      return due ? { p, u, last, since: days(u.from, t) } : null; }).filter(Boolean).sort((a, b) => b.since - a.since);
+  }
+  function followCard() {
+    const l = followUps(); if (!l.length) return '';
+    return `<section class="card hl-follow"><h2>📞 Prendre des nouvelles des blessés (${l.length})</h2><p class="muted small">Un petit appel ou un message : ça compte beaucoup pour un joueur blessé. Rappel tous les ${EVERY} jours.</p>
+      ${l.map(({ p, u, last, since }) => `<div class="hl-fu" data-fu="${p.id}|${u.id}"><a href="#/joueur/${p.id}"><b>${esc(Store.fullName(p))}</b><span class="muted small">${esc(label(u).replace(/^\S+ \S+ · /, ''))} · blessé depuis ${since} j · ${last ? 'nouvelles prises le ' + esc(fmt(last)) : 'pas encore de nouvelles'}</span></a>
+        <span class="chips">${p.phone ? `<a class="btn soft" href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ''))}">📞<span>Appeler</span></a>` : ''}<button class="btn primary" data-hlcheck="${p.id}|${u.id}">✓<span>Nouvelles prises</span></button></span></div>`).join('')}</section>`;
+  }
+  // « Nouvelles prises »: kept on the injury (shared with the other coaches), the line leaves the list
+  if (typeof document !== 'undefined') document.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-hlcheck]'); if (!b) return;
+    const [pid, uid] = b.dataset.hlcheck.split('|'), p = Store.get('players', pid), u = p && (p.unavail || []).find(x => x.id === uid); if (!u) return;
+    u.checks = [...(u.checks || []), today()].slice(-30); Store.upsert('players', p);
+    const row = b.closest('.hl-fu'), card = b.closest('.hl-follow'); if (row) row.remove(); if (card && !card.querySelector('.hl-fu')) card.remove();
+    toast(`Noté : nouvelles de ${Store.shortName(p)} prises 💚`);
+  });
 
   /* ---------- well-being: mood, mental, sleep, legs, soreness (1 to 10), filled in by the player on his page ---------- */
   const WB = [['mood', '🙂', 'Ressenti'], ['mental', '🧠', 'Mental'], ['sleep', '😴', 'Sommeil'], ['legs', '🦵', 'Jambes'], ['sore', '💪', 'Courbatures']];
@@ -163,5 +190,5 @@ const Health = (() => {
         return `<a href="#/joueur/${p.id}" class="${a <= 4.5 ? 'high' : ''}"><span>${esc(Store.fullName(p))}</span><b>${a.toFixed(1).replace('.', ',')}</b><i>${l.length} réponse${l.length > 1 ? 's' : ''} · moyenne sur 10</i></a>`; }).join('')}</div>`;
   }
 
-  return { on, flag, label, dialog, playerCard, click, rpeBox, rpeClick, risk, page, count, KINDS, WB, wellnessCard, wellnessSection, toCall };
+  return { followCard, followUps, on, flag, label, dialog, playerCard, click, rpeBox, rpeClick, risk, page, count, KINDS, WB, wellnessCard, wellnessSection, toCall };
 })();

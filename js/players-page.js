@@ -7,7 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hh = x => String(x || '').replace(':', 'h');
   const fmt = (d, o = { weekday: 'long', day: 'numeric', month: 'long' }) => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', o) : '';
-  let code = Member.current(), data = null, extra = null, tips = []; // tips (1.65): the coach's suggestions for him // extra (1.60): tables of the category + his whole season (member_standings)
+  let code = Member.current(), data = null, extra = null, tips = [], vids = [], prof = null; // vids, prof (1.81): highlights sent by the coaches, his profile; // tips (1.65): the coach's suggestions for him // extra (1.60): tables of the category + his whole season (member_standings)
   if (!code) { location.replace('moi.html' + location.hash); return; }
 
   let tt;
@@ -131,7 +131,75 @@
         + (nextD ? `<h3>🗓️ Prochaine journée · ${esc(fd(nextD))}</h3><table class="st-res">${next.filter(x => x.date === nextD).map(x => row(x, esc(x.time || '-'))).join('')}</table>` : ''); }).join('');
     return `<h2>Classements de ma catégorie</h2><div class="card st-card">${tabs}${tables}${pou}<p class="info">Résultats officiels de la FFF${teams.length > 1 ? '. Tu peux être appelé dans chacune de ces équipes.' : '.'}</p></div>`;
   }
+  /* ---------- (1.81) videos sent by the coach: highlights of the matches, the video of the team talk, the videos of his tips ---------- */
+  const vTitle = v => `${v.home ? 'contre' : 'chez'} ${v.opponent || '?'}${v.played && v.gf != null ? ` · ${v.home ? v.gf + ' – ' + v.ga : v.ga + ' – ' + v.gf}` : ''}`;
+  function videosTab() {
+    const hl = (vids || []).map(v => `<article class="card"><div class="m-date">${esc(fmt(v.date, { weekday: 'short', day: 'numeric', month: 'short' }))}${v.team ? ` <span class="kb kb-team">⚽ ${esc(v.team)}</span>` : ''}</div><div class="m-title">🎬 ${esc(vTitle(v))}</div>${VPlayer.list(v.clips)}</article>`).join('');
+    const other = [...(data.matches || []).filter(m => m.talk && m.talk.video).map(m => ({ url: m.talk.video, title: 'Le mot du coach · ' + (m.opponent || 'match') })),
+      ...(tips || []).flatMap(t => [...new Set([...(t.links || []), t.link].filter(x => /^https:\/\//.test(x || '')))].map(u => ({ url: u, title: t.title || 'Conseil du coach' })))];
+    return (hl ? `<h2>🎬 Highlights des matchs</h2>${hl}` : '') + (other.length ? `<h2>📺 Vidéos du coach</h2><div class="card">${VPlayer.list(other)}</div>` : '')
+      || '<h2>🎬 Vidéos</h2><p class="tip">Les highlights des matchs et les vidéos envoyées par ton coach arriveront ici. Elles se lisent directement dans l\'appli.</p>';
+  }
+  function homeVideos() { const v = (vids || [])[0]; return v ? `<h2>🎬 Dernières vidéos</h2><article class="card"><div class="m-title">${esc(vTitle(v))}</div>${VPlayer.list((v.clips || []).slice(0, 3))}${(v.clips || []).length > 3 ? '<p class="info">Les autres dans l\'onglet Vidéos.</p>' : ''}</article>` : ''; }
+  // the team talk of his next match (Séances tab)
+  function talkCard(m) {
+    const t = (m && m.talk) || {}, keys = (t.keys || []).filter(Boolean); if (!t.objective && !keys.length && !t.final) return '';
+    return `<div class="card talk"><h3>🗣️ Le mot du coach · ${esc(m.home ? 'contre ' : 'chez ')}${esc(m.opponent || '?')}</h3>${t.objective ? `<p class="obj">🎯 ${esc(t.objective)}</p>` : ''}${keys.length ? `<ol class="keys">${keys.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}${t.final ? `<p class="final">${esc(t.final)}</p>` : ''}${t.video ? VPlayer.list([{ url: t.video, title: 'La vidéo du coach' }]) : ''}</div>`;
+  }
+  /* ---------- (1.81) write to the coach: a message, an idea for the app, a bug (the coaches get a notification) ---------- */
+  const MK = { msg: ['💬', 'Message', 'Ton message au coach…'], idee: ['💡', 'Une idée', 'Une nouveauté que tu aimerais dans l\'appli…'], bug: ['🐞', 'Un bug', 'Ce qui ne marche pas : où, quand, ce que tu as fait…'] };
+  let msgKind = 'msg', msgDraft = '';
+  const SENT = AppCfg.key('sent-msgs');
+  const sentList = () => { try { return JSON.parse(localStorage.getItem(SENT)) || []; } catch (e) { return []; } };
+  function msgCard(short) {
+    if (short) return `<div class="card"><p class="info">💬 Une question, une idée pour l'appli, un bug ? <button class="b small" data-tab="coachs">Écrire au coach</button></p></div>`;
+    const k = MK[msgKind], sent = sentList().filter(x => x.c === code).slice(-3).reverse();
+    return `<h2>✉️ Écrire au coach</h2><div class="card msg-card"><div class="btns">${Object.entries(MK).map(([id, [ic, l]]) => `<button class="b small ${id === msgKind ? 'on' : ''}" data-mk="${id}">${ic} ${l}</button>`).join('')}</div>
+      <textarea id="msgBody" class="wb-note" rows="4" maxlength="1000" placeholder="${esc(k[2])}">${esc(msgDraft)}</textarea>
+      <button class="b yes on" data-msgsend>Envoyer</button><p class="info small">Tes coachs reçoivent une notification. Ils te répondent à l'entraînement ou par téléphone.</p>
+      ${sent.length ? `<p class="info small">Envoyés : ${sent.map(x => `${MK[x.k] ? MK[x.k][0] : '💬'} « ${esc(x.b.slice(0, 40))}${x.b.length > 40 ? '…' : ''} » (${esc(fmt(x.d, { day: 'numeric', month: 'short' }))})`).join(' · ')}</p>` : ''}</div>`;
+  }
+  async function msgSend() {
+    const ta = $('#msgBody'), b = ((ta || {}).value || '').trim(); msgDraft = b;
+    if (b.length < 3) return toast('Écris ton message', true);
+    const pre = msgKind === 'idee' ? '💡 Idée pour l\'appli : ' : msgKind === 'bug' ? '🐞 Bug dans l\'appli : ' : '';
+    try { await rpc('member_message', { p_code: code, p_body: pre + b, p_parent: false });
+      const l = sentList(); l.push({ c: code, k: msgKind, b, d: today() }); try { localStorage.setItem(SENT, JSON.stringify(l.slice(-20))); } catch (e) {}
+      msgDraft = ''; toast('Envoyé au coach ✓'); render(); }
+    catch (e) { toast(e.message, true); }
+  }
+  /* ---------- (1.81) his profile: weight, height, strong foot, strengths and weaknesses; the BMI is computed ---------- */
+  let draft = null;
+  const profDraft = () => (draft = draft || Object.assign({ weight: '', height: '', foot: '', strengths: '', weaknesses: '' }, prof || {}));
+  function bmi(w, h) { w = +String(w || '').replace(',', '.'); h = +String(h || '').replace(',', '.'); if (!w || !h) return null; const v = w / Math.pow(h / 100, 2); return v > 8 && v < 60 ? Math.round(v * 10) / 10 : null; }
+  const bmiLabel = v => v < 18.5 ? 'maigreur' : v < 25 ? 'corpulence normale' : v < 30 ? 'surpoids' : 'obésité';
+  function profileCard() {
+    if (prof === null) return '';
+    const p = profDraft(), v = bmi(p.weight, p.height);
+    return `<h2>🧍 Mon profil</h2><div class="card prof-card">
+      <div class="prof-row"><label>Poids (kg)<input id="pfW" inputmode="decimal" maxlength="5" value="${esc(p.weight)}" placeholder="70"></label><label>Taille (cm)<input id="pfH" inputmode="numeric" maxlength="3" value="${esc(p.height)}" placeholder="178"></label>
+        <div class="bmi"><b id="pfBmi">${v || '–'}</b><span id="pfBmiL">${v ? 'IMC · ' + bmiLabel(v) : 'IMC (auto)'}</span></div></div>
+      <p class="info">Pied fort</p><div class="btns">${['Droit', 'Gauche', 'Les deux'].map(f => `<button class="b small ${p.foot === f ? 'on' : ''}" data-foot="${f}">🦶 ${f}</button>`).join('')}</div>
+      <label class="prof-l">💪 Mes points forts<textarea id="pfS" class="wb-note" rows="2" maxlength="300" placeholder="Vitesse, jeu de tête, passes longues…">${esc(p.strengths)}</textarea></label>
+      <label class="prof-l">🎯 Mes points à travailler<textarea id="pfK" class="wb-note" rows="2" maxlength="300" placeholder="Pied gauche, endurance, placement…">${esc(p.weaknesses)}</textarea></label>
+      <button class="b yes on" data-profsave>Enregistrer</button><p class="info small">Ton coach voit ton profil. L'IMC est indicatif (chez les jeunes, il se lit avec les courbes de croissance).</p></div>`;
+  }
+  const readProf = () => { const p = profDraft(), g = id => ($(id) || {}).value || ''; if ($('#pfW')) Object.assign(p, { weight: g('#pfW').trim(), height: g('#pfH').trim(), strengths: g('#pfS'), weaknesses: g('#pfK') }); return p; };
+  async function profSave() {
+    const p = readProf(), w = String(p.weight).replace(',', '.'), h = String(p.height).replace(',', '.');
+    if (w && !(+w >= 15 && +w <= 200)) return toast('Poids : entre 15 et 200 kg', true);
+    if (h && !(+h >= 80 && +h <= 230)) return toast('Taille : en centimètres (ex : 178)', true);
+    try { prof = await rpc('member_profile', { p_code: code, p_data: { weight: w, height: h, foot: p.foot, strengths: p.strengths, weaknesses: p.weaknesses } }) || {}; draft = null; toast('Profil enregistré ✓'); render(); }
+    catch (e) { toast(e.message, true); }
+  }
+  // the BMI follows the typing; the drafts survive a redraw
+  document.addEventListener('input', e => {
+    if (e.target.id === 'msgBody') { msgDraft = e.target.value; return; }
+    if (!/^pf/.test(e.target.id || '')) return;
+    const p = readProf(), v = bmi(p.weight, p.height); $('#pfBmi').textContent = v || '–'; $('#pfBmiL').textContent = v ? 'IMC · ' + bmiLabel(v) : 'IMC (auto)';
+  });
   function render() {
+    if ($('#pfW')) readProf();
     const now = today();
     document.title = `${(data.me || {}).name || 'Joueur'} · ${club()}`;
     $('#club').textContent = `${club()} · Espace joueur`; $('#team').textContent = data.team || 'Équipe';
@@ -140,17 +208,17 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}
-          <p class="tip">📅 Tes entraînements et tes matchs (dispo / pas dispo) sont dans l'onglet <b>Séances</b>. <button class="b small" data-tab="seances">Voir mon programme</button></p>` },
-        { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, 'toi')}
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}${Injury.card()}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${Member.programme(data.trainings, data.matches, trRow) ? `<h2>Entraînements et matchs à venir</h2>${Member.programme(data.trainings, data.matches, trRow)}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'saison', icon: '📊', label: 'Saison', html: `${my.conv || my.f.mp ? `<h2>Ma saison</h2><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div>${my.yc || my.rc ? `<div><b>${my.yc ? '🟨' + my.yc : ''}${my.rc ? ' 🟥' + my.rc : ''}</b><span>cartons</span></div>` : ''}${my.sessions && my.sessions.total ? `<div><b>${Math.round(my.sessions.present / my.sessions.total * 100)} %</b><span>présence aux séances (${my.sessions.present}/${my.sessions.total})</span></div>` : ''}</div>${my.teams && Object.keys(my.teams).length > 1 ? `<p class="info">Joué avec : ${Object.entries(my.teams).map(([t, n]) => `<b>${esc(t)}</b> (${n})`).join(' · ')}</p>` : ''}<p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
           ${past.length ? `<h2>Résultats</h2>${past.slice(0, 12).map(pastCard).join('')}` : ''}
           ${standings()}`, empty: 'Ta saison s\'affichera ici après tes premiers matchs.' },
+        { id: 'videos', icon: '🎬', label: 'Vidéos', html: videosTab() },
         { id: 'pronos', icon: '🎯', label: 'Pronos', html: '<div class="card" id="gameBox"></div>' },
-        { id: 'coachs', icon: '📞', label: 'Coachs', html: `${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}`, empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
-        { id: 'moi', icon: '👤', label: 'Moi', html: `<h2>Réglages</h2>${Member.notifyCard('joueurs')}
+        { id: 'coachs', icon: '💬', label: 'Coach', html: `${msgCard()}${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}`, empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
+        { id: 'moi', icon: '👤', label: 'Moi', html: `${profileCard()}<h2>Réglages</h2>${Member.notifyCard('joueurs')}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
           ${Member.privacy()}` },
@@ -163,6 +231,8 @@
     code = Member.current();
     try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); await Member.replies(code, data); render();
       tips = await Member.tips(code); if (tips.length) render();
+      await Injury.load(code); render();
+      try { vids = await rpc('member_videos', { p_code: code }) || []; prof = await rpc('member_profile', { p_code: code }) || {}; render(); } catch (e) { /* a club server not yet updated */ }
       try { extra = await rpc('member_standings', { p_code: code }); render(); } catch (e) { /* a club server not yet updated: the page stays as before */ } }
     catch (e) {
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
@@ -191,6 +261,12 @@
   }
   document.addEventListener('click', e => {
     if (Member.onBar(e, () => load())) return;
+    if (VPlayer.onClick(e)) return;
+    if (Injury.onClick(e, code, false, '', msg => { toast(msg); render(); })) return;
+    const mk = e.target.closest('[data-mk]'); if (mk) { msgKind = mk.dataset.mk; render(); const ta = $('#msgBody'); if (ta) ta.focus(); return; }
+    if (e.target.closest('[data-msgsend]')) { msgSend(); return; }
+    if (e.target.closest('[data-profsave]')) { profSave(); return; }
+    const ft = e.target.closest('[data-foot]'); if (ft) { readProf(); profDraft().foot = ft.dataset.foot === profDraft().foot ? '' : ft.dataset.foot; render(); return; }
     if (e.target.closest('[data-perso]')) return Perso.open({ key: 'perso-' + ((data.me || {}).id || code), who: (data.me || {}).name || 'un joueur', toast, send: text => rpc('member_message', { p_code: code, p_body: text, p_parent: false }) });
     const c = e.target.closest('[data-cal]');
     if (c) { const m = data.matches.find(x => x.id === c.dataset.cal); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics(m)], { type: 'text/calendar;charset=utf-8' })); a.download = `match-${m.date}.ics`; document.body.appendChild(a); a.click(); a.remove(); return; }

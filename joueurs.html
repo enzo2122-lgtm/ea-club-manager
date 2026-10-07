@@ -164,6 +164,13 @@ button, select { font: inherit; }
 /* (1.63) the session shown to a player who answered « présent » */
 .sess { grid-column: 1 / -1; margin: 6px 0 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--brand) 7%, var(--surface)); border: 1px solid var(--line); }
 .sess h4 { margin: 0 0 6px; font-size: 15px; } .sess .obj { margin: 4px 0 8px; font-weight: 600; }
+textarea.wb-note { padding: 10px 12px; resize: vertical; }
+.prof-row { display: grid; grid-template-columns: 1fr 1fr 1.1fr; gap: 10px; align-items: end; }
+.prof-row label, .prof-l { display: grid; gap: 4px; font-size: 14px; font-weight: 600; } .prof-l { margin-top: 10px; }
+.prof-row input { min-height: 44px; border-radius: 12px; border: 1px solid var(--line); padding: 0 12px; font: inherit; font-size: 16px; background: var(--surface); color: var(--ink); width: 100%; box-sizing: border-box; }
+.bmi { display: grid; text-align: center; padding: 6px; border-radius: 12px; background: color-mix(in srgb, var(--brand) 9%, var(--surface)); } .bmi b { font-size: 22px; } .bmi span { font-size: 12px; opacity: .8; }
+.msg-card .btns { margin-bottom: 4px; }
+.prof-card .b.small.on, .msg-card .b.small.on { background: var(--brand); color: #fff; border-color: var(--brand); }
 .sess-ex { margin: 0; padding-left: 20px; } .sess-ex li { margin: 6px 0; }
 </style>
 <link rel="manifest" href="famille.webmanifest">
@@ -175,12 +182,15 @@ button, select { font: inherit; }
 <main id="page"><p class="empty">Chargement des informations de l'équipe…</p></main>
 <p class="credit">Clubbo · créée par <b>Coach Enzo</b></p>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script src="js/config.js?v=82"></script>
-<script src="js/appcfg.js?v=82"></script>
-<script src="js/sport.js?v=82"></script>
-<script src="js/member.js?v=82"></script>
-<script src="js/perso.js?v=82"></script>
-<script src="js/game.js?v=82"></script>
-<script src="js/players-page.js?v=82"></script>
+<script src="js/config.js?v=92"></script>
+<script src="js/appcfg.js?v=92"></script>
+<script src="js/sport.js?v=92"></script>
+<script src="js/member.js?v=92"></script>
+<script src="js/perso.js?v=92"></script>
+<script src="js/game.js?v=92"></script>
+<script src="js/bodymap.js?v=92"></script>
+<script src="js/injury.js?v=92"></script>
+<script src="js/vplayer.js?v=92"></script>
+<script src="js/players-page.js?v=92"></script>
 </body>
 </html>

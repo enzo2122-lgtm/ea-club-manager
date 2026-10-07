@@ -111,7 +111,7 @@
     // (1.64) in tabs: matches (présent / absent, covoiturage, coup de main), sessions, results, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'parents')}
       ${Member.tabs('parents', [
-        { id: 'matchs', icon: '⚽', label: 'Matchs', html: `<h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}` },
+        { id: 'matchs', icon: '⚽', label: 'Matchs', html: `${Injury.card(kid())}<h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}` },
         { id: 'benevoles', icon: '🙋', label: 'Bénévoles', html: (() => { const l = up.filter(m => volBox(m)); return l.length ? `<h2>Coup de main les jours de match</h2><p class="info">Buvette, arbitre de touche, délégué, lavage des maillots… Inscris-toi en un geste.</p>${l.map(m => `<article class="card ${m.home ? 'home' : 'away'} ${Member.kindCls(m)}" data-m="${esc(m.id)}">${Member.kindBadge(m)}<div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(String(m.time).replace(':', 'h')) : ''}</div><div class="m-title">${m.home ? '🏠 contre' : '🚌 chez'} ${esc(m.opponent || '?')}</div>${volBox(m)}</article>`).join('')}` : ''; })(), empty: 'Pas de besoin de bénévoles pour les prochains matchs.' },
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, (data.me || {}).firstName || kid())}
           ${Member.programme(trs, data.matches, trRow) ? `<h2>Entraînements et matchs à venir</h2>${Member.programme(trs, data.matches, trRow)}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
@@ -128,7 +128,7 @@
 
   async function load(quiet) {
     code = Member.current();
-    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos(); await Member.replies(code, data); tips = await Member.tips(code); render(); loadPhotos(); }
+    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos(); await Member.replies(code, data); tips = await Member.tips(code); await Injury.load(code); render(); loadPhotos(); }
     catch (e) {
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
       if (quiet && data) return;
@@ -150,6 +150,7 @@
 
   document.addEventListener('click', e => {
     if (Member.onBar(e, () => load())) return;
+    if (Injury.onClick(e, code, true, kid(), msg => { toast(msg); render(); loadPhotos(); })) return;
     if (e.target.closest('[data-perso]')) return Perso.open({ key: 'perso-' + ((data.me || {}).id || code), who: kid(), toast, send: text => rpc('member_message', { p_code: code, p_body: text, p_parent: true }) });
     const c = e.target.closest('[data-cal], [data-calall]');
     if (c) { const now = new Date().toISOString().slice(0, 10), list = c.dataset.cal ? data.matches.filter(m => m.id === c.dataset.cal) : data.matches.filter(m => !m.played && !m.exempt && m.date >= now);

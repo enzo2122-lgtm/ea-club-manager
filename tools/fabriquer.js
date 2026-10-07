@@ -31,6 +31,8 @@ COPY.forEach(p => { out[p] = read(p); });
 // what the club's folder had and Clubbo no longer has (an old module, the old test club): removed
 const gone = [...fs.readdirSync(path.join(DST, 'js')).filter(f => f.endsWith('.js') && f !== 'config.js' && f !== 'app.bundle.js' && !out['js/' + f]).map(f => 'js/' + f),
   ...['tools/demo-test.js'].filter(p => fs.existsSync(path.join(DST, p)))];
+// the pictures of Clubbo (img/: the body of the injuries…), copied as they are
+const IMGS = fs.existsSync(path.join(SRC, 'img')) ? fs.readdirSync(path.join(SRC, 'img')) : [];
 
 // 3. the club's words in the pages (club/fabrication.json : « remplacer » : { "fichier ou *.html": [["avant", "après"], …] })
 const rules = F.remplacer || {};
@@ -53,6 +55,7 @@ out['js/help.js'] = out['js/help.js'].replace(/const VERSION = '[^']*';/, `const
 
 // 5. written in the club's folder, then the bundle and the check
 for (const [p, s] of Object.entries(out)) { fs.mkdirSync(path.dirname(path.join(DST, p)), { recursive: true }); fs.writeFileSync(path.join(DST, p), s); }
+if (IMGS.length) { fs.mkdirSync(path.join(DST, 'img'), { recursive: true }); IMGS.forEach(f => fs.copyFileSync(path.join(SRC, 'img', f), path.join(DST, 'img', f))); }
 gone.forEach(p => fs.unlinkSync(path.join(DST, p)));
 // the club's own pages (privacy…) take the same version
 fs.readdirSync(DST).filter(f => f.endsWith('.html') && !out[f]).forEach(f => { const p = path.join(DST, f), s = fs.readFileSync(p, 'utf8'); fs.writeFileSync(p, s.replace(/\?v=\d+"/g, `?v=${build}"`)); });

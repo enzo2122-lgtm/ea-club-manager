@@ -5,9 +5,44 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
-    { n: 37, date: '2026-10-07', title: 'Programme par semaine, vidéos jusqu\'à 1 Go', items: [
+    { n: 47, date: '2026-10-07', title: 'Programme par semaine, vidéos jusqu\'à 1 Go', items: [
       ['📅', 'Espaces joueur et parents : le programme (entraînements et matchs) rangé par semaine — cette semaine et la suivante ouvertes, les autres semaines et les mois suivants en menus repliés, avec les réponses qui manquent.'],
       ['🎬', 'Bibliothèque et briefings vidéo : les vidéos jusqu\'à 1 Go (un match entier) pour faire les highlights.'],
+    ] },
+    { n: 46, date: '2026-10-07', title: 'Un analyste vidéo qui ne dort jamais 🧠', items: [
+      ['🧠', "Highlights automatiques → option « Analyse par IA (Gemini) » : l'IA de Google regarde le match et repère buts, tirs, poteaux, arrêts des deux équipes. Chaque coach met sa propre clé Google (quota gratuit, puis Google le facture directement)."],
+    ] },
+    { n: 45, date: '2026-10-07', title: 'YouTube entre dans la salle de montage ▶️', items: [
+      ['▶️', "Highlights automatiques avec un lien YouTube : la vidéo s'affiche dans la fenêtre, ⏱️ règle le coup d'envoi en un geste, et chaque moment se prévisualise. Pour le repérage au son, ajoute le fichier de la vidéo."],
+    ] },
+    { n: 44, date: '2026-10-07', title: 'Le monteur vidéo ne prend pas de pause café 🎬🤖', items: [
+      ['🤖', "Match → Après → Highlights → « Créer automatiquement » : l'appli écoute le son de la vidéo (cris, sifflets) et place les actions du direct. Tu valides en 2 minutes au lieu de revoir tout le match."],
+      ['🥅', "Match en direct : nouveaux boutons « Poteau / barre » et « Occasion adverse », pour les highlights des deux équipes."],
+      ['🔍', "Lecteur vidéo : zoom à deux doigts, double-tap ou ＋/－, et boutons ⏪ ⏯ ⏩."],
+    ] },
+    { n: 43, date: '2026-10-07', title: 'Les blessures arrivent en groupe 🤕🤕', items: [
+      ['🚑', "Joueurs et parents peuvent signaler plusieurs blessures en une fois (« ＋ Ajouter une autre blessure »), jusqu'à 5."],
+    ] },
+    { n: 42, date: '2026-10-07', title: 'Le lecteur vidéo a pris des vitamines 📼', items: [
+      ['🎬', "Highlights : le lecteur intégré lit aussi Dropbox et les fichiers MP4, MOV, WebM, 3GP. Pour un AVI ou un MPG (que les navigateurs ne savent pas lire), il propose de le télécharger."],
+    ] },
+    { n: 41, date: '2026-10-07', title: 'Footclubs, troisième round : KO 🥊', items: [
+      ['📥', "Favori Footclubs : à la fin de la lecture, un bouton « Envoyer à l'appli » apparaît sur Footclubs. Ça marche même quand l'appli est installée sur le PC."],
+    ] },
+    { n: 40, date: '2026-10-07', title: 'Footclubs, deuxième round 🥊', items: [
+      ['📥', "Favori Footclubs : l'appli s'ouvre dès le clic (plus de fenêtre bloquée), il ouvre la liste des licences tout seul, et un bandeau montre qu'il travaille."],
+    ] },
+    { n: 39, date: '2026-10-07', title: 'Footclubs, on a trouvé ta cachette', items: [
+      ['🔎', 'Favori Footclubs : il trouve la liste des licences même cachée dans un cadre dans un cadre. Si ça coince, il dit enfin pourquoi.'],
+    ] },
+    { n: 38, date: '2026-10-07', title: 'Le bonhomme est allé à la muscu 💪', items: [
+      ['🦵', 'Blessures : un vrai corps humain (muscles) à toucher. Chaque zone propose l\'avant et l\'arrière : cuisse → quadriceps ou ischios, jambe → mollet, cheville → Achille.'],
+    ] },
+    { n: 37, date: '2026-10-07', title: 'Silence, on tourne 🎬', items: [
+      ['🎬', 'Match → onglet Après : « Highlights » (liens vidéo + minute), puis « Envoyer aux joueurs ». Ils les regardent dans l\'appli, pop-corn non fourni.'],
+      ['💬', 'Les joueurs écrivent au coach (message, idée, bug) : notification sur ton téléphone.'],
+      ['🧍', 'Profil joueur : poids, taille, pied fort, points forts et faibles, IMC calculé tout seul.'],
+      ['🦴', 'Blessures : joueurs et parents touchent la zone sur un vrai corps humain (muscles), choisissent la blessure, le type et la durée. Tu es prévenu, et l\'Infirmerie te rappelle de prendre des nouvelles tous les 3 jours.'],
     ] },
     { n: 36, date: '2026-10-07', title: 'Tout le programme au même endroit', items: [
       ['📅', 'Espaces joueur et parents, onglet Séances : les entraînements ET les matchs à venir, par date, avec « dispo / pas dispo » sur chaque match.'],
@@ -186,11 +221,15 @@ const News = (() => {
     modal({ title: title || '🎉 Quoi de neuf ?', noFocus: true, body: list.map(block).join(''), actions: [{ label: 'C\'est parti !', kind: 'primary' }] });
   }
   // after an update: the news not seen yet on this device (a new install starts from the latest)
+  // (1.81) a bénévole or a referee (not a coach): only what is new, short (no bug fixed, no detail)
+  const FIX = /^(🐛|🐞|🔧|🩹|🛠️)$/, fixText = /corrig|r[ée]par|bug|plantait|ne marchait/i;
+  const brief = list => list.map(e => Object.assign({}, e, { items: e.items.filter(([ic, tx]) => !FIX.test(ic) && !fixText.test(tx)).slice(0, 2).map(([ic, tx]) => [ic, String(tx).split(/[.:(]/)[0]]) })).filter(e => e.items.length).slice(0, 3);
   function check() {
     const s = seen();
     const fresh = s ? LIST.filter(e => e.n > s) : LIST.slice(0, 2);
     setSeen(latest());
-    if (fresh.length) setTimeout(() => show(fresh), 700);
+    const pv = Auth.preview(), list = pv && pv.role !== 'coach' ? brief(fresh) : fresh;
+    if (list.length) setTimeout(() => show(list), 700);
   }
   const all = () => show(LIST, '📰 Les nouveautés');
   return { check, all, LIST };
