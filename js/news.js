@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 53, date: '2026-10-07', title: 'Le chat aussi dans l\'espace parents', items: [
+      ['💬', 'Espace parents : onglet « Chat », le chat de la catégorie de ton enfant (les messages partent à son nom).'],
+    ] },
     { n: 52, date: '2026-10-07', title: 'Le chat de la catégorie 💬', items: [
       ['💬', 'Un chat par catégorie : tous les joueurs (équipes A et B) et leurs coachs. Joueurs : onglet « Chat ». Coachs : Plus → « Chat des joueurs ».'],
       ['🛡️', 'Les mots grossiers ou insultants sont bloqués dans toutes les catégories, sauf Seniors et Vétérans.'],
