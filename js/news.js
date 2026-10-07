@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 49, date: '2026-10-07', title: 'Le son de tout le match', items: [
+      ['🔊', 'Analyse automatique au son : toute la vidéo est maintenant écoutée, jusqu\'à la dernière minute (avant, la fin des vidéos de téléphone était perdue).'],
+    ] },
     { n: 48, date: '2026-10-07', title: 'L\'analyse vidéo se fait toute seule 🤖', items: [
       ['🤖', 'Bibliothèque → une vidéo → Analyser → « Repérer les actions automatiquement » : l\'appli écoute le son du match (cris, sifflets) et crée une séquence à chaque moment fort, sans regarder la vidéo. Tu choisis ensuite ce que c\'est.'],
     ] },

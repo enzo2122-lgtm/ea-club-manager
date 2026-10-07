@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.92';
+  const VERSION = '1.93';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13372,6 +13372,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 49, date: '2026-10-07', title: 'Le son de tout le match', items: [
+      ['🔊', 'Analyse automatique au son : toute la vidéo est maintenant écoutée, jusqu\'à la dernière minute (avant, la fin des vidéos de téléphone était perdue).'],
+    ] },
     { n: 48, date: '2026-10-07', title: 'L\'analyse vidéo se fait toute seule 🤖', items: [
       ['🤖', 'Bibliothèque → une vidéo → Analyser → « Repérer les actions automatiquement » : l\'appli écoute le son du match (cris, sifflets) et crée une séquence à chaque moment fort, sans regarder la vidéo. Tu choisis ensuite ce que c\'est.'],
     ] },
@@ -14312,7 +14315,52 @@ var AutoHL = (() => {
   const mmss = n => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
 
   /* ---------- 1. the loudness of the sound, every half second (MP4 / MOV: the audio track only is decoded) ---------- */
+  /* (1.93) the whole match, for sure: the index of the video first (a phone writes it at the END of the file: MP4Box says where to
+     jump), then every audio frame read where the index says it is, in pieces of 4 Mo, decoded with a short queue. The old streaming
+     reading below lost the end of the match (only 56 % of a 10 min test video, 2 loud moments out of 4); it stays for the videos
+     cut in fragments (no sample table). */
   async function loudness(file, progress) {
+    await loadScript(MP4BOX);
+    if (typeof AudioDecoder === 'undefined') throw new Error('Ton navigateur ne sait pas analyser le son : utilise Chrome ou Edge à jour (ou Safari récent).');
+    const mp = MP4Box.createFile(); let info = null, err = null;
+    mp.onReady = i => { info = i; }; mp.onError = e => { err = e; };
+    const CH = 4 << 20; let off = 0, n = 0;
+    while (!info && !err && off < file.size && n++ < 2000) {
+      const buf = await file.slice(off, off + CH).arrayBuffer(); buf.fileStart = off;
+      const next = mp.appendBuffer(buf);
+      off = typeof next === 'number' && next > off ? next : off + buf.byteLength;
+      progress(Math.min(0.04, 0.04 * off / file.size));
+    }
+    if (err) throw new Error('Vidéo illisible (' + err + '). Utilise un fichier MP4 ou MOV.');
+    if (!info) throw new Error('Vidéo illisible : son index est introuvable. Utilise un fichier MP4 ou MOV.');
+    const track = (info.audioTracks || [])[0]; if (!track) throw new Error('Cette vidéo n\'a pas de son : impossible de repérer les moments forts au bruit.');
+    const samples = ((mp.getTrackSamplesInfo && mp.getTrackSamplesInfo(track.id)) || []).filter(s => s.size > 0 && s.offset >= 0);
+    if (!samples.length) return loudnessStream(file, progress); // fragmented video: no sample table
+    let desc; try { const en = mp.getTrackById(track.id).mdia.minf.stbl.stsd.entries[0]; desc = en.esds.esd.descs[0].descs[0].data; } catch (e) {}
+    const sums = [], cnts = []; let derr = null;
+    const decoder = new AudioDecoder({
+      output: ad => { try { const k = ad.numberOfFrames, a = new Float32Array(k); ad.copyTo(a, { planeIndex: 0, format: 'f32-planar' });
+          const t0 = ad.timestamp / 1e6, sr = ad.sampleRate;
+          for (let i = 0; i < k; i += 4) { const b = Math.floor((t0 + i / sr) / BIN); sums[b] = (sums[b] || 0) + a[i] * a[i]; cnts[b] = (cnts[b] || 0) + 1; } } catch (e) {} finally { ad.close(); } },
+      error: e => { derr = e; } });
+    try { decoder.configure({ codec: track.codec, sampleRate: track.audio.sample_rate, numberOfChannels: track.audio.channel_count, description: desc }); }
+    catch (e) { throw new Error('Format du son non pris en charge (' + track.codec + ').'); }
+    let i = 0;
+    while (i < samples.length) {
+      if (derr) throw new Error('Son illisible : ' + derr.message);
+      const start = samples[i].offset; let j = i;
+      while (j < samples.length && samples[j].offset >= start && samples[j].offset + samples[j].size - start <= CH && j - i < 3000) j++;
+      if (j === i) j = i + 1;
+      const end = Math.max(...samples.slice(i, j).map(s => s.offset + s.size)), buf = new Uint8Array(await file.slice(start, end).arrayBuffer());
+      for (let q = i; q < j; q++) { const s = samples[q];
+        try { decoder.decode(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: buf.subarray(s.offset - start, s.offset - start + s.size) })); } catch (e) {} }
+      i = j; progress(0.04 + 0.95 * i / samples.length);
+      while (decoder.decodeQueueSize > 200) await new Promise(r => setTimeout(r, 4));
+    }
+    try { await decoder.flush(); } catch (e) {} try { decoder.close(); } catch (e) {}
+    return Array.from({ length: sums.length }, (_, b) => 10 * Math.log10((sums[b] || 0) / Math.max(1, cnts[b] || 0) + 1e-10));
+  }
+  async function loudnessStream(file, progress) {
     await loadScript(MP4BOX);
     if (typeof AudioDecoder === 'undefined') throw new Error('Ton navigateur ne sait pas analyser le son : utilise Chrome ou Edge à jour (ou Safari récent).');
     return new Promise((resolve, reject) => {
@@ -15883,7 +15931,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 93, UPD = AppCfg.key('update-tried');
+  const BUILD = 94, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
