@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 37, date: '2026-10-07', title: 'Silence, on tourne 🎬', items: [
+      ['🎬', 'Match → onglet Après : « Highlights » (liens vidéo + minute), puis « Envoyer aux joueurs ». Ils les regardent dans l\'appli, pop-corn non fourni.'],
+      ['💬', 'Les joueurs écrivent au coach (message, idée, bug) : notification sur ton téléphone.'],
+      ['🧍', 'Profil joueur : poids, taille, pied fort, points forts et faibles, IMC calculé tout seul.'],
+    ] },
     { n: 36, date: '2026-10-07', title: 'Tout le programme au même endroit', items: [
       ['📅', 'Espaces joueur et parents, onglet Séances : les entraînements ET les matchs à venir, par date, avec « dispo / pas dispo » sur chaque match.'],
     ] },
@@ -182,11 +187,15 @@ const News = (() => {
     modal({ title: title || '🎉 Quoi de neuf ?', noFocus: true, body: list.map(block).join(''), actions: [{ label: 'C\'est parti !', kind: 'primary' }] });
   }
   // after an update: the news not seen yet on this device (a new install starts from the latest)
+  // (1.81) a bénévole or a referee (not a coach): only what is new, short (no bug fixed, no detail)
+  const FIX = /^(🐛|🐞|🔧|🩹|🛠️)$/, fixText = /corrig|r[ée]par|bug|plantait|ne marchait/i;
+  const brief = list => list.map(e => Object.assign({}, e, { items: e.items.filter(([ic, tx]) => !FIX.test(ic) && !fixText.test(tx)).slice(0, 2).map(([ic, tx]) => [ic, String(tx).split(/[.:(]/)[0]]) })).filter(e => e.items.length).slice(0, 3);
   function check() {
     const s = seen();
     const fresh = s ? LIST.filter(e => e.n > s) : LIST.slice(0, 2);
     setSeen(latest());
-    if (fresh.length) setTimeout(() => show(fresh), 700);
+    const pv = Auth.preview(), list = pv && pv.role !== 'coach' ? brief(fresh) : fresh;
+    if (list.length) setTimeout(() => show(list), 700);
   }
   const all = () => show(LIST, '📰 Les nouveautés');
   return { check, all, LIST };

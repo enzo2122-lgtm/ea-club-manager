@@ -621,7 +621,7 @@ const People = (() => {
     const tile = (v, l, cls = '') => `<div class="tile ${cls}"><b>${v}</b><span>${l}</span></div>`;
     const recentTr = s.att.list.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
     root.innerHTML = `<header class="page-head"><div><h1>${p.number ? `<span class="pnum big">${esc(p.number)}</span> ` : ''}${esc(name(p))}</h1>
-        <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
+        <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
       ${UI.kindSeg()}
       <div class="tiles">
@@ -632,6 +632,7 @@ const People = (() => {
       <p class="muted small">Saison ${esc(seasonLabel())} · les présences comptent les séances où le coach a fait l'appel.</p>
       <div class="cards2">
         ${Health.playerCard(p)}
+        ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
         ${Progress.card(p)}
         ${Tips.card(p)}
         ${Tests.card(p)}

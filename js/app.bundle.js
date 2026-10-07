@@ -5545,7 +5545,7 @@ var People = (() => {
     const tile = (v, l, cls = '') => `<div class="tile ${cls}"><b>${v}</b><span>${l}</span></div>`;
     const recentTr = s.att.list.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
     root.innerHTML = `<header class="page-head"><div><h1>${p.number ? `<span class="pnum big">${esc(p.number)}</span> ` : ''}${esc(name(p))}</h1>
-        <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
+        <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
       ${UI.kindSeg()}
       <div class="tiles">
@@ -5556,6 +5556,7 @@ var People = (() => {
       <p class="muted small">Saison ${esc(seasonLabel())} · les présences comptent les séances où le coach a fait l'appel.</p>
       <div class="cards2">
         ${Health.playerCard(p)}
+        ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
         ${Progress.card(p)}
         ${Tips.card(p)}
         ${Tests.card(p)}
@@ -13328,6 +13329,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 37, date: '2026-10-07', title: 'Silence, on tourne 🎬', items: [
+      ['🎬', 'Match → onglet Après : « Highlights » (liens vidéo + minute), puis « Envoyer aux joueurs ». Ils les regardent dans l\'appli, pop-corn non fourni.'],
+      ['💬', 'Les joueurs écrivent au coach (message, idée, bug) : notification sur ton téléphone.'],
+      ['🧍', 'Profil joueur : poids, taille, pied fort, points forts et faibles, IMC calculé tout seul.'],
+    ] },
     { n: 36, date: '2026-10-07', title: 'Tout le programme au même endroit', items: [
       ['📅', 'Espaces joueur et parents, onglet Séances : les entraînements ET les matchs à venir, par date, avec « dispo / pas dispo » sur chaque match.'],
     ] },
@@ -13505,11 +13511,15 @@ var News = (() => {
     modal({ title: title || '🎉 Quoi de neuf ?', noFocus: true, body: list.map(block).join(''), actions: [{ label: 'C\'est parti !', kind: 'primary' }] });
   }
   // after an update: the news not seen yet on this device (a new install starts from the latest)
+  // (1.81) a bénévole or a referee (not a coach): only what is new, short (no bug fixed, no detail)
+  const FIX = /^(🐛|🐞|🔧|🩹|🛠️)$/, fixText = /corrig|r[ée]par|bug|plantait|ne marchait/i;
+  const brief = list => list.map(e => Object.assign({}, e, { items: e.items.filter(([ic, tx]) => !FIX.test(ic) && !fixText.test(tx)).slice(0, 2).map(([ic, tx]) => [ic, String(tx).split(/[.:(]/)[0]]) })).filter(e => e.items.length).slice(0, 3);
   function check() {
     const s = seen();
     const fresh = s ? LIST.filter(e => e.n > s) : LIST.slice(0, 2);
     setSeen(latest());
-    if (fresh.length) setTimeout(() => show(fresh), 700);
+    const pv = Auth.preview(), list = pv && pv.role !== 'coach' ? brief(fresh) : fresh;
+    if (list.length) setTimeout(() => show(list), 700);
   }
   const all = () => show(LIST, '📰 Les nouveautés');
   return { check, all, LIST };
@@ -14033,6 +14043,106 @@ var Game = (() => {
   }
   // the forfeits of the week for a category (the coaches' session page): [{ name, gage }]
   return { mount, fixtures, compute, GAGES };
+})();
+
+;
+/* ===== vplayer.js ===== */
+/* (1.81) A video player inside the app: YouTube, Vimeo, Dailymotion, Google Drive, Streamable or a video file (mp4, webm…).
+   Shared by the coach's app (highlights of a match) and the players' page (videos sent by the coach). Other links open in a new tab. */
+var VPlayer = (() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // « 1:23 », « 83 » or « 1m23 » → seconds
+  const secs = t => { const s = String(t || '').trim(); if (!s) return 0; if (/^\d+$/.test(s)) return +s; const p = s.split(/[:hm]/).map(x => +x || 0); return p.reduce((a, x) => a * 60 + x, 0); };
+  const mmss = n => n ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}` : '';
+  // the embeddable address of a link (null: not playable here)
+  function src(url, start) {
+    const u = String(url || '').trim(); if (!/^https:\/\//.test(u)) return null;
+    const st = secs(start) || secs((u.match(/[?&#]t=(\d+[hms\d]*)/) || [])[1]);
+    let m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/);
+    if (m) return { kind: 'frame', url: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0&playsinline=1${st ? '&start=' + st : ''}` };
+    if ((m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/))) return { kind: 'frame', url: `https://player.vimeo.com/video/${m[1]}${st ? '#t=' + st + 's' : ''}` };
+    if ((m = u.match(/dai(?:lymotion\.com\/video|\.ly)\/([a-z0-9]+)/i))) return { kind: 'frame', url: `https://www.dailymotion.com/embed/video/${m[1]}${st ? '?start=' + st : ''}` };
+    if ((m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) return { kind: 'frame', url: `https://drive.google.com/file/d/${m[1]}/preview` };
+    if ((m = u.match(/streamable\.com\/([a-z0-9]+)/i))) return { kind: 'frame', url: `https://streamable.com/e/${m[1]}` };
+    if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(u)) return { kind: 'video', url: u + (st ? '#t=' + st : '') };
+    return null;
+  }
+  const label = url => { const h = (String(url).match(/^https:\/\/(?:www\.)?([^/]+)/) || [])[1] || 'lien'; return /youtu/.test(h) ? 'YouTube' : /vimeo/.test(h) ? 'Vimeo' : /drive\.google/.test(h) ? 'Google Drive' : h; };
+  function css() {
+    if (document.getElementById('vpCss')) return;
+    const st = document.createElement('style'); st.id = 'vpCss';
+    st.textContent = '.vp-back{position:fixed;inset:0;z-index:120;background:rgba(5,8,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}'
+      + '.vp-box{width:min(960px,100%)}.vp-frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}.vp-frame iframe,.vp-frame video{position:absolute;inset:0;width:100%;height:100%;border:0}'
+      + '.vp-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#fff;margin-bottom:8px}.vp-bar b{font-size:16px}.vp-bar button,.vp-bar a{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}'
+      + '.vp-list{display:grid;gap:8px}.vp-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line,#ddd);background:var(--surface,#fff);color:inherit;font:inherit;text-align:left;cursor:pointer;width:100%}'
+      + '.vp-item .pl{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#be123c;color:#fff;font-size:15px}.vp-item small{display:block;opacity:.7}';
+    document.head.appendChild(st);
+  }
+  // opens the player over the page
+  function open(url, start, title) {
+    css(); const s = src(url, start);
+    if (!s) { window.open(url, '_blank', 'noopener'); return; }
+    const o = document.createElement('div'); o.className = 'vp-back';
+    o.innerHTML = `<div class="vp-box"><div class="vp-bar"><b>${esc(title || 'Vidéo')}</b><span><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">↗</a> <button type="button" data-vpx>✕ Fermer</button></span></div>
+      <div class="vp-frame">${s.kind === 'video' ? `<video src="${esc(s.url)}" controls autoplay playsinline></video>` : `<iframe src="${esc(s.url)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`}</div></div>`;
+    const close = () => { o.remove(); document.removeEventListener('keydown', key); };
+    const key = e => { if (e.key === 'Escape') close(); };
+    o.onclick = e => { if (e.target === o || e.target.closest('[data-vpx]')) close(); };
+    document.addEventListener('keydown', key); document.body.appendChild(o);
+  }
+  // a list of clips: [{ url, t, title }] → buttons that open the player (data-vp…)
+  function list(clips) {
+    css();
+    return `<div class="vp-list">${(clips || []).filter(c => c && c.url).map(c => `<button type="button" class="vp-item" data-vp="${esc(c.url)}" data-vpt="${esc(c.t || '')}" data-vptitle="${esc(c.title || '')}"><span class="pl">▶</span><span><b>${esc(c.title || 'Vidéo')}</b><small>${esc(label(c.url))}${secs(c.t) ? ' · à ' + mmss(secs(c.t)) : ''}</small></span></button>`).join('')}</div>`;
+  }
+  // a click on one of these buttons (delegated by the page); true when handled
+  function onClick(e) { const b = e.target.closest('[data-vp]'); if (!b) return false; open(b.dataset.vp, b.dataset.vpt, b.dataset.vptitle); return true; }
+  return { open, list, onClick, src, secs, mmss };
+})();
+
+;
+/* ===== highlights.js ===== */
+/* (1.81) Highlights of a match (coach and responsable, tab « Après »): the best moments as video links (YouTube, Drive, Veo…),
+   each with its title and its start time, then « Envoyer aux joueurs »: they see them in their space (tab Vidéos) and get a notification. */
+var Highlights = (() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  function html(m) {
+    const cl = m.highlights || [];
+    return `<section class="card hl-card"><h2>🎬 Highlights du match</h2>
+      <p class="muted small">Colle le lien de chaque vidéo (YouTube, Google Drive, Vimeo, Veo, fichier mp4…) avec un titre et, si besoin, la minute où ça commence. Les joueurs les regardent dans l'appli.</p>
+      ${cl.length ? VPlayer.list(cl) + `<div class="chips" style="margin-top:6px">${cl.map(c => `<button class="chip" data-hldel="${esc(c.id)}">✕ ${esc(c.title || 'Vidéo')}</button>`).join('')}</div>` : ''}
+      <div class="row3" style="margin-top:10px">
+        <label class="fld"><span>Titre</span><input id="hlTitle" maxlength="80" placeholder="But de Yanis, 23e"></label>
+        <label class="fld"><span>Lien de la vidéo</span><input id="hlUrl" inputmode="url" placeholder="https://youtu.be/…"></label>
+        <label class="fld"><span>Début (min:s)</span><input id="hlT" maxlength="8" placeholder="1:23"></label>
+      </div>
+      <div class="chips"><button class="btn soft" data-hladd>＋ Ajouter la vidéo</button>
+        ${cl.length ? `<button class="btn primary" data-hlsend>📣 ${m.hlSent ? 'Renvoyer aux joueurs' : 'Envoyer aux joueurs'}</button>` : ''}</div>
+      ${m.hlSent ? `<p class="muted small">✓ Envoyé le ${esc(new Date(m.hlSent).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }))} : les joueurs de l'équipe les voient dans l'onglet « Vidéos ».</p>` : ''}</section>`;
+  }
+  // box: the element to fill; save: stores the match; toast: the message bar
+  function mount(box, m, save, toast) {
+    if (!box) return;
+    const draw = () => { box.innerHTML = html(m); };
+    draw();
+    box.onclick = e => {
+      if (VPlayer.onClick(e)) return;
+      const d = e.target.closest('[data-hldel]');
+      if (d) { if (!confirm('Retirer cette vidéo ?')) return; m.highlights = (m.highlights || []).filter(c => c.id !== d.dataset.hldel); save(); return draw(); }
+      if (e.target.closest('[data-hladd]')) {
+        const url = box.querySelector('#hlUrl').value.trim(), title = box.querySelector('#hlTitle').value.trim(), t = box.querySelector('#hlT').value.trim();
+        if (!/^https:\/\//.test(url)) return toast('Colle un lien qui commence par https://', true);
+        m.highlights = [...(m.highlights || []), { id: uid(), url, title: title || 'Action ' + ((m.highlights || []).length + 1), t }];
+        save(); draw(); toast(VPlayer.src(url) ? 'Vidéo ajoutée ✓' : 'Ajoutée ✓ (ce lien s\'ouvrira dans un nouvel onglet)'); return;
+      }
+      if (e.target.closest('[data-hlsend]')) {
+        m.hlSent = new Date().toISOString(); save(); draw();
+        toast('Envoyé : les joueurs sont prévenus 🎬');
+      }
+    };
+  }
+  return { mount, html };
 })();
 
 ;
@@ -14760,6 +14870,7 @@ var Views = (() => {
         <div ${panel('apres')}>
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${Sources.sheetCard(m)}
+        <div id="hlBox"></div>
         <h2 class="section">Score</h2>
         <section class="card">
           <label class="switch"><input type="checkbox" id="mPlayed" ${m.played ? 'checked' : ''}><span>Le match est joué</span></label>
@@ -14782,6 +14893,7 @@ var Views = (() => {
       Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m);
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
       Media.mount(root); Library.mountDocs($('#docsBox', root), m, save);
+      Highlights.mount($('#hlBox', root), m, save, toast);
     };
     const cheer = before => { if (Ratings.result(m) === 'V' && before !== 'V') Ratings.celebrate(); };
     const setMin = (pid, v) => { const mm = m.minutes = m.minutes || {}; if (v === '' || v == null) delete mm[pid]; else mm[pid] = Math.max(0, Math.min(150, Math.round(+v) || 0)); };
