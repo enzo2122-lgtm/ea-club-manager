@@ -106,29 +106,42 @@ const AutoHL = (() => {
     const hasLive = ((m.live || {}).events || []).some(e => Sport.scoreOf(e.type) || KEEP[e.type]);
     const body = () => {
       const n = st.list.filter(x => x.keep).length;
-      return `<p class="muted small">Gratuit, sur ton appareil : la vidéo n'est envoyée nulle part. L'appli repère les moments où le bruit monte (cris, sifflets, applaudissements)${hasLive ? ' et place les actions notées pendant le match en direct' : ''}. Tu vérifies, tu nommes, tu ajoutes.</p>
-        <div class="ahl-step"><b>1. La vidéo complète du match</b> (fichier MP4 ou MOV, même plusieurs Go)
-          <label class="btn soft ahl-file">📁 ${st.file ? esc(st.file.name) : 'Choisir le fichier'}<input type="file" accept="video/mp4,video/quicktime,video/*" id="ahlFile" hidden></label>
-          ${st.busy ? `<p class="ahl-busy">⏳ ${esc(st.busy)}</p>` : st.db ? `<p class="muted small">✓ Son analysé : ${st.sound.length} moment${st.sound.length > 1 ? 's' : ''} fort${st.sound.length > 1 ? 's' : ''} repéré${st.sound.length > 1 ? 's' : ''}.</p>` : ''}
-          ${st.url ? `<video id="ahlVid" src="${st.url}" controls playsinline preload="metadata"></video>` : ''}</div>
+      return `<p class="muted small">Gratuit. ${hasLive ? 'L\'appli place les actions notées pendant le match en direct, et' : 'L\'appli'} repère au son les moments où le bruit monte (cris, sifflets, applaudissements) si tu lui donnes le fichier. Tu vérifies, tu nommes, tu ajoutes.</p>
+        <div class="ahl-step"><b>1. La vidéo complète du match</b>
+          <label class="fld"><span>Son lien en ligne (YouTube « non répertoriée », Drive, Dropbox…) : c'est lui que les joueurs regardent</span><input id="ahlLink" class="ahl-link" inputmode="url" placeholder="https://youtu.be/…" value="${esc(st.link)}"></label>
+          <p class="muted small">Et, pour repérer aussi les moments au son, le fichier de la même vidéo (MP4 ou MOV, même plusieurs Go ; il n'est envoyé nulle part). YouTube ne laisse pas écouter le son de ses vidéos.</p>
+          <label class="btn soft ahl-file">📁 ${st.file ? esc(st.file.name) : 'Choisir le fichier (facultatif)'}<input type="file" accept="video/mp4,video/quicktime,video/*" id="ahlFile" hidden></label>
+          ${st.busy ? `<p class="ahl-busy">⏳ ${esc(st.busy)}</p>` : st.db ? `<p class="muted small">✓ Son analysé : ${st.sound.length} moment${st.sound.length > 1 ? 's' : ''} fort${st.sound.length > 1 ? 's' : ''} repéré${st.sound.length > 1 ? 's' : ''}.</p>` : ''}</div>
         ${hasLive ? `<div class="ahl-step"><b>2. Le coup d'envoi dans la vidéo</b> <span class="muted small">(pour placer les actions du direct)</span>
           <div class="row3"><label class="fld"><span>1re mi-temps à</span><input id="ahlK1" placeholder="2:35" value="${esc(st.k1)}"></label><label class="fld"><span>2e mi-temps à (si la vidéo est coupée)</span><input id="ahlK2" placeholder="52:10" value="${esc(st.k2)}"></label>
-          ${st.url ? '<div class="fld"><span>&nbsp;</span><button class="btn soft" data-ahl="k1now">⏱️ Mettre l\'instant de la vidéo</button></div>' : ''}</div></div>` : ''}
+          ${P ? '<div class="fld"><span>&nbsp;</span><button type="button" class="btn soft" data-ahl="k1now">⏱️ Mettre l\'instant de la vidéo</button></div>' : ''}</div>
+          ${P ? '<p class="muted small">Mets la vidéo au coup d\'envoi, puis touche ⏱️.</p>' : ''}</div>` : ''}
         ${st.list.length ? `<div class="ahl-step"><b>${hasLive ? 3 : 2}. Les moments proposés</b> <span class="muted small">(décoche ceux à jeter, choisis ce que c'est)</span>
           <div class="ahl-list">${st.list.map((x, i) => `<div class="ahl-row ${x.keep ? '' : 'off'}"><label class="ahl-ck"><input type="checkbox" data-ahlk="${i}" ${x.keep ? 'checked' : ''}><b>${mmss(Math.max(0, x.t - BEFORE[x.src]))}</b></label>
-            ${st.url ? `<button class="btn soft ahl-play" data-ahlp="${i}">▶</button>` : ''}<input class="ahl-title" data-ahlt="${i}" value="${esc(x.title)}" maxlength="80">
+            ${P ? `<button type="button" class="btn soft ahl-play" data-ahlp="${i}">▶</button>` : ''}<input class="ahl-title" data-ahlt="${i}" value="${esc(x.title)}" maxlength="80">
             <select data-ahls="${i}"><option value="">C'est…</option>${KINDS.map(([k, l]) => `<option value="${k}" ${x.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
             <span class="muted small">${x.src === 'live' ? '📱 direct' : '🔊 bruit'}</span></div>`).join('')}</div></div>` : ''}
-        <div class="ahl-step"><b>${st.list.length ? (hasLive ? 4 : 3) : hasLive ? 3 : 2}. Le lien en ligne de cette même vidéo</b> <span class="muted small">(YouTube « non répertoriée », Google Drive, Dropbox… : c'est lui que les joueurs regardent)</span>
-          <input id="ahlLink" class="ahl-link" inputmode="url" placeholder="https://youtu.be/…" value="${esc(st.link)}"></div>
+        ${!st.list.length && !st.busy ? `<p class="tip">${hasLive ? 'Aucune action du direct placée pour l\'instant : indique le coup d\'envoi, ou' : 'Pas d\'actions notées en direct pour ce match :'} choisis le fichier de la vidéo pour repérer les moments au son.</p>` : ''}
         <p class="muted small">${n} extrait${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''}.</p>`;
     };
-    let root = null;
+    let root = null, P = null, ytp = null;
+    const ytId = u => (String(u || '').match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/) || [])[1];
+    // the player: the file, or YouTube (its API gives the time and seeks); kept between the redraws
+    function setMedia() {
+      const box = root && root.querySelector('#ahlMedia'); if (!box) return;
+      if (st.url) { if (!box.querySelector('video')) box.innerHTML = `<video src="${st.url}" controls playsinline preload="metadata"></video>`; const v = box.querySelector('video'); P = { time: () => v.currentTime, seek: s => { v.currentTime = s; v.play(); } }; ytp = null; return; }
+      const id = ytId(st.link);
+      if (!id) { box.innerHTML = ''; P = null; ytp = null; return; }
+      if (ytp && ytp.__id === id) return;
+      box.innerHTML = '<div class="ahl-yt"><div id="ahlYT"></div></div>'; P = null;
+      loadYT().then(() => { ytp = new YT.Player('ahlYT', { videoId: id, host: 'https://www.youtube-nocookie.com', playerVars: { playsinline: 1, rel: 0 }, events: { onReady: () => { P = { time: () => ytp.getCurrentTime(), seek: s => { ytp.seekTo(s, true); ytp.playVideo(); } }; draw(); } } }); ytp.__id = id; })
+        .catch(() => toast('Lecteur YouTube indisponible (connexion ?)', 'err'));
+    }
     const draw = () => { if (!root) return; const b = root.querySelector('#ahlBody'), sc = b.scrollTop; b.innerHTML = body(); b.scrollTop = sc; };
     const readInputs = () => { if (!root) return; const g = id => (root.querySelector(id) || {}).value; if (root.querySelector('#ahlK1')) { st.k1 = g('#ahlK1').trim(); st.k2 = g('#ahlK2').trim(); } if (root.querySelector('#ahlLink')) st.link = g('#ahlLink').trim(); };
     async function analyse(file) {
       if (st.url) URL.revokeObjectURL(st.url);
-      st.file = file; st.url = URL.createObjectURL(file); st.db = null; st.sound = []; st.busy = 'Lecture du son… 0 %'; draw();
+      st.file = file; st.url = URL.createObjectURL(file); st.db = null; st.sound = []; st.busy = 'Lecture du son… 0 %'; root.querySelector('#ahlMedia').innerHTML = ''; setMedia(); draw();
       try {
         let lastDraw = 0;
         st.db = await loudness(file, p => { const now = Date.now(); if (now - lastDraw > 500) { lastDraw = now; st.busy = `Lecture du son… ${Math.round(p * 100)} %`; const el = root && root.querySelector('.ahl-busy'); if (el) el.textContent = '⏳ ' + st.busy; } });
@@ -136,19 +149,20 @@ const AutoHL = (() => {
         if (!st.sound.length) toast('Pas de moment fort repéré au son (vidéo très calme ou sans son).');
       } catch (e) { st.busy = ''; draw(); toast(e.message || 'Analyse impossible', 'err'); }
     }
-    modal({ title: '🤖 Highlights automatiques', noFocus: true, wide: true, body: `<div id="ahlBody" class="ahl">${(merge(), body())}</div>`,
+    modal({ title: '🤖 Highlights automatiques', noFocus: true, wide: true, body: `<div class="ahl"><div id="ahlMedia"></div><div id="ahlBody">${(merge(), body())}</div></div>`,
       onOpen: r => {
-        root = r; css();
+        root = r; css(); setMedia();
         r.addEventListener('change', e => {
           if (e.target.id === 'ahlFile' && e.target.files[0]) return analyse(e.target.files[0]);
           const k = e.target.dataset.ahlk; if (k != null) { st.list[+k].keep = e.target.checked; return draw(); }
           const s = e.target.dataset.ahls; if (s != null) { const x = st.list[+s]; x.kind = e.target.value; const l = (KINDS.find(z => z[0] === x.kind) || [])[1]; if (l && /^🔊|^(⚽|🎯|⚠️|🥅|🧤|🟨)/.test(x.title)) x.title = l.replace(/ \((nous|eux)\)/, x.kind.endsWith('Them') ? ' adverse' : ''); return draw(); }
           if (e.target.id === 'ahlK1' || e.target.id === 'ahlK2') { readInputs(); merge(); draw(); }
+          if (e.target.id === 'ahlLink') { st.link = e.target.value.trim(); setMedia(); draw(); }
         });
         r.addEventListener('input', e => { const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
         r.addEventListener('click', e => {
-          const p = e.target.closest('[data-ahlp]'); if (p) { const v = r.querySelector('#ahlVid'), x = st.list[+p.dataset.ahlp]; if (v) { v.currentTime = Math.max(0, x.t - BEFORE[x.src]); v.play(); v.scrollIntoView({ block: 'nearest' }); } return; }
-          if (e.target.closest('[data-ahl="k1now"]')) { const v = r.querySelector('#ahlVid'); if (v) { readInputs(); st.k1 = mmss(v.currentTime); merge(); draw(); } }
+          const p = e.target.closest('[data-ahlp]'); if (p) { const x = st.list[+p.dataset.ahlp]; if (P) { P.seek(Math.max(0, x.t - BEFORE[x.src])); r.querySelector('#ahlMedia').scrollIntoView({ block: 'nearest' }); } return; }
+          if (e.target.closest('[data-ahl="k1now"]')) { if (P) { readInputs(); st.k1 = mmss(P.time()); merge(); draw(); } }
         });
       },
       actions: [{ label: 'Fermer' }, { label: 'Ajouter aux highlights', kind: 'primary', onClick: () => {
@@ -163,11 +177,12 @@ const AutoHL = (() => {
         save(); if (st.url) URL.revokeObjectURL(st.url); done && done(); toast(`${add.length} extrait${add.length > 1 ? 's' : ''} ajouté${add.length > 1 ? 's' : ''} : vérifie, puis « Envoyer aux joueurs » 🎬`);
       } }] });
   }
+  const loadYT = () => window.YT && YT.Player ? Promise.resolve() : new Promise((ok, ko) => { const prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { if (prev) prev(); ok(); }; const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; s.onerror = ko; document.head.appendChild(s); });
   function css() {
     if (document.getElementById('ahlCss')) return;
     const s = document.createElement('style'); s.id = 'ahlCss';
     s.textContent = '.ahl-step{margin:12px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.ahl-step>b{display:block;margin-bottom:6px}.ahl-file{display:inline-flex;cursor:pointer;margin:4px 0}'
-      + '.ahl video{width:100%;max-height:44vh;background:#000;border-radius:10px;margin-top:8px}.ahl-busy{font-weight:700}.ahl-list{display:grid;gap:6px;max-height:46vh;overflow:auto}'
+      + '.ahl video{width:100%;max-height:40vh;background:#000;border-radius:10px}.ahl-yt{position:relative;aspect-ratio:16/9;max-height:40vh;background:#000;border-radius:10px;overflow:hidden}.ahl-yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}#ahlMedia{position:sticky;top:0;z-index:1}.ahl-busy{font-weight:700}.ahl-list{display:grid;gap:6px;max-height:46vh;overflow:auto}'
       + '.ahl-row{display:grid;grid-template-columns:auto auto minmax(140px,1fr) minmax(0,150px) auto;gap:6px;align-items:center;padding:6px;border-radius:10px;background:var(--bg)}.ahl-row.off{opacity:.45}.ahl-ck{display:flex;gap:6px;align-items:center;white-space:nowrap}'
       + '.ahl-title,.ahl-row select,.ahl-link{min-height:38px;border-radius:10px;border:1px solid var(--line);padding:0 8px;font:inherit;background:var(--surface);color:var(--ink);min-width:0}.ahl-link{width:100%;box-sizing:border-box}'
       + '@media (max-width:640px){.ahl-row{grid-template-columns:auto auto 1fr}.ahl-row select{grid-column:1/3}.ahl-row>span{grid-column:3}}';

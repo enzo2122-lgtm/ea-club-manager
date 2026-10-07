@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 45, date: '2026-10-07', title: 'YouTube entre dans la salle de montage ▶️', items: [
+      ['▶️', "Highlights automatiques avec un lien YouTube : la vidéo s'affiche dans la fenêtre, ⏱️ règle le coup d'envoi en un geste, et chaque moment se prévisualise. Pour le repérage au son, ajoute le fichier de la vidéo."],
+    ] },
     { n: 44, date: '2026-10-07', title: 'Le monteur vidéo ne prend pas de pause café 🎬🤖', items: [
       ['🤖', "Match → Après → Highlights → « Créer automatiquement » : l'appli écoute le son de la vidéo (cris, sifflets) et place les actions du direct. Tu valides en 2 minutes au lieu de revoir tout le match."],
       ['🥅', "Match en direct : nouveaux boutons « Poteau / barre » et « Occasion adverse », pour les highlights des deux équipes."],
