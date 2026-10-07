@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.84';
+  const VERSION = '1.85';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13356,6 +13356,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 41, date: '2026-10-07', title: 'Footclubs, troisième round : KO 🥊', items: [
+      ['📥', "Favori Footclubs : à la fin de la lecture, un bouton « Envoyer à l'appli » apparaît sur Footclubs. Ça marche même quand l'appli est installée sur le PC."],
+    ] },
     { n: 40, date: '2026-10-07', title: 'Footclubs, deuxième round 🥊', items: [
       ['📥', "Favori Footclubs : l'appli s'ouvre dès le clic (plus de fenêtre bloquée), il ouvre la liste des licences tout seul, et un bandeau montre qu'il travaille."],
     ] },
@@ -13595,26 +13598,26 @@ addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'&&!n
     // an error is shown (it was silent)
     const fc = `(async()=>{const A=${A};const RG=/De\\s+(\\d+)\\s+à\\s+(\\d+)\\s+sur\\s+(\\d+)/i,DT=/^\\d{2}\\/\\d{2}\\/\\d{4}$/;
 if(!/footclubs\\.fff\\.fr$/.test(location.host)){alert('Ouvre Footclubs (connecté), puis touche ce favori.');return;}
-const w=window.open(A+'#/recevoir-source','clubimport');if(!w){alert('Ton navigateur a bloqué la fenêtre : autorise les fenêtres pour footclubs.fff.fr (icône à droite de la barre d\\'adresse), puis touche à nouveau ce favori.');return;}
 const T=window.top;const all=()=>{const out=[];const go=(x,d)=>{out.push(x);if(d>4)return;let fs=[];try{fs=x.document.querySelectorAll('frame,iframe');}catch(e){return;}for(const f of fs){try{if(f.contentWindow&&f.contentWindow.document)go(f.contentWindow,d+1);}catch(e){}}};go(T,0);return out;};
 const txt=x=>{try{return x.document.body?x.document.body.innerText:'';}catch(e){return '';}};
 const dates=x=>{try{return [...x.document.querySelectorAll('td')].filter(td=>DT.test(td.innerText.trim())).length;}catch(e){return 0;}};
 const find=()=>{const ws=all();return ws.find(x=>RG.test(txt(x))&&dates(x)>0)||ws.find(x=>dates(x)>=3)||null;};
 let W=find();
 if(!W){try{const M=T.frames['menu'],a=[...M.document.querySelectorAll('a')].find(x=>/'LILIST'/.test(x.getAttribute('onclick')||''));M.gestOpen(a,'2',1,'LILIST');}catch(e){}for(let k=0;k<80&&!W;k++){await new Promise(r=>setTimeout(r,250));W=find();}}
-if(!W){const ws=all();try{w.close();}catch(e){}alert('Liste des licences introuvable ('+ws.length+' cadre'+(ws.length>1?'s':'')+' lus). Ouvre Licences → liste des licences (le tableau avec les dates de naissance), puis touche à nouveau ce favori.');return;}
-let bn=null;try{const d=W.document;bn=d.createElement('div');bn.style.cssText='position:fixed;top:8px;right:8px;z-index:99999;padding:12px 16px;background:#0e1d45;color:#fff;font:bold 15px sans-serif;border-radius:10px';bn.textContent='📥 Lecture des licences pour l\\'appli… ne touche à rien';d.body.appendChild(bn);}catch(e){}
-try{let ready=false,data=null;
-const send=()=>{if(ready&&data){w.postMessage({type:'club-import',source:'footclubs',payload:data},new URL(A).origin);data=null;}};
-addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'){ready=true;send();}});
+if(!W){const ws=all();alert('Liste des licences introuvable ('+ws.length+' cadre'+(ws.length>1?'s':'')+' lus). Ouvre Licences → liste des licences (le tableau avec les dates de naissance), puis touche à nouveau ce favori.');return;}
+const box=(html,btn)=>{try{const d=W.document;let b=d.getElementById('clubImp');if(!b){b=d.createElement('div');b.id='clubImp';b.style.cssText='position:fixed;top:8px;right:8px;z-index:99999;padding:14px 18px;background:#0e1d45;color:#fff;font:bold 15px sans-serif;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.35);max-width:340px';d.body.appendChild(b);}b.innerHTML=html;return b;}catch(e){return null;}};
+try{box('📥 Lecture des licences pour l\\'appli… ne touche à rien');
 const range=()=>{const m=RG.exec(txt(W));return m?[+m[1],+m[2],+m[3]]:null;};
 const wait=async s=>{for(let k=0;k<80;k++){await new Promise(r=>setTimeout(r,250));try{const r=range();if(r&&r[0]===s)return true;}catch(e){}}return false;};
 const rows=[],seen={};const grab=()=>{for(const tr of W.document.querySelectorAll('tr')){const c=[...tr.cells].map(x=>x.innerText.trim());const i=c.findIndex(x=>DT.test(x));
 if(i>0&&/[A-Z]/.test(c[i-1])&&c[i+1]){const k=c[i-1]+c[i]+c[i+1];if(!seen[k]){seen[k]=1;rows.push({name:c[i-1],birth:c[i],cat:c[i+1]||'',date:c[i+2]||'',etat:c[i+3]||'',lic:(tr.innerHTML.match(/selectPersonne\\('(\\d+)'/)||[])[1]||''});}}}};
 const paged=typeof W.otherlist==='function';let r=range();if(paged&&r&&r[0]!==1){W.otherlist(W.firstlist,W.name,'F');await wait(1);}
-for(let p=0;p<80;p++){grab();r=range();if(!paged||!r||r[1]>=r[2])break;const nx=r[1]+1;W.otherlist(W.nextlist,W.name,'N');if(!await wait(nx))break;}
-if(!rows.length){alert('Aucune licence lue dans ce tableau. Envoie une capture de la liste au créateur de l\\'appli.');try{w.close();}catch(e){}return;}
-data={rows,total:(range()||[0,0,rows.length])[2]};send();}catch(e){alert('Footclubs : lecture impossible ('+e.message+')');}})()`;
+for(let p=0;p<80;p++){grab();r=range();if(r)box('📥 Lecture des licences… '+r[1]+' / '+r[2]+'<br><small>ne touche à rien</small>');if(!paged||!r||r[1]>=r[2])break;const nx=r[1]+1;W.otherlist(W.nextlist,W.name,'N');if(!await wait(nx))break;}
+if(!rows.length){alert('Aucune licence lue dans ce tableau. Envoie une capture de la liste au créateur de l\\'appli.');return;}
+const url=A+'#/recevoir-source/fc='+encodeURIComponent(JSON.stringify({rows,total:(range()||[0,0,rows.length])[2]}));
+const b=box('✅ '+rows.length+' licences lues<br><button id="clubImpGo" style="margin-top:10px;padding:12px 16px;font:bold 16px sans-serif;border:0;border-radius:10px;background:#c9a45c;color:#14172b;cursor:pointer">Envoyer à l\\'appli →</button>');
+const go=b&&b.querySelector('#clubImpGo');if(go)go.onclick=()=>{const w=W.open(url,'_blank');if(!w)location.href=url;box('✅ Envoyé : regarde l\\'appli (onglet ou fenêtre de l\\'appli).');};else if(confirm(rows.length+' licences lues. Ouvrir l\\'appli pour les importer ?'))W.open(url,'_blank');
+}catch(e){alert('Footclubs : lecture impossible ('+e.message+')');}})()`;
     const link = code => 'javascript:' + encodeURIComponent(code.replace(/\n/g, ''));
     // (1.40) the club's page on epreuves.fff.fr (public): the results shown and the official table of each of our divisions
     const ff = `(async()=>{const A=${A};const cm=/\\/competition\\/club\\/(\\d+)/.exec(location.pathname);
@@ -13668,7 +13671,18 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
   const DRAG = "event.preventDefault();alert('Ce bouton ne se touche pas ici : fais-le GLISSER (clic maintenu) jusqu\\'à la barre des favoris de ton navigateur. Ensuite, utilise ce favori sur le site concerné (AssistCoachAI, Footclubs ou la FFF), pas dans l\\'appli.')";
 
   /* ---------- the app opened by a bookmark ---------- */
-  function receive() {
+  // (1.85) Footclubs: the data come in the address (#/recevoir-source/fc=…), so it works even when the app is installed
+  // (Chrome then opens it in the app's own window, without « opener »); the address is cleaned at once
+  function fromLink(raw) {
+    if (!raw) { const m = location.hash.match(/^#\/recevoir-source\/fc=(.+)$/); if (!m) return false; raw = m[1]; history.replaceState(null, '', location.pathname + location.search + '#/'); }
+    let P; try { P = JSON.parse(decodeURIComponent(raw)); } catch (e) { toast('Données Footclubs illisibles : refais la lecture.', 'err'); return true; }
+    if (!Auth.isAdmin()) { toast('Réservé à un responsable du club.', 'err'); return true; }
+    try { footclubs(P); } catch (err) { console.error(err); toast(err.message || 'Données illisibles', 'err'); }
+    return true;
+  }
+  addEventListener('hashchange', () => { if (/^#\/recevoir-source\/fc=/.test(location.hash) && Auth.current()) fromLink(); });
+  function receive(fc) {
+    if (fc) { fromLink(fc); return; }
     if (!window.opener) return toast('Ouvre cette page avec le favori, depuis AssistCoachAI ou Footclubs.', 'err');
     const b = UI.busy('Réception des données…');
     let got = false;
@@ -15511,7 +15525,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 85, UPD = AppCfg.key('update-tried');
+  const BUILD = 86, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -15570,6 +15584,7 @@ var App = (() => {
     const recv = (location.hash.match(/^#\/recevoir\/([\w-]+)/) || [])[1];
     // (1.39) opened by the « AssistCoachAI / Footclubs → app » bookmark: the data arrive from the site
     const fromSite = /^#\/recevoir-source/.test(location.hash);
+    const fcData = (location.hash.match(/^#\/recevoir-source\/fc=(.+)$/) || [])[1]; // (1.85) the Footclubs data in the address
     if (fromSite) history.replaceState(null, '', location.pathname + location.search + '#/');
     if (recv) history.replaceState(null, '', location.pathname + location.search + '#/entrainements');
     const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
@@ -15582,7 +15597,7 @@ var App = (() => {
     window.addEventListener('hashchange', route);
     route();
     if (recv) Views.receiveLink(recv);
-    else if (fromSite) Sources.receive();
+    else if (fromSite) Sources.receive(fcData);
     else if (Auth.current()) News.check(); // after an update: « Quoi de neuf ? »
     Sync.start();
     // After the first exchange with the server: categories U6 … Vétérans for the new season
