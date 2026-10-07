@@ -208,7 +208,7 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}${Injury.card()}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${Member.programme(data.trainings, data.matches, trRow) ? `<h2>Entraînements et matchs à venir</h2>${Member.programme(data.trainings, data.matches, trRow)}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
@@ -231,6 +231,7 @@
     code = Member.current();
     try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); await Member.replies(code, data); render();
       tips = await Member.tips(code); if (tips.length) render();
+      await Injury.load(code); render();
       try { vids = await rpc('member_videos', { p_code: code }) || []; prof = await rpc('member_profile', { p_code: code }) || {}; render(); } catch (e) { /* a club server not yet updated */ }
       try { extra = await rpc('member_standings', { p_code: code }); render(); } catch (e) { /* a club server not yet updated: the page stays as before */ } }
     catch (e) {
@@ -261,6 +262,7 @@
   document.addEventListener('click', e => {
     if (Member.onBar(e, () => load())) return;
     if (VPlayer.onClick(e)) return;
+    if (Injury.onClick(e, code, false, '', msg => { toast(msg); render(); })) return;
     const mk = e.target.closest('[data-mk]'); if (mk) { msgKind = mk.dataset.mk; render(); const ta = $('#msgBody'); if (ta) ta.focus(); return; }
     if (e.target.closest('[data-msgsend]')) { msgSend(); return; }
     if (e.target.closest('[data-profsave]')) { profSave(); return; }

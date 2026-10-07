@@ -9,6 +9,7 @@ const News = (() => {
       ['🎬', 'Match → onglet Après : « Highlights » (liens vidéo + minute), puis « Envoyer aux joueurs ». Ils les regardent dans l\'appli, pop-corn non fourni.'],
       ['💬', 'Les joueurs écrivent au coach (message, idée, bug) : notification sur ton téléphone.'],
       ['🧍', 'Profil joueur : poids, taille, pied fort, points forts et faibles, IMC calculé tout seul.'],
+      ['🦴', 'Blessures : joueurs et parents touchent la zone sur un corps humain (avec les os), choisissent la blessure, le type et la durée. Tu es prévenu, et l\'Infirmerie te rappelle de prendre des nouvelles tous les 3 jours.'],
     ] },
     { n: 36, date: '2026-10-07', title: 'Tout le programme au même endroit', items: [
       ['📅', 'Espaces joueur et parents, onglet Séances : les entraînements ET les matchs à venir, par date, avec « dispo / pas dispo » sur chaque match.'],

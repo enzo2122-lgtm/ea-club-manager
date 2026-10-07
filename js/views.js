@@ -166,6 +166,7 @@ const Views = (() => {
       ${Onboard.planCard()}
       ${Quick.matchDayCard()}
       ${Quick.tomorrowCard()}
+      ${Health.followCard()}
       ${Quick.backupCard()}
       ${President.homeReminder()}
       ${Weather.placeholder()}

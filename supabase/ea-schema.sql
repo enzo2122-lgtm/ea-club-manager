@@ -1536,3 +1536,37 @@ end $$;
 drop trigger if exists ea_item_highlights on items;
 create trigger ea_item_highlights after insert or update on items for each row execute function ea_on_highlights();
 revoke all on function ea_on_highlights() from public, anon, authenticated;
+
+-- (1.81) le joueur ou ses parents signalent une blessure (zone du corps, type, temps de rétablissement) ou son retour ;
+-- elle s'ajoute à sa fiche (Infirmerie du coach) et les coachs de la catégorie reçoivent une notification (message de la catégorie)
+create or replace function member_injury(p_code text, p_action text default 'list', p_data jsonb default null, p_parent boolean default false) returns jsonb language plpgsql security definer set search_path = public as $$
+declare pl items := ea_member(p_code); tids text[] := ea_member_teams(pl); d0 date := current_date; n int; e jsonb; who text; lst jsonb;
+begin
+  who := trim(coalesce(pl.data->>'firstName', '') || ' ' || coalesce(pl.data->>'lastName', '')) || case when p_parent then ' (parent)' else ' (joueur)' end;
+  lst := case when jsonb_typeof(pl.data->'unavail') = 'array' then pl.data->'unavail' else '[]'::jsonb end;
+  if p_action = 'add' then
+    if coalesce(trim(p_data->>'part'), '') = '' then raise exception 'DONNEES'; end if;
+    if (select count(*) from jsonb_array_elements(lst) x where x->>'self' = 'true' and (x->>'at')::timestamptz > now() - interval '1 day') >= 5 then raise exception 'LIMITE'; end if;
+    begin n := least(greatest(coalesce((p_data->>'days')::int, 0), 0), 365); exception when others then n := 0; end;
+    e := jsonb_build_object('id', replace(gen_random_uuid()::text, '-', ''), 'kind', 'injury', 'from', to_char(d0, 'YYYY-MM-DD'), 'to', case when n > 0 then to_char(d0 + n, 'YYYY-MM-DD') else '' end,
+      'part', left(trim(p_data->>'part'), 80), 'zone', left(coalesce(p_data->>'zone', ''), 20), 'side', left(coalesce(p_data->>'side', ''), 1), 'type', left(coalesce(p_data->>'type', ''), 40),
+      'note', left(trim(coalesce(p_data->>'note', '')), 140), 'reason', '', 'by', 'member', 'self', true, 'parent', coalesce(p_parent, false), 'at', now());
+    lst := jsonb_build_array(e) || lst;
+    update items set data = jsonb_set(data, '{unavail}', lst), updated_at = (extract(epoch from now()) * 1000)::bigint, rev = nextval('items_rev') where club = pl.club and col = 'players' and id = pl.id;
+    if coalesce(array_length(tids, 1), 0) > 0 then
+      insert into messages (club, channel, author_id, author_name, body) values (pl.club, 'team:' || tids[1], 'member:' || pl.id, who,
+        '🚑 Blessure signalée : ' || (e->>'part') || case e->>'side' when 'g' then ' gauche' when 'd' then ' droit' else '' end || coalesce(' · ' || nullif(e->>'type', ''), '') || case when n > 0 then ' · retour estimé le ' || to_char(d0 + n, 'DD/MM') else ' · durée inconnue' end || coalesce(' · « ' || nullif(e->>'note', '') || ' »', ''));
+    end if;
+  elsif p_action = 'back' then
+    select coalesce(jsonb_agg(case when x->>'id' = p_data->>'id' and x->>'kind' = 'injury' and (coalesce(x->>'to', '') = '' or x->>'to' > to_char(d0, 'YYYY-MM-DD'))
+      then x || jsonb_build_object('to', to_char(d0, 'YYYY-MM-DD'), 'backBy', 'member') else x end), '[]'::jsonb) into lst from jsonb_array_elements(lst) x;
+    update items set data = jsonb_set(data, '{unavail}', lst), updated_at = (extract(epoch from now()) * 1000)::bigint, rev = nextval('items_rev') where club = pl.club and col = 'players' and id = pl.id;
+    if coalesce(array_length(tids, 1), 0) > 0 then
+      insert into messages (club, channel, author_id, author_name, body) values (pl.club, 'team:' || tids[1], 'member:' || pl.id, who, '💪 Rétabli : peut rejouer (blessure terminée aujourd''hui)');
+    end if;
+  end if;
+  -- ses blessures des 4 derniers mois (et celles en cours)
+  return (select coalesce(jsonb_agg(jsonb_build_object('id', x->>'id', 'kind', x->>'kind', 'from', x->>'from', 'to', x->>'to', 'part', x->>'part', 'side', x->>'side', 'type', x->>'type')), '[]'::jsonb)
+    from jsonb_array_elements(lst) x where x->>'kind' = 'injury' and (coalesce(x->>'to', '') = '' or x->>'to' >= to_char(d0 - 120, 'YYYY-MM-DD')));
+end $$;
+grant execute on function member_injury(text, text, jsonb, boolean) to anon, authenticated;
