@@ -37,6 +37,7 @@ const Messages = (() => {
     const words = new Set((fold(text).match(/@([a-z0-9'-]+)/g) || []).map(w => w.slice(1)));
     return S().staff.filter(s => me() && s.id !== me().id && words.has(fold(firstOf(s)))).map(s => s.id);
   }
+  const shotOk = v => typeof v === 'string' && /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(v); // (2.01) only a real screenshot goes into the page
   const clean = body => String(body).replace(/\n?#rappel-[\w-]+\s*$/, '').replace(/\n?\[\[fichier:[\w,-]+\]\]/, '').replace(/\n?\[\[signalement:[\w-]+\]\]/, '').replace(/\n?\[\[tag:[\w,-]+\]\]/, '');
   // @Prénom of a coach of the club, highlighted in the bubble
   const withMentions = html => html.replace(/@([A-Za-zÀ-ÿ0-9'-]+)/g, (all, w) => S().staff.some(s => fold(firstOf(s)) === fold(w)) ? `<b class="mention">@${w}</b>` : all);
@@ -61,7 +62,7 @@ const Messages = (() => {
   function filesOf(m) {
     const rid = (String(m.body).match(/\[\[signalement:([\w-]+)\]\]/) || [])[1];
     if (rid) { const rep = Store.get('reports', rid);
-      return `<div class="msg-files">${rep && rep.shot ? `<button class="msg-shot" data-shot="${rid}" aria-label="Voir la capture d'écran"><img alt="Capture d'écran du problème" src="${rep.shot}"></button>` : '<span class="msg-file wait">Capture d\'écran en cours de réception…</span>'}</div>`; }
+      return `<div class="msg-files">${rep && shotOk(rep.shot) ? `<button class="msg-shot" data-shot="${rid}" aria-label="Voir la capture d'écran"><img alt="Capture d'écran du problème" src="${rep.shot}"></button>` : '<span class="msg-file wait">Capture d\'écran en cours de réception…</span>'}</div>`; }
     const ids = ((String(m.body).match(/\[\[fichier:([\w,-]+)\]\]/) || [])[1] || '').split(',').filter(Boolean); if (!ids.length) return '';
     const missing = ids.map(id => Store.get('schemas', id)).filter(s => s && s.field && s.field.bgId && !Board.BG.has(s.field.bgId) && !bgAsked.has(s.id));
     if (missing.length) { missing.forEach(s => bgAsked.add(s.id)); Board.preloadBackgrounds(missing).then(() => { if (location.hash.startsWith('#/messages')) App.route(true); }); }
@@ -249,10 +250,12 @@ const Messages = (() => {
     $('#composer', root).onsubmit = async e => {
       e.preventDefault();
       const text = ta.value.trim(); if (!text) return;
+      const btn = e.target.querySelector('[type=submit]'); if (btn) { if (btn.disabled) return; btn.disabled = true; btn.classList.add('sending'); } // (2.01) sending: the button waits
       ta.value = ''; ta.oninput();
       const tags = tagsOf(text), sent = tags.length ? `${text}\n[[tag:${tags.join(',')}]]` : text;
       try { const m = await Cloud.post(ch, sent); if (m && !msgs.some(x => x.id === m.id)) { msgs.push(m); last = m.created_at > last ? m.created_at : last; try { localStorage.setItem(CACHE, JSON.stringify(msgs)); } catch (e2) {} } markRead(ch); draw(); }
       catch (err) { ta.value = text; toast(err.message, 'err'); }
+      finally { if (btn && document.contains(btn)) { btn.disabled = false; btn.classList.remove('sending'); } }
     };
     body.onclick = async e => {
       // a report's screenshot, full size
@@ -262,7 +265,7 @@ const Messages = (() => {
         const m = msgs.find(x => x.id === sb.dataset.seen), rs = (readsOf[ch] || []).filter(r => r.staff_id !== me().id && m && r.at >= m.created_at);
         return UI.modal({ title: 'Vu par', noFocus: true, body: rs.length ? `<ul class="alerts">${rs.map(r => { const s = Store.get('staff', r.staff_id); return `<li><b>${esc(s ? coachName(s) : 'Un dirigeant')}</b> <span class="muted small">${esc(new Date(r.at).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}</span></li>`; }).join('')}</ul>` : '<p class="muted">Personne n\'a encore ouvert la conversation depuis ce message.</p>', actions: [{ label: 'Fermer', kind: 'primary' }] });
       }
-      if (sh) { const rep = Store.get('reports', sh.dataset.shot); if (rep && rep.shot) UI.modal({ title: 'Capture d\'écran', noFocus: true, body: `<div class="viewer"><img alt="Capture d'écran du problème" src="${rep.shot}"></div><p class="muted small">${esc(rep.byName || '')}${rep.page ? ' · page « ' + esc(rep.page) + ' »' : ''}</p>`, actions: [{ label: 'Fermer', kind: 'primary' }] }); return; }
+      if (sh) { const rep = Store.get('reports', sh.dataset.shot); if (rep && shotOk(rep.shot)) UI.modal({ title: 'Capture d\'écran', noFocus: true, body: `<div class="viewer"><img alt="Capture d'écran du problème" src="${rep.shot}"></div><p class="muted small">${esc(rep.byName || '')}${rep.page ? ' · page « ' + esc(rep.page) + ' »' : ''}</p>`, actions: [{ label: 'Fermer', kind: 'primary' }] }); return; }
       const b = e.target.closest('[data-delm]'); if (!b) return;
       if (!(await confirmBox('Supprimer ce message pour tout le monde ?'))) return;
       try { await Cloud.deleteMessage(b.dataset.delm); msgs = msgs.filter(m => m.id !== b.dataset.delm); try { localStorage.setItem(CACHE, JSON.stringify(msgs)); } catch (e2) {} draw(); }
@@ -279,7 +282,8 @@ const Messages = (() => {
       body: others.length ? `<div class="people">${others.map(s => `<button class="person-main" data-to="${s.id}"><span class="pnum role">${I.whistle}</span><span class="pmain"><b class="author">${crestOf(s)}${esc(coachName(s))}</b>${UI.motto(s)}<span class="muted">${esc([s.role, (s.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '), s.club ? 'club de cœur : ' + Clubs.name(s.club) : ''].filter(Boolean).join(' · '))}</span></span></button>`).join('')}</div>` : '<p class="muted">Aucun autre dirigeant dans l\'appli.</p>',
       onOpen: r => $$('[data-to]', r).forEach(b => b.onclick = () => { close(); location.hash = '#/messages/' + encodeURIComponent(dmKey(me().id, b.dataset.to)); }) });
   }
-  function leave() { fast = false; onNew = null; onTick = null; start(); }
+  // (2.01) leaving a conversation slows the checks down; leaving any other page changes nothing (no request at each page)
+  function leave() { const was = fast; fast = false; onNew = null; onTick = null; if (was || !timer) start(); }
 
   return { page, start, badge, leave, coachName };
 })();

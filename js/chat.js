@@ -11,7 +11,7 @@ const Chat = (() => {
   const nice = e => { const m = String((e && ((e.code || '') + ' ' + (e.message || ''))) || ''); const x = ERR.find(([r]) => r.test(m)); return x ? x[1] : (e && e.message) || 'Le serveur ne répond pas.'; };
   const EMOJI = ['👍', '⚽', '🔥', '💪', '😂', '👏', '🙏', '❤️', '😅', '🏆', '🥅', '✅'];
   const HELLO = ['Salut tout le monde 👋', 'Qui vient à l\'entraînement ? ⚽', 'On lâche rien ! 💪'];
-  const FAST = 3000, SLOW = 15000, GROUP = 5 * 60e3;
+  const FAST = 3000, SLOW = 30000, GROUP = 5 * 60e3; // (2.01) behind another tab: every 30 s (only for the badge)
 
   // one chat at a time: kept when the page is redrawn
   let box = null, o = null, view = null, cat = '', draft = '', timer = null, busy = false, lastPoll = 0, wasShown = false, pend = 0, queue = Promise.resolve(), armed = null;
@@ -33,7 +33,7 @@ const Chat = (() => {
       '.cx-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line,#e3e5ea);min-height:46px}',
       'body.tabs-top .cx-top,body.nav-top .cx-top{padding-right:118px}',
       '.cx-top b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cx-shield{font-size:12px;font-weight:700;color:#15803d;white-space:nowrap}',
-      '.cx-top .cx-sp{flex:1}.cx-cats{display:flex;gap:4px}.cx-cats button,.cx-mod{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;padding:3px 10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}',
+      '.cx-top .cx-sp{flex:1}.cx-cats{display:flex;gap:4px}.cx-cats button,.cx-mod{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;min-height:36px;padding:6px 12px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}',
       '.cx-cats button.on{background:#0e1d45;color:#fff;border-color:#0e1d45}',
       '.cx-list{flex:1;overflow-y:auto;padding:10px 10px 6px;display:flex;flex-direction:column;gap:2px;background:var(--bg,#f2f3f7);overscroll-behavior:contain;-webkit-overflow-scrolling:touch}',
       '.cx-day{align-self:center;margin:10px 0 6px;padding:3px 12px;border-radius:999px;background:var(--surface,#fff);font-size:12px;font-weight:700;color:var(--muted,#667);box-shadow:0 1px 2px rgba(0,0,0,.06)}',
@@ -45,7 +45,7 @@ const Chat = (() => {
       '.cx-name{display:block;font-size:12.5px;font-weight:800;margin-bottom:1px}.cx-coach{font-size:10.5px;font-weight:800;padding:0 6px;border-radius:999px;background:#c9a45c;color:#0e1d45;margin-left:4px;vertical-align:1px}',
       '.cx-t{float:right;font-size:11px;opacity:.6;margin:6px 0 -2px 10px;white-space:nowrap}.cx-b.big{font-size:34px;line-height:1.15;background:none!important;box-shadow:none;padding:2px 4px}',
       '.cx-b.pend{opacity:.65}.cx-b.fail{outline:2px solid #dc2626}.cx-gone{font-style:italic;opacity:.6;font-size:14px}',
-      '.cx-act{display:flex;gap:6px;justify-content:flex-end;margin:2px 0 4px}.cx-act button{border:0;border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;background:#dc2626;color:#fff}.cx-act button.no{background:var(--line,#e3e5ea);color:inherit}',
+      '.cx-act{display:flex;gap:6px;justify-content:flex-end;margin:2px 0 4px}.cx-act button{border:0;border-radius:999px;min-height:40px;padding:8px 16px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;background:#dc2626;color:#fff}.cx-act button.no{background:var(--line,#e3e5ea);color:inherit}',
       '.cx-retry{font-size:12px;color:#dc2626;font-weight:700;text-align:right;margin:2px 4px 4px;cursor:pointer}',
       '.cx-empty{margin:auto;text-align:center;padding:20px 10px;color:var(--muted,#667)}.cx-empty .e{font-size:44px}.cx-hello{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}',
       '.cx-hello button,.cx-emo button{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}',
@@ -58,12 +58,12 @@ const Chat = (() => {
       '.cx-send{background:#8c1024;color:#fff;transition:transform .12s,opacity .12s}.cx-send:disabled{opacity:.35}.cx-send:not(:disabled):active{transform:scale(.9)}',
       '.cx-note{font-size:11.5px;color:var(--muted,#667);text-align:center;padding:0 10px 6px;background:var(--surface,#fff)}',
       '.tabbar .tab .cx-badge{position:absolute;top:2px;right:calc(50% - 22px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e11d48;color:#fff;font:800 11px/18px system-ui,sans-serif}.tabbar .tab{position:relative}',
-      '.cx-seg{display:flex;background:var(--bg,#f2f3f7);border-radius:999px;padding:2px;gap:2px}.cx-seg button{border:0;background:none;color:inherit;border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}.cx-seg button.on{background:var(--surface,#fff);box-shadow:0 1px 3px rgba(0,0,0,.12)}',
+      '.cx-seg{display:flex;background:var(--bg,#f2f3f7);border-radius:999px;padding:2px;gap:2px}.cx-seg button{border:0;background:none;color:inherit;border-radius:999px;min-height:36px;padding:6px 12px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap}.cx-seg button.on{background:var(--surface,#fff);box-shadow:0 1px 3px rgba(0,0,0,.12)}',
       '.cx-b.poll{min-width:min(78%,300px)}.cx-poll{display:flex;flex-direction:column;gap:5px;margin:2px 0 4px}.cx-pq{font-weight:800;font-size:15.5px;margin-bottom:2px}',
-      '.cx-po{position:relative;overflow:hidden;display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:6px 10px;border-radius:12px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);background:color-mix(in srgb,currentColor 5%,transparent);color:inherit;font:inherit;font-size:14.5px;text-align:left;cursor:pointer}',
+      '.cx-po{position:relative;overflow:hidden;display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:6px 10px;border-radius:12px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);background:color-mix(in srgb,currentColor 5%,transparent);color:inherit;font:inherit;font-size:14.5px;text-align:left;cursor:pointer}',
       '.cx-po:disabled{cursor:default}.cx-pf{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,currentColor 16%,transparent);transition:width .3s}.cx-po.me{border-color:currentColor;font-weight:700}.cx-po.win{font-weight:800}',
       '.cx-pt{position:relative;flex:1;min-width:0}.cx-pn{position:relative;font-weight:800;font-size:13px}.cx-pw{font-size:12px;opacity:.75;margin:-2px 4px 2px}',
-      '.cx-pi{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;opacity:.85}.cx-pi button{border:0;background:color-mix(in srgb,currentColor 10%,transparent);color:inherit;border-radius:999px;padding:3px 9px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}',
+      '.cx-pi{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;opacity:.85}.cx-pi button{border:0;background:color-mix(in srgb,currentColor 10%,transparent);color:inherit;border-radius:999px;min-height:34px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}',
       '.cx-pcard{background:var(--surface,#fff);border-radius:16px;padding:10px 12px;margin:4px 0 8px;box-shadow:0 1px 2px rgba(0,0,0,.08)}.cx-pby{font-size:12px;color:var(--muted,#667);margin-bottom:4px}',
       '.cx-newpoll{flex:1;min-height:44px;border:0;border-radius:22px;background:#8c1024;color:#fff;font:inherit;font-weight:700;cursor:pointer}',
       '.cx-sheet{position:absolute;inset:0;z-index:3;background:rgba(10,15,34,.45);display:flex;align-items:flex-end}.cx-sheet form{width:100%;max-height:100%;overflow-y:auto;background:var(--surface,#fff);border-radius:18px 18px 0 0;padding:14px;display:flex;flex-direction:column;gap:8px}',
@@ -114,6 +114,7 @@ const Chat = (() => {
   /* ---------- the messages ---------- */
   // the key of a message for the grouping: same person, less than 5 minutes after the one before, same day
   function rowHtml(m, prev) {
+    m.name = String(m.name || '?');
     const first = !prev || prev.who !== (m.mine ? 'me' : m.name) || new Date(m.at) - new Date(prev.at) > GROUP || dayOf(prev.at) !== dayOf(m.at);
     const day = !prev || dayOf(prev.at) !== dayOf(m.at) ? `<div class="cx-day">${esc(dayOf(m.at))}</div>` : '';
     const big = !m.deleted && onlyEmoji(m.body);
@@ -213,10 +214,10 @@ const Chat = (() => {
   const local = m => typeof m.id !== 'number'; // shown at once, not yet back from the server
   const lastId = () => { const ms = ((view && view.msgs) || []).filter(m => !local(m)); return ms.length ? ms[ms.length - 1].id : 0; };
   async function load(full) {
-    if (!o || busy) return; busy = true; lastPoll = Date.now();
+    if (!o || busy) return; busy = true; lastPoll = Date.now(); const asked = cat;
     try {
       const r = await o.load(cat || null, full || !view ? 0 : lastId());
-      if (!r) return;
+      if (!r || asked !== cat) { if (asked !== cat) lastPoll = 0; return; } // (2.01) another category was chosen meanwhile
       if (full || !view || r.cat !== view.cat) { view = r; cat = r.cat || cat; drawAll(); }
       else {
         const gone = new Set(r.gone || []), had = new Set(view.msgs.map(m => m.id)); let changed = false;
@@ -277,12 +278,16 @@ const Chat = (() => {
     x.me = !was; x.n += was ? -1 : 1; drawList(false);
     try { view.polls = await o.vote(view.cat, id, i); drawList(false); } catch (err) { (o.toast || alert)(nice(err), true); lastPoll = 0; load(true); }
   }
+  let creating = false;
   async function createPoll() {
+    if (creating) return; // (2.01) one tap = one poll
     const q = String(sheet.q || '').trim(), opts = sheet.opts.map(x => String(x || '').trim()).filter(Boolean);
     if (!q) return (o.toast || alert)('Écris ta question.', true);
     if (opts.length < 2) return (o.toast || alert)('Il faut au moins 2 réponses.', true);
+    creating = true; const sb = box.querySelector('#cxPollForm [type=submit]'); if (sb) { sb.disabled = true; sb.textContent = 'Envoi…'; }
     try { await o.poll(view.cat, q, opts, !!sheet.multi); sheet = null; mode = 'chat'; drawAll(); lastPoll = 0; await load(false); toBottom(); (o.toast || (() => {}))('📊 Sondage envoyé à la catégorie !'); }
-    catch (err) { (o.toast || alert)(nice(err), true); }
+    catch (err) { (o.toast || alert)(nice(err), true); if (sb && document.contains(sb)) { sb.disabled = false; sb.textContent = 'Créer le sondage'; } }
+    finally { creating = false; }
   }
   /* ---------- the hands ---------- */
   function bind(el) {
@@ -313,7 +318,7 @@ const Chat = (() => {
       if (em) { const t = $('#cxText'); if (!t) return; const a = t.selectionStart ?? t.value.length, b = t.selectionEnd ?? a; t.value = t.value.slice(0, a) + em.dataset.cxemo + t.value.slice(b); draft = t.value; t.selectionStart = t.selectionEnd = a + em.dataset.cxemo.length; grow(); const s = $('#cxSend'); if (s) s.disabled = false; return; }
       const hi = q('[data-cxsay]'); if (hi) return send(hi.dataset.cxsay);
       const rt = q('[data-cxretry]'); if (rt) { const m = view.msgs.find(x => String(x.id) === rt.dataset.cxretry); if (m) { m.fail = false; m.pend = true; drawList(true); queue = queue.then(() => post(m)); } return; }
-      const c = q('[data-cxcat]'); if (c) { cat = c.dataset.cxcat; view = null; drawAll(); return load(true); }
+      const c = q('[data-cxcat]'); if (c) { cat = c.dataset.cxcat; view = null; drawAll(); for (let i = 0; i < 20 && busy; i++) await new Promise(r => setTimeout(r, 100)); return load(true); }
       const f = q('[data-cxoff]');
       if (f && o.off) { const off = f.dataset.cxoff === '1'; try { await o.off(off); view.off = off; drawAll(); (o.toast || (() => {}))(off ? '🔒 Chat fermé : les joueurs peuvent lire, plus écrire.' : '🔓 Chat rouvert.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       // delete: touch the bubble (mine, or any for a coach), then « Supprimer »

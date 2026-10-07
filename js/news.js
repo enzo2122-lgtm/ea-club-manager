@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 57, date: '2026-10-07', title: 'Plus fluide, plus léger', items: [
+      ['⚡', 'Espaces joueurs et parents : tout se charge en même temps (2 affichages au lieu de 6), et revenir dans l\'appli ne recharge plus tout à chaque fois.'],
+      ['👆', 'Un appui = un envoi : les boutons attendent la réponse (« Envoi… »), plus de doublons (réponses, messages, bénévoles, sondages).'],
+      ['🧹', 'Corrigé : la page vide après « Mon entraînement perso », la note du questionnaire qui s\'effaçait, les données d\'un enfant mélangées en changeant de code, les dates fausses après minuit.'],
+      ['📱', 'Boutons plus grands au doigt, échelle du questionnaire sur 2 lignes, prénom du bénévole demandé dans l\'appli. Coachs : les boutons du haut tiennent sur une ligne qui défile.'],
+    ] },
     { n: 56, date: '2026-10-07', title: 'Le chat ne bouge plus', items: [
       ['📌', 'Le chat est fixé à l\'écran : la page derrière ne défile plus, même quand le clavier s\'ouvre.'],
       ['✨', 'Plus de saut quand la page se recharge ; seuls les nouveaux messages glissent à l\'écran.'],

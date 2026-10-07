@@ -333,8 +333,9 @@ const Planning = (() => {
       onOpen: r => {
         render(r);
         $('#addSlot', r).onclick = () => { const last = rows[rows.length - 1]; rows.push({ weekday: last ? (last.weekday + 1) % 7 : 1, start_min: last ? last.start_min : 17 * 60, end_min: last ? last.end_min : 22 * 60 }); render(r); };
-        r.addEventListener('change', e => { const row = e.target.closest('[data-i]'); if (row && e.target.dataset.f) rows[+row.dataset.i][e.target.dataset.f] = +e.target.value; });
-        r.addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b) { rows.splice(+b.dataset.del, 1); render(r); } });
+        const box = $('#slotRows', r); // (2.01) the list is new at each opening: its handlers do not pile up on the shared #modal
+        box.addEventListener('change', e => { const row = e.target.closest('[data-i]'); if (row && e.target.dataset.f) rows[+row.dataset.i][e.target.dataset.f] = +e.target.value; });
+        box.addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b) { rows.splice(+b.dataset.del, 1); render(r); } });
       },
       actions: [{ label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (close, r) => {
         if (rows.some(s => s.end_min <= s.start_min)) { toast('Chaque créneau doit finir après son début', 'err'); return false; }

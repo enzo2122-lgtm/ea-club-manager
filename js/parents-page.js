@@ -28,15 +28,22 @@
       return `<div class="vol-row"><span class="vt">${t.icon} ${esc(t.label)} <b class="${ppl.length >= t.need ? 'ok' : ''}">${ppl.length}/${t.need}</b></span><span class="vn">${mine ? '✓ Tu es inscrit' : ppl.length ? `${ppl.length} inscrit${ppl.length > 1 ? 's' : ''}` : '<i class="muted">personne pour l\'instant</i>'}</span>
         ${mine ? `<button class="b small" data-vol="${esc(t.key)}" data-rm="1">Me retirer</button>` : ppl.length < t.need + 2 ? `<button class="b small yes on" data-vol="${esc(t.key)}" data-label="${esc(t.label)}">Je m'inscris</button>` : ''}</div>`; }).join('')}</div>`;
   }
+  const busy = new Set(); // (2.01) one tap = one sending
   async function volunteer(matchId, task, label, remove) {
+    const key = matchId + ':' + task; if (busy.has(key)) return;
     let nm = myName();
-    if (!nm && !remove) { nm = (prompt(`Ton prénom (ex : Sarah, maman de ${kid()})`) || '').trim(); if (!nm) return; try { localStorage.setItem(NAME, nm.slice(0, 40)); } catch (e) {} }
+    if (!nm && !remove) { nm = (await Member.askText('Ton prénom', 'Pour que le club sache qui vient aider.', `ex : Sarah, maman de ${kid()}`) || '').trim(); if (!nm) return; try { localStorage.setItem(NAME, nm.slice(0, 40)); } catch (e) {} }
+    busy.add(key); document.querySelectorAll(`[data-m="${matchId}"] [data-vol="${task}"]`).forEach(b => { b.disabled = true; b.textContent = 'Envoi…'; });
+    try { await volunteer2(matchId, task, label, remove, nm); } finally { busy.delete(key); }
+  }
+  async function volunteer2(matchId, task, label, remove, nm) {
     try { const lst = await rpc('member_volunteer', { p_code: code, p_match: matchId, p_task: task, p_label: label || '', p_name: nm || '-', p_remove: !!remove });
       const m = data.matches.find(x => x.id === matchId); m.vol = Object.assign({}, m.vol || {}, { [task]: lst || [] }); render(); loadPhotos();
       toast(remove ? 'Tu es retiré.' : 'Merci pour ton aide ! 🙏'); }
     catch (e) { toast(e.message, true); }
   }
 
+  const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }; // (2.01) the day in France, not in London
   const result = m => !m.played ? '' : +m.gf > +m.ga ? 'V' : +m.gf < +m.ga ? 'D' : 'N';
   const RES = { V: 'Gagné', D: 'Perdu', N: 'Nul' };
   const mapLink = place => `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}" target="_blank" rel="noopener noreferrer">${esc(place)}</a>`;
@@ -58,12 +65,14 @@
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 20000);
   }
   // photos shared by the coach (loaded when the card is shown)
-  const photoData = {};
+  const photoData = {}, photoAsk = {};
+  const isImg = v => typeof v === 'string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v);
+  // (2.01) each photo asked once (even when the page is drawn again meanwhile), and only a real image is shown
+  const photo = id => photoAsk[id] || (photoAsk[id] = rpc('member_photo', { p_code: code, p_id: id }).then(v => (photoData[id] = isImg(v) ? v : null)).catch(() => { delete photoAsk[id]; return null; }));
   async function loadPhotos() {
     for (const el of document.querySelectorAll('[data-photo]')) {
-      const id = el.dataset.photo;
-      if (!photoData[id]) { try { photoData[id] = await rpc('member_photo', { p_code: code, p_id: id }); } catch (e) { continue; } }
-      if (photoData[id]) el.innerHTML = `<img alt="Photo du match" src="${photoData[id]}" loading="lazy">`;
+      const id = el.dataset.photo, v = await photo(id);
+      const now = document.querySelector(`[data-photo="${id}"]`); if (v && now) now.innerHTML = `<img alt="Photo du match" src="${v}" loading="lazy">`;
     }
   }
 
@@ -88,7 +97,7 @@
           <span class="st ${esc(m.answer || '')}">${m.answer === 'oui' ? '✓ dispo' : m.answer === 'non' ? '✗ pas dispo' + (m.reason ? ' · ' + esc(m.reason) : '') : 'pas de réponse'}</span>
           <span class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Dispo</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Pas dispo</button></span></div>
           <p class="info small">Le coach choisit les convoqués, puis envoie la convocation.</p>` : ''}
-      ${!m.played && !m.exempt && m.date >= new Date().toISOString().slice(0, 10) ? `<p><button class="b cal" data-cal="${esc(m.id)}">📅 Ajouter à mon agenda</button></p>` : ''}
+      ${!m.played && !m.exempt && m.date >= localDay() ? `<p><button class="b cal" data-cal="${esc(m.id)}">📅 Ajouter à mon agenda</button></p>` : ''}
       ${(m.photos || []).length ? `<div class="photos">${m.photos.map(id => `<a class="ph" data-photo="${esc(id)}" href="#" role="button" aria-label="Voir la photo"><span class="muted small">Photo…</span></a>`).join('')}</div>` : ''}
       ${!m.home && cars.length && !m.played ? `<div class="car-list"><p class="info"><b>🚗 Covoiturage de ${esc(kid())}</b></p>${cars.map(c => `<div class="car"><b>${esc(c.driver || 'Voiture')}</b>
         <span class="muted small">${c.time ? `départ ${esc(hh(c.time))}` : ''}${c.from ? ` · ${esc(c.from)}` : ''} · ${esc(c.n)}/${esc(c.seats || '?')} places</span></div>`).join('')}</div>` : ''}
@@ -107,14 +116,14 @@
     document.title = `${kid()} · ${club} · Parents`;
     $('#club').textContent = `${club} · Espace parents`; $('#team').textContent = data.team || 'Équipe';
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now), past = ms.filter(m => m.played || m.date < now).reverse().slice(0, 8);
-    const trs = data.trainings || [];
+    const trs = data.trainings || [], prog = Member.programme(trs, data.matches, trRow);
     // (1.64) in tabs: matches (présent / absent, covoiturage, coup de main), sessions, results, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'parents')}
       ${Member.tabs('parents', [
         { id: 'matchs', icon: '⚽', label: 'Matchs', html: `${Injury.card(kid())}<h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}` },
         { id: 'benevoles', icon: '🙋', label: 'Bénévoles', html: (() => { const l = up.filter(m => volBox(m)); return l.length ? `<h2>Coup de main les jours de match</h2><p class="info">Buvette, arbitre de touche, délégué, lavage des maillots… Inscris-toi en un geste.</p>${l.map(m => `<article class="card ${m.home ? 'home' : 'away'} ${Member.kindCls(m)}" data-m="${esc(m.id)}">${Member.kindBadge(m)}<div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(String(m.time).replace(':', 'h')) : ''}</div><div class="m-title">${m.home ? '🏠 contre' : '🚌 chez'} ${esc(m.opponent || '?')}</div>${volBox(m)}</article>`).join('')}` : ''; })(), empty: 'Pas de besoin de bénévoles pour les prochains matchs.' },
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, (data.me || {}).firstName || kid())}
-          ${Member.programme(trs, data.matches, trRow) ? `<h2>Entraînements et matchs à venir</h2>${Member.programme(trs, data.matches, trRow)}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
+          ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Pour ${esc(kid())} : physique, technique ou tactique, seul ou à plusieurs. Ses footings (temps, distance) et l'envoi au coach.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'resultats', icon: '🏆', label: 'Résultats', html: past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : '', empty: 'Pas encore de résultat.' },
         { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.97) the chat of the category, here too (under 16 the family opens this page)
@@ -131,10 +140,20 @@
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }) });
   }
 
+  // (2.01) everything asked at the same time, the page drawn twice; another child: nothing of the one before
+  let loadTok = 0, lastLoad = 0;
   async function load(quiet) {
-    code = Member.current();
-    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos(); await Member.replies(code, data); tips = await Member.tips(code); await Injury.load(code); render(); loadPhotos(); }
+    const tok = ++loadTok, c = Member.current(); lastLoad = Date.now();
+    if (c !== code) { code = c; data = null; tips = []; Object.keys(photoData).forEach(k => delete photoData[k]); Object.keys(photoAsk).forEach(k => delete photoAsk[k]); }
+    try {
+      const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
+      data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos();
+      const [, t] = await Promise.all([Member.replies(code, data), Member.tips(code), Injury.load(code).catch(() => null)]);
+      if (tok !== loadTok) return;
+      tips = t || []; render(); loadPhotos();
+    }
     catch (e) {
+      if (tok !== loadTok) return;
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
       if (quiet && data) return;
       $('#team').textContent = 'Espace parents'; $('#page').innerHTML = `<p class="tip">${esc(e.message)}</p><p><button class="b" id="again">Réessayer</button></p>`;
@@ -143,7 +162,12 @@
   }
 
   // présent / absent to a match or a session; absent: the reason first
+  const answering = new Set();
   async function answer(matchId, status, seats, kind = 'match') {
+    if (answering.has(matchId)) return; // (2.01) the answer before is still on its way
+    answering.add(matchId); try { await answer2(matchId, status, seats, kind); } finally { answering.delete(matchId); }
+  }
+  async function answer2(matchId, status, seats, kind) {
     const m = (kind === 'match' ? data.matches : data.trainings || []).find(x => x.id === matchId); if (!m) return;
     let reason = '';
     if (status === 'non') { reason = await Member.askReason(`${kid()} sera absent${kind === 'match' ? ' pour ce match' : ' à cet entraînement'}`); if (reason == null) return; }
@@ -158,10 +182,11 @@
     if (Injury.onClick(e, code, true, kid(), msg => { toast(msg); render(); loadPhotos(); })) return;
     if (e.target.closest('[data-perso]')) return Perso.open({ key: 'perso-' + ((data.me || {}).id || code), who: kid(), toast, send: text => rpc('member_message', { p_code: code, p_body: text, p_parent: true }) });
     const c = e.target.closest('[data-cal], [data-calall]');
-    if (c) { const now = new Date().toISOString().slice(0, 10), list = c.dataset.cal ? data.matches.filter(m => m.id === c.dataset.cal) : data.matches.filter(m => !m.played && !m.exempt && m.date >= now);
+    if (c) { const now = localDay(), list = c.dataset.cal ? data.matches.filter(m => m.id === c.dataset.cal) : data.matches.filter(m => !m.played && !m.exempt && m.date >= now);
       download(ics(list), c.dataset.cal ? `match-${list[0].date}.ics` : `matchs-${kid()}.ics`); return; }
     const ph = e.target.closest('[data-photo]');
-    if (ph) { e.preventDefault(); const v = $('#phView'), src = photoData[ph.dataset.photo]; if (src) { v.innerHTML = `<img alt="Photo du match" src="${src}"><p>Touche pour fermer</p>`; v.hidden = false; } return; }
+    if (ph) { e.preventDefault(); const v = $('#phView'); v.innerHTML = '<p>Chargement de la photo…</p>'; v.hidden = false;
+      photo(ph.dataset.photo).then(src => { v.innerHTML = src ? `<img alt="Photo du match" src="${src}"><p>Touche pour fermer</p>` : '<p>Photo indisponible. Touche pour fermer</p>'; }); return; }
     if (e.target.closest('#phView')) { $('#phView').hidden = true; return; }
     const v = e.target.closest('[data-vol]'); if (v) { volunteer(v.closest('[data-m]').dataset.m, v.dataset.vol, v.dataset.label, !!v.dataset.rm); return; }
     const tb = e.target.closest('[data-tans]'); if (tb) { answer(tb.closest('[data-t]').dataset.t, tb.dataset.tans, 0, 'training'); return; }
@@ -173,7 +198,7 @@
     const s = e.target.closest('[data-seats]'); if (!s) return;
     answer(s.closest('[data-m]').dataset.m, 'oui', +s.value);
   });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && data) load(true); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && data && Date.now() - lastLoad > 60000) load(true); }); // (2.01) at most once a minute
   document.addEventListener('member-redraw', () => { if (data) { render(); loadPhotos(); } });
   load();
 })();

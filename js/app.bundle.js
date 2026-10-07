@@ -1197,9 +1197,14 @@ var UI = (() => {
     e.stopPropagation(); Store.state.ui.matchKind = b.dataset.mkind; Store.persistNow(); App.route(true);
   }, true);
   // a text field as high as its text (on a phone, a small field that scrolls inside could not be read)
-  function autogrow(el) { if (!el || el.tagName !== 'TEXTAREA' || !el.offsetParent) return; el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
+  // (2.01) measured again only when its text or its width changed (the page changes every second during a live match); the chat sizes its own field
+  function autogrow(el, force) {
+    if (!el || el.tagName !== 'TEXTAREA' || !el.offsetParent || el.closest('.cx')) return;
+    const k = el.value.length + ':' + el.clientWidth; if (!force && el.dataset.gk === k) return; el.dataset.gk = k;
+    el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px';
+  }
   const growAll = root => (root || document).querySelectorAll('textarea').forEach(autogrow);
-  document.addEventListener('input', e => autogrow(e.target));
+  document.addEventListener('input', e => autogrow(e.target, true));
   document.addEventListener('toggle', e => growAll(e.target), true);
   { let t = 0; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => growAll(), 60); }).observe(document.documentElement, { childList: true, subtree: true }); }
   window.addEventListener('resize', () => growAll());
@@ -3529,7 +3534,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.00';
+  const VERSION = '2.01';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4506,8 +4511,9 @@ var Planning = (() => {
       onOpen: r => {
         render(r);
         $('#addSlot', r).onclick = () => { const last = rows[rows.length - 1]; rows.push({ weekday: last ? (last.weekday + 1) % 7 : 1, start_min: last ? last.start_min : 17 * 60, end_min: last ? last.end_min : 22 * 60 }); render(r); };
-        r.addEventListener('change', e => { const row = e.target.closest('[data-i]'); if (row && e.target.dataset.f) rows[+row.dataset.i][e.target.dataset.f] = +e.target.value; });
-        r.addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b) { rows.splice(+b.dataset.del, 1); render(r); } });
+        const box = $('#slotRows', r); // (2.01) the list is new at each opening: its handlers do not pile up on the shared #modal
+        box.addEventListener('change', e => { const row = e.target.closest('[data-i]'); if (row && e.target.dataset.f) rows[+row.dataset.i][e.target.dataset.f] = +e.target.value; });
+        box.addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b) { rows.splice(+b.dataset.del, 1); render(r); } });
       },
       actions: [{ label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (close, r) => {
         if (rows.some(s => s.end_min <= s.start_min)) { toast('Chaque créneau doit finir après son début', 'err'); return false; }
@@ -4686,6 +4692,7 @@ var Messages = (() => {
     const words = new Set((fold(text).match(/@([a-z0-9'-]+)/g) || []).map(w => w.slice(1)));
     return S().staff.filter(s => me() && s.id !== me().id && words.has(fold(firstOf(s)))).map(s => s.id);
   }
+  const shotOk = v => typeof v === 'string' && /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(v); // (2.01) only a real screenshot goes into the page
   const clean = body => String(body).replace(/\n?#rappel-[\w-]+\s*$/, '').replace(/\n?\[\[fichier:[\w,-]+\]\]/, '').replace(/\n?\[\[signalement:[\w-]+\]\]/, '').replace(/\n?\[\[tag:[\w,-]+\]\]/, '');
   // @Prénom of a coach of the club, highlighted in the bubble
   const withMentions = html => html.replace(/@([A-Za-zÀ-ÿ0-9'-]+)/g, (all, w) => S().staff.some(s => fold(firstOf(s)) === fold(w)) ? `<b class="mention">@${w}</b>` : all);
@@ -4710,7 +4717,7 @@ var Messages = (() => {
   function filesOf(m) {
     const rid = (String(m.body).match(/\[\[signalement:([\w-]+)\]\]/) || [])[1];
     if (rid) { const rep = Store.get('reports', rid);
-      return `<div class="msg-files">${rep && rep.shot ? `<button class="msg-shot" data-shot="${rid}" aria-label="Voir la capture d'écran"><img alt="Capture d'écran du problème" src="${rep.shot}"></button>` : '<span class="msg-file wait">Capture d\'écran en cours de réception…</span>'}</div>`; }
+      return `<div class="msg-files">${rep && shotOk(rep.shot) ? `<button class="msg-shot" data-shot="${rid}" aria-label="Voir la capture d'écran"><img alt="Capture d'écran du problème" src="${rep.shot}"></button>` : '<span class="msg-file wait">Capture d\'écran en cours de réception…</span>'}</div>`; }
     const ids = ((String(m.body).match(/\[\[fichier:([\w,-]+)\]\]/) || [])[1] || '').split(',').filter(Boolean); if (!ids.length) return '';
     const missing = ids.map(id => Store.get('schemas', id)).filter(s => s && s.field && s.field.bgId && !Board.BG.has(s.field.bgId) && !bgAsked.has(s.id));
     if (missing.length) { missing.forEach(s => bgAsked.add(s.id)); Board.preloadBackgrounds(missing).then(() => { if (location.hash.startsWith('#/messages')) App.route(true); }); }
@@ -4898,10 +4905,12 @@ var Messages = (() => {
     $('#composer', root).onsubmit = async e => {
       e.preventDefault();
       const text = ta.value.trim(); if (!text) return;
+      const btn = e.target.querySelector('[type=submit]'); if (btn) { if (btn.disabled) return; btn.disabled = true; btn.classList.add('sending'); } // (2.01) sending: the button waits
       ta.value = ''; ta.oninput();
       const tags = tagsOf(text), sent = tags.length ? `${text}\n[[tag:${tags.join(',')}]]` : text;
       try { const m = await Cloud.post(ch, sent); if (m && !msgs.some(x => x.id === m.id)) { msgs.push(m); last = m.created_at > last ? m.created_at : last; try { localStorage.setItem(CACHE, JSON.stringify(msgs)); } catch (e2) {} } markRead(ch); draw(); }
       catch (err) { ta.value = text; toast(err.message, 'err'); }
+      finally { if (btn && document.contains(btn)) { btn.disabled = false; btn.classList.remove('sending'); } }
     };
     body.onclick = async e => {
       // a report's screenshot, full size
@@ -4911,7 +4920,7 @@ var Messages = (() => {
         const m = msgs.find(x => x.id === sb.dataset.seen), rs = (readsOf[ch] || []).filter(r => r.staff_id !== me().id && m && r.at >= m.created_at);
         return UI.modal({ title: 'Vu par', noFocus: true, body: rs.length ? `<ul class="alerts">${rs.map(r => { const s = Store.get('staff', r.staff_id); return `<li><b>${esc(s ? coachName(s) : 'Un dirigeant')}</b> <span class="muted small">${esc(new Date(r.at).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}</span></li>`; }).join('')}</ul>` : '<p class="muted">Personne n\'a encore ouvert la conversation depuis ce message.</p>', actions: [{ label: 'Fermer', kind: 'primary' }] });
       }
-      if (sh) { const rep = Store.get('reports', sh.dataset.shot); if (rep && rep.shot) UI.modal({ title: 'Capture d\'écran', noFocus: true, body: `<div class="viewer"><img alt="Capture d'écran du problème" src="${rep.shot}"></div><p class="muted small">${esc(rep.byName || '')}${rep.page ? ' · page « ' + esc(rep.page) + ' »' : ''}</p>`, actions: [{ label: 'Fermer', kind: 'primary' }] }); return; }
+      if (sh) { const rep = Store.get('reports', sh.dataset.shot); if (rep && shotOk(rep.shot)) UI.modal({ title: 'Capture d\'écran', noFocus: true, body: `<div class="viewer"><img alt="Capture d'écran du problème" src="${rep.shot}"></div><p class="muted small">${esc(rep.byName || '')}${rep.page ? ' · page « ' + esc(rep.page) + ' »' : ''}</p>`, actions: [{ label: 'Fermer', kind: 'primary' }] }); return; }
       const b = e.target.closest('[data-delm]'); if (!b) return;
       if (!(await confirmBox('Supprimer ce message pour tout le monde ?'))) return;
       try { await Cloud.deleteMessage(b.dataset.delm); msgs = msgs.filter(m => m.id !== b.dataset.delm); try { localStorage.setItem(CACHE, JSON.stringify(msgs)); } catch (e2) {} draw(); }
@@ -4928,7 +4937,8 @@ var Messages = (() => {
       body: others.length ? `<div class="people">${others.map(s => `<button class="person-main" data-to="${s.id}"><span class="pnum role">${I.whistle}</span><span class="pmain"><b class="author">${crestOf(s)}${esc(coachName(s))}</b>${UI.motto(s)}<span class="muted">${esc([s.role, (s.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '), s.club ? 'club de cœur : ' + Clubs.name(s.club) : ''].filter(Boolean).join(' · '))}</span></span></button>`).join('')}</div>` : '<p class="muted">Aucun autre dirigeant dans l\'appli.</p>',
       onOpen: r => $$('[data-to]', r).forEach(b => b.onclick = () => { close(); location.hash = '#/messages/' + encodeURIComponent(dmKey(me().id, b.dataset.to)); }) });
   }
-  function leave() { fast = false; onNew = null; onTick = null; start(); }
+  // (2.01) leaving a conversation slows the checks down; leaving any other page changes nothing (no request at each page)
+  function leave() { const was = fast; fast = false; onNew = null; onTick = null; if (was || !timer) start(); }
 
   return { page, start, badge, leave, coachName };
 })();
@@ -9766,7 +9776,7 @@ var Vol = (() => {
     if (b.hasAttribute('data-vset')) { settings(redraw); return true; }
     const [mid, key, pid] = (b.dataset.vme || b.dataset.vadd || b.dataset.vrm).split('|'), m = Store.get('matches', mid), t = tasks().find(x => x.key === key); if (!m || !t) return true;
     const save = () => { m.vol = m.vol || {}; Store.upsert('matches', m); redraw && redraw(); };
-    if (b.dataset.vme) { const u = me(); (m.vol = m.vol || {})[key] = [...list(m, key), { id: Store.uid(), name: Messages.coachName(u), staffId: u.id }]; save(); toast(`Merci ! ${t.icon} ${t.label} le ${UI.fmtDate(m.date)}`); }
+    if (b.dataset.vme) { const u = me(); if (list(m, key).some(p => p.staffId === u.id)) return true; /* (2.01) already in: a second tap does nothing */ (m.vol = m.vol || {})[key] = [...list(m, key), { id: Store.uid(), name: Messages.coachName(u), staffId: u.id }]; save(); toast(`Merci ! ${t.icon} ${t.label} le ${UI.fmtDate(m.date)}`); }
     if (b.dataset.vadd) {
       modal({ title: `${t.icon} ${t.label} · ${UI.fmtDate(m.date)}`, body: `<label class="fld"><span>Nom (un parent, un joueur, un dirigeant)</span><input id="vName" maxlength="40" placeholder="ex : Maman de Noah"></label>
         <div class="chips">${S().staff.filter(s => !list(m, key).some(p => p.staffId === s.id) && (s.teamIds || []).includes(m.teamId)).slice(0, 12).map(s => `<button class="chip" data-vst="${s.id}">${esc(Store.fullName(s))}</button>`).join('')}</div>`,
@@ -13385,6 +13395,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 57, date: '2026-10-07', title: 'Plus fluide, plus léger', items: [
+      ['⚡', 'Espaces joueurs et parents : tout se charge en même temps (2 affichages au lieu de 6), et revenir dans l\'appli ne recharge plus tout à chaque fois.'],
+      ['👆', 'Un appui = un envoi : les boutons attendent la réponse (« Envoi… »), plus de doublons (réponses, messages, bénévoles, sondages).'],
+      ['🧹', 'Corrigé : la page vide après « Mon entraînement perso », la note du questionnaire qui s\'effaçait, les données d\'un enfant mélangées en changeant de code, les dates fausses après minuit.'],
+      ['📱', 'Boutons plus grands au doigt, échelle du questionnaire sur 2 lignes, prénom du bénévole demandé dans l\'appli. Coachs : les boutons du haut tiennent sur une ligne qui défile.'],
+    ] },
     { n: 56, date: '2026-10-07', title: 'Le chat ne bouge plus', items: [
       ['📌', 'Le chat est fixé à l\'écran : la page derrière ne défile plus, même quand le clavier s\'ouvre.'],
       ['✨', 'Plus de saut quand la page se recharge ; seuls les nouveaux messages glissent à l\'écran.'],
@@ -14126,10 +14142,13 @@ var Game = (() => {
   const adv = h => h >= 48 ? Math.round(h / 24) + ' j' : h >= 1 ? Math.round(h) + ' h' : Math.max(1, Math.round(h * 60)) + ' min';
   const favTag = f => f ? ` <span class="gm-fav">❤️ ${esc(f)}</span>` : '';
   let state = { view: null, fx: null, err: '' };
+  let loading = null; // (2.01) one request at a time: the page is drawn several times while it opens
   async function load(o, force) {
     if (!force && state.view && Date.now() - (state.at || 0) < 60000) return;
-    try { const [view, fx] = await Promise.all([o.load(), fixtures(force)]); state = { view, fx, err: '', at: Date.now() }; }
-    catch (e) { state.err = e.message || 'Jeu indisponible'; }
+    if (loading) return loading;
+    loading = (async () => { try { const [view, fx] = await Promise.all([o.load(), fixtures(force)]); state = { view, fx, err: '', at: Date.now() }; }
+      catch (e) { state.err = e.message || 'Jeu indisponible'; } finally { loading = null; } })();
+    return loading;
   }
   function html(o) {
     const { view, fx, err } = state;
@@ -14204,7 +14223,7 @@ var Chat = (() => {
   const nice = e => { const m = String((e && ((e.code || '') + ' ' + (e.message || ''))) || ''); const x = ERR.find(([r]) => r.test(m)); return x ? x[1] : (e && e.message) || 'Le serveur ne répond pas.'; };
   const EMOJI = ['👍', '⚽', '🔥', '💪', '😂', '👏', '🙏', '❤️', '😅', '🏆', '🥅', '✅'];
   const HELLO = ['Salut tout le monde 👋', 'Qui vient à l\'entraînement ? ⚽', 'On lâche rien ! 💪'];
-  const FAST = 3000, SLOW = 15000, GROUP = 5 * 60e3;
+  const FAST = 3000, SLOW = 30000, GROUP = 5 * 60e3; // (2.01) behind another tab: every 30 s (only for the badge)
 
   // one chat at a time: kept when the page is redrawn
   let box = null, o = null, view = null, cat = '', draft = '', timer = null, busy = false, lastPoll = 0, wasShown = false, pend = 0, queue = Promise.resolve(), armed = null;
@@ -14226,7 +14245,7 @@ var Chat = (() => {
       '.cx-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line,#e3e5ea);min-height:46px}',
       'body.tabs-top .cx-top,body.nav-top .cx-top{padding-right:118px}',
       '.cx-top b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cx-shield{font-size:12px;font-weight:700;color:#15803d;white-space:nowrap}',
-      '.cx-top .cx-sp{flex:1}.cx-cats{display:flex;gap:4px}.cx-cats button,.cx-mod{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;padding:3px 10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}',
+      '.cx-top .cx-sp{flex:1}.cx-cats{display:flex;gap:4px}.cx-cats button,.cx-mod{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;min-height:36px;padding:6px 12px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}',
       '.cx-cats button.on{background:#0e1d45;color:#fff;border-color:#0e1d45}',
       '.cx-list{flex:1;overflow-y:auto;padding:10px 10px 6px;display:flex;flex-direction:column;gap:2px;background:var(--bg,#f2f3f7);overscroll-behavior:contain;-webkit-overflow-scrolling:touch}',
       '.cx-day{align-self:center;margin:10px 0 6px;padding:3px 12px;border-radius:999px;background:var(--surface,#fff);font-size:12px;font-weight:700;color:var(--muted,#667);box-shadow:0 1px 2px rgba(0,0,0,.06)}',
@@ -14238,7 +14257,7 @@ var Chat = (() => {
       '.cx-name{display:block;font-size:12.5px;font-weight:800;margin-bottom:1px}.cx-coach{font-size:10.5px;font-weight:800;padding:0 6px;border-radius:999px;background:#c9a45c;color:#0e1d45;margin-left:4px;vertical-align:1px}',
       '.cx-t{float:right;font-size:11px;opacity:.6;margin:6px 0 -2px 10px;white-space:nowrap}.cx-b.big{font-size:34px;line-height:1.15;background:none!important;box-shadow:none;padding:2px 4px}',
       '.cx-b.pend{opacity:.65}.cx-b.fail{outline:2px solid #dc2626}.cx-gone{font-style:italic;opacity:.6;font-size:14px}',
-      '.cx-act{display:flex;gap:6px;justify-content:flex-end;margin:2px 0 4px}.cx-act button{border:0;border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;background:#dc2626;color:#fff}.cx-act button.no{background:var(--line,#e3e5ea);color:inherit}',
+      '.cx-act{display:flex;gap:6px;justify-content:flex-end;margin:2px 0 4px}.cx-act button{border:0;border-radius:999px;min-height:40px;padding:8px 16px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;background:#dc2626;color:#fff}.cx-act button.no{background:var(--line,#e3e5ea);color:inherit}',
       '.cx-retry{font-size:12px;color:#dc2626;font-weight:700;text-align:right;margin:2px 4px 4px;cursor:pointer}',
       '.cx-empty{margin:auto;text-align:center;padding:20px 10px;color:var(--muted,#667)}.cx-empty .e{font-size:44px}.cx-hello{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}',
       '.cx-hello button,.cx-emo button{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}',
@@ -14251,12 +14270,12 @@ var Chat = (() => {
       '.cx-send{background:#8c1024;color:#fff;transition:transform .12s,opacity .12s}.cx-send:disabled{opacity:.35}.cx-send:not(:disabled):active{transform:scale(.9)}',
       '.cx-note{font-size:11.5px;color:var(--muted,#667);text-align:center;padding:0 10px 6px;background:var(--surface,#fff)}',
       '.tabbar .tab .cx-badge{position:absolute;top:2px;right:calc(50% - 22px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e11d48;color:#fff;font:800 11px/18px system-ui,sans-serif}.tabbar .tab{position:relative}',
-      '.cx-seg{display:flex;background:var(--bg,#f2f3f7);border-radius:999px;padding:2px;gap:2px}.cx-seg button{border:0;background:none;color:inherit;border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}.cx-seg button.on{background:var(--surface,#fff);box-shadow:0 1px 3px rgba(0,0,0,.12)}',
+      '.cx-seg{display:flex;background:var(--bg,#f2f3f7);border-radius:999px;padding:2px;gap:2px}.cx-seg button{border:0;background:none;color:inherit;border-radius:999px;min-height:36px;padding:6px 12px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap}.cx-seg button.on{background:var(--surface,#fff);box-shadow:0 1px 3px rgba(0,0,0,.12)}',
       '.cx-b.poll{min-width:min(78%,300px)}.cx-poll{display:flex;flex-direction:column;gap:5px;margin:2px 0 4px}.cx-pq{font-weight:800;font-size:15.5px;margin-bottom:2px}',
-      '.cx-po{position:relative;overflow:hidden;display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:6px 10px;border-radius:12px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);background:color-mix(in srgb,currentColor 5%,transparent);color:inherit;font:inherit;font-size:14.5px;text-align:left;cursor:pointer}',
+      '.cx-po{position:relative;overflow:hidden;display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:6px 10px;border-radius:12px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);background:color-mix(in srgb,currentColor 5%,transparent);color:inherit;font:inherit;font-size:14.5px;text-align:left;cursor:pointer}',
       '.cx-po:disabled{cursor:default}.cx-pf{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,currentColor 16%,transparent);transition:width .3s}.cx-po.me{border-color:currentColor;font-weight:700}.cx-po.win{font-weight:800}',
       '.cx-pt{position:relative;flex:1;min-width:0}.cx-pn{position:relative;font-weight:800;font-size:13px}.cx-pw{font-size:12px;opacity:.75;margin:-2px 4px 2px}',
-      '.cx-pi{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;opacity:.85}.cx-pi button{border:0;background:color-mix(in srgb,currentColor 10%,transparent);color:inherit;border-radius:999px;padding:3px 9px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}',
+      '.cx-pi{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;opacity:.85}.cx-pi button{border:0;background:color-mix(in srgb,currentColor 10%,transparent);color:inherit;border-radius:999px;min-height:34px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}',
       '.cx-pcard{background:var(--surface,#fff);border-radius:16px;padding:10px 12px;margin:4px 0 8px;box-shadow:0 1px 2px rgba(0,0,0,.08)}.cx-pby{font-size:12px;color:var(--muted,#667);margin-bottom:4px}',
       '.cx-newpoll{flex:1;min-height:44px;border:0;border-radius:22px;background:#8c1024;color:#fff;font:inherit;font-weight:700;cursor:pointer}',
       '.cx-sheet{position:absolute;inset:0;z-index:3;background:rgba(10,15,34,.45);display:flex;align-items:flex-end}.cx-sheet form{width:100%;max-height:100%;overflow-y:auto;background:var(--surface,#fff);border-radius:18px 18px 0 0;padding:14px;display:flex;flex-direction:column;gap:8px}',
@@ -14307,6 +14326,7 @@ var Chat = (() => {
   /* ---------- the messages ---------- */
   // the key of a message for the grouping: same person, less than 5 minutes after the one before, same day
   function rowHtml(m, prev) {
+    m.name = String(m.name || '?');
     const first = !prev || prev.who !== (m.mine ? 'me' : m.name) || new Date(m.at) - new Date(prev.at) > GROUP || dayOf(prev.at) !== dayOf(m.at);
     const day = !prev || dayOf(prev.at) !== dayOf(m.at) ? `<div class="cx-day">${esc(dayOf(m.at))}</div>` : '';
     const big = !m.deleted && onlyEmoji(m.body);
@@ -14406,10 +14426,10 @@ var Chat = (() => {
   const local = m => typeof m.id !== 'number'; // shown at once, not yet back from the server
   const lastId = () => { const ms = ((view && view.msgs) || []).filter(m => !local(m)); return ms.length ? ms[ms.length - 1].id : 0; };
   async function load(full) {
-    if (!o || busy) return; busy = true; lastPoll = Date.now();
+    if (!o || busy) return; busy = true; lastPoll = Date.now(); const asked = cat;
     try {
       const r = await o.load(cat || null, full || !view ? 0 : lastId());
-      if (!r) return;
+      if (!r || asked !== cat) { if (asked !== cat) lastPoll = 0; return; } // (2.01) another category was chosen meanwhile
       if (full || !view || r.cat !== view.cat) { view = r; cat = r.cat || cat; drawAll(); }
       else {
         const gone = new Set(r.gone || []), had = new Set(view.msgs.map(m => m.id)); let changed = false;
@@ -14470,12 +14490,16 @@ var Chat = (() => {
     x.me = !was; x.n += was ? -1 : 1; drawList(false);
     try { view.polls = await o.vote(view.cat, id, i); drawList(false); } catch (err) { (o.toast || alert)(nice(err), true); lastPoll = 0; load(true); }
   }
+  let creating = false;
   async function createPoll() {
+    if (creating) return; // (2.01) one tap = one poll
     const q = String(sheet.q || '').trim(), opts = sheet.opts.map(x => String(x || '').trim()).filter(Boolean);
     if (!q) return (o.toast || alert)('Écris ta question.', true);
     if (opts.length < 2) return (o.toast || alert)('Il faut au moins 2 réponses.', true);
+    creating = true; const sb = box.querySelector('#cxPollForm [type=submit]'); if (sb) { sb.disabled = true; sb.textContent = 'Envoi…'; }
     try { await o.poll(view.cat, q, opts, !!sheet.multi); sheet = null; mode = 'chat'; drawAll(); lastPoll = 0; await load(false); toBottom(); (o.toast || (() => {}))('📊 Sondage envoyé à la catégorie !'); }
-    catch (err) { (o.toast || alert)(nice(err), true); }
+    catch (err) { (o.toast || alert)(nice(err), true); if (sb && document.contains(sb)) { sb.disabled = false; sb.textContent = 'Créer le sondage'; } }
+    finally { creating = false; }
   }
   /* ---------- the hands ---------- */
   function bind(el) {
@@ -14506,7 +14530,7 @@ var Chat = (() => {
       if (em) { const t = $('#cxText'); if (!t) return; const a = t.selectionStart ?? t.value.length, b = t.selectionEnd ?? a; t.value = t.value.slice(0, a) + em.dataset.cxemo + t.value.slice(b); draft = t.value; t.selectionStart = t.selectionEnd = a + em.dataset.cxemo.length; grow(); const s = $('#cxSend'); if (s) s.disabled = false; return; }
       const hi = q('[data-cxsay]'); if (hi) return send(hi.dataset.cxsay);
       const rt = q('[data-cxretry]'); if (rt) { const m = view.msgs.find(x => String(x.id) === rt.dataset.cxretry); if (m) { m.fail = false; m.pend = true; drawList(true); queue = queue.then(() => post(m)); } return; }
-      const c = q('[data-cxcat]'); if (c) { cat = c.dataset.cxcat; view = null; drawAll(); return load(true); }
+      const c = q('[data-cxcat]'); if (c) { cat = c.dataset.cxcat; view = null; drawAll(); for (let i = 0; i < 20 && busy; i++) await new Promise(r => setTimeout(r, 100)); return load(true); }
       const f = q('[data-cxoff]');
       if (f && o.off) { const off = f.dataset.cxoff === '1'; try { await o.off(off); view.off = off; drawAll(); (o.toast || (() => {}))(off ? '🔒 Chat fermé : les joueurs peuvent lire, plus écrire.' : '🔓 Chat rouvert.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       // delete: touch the bubble (mine, or any for a coach), then « Supprimer »
@@ -14613,6 +14637,7 @@ var VPlayer = (() => {
     if (v) frame.addEventListener('dblclick', e => { e.preventDefault(); const p = rel(e); z > 1 ? (z = 1, x = y = 0, apply()) : at(p[0], p[1], 2.5); });
     frame.addEventListener('wheel', e => { if (!v && pan.hidden) return; e.preventDefault(); const p = rel(e); at(p[0], p[1], z * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }, { passive: false });
     addEventListener('resize', apply);
+    return () => removeEventListener('resize', apply); // (2.01) taken away when the player closes
   }
   // opens the player over the page
   function open(url, start, title) {
@@ -14624,12 +14649,12 @@ var VPlayer = (() => {
       <div class="vp-tools">${s.kind === 'video' ? '<button type="button" data-vz="back">⏪ 5 s</button><button type="button" data-vz="play">⏯</button><button type="button" data-vz="fwd">5 s ⏩</button>' : '<button type="button" data-vz="pan">✋ Déplacer</button>'}
         <button type="button" data-vz="out" aria-label="Dézoomer">－</button><b class="vp-zl">100 %</b><button type="button" data-vz="in" aria-label="Zoomer">＋</button><button type="button" data-vz="reset">⟲</button></div>
       <p class="vp-hint">${s.kind === 'video' ? 'Zoom : deux doigts, double-tap ou ＋ / －. Zoomé : glisse un doigt pour te déplacer.' : 'Zoom : ＋ / －, puis « ✋ Déplacer » pour bouger l\'image (re-touche-le pour retrouver les commandes de la vidéo).'}</p></div>`;
-    const close = () => { o.remove(); document.removeEventListener('keydown', key); };
+    let unzoom = null; const close = () => { o.remove(); document.removeEventListener('keydown', key); if (unzoom) unzoom(); };
     const key = e => { if (e.key === 'Escape') close(); };
     o.onclick = e => { if (e.target === o || e.target.closest('[data-vpx]')) close(); };
     document.addEventListener('keydown', key); document.body.appendChild(o);
     // a format the browser can't read (AVI, MPG, WMV…): say it, and offer to download it
-    zoom(o.querySelector('.vp-frame'), o.querySelector('.vp-tools'));
+    unzoom = zoom(o.querySelector('.vp-frame'), o.querySelector('.vp-tools'));
     const v = o.querySelector('video'); if (v) v.onerror = () => { const f = o.querySelector('.vp-frame'); f.style.aspectRatio = 'auto'; f.innerHTML = `<div style="padding:24px;color:#fff;text-align:center;line-height:1.5"><p>😕 Ce format de vidéo ne se lit pas dans le navigateur (souvent AVI, MPG ou WMV).</p><p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" download style="color:#e2c27d;font-weight:700">⬇️ Télécharger la vidéo</a></p><p style="opacity:.75;font-size:14px">Coach : mets plutôt la vidéo en MP4, ou sur YouTube (en « non répertoriée ») ou Google Drive.</p></div>`; };
   }
   // a list of clips: [{ url, t, title }] → buttons that open the player (data-vp…)
@@ -14959,16 +14984,17 @@ Réponds seulement avec la liste JSON.`;
     modal({ title: '🤖 Highlights automatiques', noFocus: true, wide: true, body: `<div class="ahl"><div id="ahlMedia"></div><div id="ahlBody">${(merge(), body())}</div></div>`,
       onOpen: r => {
         root = r; css(); setMedia();
-        r.addEventListener('change', e => {
+        const host = r.querySelector('.sheet'); // (2.01) new at each opening: the handlers do not pile up on the shared #modal
+        host.addEventListener('change', e => {
           if (e.target.id === 'ahlFile' && e.target.files[0]) return analyse(e.target.files[0]);
           const k = e.target.dataset.ahlk; if (k != null) { st.list[+k].keep = e.target.checked; return draw(); }
           const s = e.target.dataset.ahls; if (s != null) { const x = st.list[+s]; x.kind = e.target.value; const l = (KINDS.find(z => z[0] === x.kind) || [])[1]; if (l && /^🔊|^(⚽|🎯|⚠️|🥅|🧤|🟨)/.test(x.title)) x.title = l.replace(/ \((nous|eux)\)/, x.kind.endsWith('Them') ? ' adverse' : ''); return draw(); }
           if (e.target.id === 'ahlK1' || e.target.id === 'ahlK2') { readInputs(); merge(); draw(); }
           if (e.target.id === 'ahlLink') { st.link = e.target.value.trim(); setMedia(); draw(); }
         });
-        r.addEventListener('input', e => { if (e.target.id === 'ahlGKey') setGKey(e.target.value.trim()); if (e.target.id === 'ahlColors') st.colors = e.target.value; const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
-        r.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('ahl-ai')) st.aiOpen = e.target.open; }, true);
-        r.addEventListener('click', e => {
+        host.addEventListener('input', e => { if (e.target.id === 'ahlGKey') setGKey(e.target.value.trim()); if (e.target.id === 'ahlColors') st.colors = e.target.value; const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
+        host.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('ahl-ai')) st.aiOpen = e.target.open; }, true);
+        host.addEventListener('click', e => {
           if (e.target.closest('[data-ahl="ai"]')) { runAI(); return; }
           const p = e.target.closest('[data-ahlp]'); if (p) { const x = st.list[+p.dataset.ahlp]; if (P) { P.seek(Math.max(0, x.t - BEFORE[x.src])); r.querySelector('#ahlMedia').scrollIntoView({ block: 'nearest' }); } return; }
           if (e.target.closest('[data-ahl="k1now"]')) { if (P) { readInputs(); st.k1 = mmss(P.time()); merge(); draw(); } }
@@ -16360,7 +16386,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 101, UPD = AppCfg.key('update-tried');
+  const BUILD = 102, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

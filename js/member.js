@@ -162,6 +162,9 @@ const Member = (() => {
       + '.prog-g>summary::-webkit-details-marker{display:none}.prog-g>summary::after{content:"▾";font-size:18px;color:var(--muted)}.prog-g[open]>summary::after{content:"▴"}.prog-g[open]>summary{border-radius:14px 14px 0 0;border-bottom:0}.prog-g>.card{border-radius:0 0 14px 14px;margin-top:0}.prog-g .todo{color:#b45309}'
       + '.tr-ans{border-left:4px solid #7c3aed;padding-left:10px}.tr-m{padding-left:10px;border-left:4px solid #2563eb}.tr.k-cup{border-left-color:#b7791f}.tr.k-ami{border-left-color:#15803d}.tr.k-tour{border-left-color:#ea580c}'
       + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}'
+      // (2.01) more comfortable for a finger: bigger small buttons, the well-being scale on two lines, small texts readable
+      + '.b.small{min-height:40px}.b:disabled{opacity:.55}.wb-scale{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}.wb-scale button{min-height:44px!important;font-size:16px}'
+      + '.gm-s small,.gm-src{font-size:12.5px!important}.tab span{font-size:12px}'
       // (1.94) the other view, chosen by the player: one small menu at the top right instead of the bar at the bottom
       + '.tabmenu{display:none}body.tabs-top main{padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}body.tabs-top header.top .top-in{padding-right:96px}body.tabs-top .toast{bottom:calc(env(safe-area-inset-bottom) + 16px)}'
       + 'body.tabs-top .tabbar{top:calc(env(safe-area-inset-top) + 10px);bottom:auto;left:auto;right:10px;flex-direction:column;align-items:stretch;gap:2px;padding:4px;border:1px solid rgba(201,164,92,.55);border-radius:18px;background:rgba(14,29,69,.94);box-shadow:0 6px 18px rgba(0,0,0,.25)}'
@@ -232,7 +235,7 @@ const Member = (() => {
     v.innerHTML = '<div class="tf-box"><p>Ouverture…</p><button class="b small" data-tfclose>Fermer</button></div>'; document.body.appendChild(v);
     v.onclick = e => { if (e.target === v || e.target.closest('[data-tfclose]')) v.remove(); };
     try {
-      const f = await rpc('member_tip_file', { p_code: current(), p_id: id }); if (!f || !f.data) throw new Error('Fichier introuvable.');
+      const f = await rpc('member_tip_file', { p_code: current(), p_id: id }); if (!f || !/^data:(image\/(png|jpe?g|webp|gif)|application\/pdf);base64,/.test(String(f.data))) throw new Error('Fichier introuvable.'); // (2.01) only an image or a PDF
       const box = v.querySelector('.tf-box');
       if (/^image\//.test(f.mime)) box.innerHTML = `<img src="${f.data}" alt=""><p><button class="b small" data-tfclose>Fermer</button></p>`;
       else {
@@ -251,8 +254,10 @@ const Member = (() => {
         ${t.text ? `<p class="tc-txt">${esc(t.text)}</p>` : ''}${tipSession(t.session)}${tipMedia(t)}</article>`).join('');
   }
   async function tips(code) { try { const r = await rpc('member_tips', { p_code: code }); return Array.isArray(r) ? r : []; } catch (e) { return []; } } // not yet on the server: nothing shown
-  function showTab(b) {
-    tabCur = b.dataset.tab; const kind = (b.closest('.tabbar') || {}).dataset ? b.closest('.tabbar').dataset.kind : '';
+  function showTab(b0) {
+    // (2.01) a button elsewhere in the page (« Écrire au coach ») stands for its tab: the real tab button gives the icon and the label
+    const b = document.querySelector(`.tabbar [data-tab="${b0.dataset.tab}"]`); if (!b) return;
+    tabCur = b.dataset.tab; const kind = b.closest('.tabbar').dataset.kind || '';
     try { sessionStorage.setItem(TABKEY(kind), tabCur); } catch (e) {}
     document.querySelectorAll('.tab-pane').forEach(p => { p.hidden = p.dataset.pane !== tabCur; });
     document.querySelectorAll('.tabbar .tab').forEach(x => { const on = x.dataset.tab === tabCur; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
@@ -344,7 +349,7 @@ const Member = (() => {
   function onBar(e, reload) {
     if (e.target.closest('[data-alltr]')) { allTr = !allTr; document.dispatchEvent(new Event('member-redraw')); return true; }
     if (e.target.closest('[data-mupdate]')) { updateApp(); return true; }
-    const tb = e.target.closest('[data-tab]'); if (tb) { showTab(tb); return true; }
+    const tb = e.target.closest('[data-tab]'); if (tb && !tb.closest('#psOverlay, .ps-in')) { showTab(tb); return true; } // (2.01) not the tabs of « Mon entraînement perso »
     const tf = e.target.closest('[data-tipfile]'); if (tf) { openTipFile(tf.dataset.tipfile); return true; }
     const nb = e.target.closest('[data-mnotif]'); if (nb) { setNotify(nb.dataset.mnotif === 'on', nb.dataset.kind); return true; }
     if (e.target.closest('[data-forgetme]')) { forgetMe(/parents/.test(location.pathname) ? 'parents' : 'joueur'); return true; }
@@ -371,6 +376,21 @@ const Member = (() => {
     document.head.appendChild(st);
   }
   // the reason of an absence: a few buttons and a precision; null if cancelled
+  // (2.01) a short text in a sheet of the page (instead of the phone's « prompt » box): the first name of a volunteer…
+  function askText(title, info, placeholder) {
+    sheetCss();
+    return new Promise(res => {
+      const o = document.createElement('div'); o.className = 'rs-back';
+      o.innerHTML = `<form class="rs-sheet" role="dialog" aria-label="${esc(title)}"><h3>${esc(title)}</h3>${info ? `<p class="info">${esc(info)}</p>` : ''}
+        <input class="rs-note" maxlength="40" placeholder="${esc(placeholder || '')}" aria-label="${esc(title)}" autocomplete="given-name">
+        <div class="btns"><button class="b" type="button" data-x>Annuler</button><button class="b yes on" type="submit">Valider</button></div></form>`;
+      document.body.appendChild(o);
+      const inp = o.querySelector('input'), done = v => { o.remove(); res(v); };
+      setTimeout(() => inp.focus(), 50);
+      o.addEventListener('click', e => { e.stopPropagation(); if (e.target === o || e.target.closest('[data-x]')) done(null); });
+      o.querySelector('form').addEventListener('submit', e => { e.preventDefault(); const v = inp.value.trim(); if (v) done(v); else inp.focus(); });
+    });
+  }
   function askReason(title) {
     sheetCss();
     return new Promise(res => {
@@ -409,5 +429,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();

@@ -68,10 +68,13 @@ const Game = (() => {
   const adv = h => h >= 48 ? Math.round(h / 24) + ' j' : h >= 1 ? Math.round(h) + ' h' : Math.max(1, Math.round(h * 60)) + ' min';
   const favTag = f => f ? ` <span class="gm-fav">❤️ ${esc(f)}</span>` : '';
   let state = { view: null, fx: null, err: '' };
+  let loading = null; // (2.01) one request at a time: the page is drawn several times while it opens
   async function load(o, force) {
     if (!force && state.view && Date.now() - (state.at || 0) < 60000) return;
-    try { const [view, fx] = await Promise.all([o.load(), fixtures(force)]); state = { view, fx, err: '', at: Date.now() }; }
-    catch (e) { state.err = e.message || 'Jeu indisponible'; }
+    if (loading) return loading;
+    loading = (async () => { try { const [view, fx] = await Promise.all([o.load(), fixtures(force)]); state = { view, fx, err: '', at: Date.now() }; }
+      catch (e) { state.err = e.message || 'Jeu indisponible'; } finally { loading = null; } })();
+    return loading;
   }
   function html(o) {
     const { view, fx, err } = state;
