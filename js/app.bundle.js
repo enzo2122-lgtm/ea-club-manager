@@ -3534,7 +3534,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.01';
+  const VERSION = '2.02';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13395,6 +13395,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 58, date: '2026-10-07', title: 'La page du match plus réactive', items: [
+      ['⚡', 'Page d\'un match : un but, une passe, le score ou un convoqué se mettent à jour tout de suite, sans redessiner toute la page. La page se remet complètement à jour une seconde et demie après le dernier appui.'],
+    ] },
     { n: 57, date: '2026-10-07', title: 'Plus fluide, plus léger', items: [
       ['⚡', 'Espaces joueurs et parents : tout se charge en même temps (2 affichages au lieu de 6), et revenir dans l\'appli ne recharge plus tout à chaque fois.'],
       ['👆', 'Un appui = un envoi : les boutons attendent la réponse (« Envoi… »), plus de doublons (réponses, messages, bénévoles, sondages).'],
@@ -15785,12 +15788,21 @@ var Views = (() => {
   }
   // (1.37) the tab of each match page and its « Modifier » state, kept while the app is open
   const matchTabs = {}, mEdit = {};
+  let matchGen = 0; // (2.02) the match page shown last
   function match(root, id) {
     const m = Store.get('matches', id); if (!m) return (location.hash = '#/matchs');
     if (!Auth.sees(m.teamId)) return matchView(root, m);
     const save = () => Store.upsert('matches', m);
     const stepper = (key, val, lab) => `<div class="stepper"><span>${lab}</span><button class="icon-btn" data-sc="${key}" data-d="-1" aria-label="Moins">${I.minus}</button><b>${val}</b><button class="icon-btn" data-sc="${key}" data-d="1" aria-label="Plus">${I.plus}</button></div>`;
+    // (2.02) a tap on a goal, a score or a convocation changes only its number or its chip at once; the whole page follows 1.5 s after the last tap
+    // (not while the coach is typing), so 10 quick taps make one redraw instead of 10
+    let lazyT = 0; const gen = ++matchGen;
+    const later = () => { clearTimeout(lazyT); lazyT = setTimeout(function again() {
+      if (gen !== matchGen || !location.hash.includes(m.id)) return; // another page, or this one opened again meanwhile: nothing
+      const a = document.activeElement; if (a && root.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { lazyT = setTimeout(again, 1500); return; }
+      render(); }, 1500); };
     const render = () => {
+      clearTimeout(lazyT);
       const t = teamOf(m.teamId), roster = t ? Store.rosterOf(t.id) : [], conv = roster.filter(p => (m.convoked || []).includes(p.id));
       const lineup = m.lineupId && Store.get('schemas', m.lineupId);
       const tab = matchTabs[m.id] || (m.played ? 'apres' : 'avant'), editOpen = mEdit[m.id] != null ? mEdit[m.id] : !m.opponent;
@@ -15902,10 +15914,17 @@ var Views = (() => {
       if (b.dataset.unstaff) { m.staffIds = (m.staffIds || []).filter(x => x !== b.dataset.unstaff); save(); return render(); }
       if (b.dataset.conv) { const c = m.convoked = m.convoked || [], i = c.indexOf(b.dataset.conv); i < 0 ? c.push(b.dataset.conv) : c.splice(i, 1);
         const pl = Store.get('players', b.dataset.conv), u = i < 0 && Health.on(pl, m.date); if (u) toast(`Attention : ${Store.shortName(pl)} est indisponible ce jour-là (${Health.label(u)})`, 'err');
-        save(); return render(); }
-      if (b.dataset.sc) { const before = Ratings.result(m); m[b.dataset.sc] = Math.max(0, (+m[b.dataset.sc] || 0) + +b.dataset.d); if (Ratings.result(m) !== before) delete m.smiley; save(); render(); return cheer(before); }
+        save();
+        const t = teamOf(m.teamId), n = t ? Store.rosterOf(t.id).filter(p => c.includes(p.id)).length : c.length, h = $('[data-panel="avant"] .row-head h2', root);
+        const before = i < 0 ? n - 1 : n + 1;
+        if (!h || !b.closest('[data-panel="avant"]') || before === 0 || n === 0) return render(); // the first or the last one: the convocation buttons appear or go
+        b.classList.toggle('on', i < 0); h.textContent = `Convoqués (${n})`; return later(); }
+      if (b.dataset.sc) { const before = Ratings.result(m); m[b.dataset.sc] = Math.max(0, (+m[b.dataset.sc] || 0) + +b.dataset.d);
+        if (Ratings.result(m) !== before) { delete m.smiley; save(); render(); return cheer(before); } // won / lost / drawn changed: the whole page
+        save(); const v = b.parentElement.querySelector('b'); if (v) v.textContent = m[b.dataset.sc]; return later(); }
       if (b.dataset.smiley) { m.smiley = b.dataset.smiley; save(); return render(); }
-      if (b.dataset.pl) { const st = (m.stats = m.stats || {})[b.dataset.pl] = m.stats[b.dataset.pl] || {}; st[b.dataset.k] = Math.max(0, (st[b.dataset.k] || 0) + +b.dataset.d); save(); return render(); }
+      if (b.dataset.pl) { const st = (m.stats = m.stats || {})[b.dataset.pl] = m.stats[b.dataset.pl] || {}; st[b.dataset.k] = Math.max(0, (st[b.dataset.k] || 0) + +b.dataset.d); save();
+        const v = b.parentElement.querySelector('b'); if (v) v.textContent = st[b.dataset.k]; return later(); }
       switch (b.dataset.act) {
         case 'pdf': return runExport('Création de la feuille de match…', () => Exporter.pdfMatch(m, teamOf(m.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'report': return runExport('Création du compte-rendu…', () => Exporter.pdfReport(m, teamOf(m.teamId), S().club));
@@ -16386,7 +16405,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 102, UPD = AppCfg.key('update-tried');
+  const BUILD = 103, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

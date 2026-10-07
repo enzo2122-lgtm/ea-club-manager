@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 58, date: '2026-10-07', title: 'La page du match plus réactive', items: [
+      ['⚡', 'Page d\'un match : un but, une passe, le score ou un convoqué se mettent à jour tout de suite, sans redessiner toute la page. La page se remet complètement à jour une seconde et demie après le dernier appui.'],
+    ] },
     { n: 57, date: '2026-10-07', title: 'Plus fluide, plus léger', items: [
       ['⚡', 'Espaces joueurs et parents : tout se charge en même temps (2 affichages au lieu de 6), et revenir dans l\'appli ne recharge plus tout à chaque fois.'],
       ['👆', 'Un appui = un envoi : les boutons attendent la réponse (« Envoi… »), plus de doublons (réponses, messages, bénévoles, sondages).'],
