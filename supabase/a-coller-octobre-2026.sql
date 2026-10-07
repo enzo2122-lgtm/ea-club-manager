@@ -1,6 +1,7 @@
 -- Clubbo 1.73 à 1.75 : tout ce qu'il faut coller UNE fois dans Supabase (SQL Editor → New query → coller → Run).
 -- Contient : dispos avant la convocation + saison complète pour les joueurs (dispos-matchs.sql), conseils avec séance / vidéos / PDF (conseils-fichiers.sql).
 -- Ne modifie aucune donnée existante (crée seulement la table des fichiers des conseils).
+-- (7 oct. 2026) member_view et member_reply prennent les matchs de toute la catégorie (Seniors A et B), comme matchs-categorie.sql : recoller ce fichier ne casse plus les matchs côté joueur.
 -- (1.73) la fin de la saison (31 juillet), au moins 30 jours devant : les joueurs voient tous leurs matchs et entraînements à venir
 create or replace function ea_tr_group(c text, d jsonb) returns text language sql stable security definer set search_path = public as $$
   select coalesce(nullif(trim(d->>'group'), ''), (select 'Groupe ' || coalesce(nullif(st.data->>'firstName', ''), st.data->>'lastName') from items st
@@ -8,6 +9,13 @@ create or replace function ea_tr_group(c text, d jsonb) returns text language sq
 create or replace function ea_season_end() returns text language sql stable as $$
   select greatest(to_char(make_date(extract(year from current_date)::int + case when extract(month from current_date) >= 8 then 1 else 0 end, 7, 31), 'YYYY-MM-DD'),
     to_char(current_date + 30, 'YYYY-MM-DD')) $$;
+-- (1.77) the teams of his category (Seniors → Seniors A and Seniors B): he can be picked in any of them, so he sees their matches
+create or replace function ea_member_cat_teams(pl items) returns text[] language sql stable security definer set search_path = public as $$
+  select array(select distinct x from (select unnest(ea_arr(pl.data->'teamIds')) x union
+    select t.id from items t where t.club = pl.club and t.col = 'teams' and not t.deleted and coalesce(nullif(t.data->>'category', ''), t.data->>'name') in (
+      select coalesce(nullif(m.data->>'category', ''), m.data->>'name') from items m where m.club = pl.club and m.col = 'teams' and not m.deleted and m.id = any(ea_arr(pl.data->'teamIds')))
+    union select t.id from items t join items m on m.club = t.club and m.col = 'teams' and not m.deleted and m.id = any(ea_arr(pl.data->'teamIds'))
+      where t.club = pl.club and t.col = 'teams' and not t.deleted and t.data->>'name' like (m.data->>'name') || ' %') y) $$;
 create or replace function member_view(p_code text, p_preview boolean default false) returns jsonb language plpgsql security definer set search_path = public as $$
 declare pl items := ea_member(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); today text := to_char(current_date, 'YYYY-MM-DD'); first boolean;
   season text := case when extract(month from current_date) >= 8 then to_char(current_date, 'YYYY') else to_char(current_date - interval '1 year', 'YYYY') end || '-08-01';
@@ -53,7 +61,7 @@ begin
             'n', jsonb_array_length(case when jsonb_typeof(cp->'kids') = 'array' then cp->'kids' else '[]'::jsonb end),
             'mine', coalesce(cp->'kids', '[]'::jsonb) ? pl.id, 'driver', case when coalesce(cp->'kids', '[]'::jsonb) ? pl.id then cp->>'driver' else null end)), '[]'::jsonb)
           from jsonb_array_elements(case when jsonb_typeof(i.data->'carpool') = 'array' then i.data->'carpool' else '[]'::jsonb end) cp)) x
-      from items i where i.club = c and i.col = 'matches' and not i.deleted and i.data->>'teamId' = any(tids)
+      from items i where i.club = c and i.col = 'matches' and not i.deleted and i.data->>'teamId' = any(ea_member_cat_teams(pl))
         and i.data->>'date' between season and ea_season_end()) s),
     'trainings', (select coalesce(jsonb_agg(jsonb_build_object('date', i.data->>'date', 'time', i.data->>'time', 'title', i.data->>'title') order by i.data->>'date', i.data->>'time'), '[]'::jsonb)
       from items i where i.club = c and i.col = 'trainings' and not i.deleted and not coalesce((i.data->>'model')::boolean, false) and i.data->>'teamId' = any(tids)
@@ -64,7 +72,7 @@ declare pl items := ea_member(p_code); c text := pl.club; m items; r text := nul
 begin
   if p_kind = 'match' then
     select * into m from items where club = c and col = 'matches' and id = p_id and not deleted;
-    if m.id is null or not (m.data->>'teamId' = any(ea_member_teams(pl))) then raise exception 'DONNEES'; end if; -- (1.73) avant la convocation aussi : « dispo / pas dispo »
+    if m.id is null or not (m.data->>'teamId' = any(ea_member_cat_teams(pl))) then raise exception 'DONNEES'; end if; -- (1.73) avant la convocation aussi : « dispo / pas dispo » ; (1.77) A ou B de sa catégorie
     if coalesce((m.data->>'played')::boolean, false) then raise exception 'MATCH_PASSE'; end if;
   elsif p_kind = 'training' then
     select * into m from items where club = c and col = 'trainings' and id = p_id and not deleted;
