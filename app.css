@@ -1969,3 +1969,24 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 .hl-follow { border-left: 5px solid #dc2626; }
 .hl-fu { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
 .hl-fu > a { display: grid; gap: 2px; color: inherit; text-decoration: none; min-width: 0; }
+
+/* ---------- 1.95 : on a phone, the menu can be one small menu at the top right (Réglages → Menu sur le téléphone) ---------- */
+.nav-toggle { display: none; }
+@media (max-width: 760px) {
+  body.nav-top .rail { top: calc(env(safe-area-inset-top) + var(--pvh, 0px) + 8px); bottom: auto; left: auto; right: 10px; flex-direction: column; align-items: stretch; gap: 2px; padding: 4px; border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--navy) 94%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+  body.nav-top .nav-toggle { display: flex; align-items: center; justify-content: flex-end; gap: 6px; border: 0; border-radius: 14px; padding: 6px 10px; background: none; color: var(--gold-soft); font: 700 13px var(--font); cursor: pointer; }
+  body.nav-top .nav-toggle svg { width: 18px; height: 18px; }
+  body.nav-top #nav { display: none; }
+  body.nav-top .rail.open { min-width: 200px; }
+  body.nav-top .rail.open #nav { display: flex; flex-direction: column; gap: 2px; }
+  body.nav-top .rail.open #nav a, body.nav-top .rail.open .nav-more { flex: none; flex-direction: row; justify-content: flex-start; align-items: center; gap: 10px; padding: 9px 12px; font-size: 14px; }
+  body.nav-top .rail.open #nav a .sh, body.nav-top .rail.open .nav-more .sh { font-size: 14px; text-align: left; }
+  body.nav-top #nav a.on { box-shadow: inset 3px 0 0 var(--gold); }
+  body.nav-top .nav-badge { position: static; margin-left: auto; }
+  body.nav-top:not(.editing) main#view { padding-bottom: calc(env(safe-area-inset-bottom) + 90px); }
+  body.nav-top .page-head > :first-child { padding-right: 112px; }
+  body.nav-top .toast { bottom: calc(env(safe-area-inset-bottom) + 28px); }
+  body.nav-top .help-fab { bottom: calc(env(safe-area-inset-bottom) + 18px); }
+  body.nav-top .quick-fab { bottom: calc(env(safe-area-inset-bottom) + 18px); }
+  body.nav-top .save-pill { bottom: calc(env(safe-area-inset-bottom) + 24px); }
+}

@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 51, date: '2026-10-07', title: 'Ton menu, ta place', items: [
+      ['🧭', 'Coachs et dirigeants aussi : Réglages → « Menu sur le téléphone » → la barre en bas, ou un petit menu discret en haut à droite. Le choix reste sur ton téléphone.'],
+    ] },
     { n: 50, date: '2026-10-07', title: 'Les onglets où tu veux', items: [
       ['🧭', 'Espace joueur et parents : onglet « Moi » → choisis la barre d\'onglets en bas, ou un petit menu discret en haut à droite. Le choix reste sur ton téléphone.'],
       ['⚽', 'Les matchs de toute la catégorie (A et B) s\'affichent de nouveau côté joueur.'],
