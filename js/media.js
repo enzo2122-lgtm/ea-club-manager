@@ -2,7 +2,7 @@
    Photos are resized to keep the iPad storage light; videos are kept as they are. */
 const Media = (() => {
   const { esc, toast, modal, confirmBox } = UI;
-  const DB = AppCfg.key('media'), OS = 'media', MAX_VIDEO = 300 * 1024 * 1024;
+  const DB = AppCfg.key('media'), OS = 'media', MAX_VIDEO = 1024 * 1024 * 1024; // (1.81) 1 Go : les vidéos de match entières pour les highlights
   let dbp = null;
   function db() {
     return dbp || (dbp = new Promise((res, rej) => {
@@ -48,7 +48,7 @@ const Media = (() => {
     for (const f of files) {
       const isVid = f.type.startsWith('video/');
       if (!isVid && !f.type.startsWith('image/')) continue;
-      if (isVid && f.size > MAX_VIDEO) { toast(`${f.name} est trop lourde (plus de 300 Mo)`, 'err'); continue; }
+      if (isVid && f.size > MAX_VIDEO) { toast(`${f.name} est trop lourde (plus de 1 Go) : coupe-la en deux ou baisse sa qualité`, 'err'); continue; }
       const rec = { id: Store.uid(), ref, kind: isVid ? 'video' : 'image', name: f.name || '', createdAt: Date.now(), by: me ? me.id : null, caption: '' };
       if (isVid) Object.assign(rec, { blob: f, mime: f.type || 'video/mp4', thumb: await videoThumb(f) });
       else Object.assign(rec, await photo(f));

@@ -2372,7 +2372,7 @@ var Auth = (() => {
    Photos are resized to keep the iPad storage light; videos are kept as they are. */
 var Media = (() => {
   const { esc, toast, modal, confirmBox } = UI;
-  const DB = AppCfg.key('media'), OS = 'media', MAX_VIDEO = 300 * 1024 * 1024;
+  const DB = AppCfg.key('media'), OS = 'media', MAX_VIDEO = 1024 * 1024 * 1024; // (1.81) 1 Go : les vidéos de match entières pour les highlights
   let dbp = null;
   function db() {
     return dbp || (dbp = new Promise((res, rej) => {
@@ -2418,7 +2418,7 @@ var Media = (() => {
     for (const f of files) {
       const isVid = f.type.startsWith('video/');
       if (!isVid && !f.type.startsWith('image/')) continue;
-      if (isVid && f.size > MAX_VIDEO) { toast(`${f.name} est trop lourde (plus de 300 Mo)`, 'err'); continue; }
+      if (isVid && f.size > MAX_VIDEO) { toast(`${f.name} est trop lourde (plus de 1 Go) : coupe-la en deux ou baisse sa qualité`, 'err'); continue; }
       const rec = { id: Store.uid(), ref, kind: isVid ? 'video' : 'image', name: f.name || '', createdAt: Date.now(), by: me ? me.id : null, caption: '' };
       if (isVid) Object.assign(rec, { blob: f, mime: f.type || 'video/mp4', thumb: await videoThumb(f) });
       else Object.assign(rec, await photo(f));
@@ -2622,7 +2622,7 @@ var Library = (() => {
         if (total > MAX_PAGES) toast(`Seules les ${MAX_PAGES} premières pages sont gardées`);
         await Media.put(Object.assign(base, { kind: 'pdf', blob: f, mime: 'application/pdf', pages, thumb: pages[0] && pages[0].thumb }));
       } else if (f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm)$/i.test(f.name)) {
-        if (f.size > Media.MAX_VIDEO) { toast(`${f.name} est trop lourde (plus de 300 Mo)`, 'err'); continue; }
+        if (f.size > Media.MAX_VIDEO) { toast(`${f.name} est trop lourde (plus de 1 Go) : coupe-la en deux ou baisse sa qualité`, 'err'); continue; }
         onStep(`Import de la vidéo ${f.name}…`);
         await Media.put(Object.assign(base, { kind: 'video', blob: f, mime: f.type || 'video/mp4', thumb: await Media.videoThumb(f) }));
       } else if (f.type.startsWith('image/')) {
@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.90';
+  const VERSION = '1.91';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13356,6 +13356,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 47, date: '2026-10-07', title: 'Programme par semaine, vidéos jusqu\'à 1 Go', items: [
+      ['📅', 'Espaces joueur et parents : le programme (entraînements et matchs) rangé par semaine — cette semaine et la suivante ouvertes, les autres semaines et les mois suivants en menus repliés, avec les réponses qui manquent.'],
+      ['🎬', 'Bibliothèque et briefings vidéo : les vidéos jusqu\'à 1 Go (un match entier) pour faire les highlights.'],
+    ] },
     { n: 46, date: '2026-10-07', title: 'Un analyste vidéo qui ne dort jamais 🧠', items: [
       ['🧠', "Highlights automatiques → option « Analyse par IA (Gemini) » : l'IA de Google regarde le match et repère buts, tirs, poteaux, arrêts des deux équipes. Chaque coach met sa propre clé Google (quota gratuit, puis Google le facture directement)."],
     ] },
@@ -15860,7 +15864,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 91, UPD = AppCfg.key('update-tried');
+  const BUILD = 92, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 47, date: '2026-10-07', title: 'Programme par semaine, vidéos jusqu\'à 1 Go', items: [
+      ['📅', 'Espaces joueur et parents : le programme (entraînements et matchs) rangé par semaine — cette semaine et la suivante ouvertes, les autres semaines et les mois suivants en menus repliés, avec les réponses qui manquent.'],
+      ['🎬', 'Bibliothèque et briefings vidéo : les vidéos jusqu\'à 1 Go (un match entier) pour faire les highlights.'],
+    ] },
     { n: 46, date: '2026-10-07', title: 'Un analyste vidéo qui ne dort jamais 🧠', items: [
       ['🧠', "Highlights automatiques → option « Analyse par IA (Gemini) » : l'IA de Google regarde le match et repère buts, tirs, poteaux, arrêts des deux équipes. Chaque coach met sa propre clé Google (quota gratuit, puis Google le facture directement)."],
     ] },
