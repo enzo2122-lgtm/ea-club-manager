@@ -126,7 +126,9 @@
       ])}
       <div id="phView" class="ph-view" hidden></div>`;
     if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', note: `Les messages partent au nom de ${kid()}.`, toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
-      post: (c, b) => rpc('member_chat_post', { p_code: code, p_cat: c, p_body: b }), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }) });
+      post: (c, b) => rpc('member_chat_post', { p_code: code, p_cat: c, p_body: b }), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
+      poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),
+      pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }) });
   }
 
   async function load(quiet) {
