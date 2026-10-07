@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 46, date: '2026-10-07', title: 'Un analyste vidéo qui ne dort jamais 🧠', items: [
+      ['🧠', "Highlights automatiques → option « Analyse par IA (Gemini) » : l'IA de Google regarde le match et repère buts, tirs, poteaux, arrêts des deux équipes. Chaque coach met sa propre clé Google (quota gratuit, puis Google le facture directement)."],
+    ] },
     { n: 45, date: '2026-10-07', title: 'YouTube entre dans la salle de montage ▶️', items: [
       ['▶️', "Highlights automatiques avec un lien YouTube : la vidéo s'affiche dans la fenêtre, ⏱️ règle le coup d'envoi en un geste, et chaque moment se prévisualise. Pour le repérage au son, ajoute le fichier de la vidéo."],
     ] },

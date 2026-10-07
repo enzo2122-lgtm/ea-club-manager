@@ -94,12 +94,63 @@ const AutoHL = (() => {
 
   /* ---------- 4. the window: the video, the proposals, the check ---------- */
   const KINDS = [['goalUs', '⚽ But (nous)'], ['goalThem', '⚽ But (eux)'], ['chance', '🎯 Occasion (nous)'], ['chanceThem', '⚠️ Occasion (eux)'], ['post', '🥅 Poteau'], ['save', '🧤 Arrêt'], ['card', '🟨 Carton']];
-  const BEFORE = { live: 12, sound: 15 }; // the clip starts a little before the action (the noise comes after it)
+  /* ---------- (1.90) 5. the analysis by artificial intelligence (Google Gemini), paid by the coach himself at Google ----------
+     His own key (Google AI Studio: a free quota, then Google bills him), kept on this device only. Gemini watches the video
+     (a YouTube link, or the file up to 2 GB) and gives the moments of both teams. Nothing goes through the club's server. */
+  const GKEY = () => AppCfg.key('gemini-key');
+  const gKey = () => { try { return localStorage.getItem(GKEY()) || ''; } catch (e) { return ''; } };
+  const setGKey = k => { try { k ? localStorage.setItem(GKEY(), k) : localStorage.removeItem(GKEY()); } catch (e) {} };
+  const GAPI = 'https://generativelanguage.googleapis.com';
+  const MODELS = ['gemini-flash-latest', 'gemini-2.5-flash'];
+  async function gUpload(file, key, progress) {
+    if (file.size > 2e9) throw new Error('Fichier de plus de 2 Go : Gemini ne le prend pas. Mets la vidéo sur YouTube (« non répertoriée » ne marche pas : « publique ») ou coupe-la en deux mi-temps.');
+    const type = file.type || 'video/mp4';
+    const s = await fetch(GAPI + '/upload/v1beta/files', { method: 'POST', headers: { 'x-goog-api-key': key, 'X-Goog-Upload-Protocol': 'resumable', 'X-Goog-Upload-Command': 'start', 'X-Goog-Upload-Header-Content-Length': String(file.size), 'X-Goog-Upload-Header-Content-Type': type, 'Content-Type': 'application/json' }, body: JSON.stringify({ file: { display_name: 'match' } }) });
+    if (!s.ok) throw new Error(await gErr(s));
+    const up = s.headers.get('x-goog-upload-url'); if (!up) throw new Error('Envoi refusé par Google.');
+    progress('Envoi de la vidéo chez Google… (plusieurs minutes pour un match entier)');
+    const r = await fetch(up, { method: 'POST', headers: { 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' }, body: file });
+    if (!r.ok) throw new Error(await gErr(r));
+    let fl = (await r.json()).file;
+    for (let i = 0; i < 180 && fl.state !== 'ACTIVE'; i++) {
+      if (fl.state === 'FAILED') throw new Error('Google n\'a pas pu lire la vidéo.');
+      progress('Google prépare la vidéo…'); await new Promise(z => setTimeout(z, 5000));
+      fl = await (await fetch(GAPI + '/v1beta/' + fl.name, { headers: { 'x-goog-api-key': key } })).json();
+    }
+    return { uri: fl.uri, mime: fl.mimeType || type };
+  }
+  async function gErr(r) { let m = ''; try { m = ((await r.json()).error || {}).message || ''; } catch (e) {} return r.status === 400 && /API key/i.test(m) ? 'Clé Gemini refusée : vérifie-la.' : r.status === 429 ? 'Quota Google dépassé : active la facturation dans Google AI Studio, ou réessaie demain.' : r.status === 403 ? 'Accès refusé par Google (clé, facturation ou vidéo non publique).' : 'Google : ' + (m || r.status); }
+  async function gemini({ key, link, file, club, opp, colors }, progress) {
+    const src = file ? await gUpload(file, key, progress) : { uri: link, mime: 'video/*' };
+    progress('L\'intelligence artificielle regarde le match… (1 à 3 minutes)');
+    const prompt = `Tu regardes la vidéo d'un match de football amateur : ${club} contre ${opp || 'l\'adversaire'}${colors ? '. ' + club + ' joue en ' + colors : ''}.
+Repère TOUS les moments forts des DEUX équipes : buts, tirs cadrés, tirs sur le poteau ou la barre, grosses occasions, arrêts du gardien, cartons.
+Pour chacun, donne le moment de la vidéo où l'action commence (format m:ss ou h:mm:ss), son type, l'équipe (nous = ${club}, eux = l'adversaire) et une description courte en français (10 mots maximum).
+Réponds seulement avec la liste JSON.`;
+    const schema = { type: 'ARRAY', items: { type: 'OBJECT', properties: { t: { type: 'STRING' }, kind: { type: 'STRING', enum: ['goal', 'shot', 'post', 'chance', 'save', 'card'] }, team: { type: 'STRING', enum: ['nous', 'eux'] }, desc: { type: 'STRING' } }, required: ['t', 'kind', 'team'] } };
+    let last = '';
+    for (const model of MODELS) {
+      const r = await fetch(`${GAPI}/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ file_data: { file_uri: src.uri, mime_type: src.mime } }, { text: prompt }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: schema, mediaResolution: 'MEDIA_RESOLUTION_LOW', temperature: 0.2 } }) });
+      if (r.status === 404) { last = 'modèle introuvable'; continue; }
+      if (!r.ok) throw new Error(await gErr(r));
+      const j = await r.json(), txt = (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map(p => p.text || '').join('');
+      let list; try { list = JSON.parse(txt); } catch (e) { throw new Error('Réponse de l\'IA illisible : réessaie.'); }
+      const tsec = s => String(s || '').split(':').map(Number).reduce((a, x) => a * 60 + (x || 0), 0);
+      const K = { goal: ['goal', '⚽ But'], shot: ['chance', '🎯 Tir'], post: ['post', '🥅 Poteau / barre'], chance: ['chance', '🎯 Occasion'], save: ['save', '🧤 Arrêt'], card: ['card', '🟨 Carton'] };
+      return (Array.isArray(list) ? list : []).map(x => { const k = K[x.kind] || K.chance, them = x.team === 'eux';
+        const kind = k[0] === 'goal' ? (them ? 'goalThem' : 'goalUs') : k[0] === 'chance' && them ? 'chanceThem' : k[0];
+        return { t: tsec(x.t), src: 'ai', kind, title: `${k[1]}${them ? ' adverse' : ''}${x.desc ? ' · ' + String(x.desc).slice(0, 60) : ''}` }; }).filter(x => x.t >= 0);
+    }
+    throw new Error('Gemini indisponible (' + last + ').');
+  }
+  const BEFORE = { live: 12, sound: 15, ai: 6 }; // the clip starts a little before the action (the noise comes after it)
   function open(m, save, done) {
-    const st = { file: null, url: null, db: null, sound: [], k1: m.videoKick1 || '', k2: m.videoKick2 || '', link: m.videoUrl || '', list: [], busy: '' };
+    const st = { file: null, url: null, db: null, sound: [], k1: m.videoKick1 || '', k2: m.videoKick2 || '', link: m.videoUrl || '', list: [], busy: '', ai: [], aiOpen: false, colors: m.ourColors || '' };
     const merge = () => {
       const live = liveMoments(m, VPlayer.secs(st.k1) || (st.k1 === '0:00' || st.k1 === '0' ? 0 : null), st.k2 ? VPlayer.secs(st.k2) : null);
-      const all = [...live.map(x => Object.assign({ keep: true }, x)), ...st.sound.filter(s => live.every(l => Math.abs(l.t - s.t) > 25)).map((s, i) => ({ t: s.t, src: 'sound', kind: '', title: `🔊 Action chaude ${i + 1}`, score: s.score, keep: true }))];
+      const ai = st.ai.filter(a => live.every(l => Math.abs(l.t - a.t) > 20)).map(x => Object.assign({ keep: true }, x));
+      const all = [...live.map(x => Object.assign({ keep: true }, x)), ...ai, ...st.sound.filter(s => live.every(l => Math.abs(l.t - s.t) > 25) && ai.every(a => Math.abs(a.t - s.t) > 25)).map((s, i) => ({ t: s.t, src: 'sound', kind: '', title: `🔊 Action chaude ${i + 1}`, score: s.score, keep: true }))];
       const old = {}; st.list.forEach(x => { old[x.src + Math.round(x.t)] = x; });
       st.list = all.sort((a, b) => a.t - b.t).map(x => Object.assign(x, old[x.src + Math.round(x.t)] ? { keep: old[x.src + Math.round(x.t)].keep, kind: old[x.src + Math.round(x.t)].kind || x.kind, title: old[x.src + Math.round(x.t)].title } : {}));
     };
@@ -112,6 +163,13 @@ const AutoHL = (() => {
           <p class="muted small">Et, pour repérer aussi les moments au son, le fichier de la même vidéo (MP4 ou MOV, même plusieurs Go ; il n'est envoyé nulle part). YouTube ne laisse pas écouter le son de ses vidéos.</p>
           <label class="btn soft ahl-file">📁 ${st.file ? esc(st.file.name) : 'Choisir le fichier (facultatif)'}<input type="file" accept="video/mp4,video/quicktime,video/*" id="ahlFile" hidden></label>
           ${st.busy ? `<p class="ahl-busy">⏳ ${esc(st.busy)}</p>` : st.db ? `<p class="muted small">✓ Son analysé : ${st.sound.length} moment${st.sound.length > 1 ? 's' : ''} fort${st.sound.length > 1 ? 's' : ''} repéré${st.sound.length > 1 ? 's' : ''}.</p>` : ''}</div>
+        <details class="ahl-step ahl-ai" ${st.aiOpen ? 'open' : ''}><summary><b>🧠 Option : analyse par intelligence artificielle (Gemini)</b> <span class="muted small">payée par toi chez Google</span></summary>
+          <p class="muted small">L'IA de Google regarde vraiment le match (le lien YouTube <b>publique</b>, ou le fichier jusqu'à 2 Go) et repère buts, tirs, poteaux, arrêts et cartons des deux équipes. C'est ta propre clé : Google te donne un quota gratuit, puis te facture directement (environ 0,10 € à 1 € par match). Le club et l'appli ne paient rien et ne voient pas ta clé, qui reste sur cet appareil.</p>
+          <p><a class="btn soft" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">🔑 Créer ma clé Gemini (Google AI Studio)</a> <a class="btn soft" href="https://aistudio.google.com/usage" target="_blank" rel="noopener noreferrer">💳 Facturation et consommation</a></p>
+          <label class="fld"><span>Ma clé Gemini</span><input id="ahlGKey" type="password" autocomplete="off" placeholder="AIza…" value="${esc(gKey())}"></label>
+          <label class="fld"><span>Notre maillot (aide l'IA à reconnaître les équipes)</span><input id="ahlColors" maxlength="60" placeholder="bleu et rouge" value="${esc(st.colors)}"></label>
+          <label class="consent"><input type="checkbox" id="ahlOk"> <span>La vidéo part chez Google. Pour des joueurs mineurs, les parents ont donné leur accord à la diffusion de leur image.</span></label>
+          <button type="button" class="btn primary" data-ahl="ai">🧠 Analyser avec Gemini</button>${st.ai.length ? ` <span class="muted small">✓ ${st.ai.length} moment${st.ai.length > 1 ? 's' : ''} trouvé${st.ai.length > 1 ? 's' : ''} par l'IA</span>` : ''}</details>
         ${hasLive ? `<div class="ahl-step"><b>2. Le coup d'envoi dans la vidéo</b> <span class="muted small">(pour placer les actions du direct)</span>
           <div class="row3"><label class="fld"><span>1re mi-temps à</span><input id="ahlK1" placeholder="2:35" value="${esc(st.k1)}"></label><label class="fld"><span>2e mi-temps à (si la vidéo est coupée)</span><input id="ahlK2" placeholder="52:10" value="${esc(st.k2)}"></label>
           ${P ? '<div class="fld"><span>&nbsp;</span><button type="button" class="btn soft" data-ahl="k1now">⏱️ Mettre l\'instant de la vidéo</button></div>' : ''}</div>
@@ -120,7 +178,7 @@ const AutoHL = (() => {
           <div class="ahl-list">${st.list.map((x, i) => `<div class="ahl-row ${x.keep ? '' : 'off'}"><label class="ahl-ck"><input type="checkbox" data-ahlk="${i}" ${x.keep ? 'checked' : ''}><b>${mmss(Math.max(0, x.t - BEFORE[x.src]))}</b></label>
             ${P ? `<button type="button" class="btn soft ahl-play" data-ahlp="${i}">▶</button>` : ''}<input class="ahl-title" data-ahlt="${i}" value="${esc(x.title)}" maxlength="80">
             <select data-ahls="${i}"><option value="">C'est…</option>${KINDS.map(([k, l]) => `<option value="${k}" ${x.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-            <span class="muted small">${x.src === 'live' ? '📱 direct' : '🔊 bruit'}</span></div>`).join('')}</div></div>` : ''}
+            <span class="muted small">${x.src === 'live' ? '📱 direct' : x.src === 'ai' ? '🧠 IA' : '🔊 bruit'}</span></div>`).join('')}</div></div>` : ''}
         ${!st.list.length && !st.busy ? `<p class="tip">${hasLive ? 'Aucune action du direct placée pour l\'instant : indique le coup d\'envoi, ou' : 'Pas d\'actions notées en direct pour ce match :'} choisis le fichier de la vidéo pour repérer les moments au son.</p>` : ''}
         <p class="muted small">${n} extrait${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''}.</p>`;
     };
@@ -139,6 +197,18 @@ const AutoHL = (() => {
     }
     const draw = () => { if (!root) return; const b = root.querySelector('#ahlBody'), sc = b.scrollTop; b.innerHTML = body(); b.scrollTop = sc; };
     const readInputs = () => { if (!root) return; const g = id => (root.querySelector(id) || {}).value; if (root.querySelector('#ahlK1')) { st.k1 = g('#ahlK1').trim(); st.k2 = g('#ahlK2').trim(); } if (root.querySelector('#ahlLink')) st.link = g('#ahlLink').trim(); };
+    async function runAI() {
+      readInputs(); const key = gKey();
+      if (!key) { toast('Crée ta clé Gemini (bouton 🔑) et colle-la', 'err'); return; }
+      if (!root.querySelector('#ahlOk').checked) { toast('Coche la case sur l\'accord des parents', 'err'); return; }
+      const yt = /youtu\.?be/.test(st.link);
+      if (!st.file && !yt) { toast('Il faut le lien YouTube publique de la vidéo, ou son fichier', 'err'); return; }
+      m.ourColors = st.colors; st.busy = 'Connexion à Google…'; draw();
+      try {
+        st.ai = await gemini({ key, link: st.link, file: yt ? null : st.file, club: (Store.state.club || {}).name || 'notre équipe', opp: m.opponent, colors: st.colors }, msg => { st.busy = msg; const el = root.querySelector('.ahl-busy'); if (el) el.textContent = '⏳ ' + msg; else draw(); });
+        st.busy = ''; merge(); draw(); toast(st.ai.length ? `L'IA a trouvé ${st.ai.length} moment${st.ai.length > 1 ? 's' : ''} : vérifie-les ✓` : 'L\'IA n\'a rien trouvé dans cette vidéo.');
+      } catch (e) { st.busy = ''; draw(); toast(e.message || 'Analyse IA impossible', 'err'); }
+    }
     async function analyse(file) {
       if (st.url) URL.revokeObjectURL(st.url);
       st.file = file; st.url = URL.createObjectURL(file); st.db = null; st.sound = []; st.busy = 'Lecture du son… 0 %'; root.querySelector('#ahlMedia').innerHTML = ''; setMedia(); draw();
@@ -159,8 +229,10 @@ const AutoHL = (() => {
           if (e.target.id === 'ahlK1' || e.target.id === 'ahlK2') { readInputs(); merge(); draw(); }
           if (e.target.id === 'ahlLink') { st.link = e.target.value.trim(); setMedia(); draw(); }
         });
-        r.addEventListener('input', e => { const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
+        r.addEventListener('input', e => { if (e.target.id === 'ahlGKey') setGKey(e.target.value.trim()); if (e.target.id === 'ahlColors') st.colors = e.target.value; const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
+        r.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('ahl-ai')) st.aiOpen = e.target.open; }, true);
         r.addEventListener('click', e => {
+          if (e.target.closest('[data-ahl="ai"]')) { runAI(); return; }
           const p = e.target.closest('[data-ahlp]'); if (p) { const x = st.list[+p.dataset.ahlp]; if (P) { P.seek(Math.max(0, x.t - BEFORE[x.src])); r.querySelector('#ahlMedia').scrollIntoView({ block: 'nearest' }); } return; }
           if (e.target.closest('[data-ahl="k1now"]')) { if (P) { readInputs(); st.k1 = mmss(P.time()); merge(); draw(); } }
         });
@@ -182,7 +254,7 @@ const AutoHL = (() => {
     if (document.getElementById('ahlCss')) return;
     const s = document.createElement('style'); s.id = 'ahlCss';
     s.textContent = '.ahl-step{margin:12px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.ahl-step>b{display:block;margin-bottom:6px}.ahl-file{display:inline-flex;cursor:pointer;margin:4px 0}'
-      + '.ahl video{width:100%;max-height:40vh;background:#000;border-radius:10px}.ahl-yt{position:relative;aspect-ratio:16/9;max-height:40vh;background:#000;border-radius:10px;overflow:hidden}.ahl-yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}#ahlMedia{position:sticky;top:0;z-index:1}.ahl-busy{font-weight:700}.ahl-list{display:grid;gap:6px;max-height:46vh;overflow:auto}'
+      + '.ahl video{width:100%;max-height:40vh;background:#000;border-radius:10px}.ahl-yt{position:relative;aspect-ratio:16/9;max-height:40vh;background:#000;border-radius:10px;overflow:hidden}.ahl-yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}#ahlMedia{position:sticky;top:0;z-index:1}.ahl-busy{font-weight:700}.ahl-ai summary{cursor:pointer}.ahl-ai .btn{margin:4px 4px 4px 0}.ahl-list{display:grid;gap:6px;max-height:46vh;overflow:auto}'
       + '.ahl-row{display:grid;grid-template-columns:auto auto minmax(140px,1fr) minmax(0,150px) auto;gap:6px;align-items:center;padding:6px;border-radius:10px;background:var(--bg)}.ahl-row.off{opacity:.45}.ahl-ck{display:flex;gap:6px;align-items:center;white-space:nowrap}'
       + '.ahl-title,.ahl-row select,.ahl-link{min-height:38px;border-radius:10px;border:1px solid var(--line);padding:0 8px;font:inherit;background:var(--surface);color:var(--ink);min-width:0}.ahl-link{width:100%;box-sizing:border-box}'
       + '@media (max-width:640px){.ahl-row{grid-template-columns:auto auto 1fr}.ahl-row select{grid-column:1/3}.ahl-row>span{grid-column:3}}';
