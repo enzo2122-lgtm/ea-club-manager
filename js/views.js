@@ -1109,15 +1109,16 @@ const Views = (() => {
       settings: Auth.isAdmin() || (Auth.current() && Auth.sees(t.id)) ? { save: async st => { S().club.game = st; Store.save(); } } : null });
   }
   /* ================= (1.96) the chat of the category: players (A and B) and coaches; the coach moderates ================= */
-  function chat(root) {
+  function chat(root, teamId) {
+    if (teamId && teamOf(teamId) && Auth.sees(teamId)) S().ui.teamId = teamId; // (1.98) opened from a chat notification
     const tid = activeTeam() || (Auth.teams()[0] && Auth.teams()[0].id), t = teamOf(tid);
     if (!t) { root.innerHTML = header('Chat des joueurs') + empty('Crée une équipe pour ouvrir le chat de la catégorie.'); return; }
     S().ui.teamId = tid;
     root.innerHTML = `${header('Chat des joueurs', 'Les joueurs de la catégorie (A et B) et leurs coachs')}${teamSwitch()}
-      ${Cloud.ready() ? '<section class="card" id="chatBox"></section>' : '<p class="tip">Le chat passe par le serveur du club : connecte-toi pour discuter avec tes joueurs.</p>'}`;
+      ${Cloud.ready() ? '<div id="chatBox"></div>' : '<p class="tip">Le chat passe par le serveur du club : connecte-toi pour discuter avec tes joueurs.</p>'}`;
     bindTeamSwitch(root, () => chat(root));
     const box = $('#chatBox', root); if (!box) return;
-    Chat.mount(box, { key: 't:' + t.id, toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(t.id, after),
+    Chat.mount(box, { key: 't:' + t.id, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(t.id, after),
       post: (c, b) => Cloud.chatPost(t.id, b), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off) });
   }
   return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat };

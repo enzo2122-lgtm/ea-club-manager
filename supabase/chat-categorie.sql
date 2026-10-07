@@ -64,7 +64,7 @@ declare b text := left(trim(regexp_replace(coalesce(p_body, ''), '[\x00-\x09\x0b
 begin
   if b = '' then raise exception 'DONNEES'; end if;
   if coalesce((select off from chat_state where club = c and cat = p_cat), false) and p_kind = 'player' then raise exception 'CHAT_FERME'; end if;
-  if exists (select 1 from chat_msgs where club = c and author = p_me and at > now() - interval '3 seconds') then raise exception 'TROP_VITE'; end if;
+  if exists (select 1 from chat_msgs where club = c and author = p_me and at > now() - interval '1 second') then raise exception 'TROP_VITE'; end if;
   if (select count(*) from chat_msgs where club = c and author = p_me and at > now() - interval '1 day') >= 200 then raise exception 'LIMITE_CHAT'; end if;
   if not ea_chat_free(p_cat) and ea_chat_bad(c, b) then raise exception 'MOT_INTERDIT'; end if;
   insert into chat_msgs (club, cat, author, kind, name, body) values (c, p_cat, p_me, p_kind, coalesce(nullif(trim(p_name), ''), '?'), b) returning chat_msgs.id into id;

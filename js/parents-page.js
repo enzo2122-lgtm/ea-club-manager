@@ -117,7 +117,7 @@
           ${Member.programme(trs, data.matches, trRow) ? `<h2>Entraînements et matchs à venir</h2>${Member.programme(trs, data.matches, trRow)}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Pour ${esc(kid())} : physique, technique ou tactique, seul ou à plusieurs. Ses footings (temps, distance) et l'envoi au coach.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'resultats', icon: '🏆', label: 'Résultats', html: past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : '', empty: 'Pas encore de résultat.' },
-        { id: 'chat', icon: '🗨️', label: 'Chat', html: `<p class="info">💬 Le chat de la catégorie de ${esc(kid())} : les messages partent à son nom.</p><div class="card" id="chatBox"></div>` }, // (1.97) the chat of the category, here too (under 16 the family opens this page)
+        { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.97) the chat of the category, here too (under 16 the family opens this page)
         { id: 'coachs', icon: '📞', label: 'Coachs', html: (data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '', empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
         { id: 'moi', icon: '👤', label: 'Moi', html: `<h2>Réglages</h2>${Member.notifyCard('parents')}${Member.tabPosCard()}
           ${Member.updateCard()}
@@ -125,7 +125,7 @@
           ${Member.privacy()}` },
       ])}
       <div id="phView" class="ph-view" hidden></div>`;
-    if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
+    if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', note: `Les messages partent au nom de ${kid()}.`, toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
       post: (c, b) => rpc('member_chat_post', { p_code: code, p_cat: c, p_body: b }), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }) });
   }
 

@@ -1,5 +1,5 @@
 /* Service worker: keeps the app working without internet. Bump VERSION after each update. */
-const VERSION = 'ea-club-manager-v98';
+const VERSION = 'ea-club-manager-v99';
 const JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
@@ -76,6 +76,13 @@ async function memberNews() {
   const r = await fetch(c.url.replace(/\/+$/, '') + '/rest/v1/rpc/member_news', { method: 'POST', headers, body: JSON.stringify({ p_endpoint: sub.endpoint }) });
   return r.ok ? (await r.json()) || [] : [];
 }
+// (1.98) like a messaging app: one notification per conversation (the same « tag » replaces the one before and counts the messages),
+// and the number of unread news on the app's icon (iPhone: the app added to the home screen; Android: Chrome)
+const SUM = list => list.reduce((a, n) => a + ((n.data && n.data.count) || 1), 0);
+async function setBadge() {
+  try { const all = await self.registration.getNotifications(); const n = SUM(all);
+    if (self.navigator.setAppBadge) { if (n) await self.navigator.setAppBadge(n); else await self.navigator.clearAppBadge(); } } catch (e) {}
+}
 self.addEventListener('push', e => {
   e.waitUntil((async () => {
     let list = [];
@@ -84,19 +91,35 @@ self.addEventListener('push', e => {
     try { list = list.concat(await pending()); } catch (err) {}
     // a phone must always show something when it is woken up
     if (!list.length) list = [{ title: (typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER.app) || 'Clubbo', body: 'Nouvelle information du club', url: '#/', tag: 'raincy' }];
-    for (const n of list.slice(0, 4)) {
-      await self.registration.showNotification(n.title || (typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER.app) || 'Clubbo', {
-        body: (n.body || '') + (n.n > 1 ? ` (+${n.n - 1})` : ''), tag: n.tag || undefined, renotify: !!n.tag,
-        icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: n.url || '#/' } });
+    // the same conversation: the newest message, and how many came (the lists come newest first)
+    const groups = [], byTag = {};
+    list.forEach(n => { const k = n.tag || ('x' + groups.length); if (byTag[k]) { byTag[k].count += n.n || 1; return; } byTag[k] = Object.assign({}, n, { count: n.n || 1 }); groups.push(byTag[k]); });
+    for (const n of groups.slice(0, 6)) {
+      let count = n.count;
+      if (n.tag) { try { const old = await self.registration.getNotifications({ tag: n.tag }); count += SUM(old); } catch (err) {} }
+      const chat = /^chat:/.test(n.tag || '');
+      await self.registration.showNotification((n.title || (typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER.app) || 'Clubbo') + (chat && count > 1 ? ` · ${count} messages` : ''), {
+        body: (n.body || '') + (!chat && count > 1 ? ` (+${count - 1})` : ''), tag: n.tag || undefined, renotify: !!n.tag,
+        icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: n.url || '#/', count } });
     }
+    await setBadge();
   })());
 });
+self.addEventListener('notificationclose', e => { e.waitUntil(setBadge()); });
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const url = new URL('./' + ((e.notification.data && e.notification.data.url) || '#/'), self.registration.scope).href;
-  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(ws => {
-    const w = ws.find(x => x.url.startsWith(self.registration.scope));
-    if (w) { w.postMessage({ raincyOpen: url }); return w.focus(); }
+  const url = new URL('./' + ((e.notification.data && e.notification.data.url) || '#/'), self.registration.scope).href, path = url.split('#')[0];
+  e.waitUntil(setBadge().then(() => clients.matchAll({ type: 'window', includeUncontrolled: true })).then(ws => {
+    // the page of the notification (players', parents' or coaches' app) already open: it goes there; another page of the club: it opens the right one
+    const same = ws.find(x => x.url.split('#')[0] === path || (path.endsWith('/') && /\/(index\.html)?$/.test(x.url.split('#')[0])));
+    if (same) { same.postMessage({ raincyOpen: url }); return same.focus(); }
+    const any = ws.find(x => x.url.startsWith(self.registration.scope));
+    if (any && any.navigate) return any.navigate(url).then(w => w && w.focus());
     return clients.openWindow(url);
   }));
+});
+// the app opened: its notifications are read (the page asks)
+self.addEventListener('message', e => {
+  if (!(e.data && e.data.raincySeen)) return;
+  e.waitUntil(self.registration.getNotifications().then(ns => ns.forEach(n => { const u = (n.data && n.data.url) || ''; if (e.data.raincySeen === '*' || u.startsWith(e.data.raincySeen)) n.close(); })).then(setBadge));
 });

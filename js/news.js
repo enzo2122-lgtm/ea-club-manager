@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 54, date: '2026-10-07', title: 'Le chat comme une vraie messagerie 💬', items: [
+      ['💬', 'Le chat prend tout l\'écran : bulles par personne avec initiales, messages qui s\'affichent tout de suite, nouveaux messages toutes les 3 secondes, émojis, bouton « Nouveaux messages ».'],
+      ['🗑️', 'Supprimer un message : touche la bulle, puis « Supprimer ».'],
+      ['🔔', 'Notifications : nouveau message dans le chat, nouveau match, nouvelle séance (joueurs et parents) ; joueur dispo ou présent (coachs).'],
+      ['🔴', 'Un compteur sur l\'icône de l\'appli quand il y a du nouveau, comme WhatsApp (appli ajoutée à l\'écran d\'accueil, notifications activées).'],
+    ] },
     { n: 53, date: '2026-10-07', title: 'Le chat aussi dans l\'espace parents', items: [
       ['💬', 'Espace parents : onglet « Chat », le chat de la catégorie de ton enfant (les messages partent à son nom).'],
     ] },
