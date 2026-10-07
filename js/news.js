@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 56, date: '2026-10-07', title: 'Le chat ne bouge plus', items: [
+      ['📌', 'Le chat est fixé à l\'écran : la page derrière ne défile plus, même quand le clavier s\'ouvre.'],
+      ['✨', 'Plus de saut quand la page se recharge ; seuls les nouveaux messages glissent à l\'écran.'],
+    ] },
     { n: 55, date: '2026-10-07', title: 'Les sondages dans le chat 📊', items: [
       ['📊', 'Dans le chat, touche 📊 : une question, 2 à 6 réponses (une seule ou plusieurs possibles). Toute la catégorie est prévenue.'],
       ['🗳️', 'Vote d\'une touche, change d\'avis quand tu veux, vois les pourcentages et « qui a voté ».'],

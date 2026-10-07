@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.99';
+  const VERSION = '2.00';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13385,6 +13385,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 56, date: '2026-10-07', title: 'Le chat ne bouge plus', items: [
+      ['📌', 'Le chat est fixé à l\'écran : la page derrière ne défile plus, même quand le clavier s\'ouvre.'],
+      ['✨', 'Plus de saut quand la page se recharge ; seuls les nouveaux messages glissent à l\'écran.'],
+    ] },
     { n: 55, date: '2026-10-07', title: 'Les sondages dans le chat 📊', items: [
       ['📊', 'Dans le chat, touche 📊 : une question, 2 à 6 réponses (une seule ou plusieurs possibles). Toute la catégorie est prévenue.'],
       ['🗳️', 'Vote d\'une touche, change d\'avis quand tu veux, vois les pourcentages et « qui a voté ».'],
@@ -14205,7 +14209,7 @@ var Chat = (() => {
   // one chat at a time: kept when the page is redrawn
   let box = null, o = null, view = null, cat = '', draft = '', timer = null, busy = false, lastPoll = 0, wasShown = false, pend = 0, queue = Promise.resolve(), armed = null;
   // (1.99) polls: the « Sondages » part, whose votes are shown, the new poll being written
-  let mode = 'chat', sheet = null; const whoOpen = new Set();
+  let mode = 'chat', sheet = null; const whoOpen = new Set(), drawn = new Set(); let animate = false;
 
   /* ---------- look ---------- */
   function css() {
@@ -14215,8 +14219,10 @@ var Chat = (() => {
       // the whole screen for the chat: the page header and the player card go away while the chat is open
       'body.chat-on header.top,body.chat-on .card.who,body.chat-on .credit,body.chat-on .toast-bar{display:none!important}',
       'body.chat-on main{padding-top:calc(env(safe-area-inset-top) + 8px)!important;padding-bottom:0!important}',
+      // (2.00) the chat is fixed on the screen, the page behind does not move (not even with the keyboard)
+      'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
       'body.chat-on main#view .page-head{display:none}body.chat-on main#view{padding-top:calc(env(safe-area-inset-top) + 8px)}',
-      '.cx{display:flex;flex-direction:column;min-height:320px;border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ea);overflow:hidden;position:relative}',
+      '.cx{display:flex;flex-direction:column;min-height:320px;box-sizing:border-box;border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ea);overflow:hidden;position:relative}',
       '.cx-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line,#e3e5ea);min-height:46px}',
       'body.tabs-top .cx-top,body.nav-top .cx-top{padding-right:118px}',
       '.cx-top b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cx-shield{font-size:12px;font-weight:700;color:#15803d;white-space:nowrap}',
@@ -14226,7 +14232,7 @@ var Chat = (() => {
       '.cx-day{align-self:center;margin:10px 0 6px;padding:3px 12px;border-radius:999px;background:var(--surface,#fff);font-size:12px;font-weight:700;color:var(--muted,#667);box-shadow:0 1px 2px rgba(0,0,0,.06)}',
       '.cx-row{display:flex;align-items:flex-end;gap:6px;max-width:100%}.cx-row.mine{justify-content:flex-end}.cx-row.first{margin-top:8px}',
       '.cx-av{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}.cx-av.ghost{visibility:hidden}',
-      '.cx-b{position:relative;max-width:78%;padding:7px 11px 5px;border-radius:18px;background:var(--surface,#fff);color:var(--ink,#111);box-shadow:0 1px 1.5px rgba(0,0,0,.08);overflow-wrap:anywhere;font-size:15.5px;line-height:1.35;cursor:default;animation:cxIn .18s ease-out}',
+      '.cx-b{position:relative;max-width:78%;padding:7px 11px 5px;border-radius:18px;background:var(--surface,#fff);color:var(--ink,#111);box-shadow:0 1px 1.5px rgba(0,0,0,.08);overflow-wrap:anywhere;font-size:15.5px;line-height:1.35;cursor:default}.cx-b.cx-in{animation:cxIn .18s ease-out}',
       '.cx-row:not(.mine).first .cx-b{border-bottom-left-radius:6px}.cx-row.mine .cx-b{background:#0e1d45;color:#fff}.cx-row.mine.first .cx-b{border-bottom-right-radius:6px}',
       '.cx-row.coach:not(.mine) .cx-b{background:color-mix(in srgb,#c9a45c 22%,var(--surface,#fff))}',
       '.cx-name{display:block;font-size:12.5px;font-weight:800;margin-bottom:1px}.cx-coach{font-size:10.5px;font-weight:800;padding:0 6px;border-radius:999px;background:#c9a45c;color:#0e1d45;margin-left:4px;vertical-align:1px}',
@@ -14256,7 +14262,7 @@ var Chat = (() => {
       '.cx-sheet{position:absolute;inset:0;z-index:3;background:rgba(10,15,34,.45);display:flex;align-items:flex-end}.cx-sheet form{width:100%;max-height:100%;overflow-y:auto;background:var(--surface,#fff);border-radius:18px 18px 0 0;padding:14px;display:flex;flex-direction:column;gap:8px}',
       '.cx-sheet input[type=text]{min-height:42px;padding:8px 12px;border-radius:12px;border:1px solid var(--line,#d0d4dc);background:var(--bg,#f2f3f7);color:inherit;font:inherit;font-size:16px}',
       '.cx-sheet label{display:flex;align-items:center;gap:8px;font-size:14px}.cx-sh-b{display:flex;gap:8px;justify-content:flex-end}.cx-sh-b button,.cx-addopt{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:12px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer}.cx-sh-b button[type=submit]{background:#8c1024;color:#fff;border-color:#8c1024}',
-      '@keyframes cxIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.cx-b{animation:none}}',
+      '@keyframes cxIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.cx-b.cx-in{animation:none}}',
     ].join('');
     document.head.appendChild(st);
   }
@@ -14309,7 +14315,7 @@ var Chat = (() => {
     const name = !m.mine && first ? `<span class="cx-name" style="color:${color(m.name)}">${esc(m.name.replace(/^Coach\s+/, ''))}${m.kind === 'coach' ? '<span class="cx-coach">COACH</span>' : ''}</span>` : '';
     const st = m.fail ? '⚠️' : m.ok ? '✓' : m.pend ? '🕓' : '';
     return `${day}<div class="cx-row ${m.mine ? 'mine' : ''} ${first ? 'first' : ''} ${m.kind === 'coach' ? 'coach' : ''}" data-cx="${m.id}">${av}
-      <div class="cx-b ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${body}<span class="cx-t">${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
+      <div class="cx-b ${animate && !drawn.has(m.id) ? 'cx-in' : ''} ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${body}<span class="cx-t">${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
       ${m.fail ? `<div class="cx-retry" data-cxretry="${m.id}">Pas envoyé · toucher pour réessayer</div>` : ''}`;
   }
   const withWho = m => Object.assign(m, { who: m.mine ? 'me' : m.name });
@@ -14318,7 +14324,8 @@ var Chat = (() => {
     const ms = (view && view.msgs) || [];
     if (!ms.length) return `<div class="cx-empty"><div class="e">⚽</div><b>Pas encore de message</b><p>Lance la discussion avec ta catégorie !</p>
       ${view && (view.off && !view.mod) ? '' : `<div class="cx-hello">${HELLO.map(h => `<button data-cxsay="${esc(h)}">${esc(h)}</button>`).join('')}</div>`}</div>`;
-    return ms.map((m, i) => rowHtml(withWho(m), i ? ms[i - 1] : null)).join('');
+    const h = ms.map((m, i) => rowHtml(withWho(m), i ? ms[i - 1] : null)).join('');
+    ms.forEach(m => drawn.add(m.id)); return h;
   }
   const canWrite = () => view && view.cat && (!view.off || view.mod);
   function shell() {
@@ -14348,7 +14355,7 @@ var Chat = (() => {
   function drawAll() {
     if (!box) return;
     const l0 = $('#cxList'), keep = l0 && !nearBottom() ? l0.scrollTop : null, focus = document.activeElement && document.activeElement.id === 'cxText';
-    box.innerHTML = shell(); fit(); grow();
+    animate = false; box.innerHTML = shell(); animate = true; fit(); grow();
     const l = $('#cxList'); if (l) l.scrollTop = keep == null ? l.scrollHeight : keep;
     if (focus) { const t = $('#cxText'); if (t) { t.focus({ preventScroll: true }); t.setSelectionRange(t.value.length, t.value.length); } }
   }
@@ -14366,20 +14373,25 @@ var Chat = (() => {
   function shown() { return !!(box && document.body.contains(box) && box.offsetParent !== null); }
   function fit() {
     const cx = $('#cx') || (box && box.firstElementChild); if (!cx || !shown()) return;
-    const vv = window.visualViewport, vh = vv ? vv.height : window.innerHeight;
-    let bottom = vh;
-    document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2 && r.top < bottom) bottom = r.top; });
-    const top = Math.max(cx.getBoundingClientRect().top, 0);
-    cx.style.height = Math.max(300, Math.floor(bottom - top - 8)) + 'px';
+    if (!document.body.classList.contains('chat-on')) { if (cx.dataset.fit) { cx.style.cssText = ''; cx.dataset.fit = ''; } return; }
+    const vv = window.visualViewport, vh = window.innerHeight, vvH = vv ? vv.height : vh, vvTop = vv ? vv.offsetTop : 0;
+    const keyboard = vh - vvH - vvTop > 80;
+    let bottom = 8;
+    if (keyboard) bottom = Math.max(4, vh - (vvH + vvTop) + 4);
+    else document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2) bottom = Math.max(bottom, vh - r.top + 6); });
+    const r = box.getBoundingClientRect(), top = Math.max(8, r.top) + vvTop;
+    const css = `left:${Math.round(r.left)}px;width:${Math.round(r.width)}px;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`;
+    if (cx.dataset.fit !== css) { cx.style.cssText = css; cx.dataset.fit = css; }
   }
   function setOn(on) {
     if (on === document.body.classList.contains('chat-on')) return;
     document.body.classList.toggle('chat-on', on);
     if (on) { window.scrollTo(0, 0); requestAnimationFrame(() => { fit(); toBottom(); }); }
+    else { const cx = box && box.firstElementChild; if (cx) { cx.style.cssText = ''; cx.dataset.fit = ''; } }
   }
   function grow() { const t = $('#cxText'); if (!t) return; t.style.height = 'auto'; t.style.height = Math.min(120, t.scrollHeight + 2) + 'px'; }
   window.addEventListener('resize', () => { if (shown()) { fit(); if (nearBottom()) toBottom(); } });
-  if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (shown()) { const b = nearBottom(); fit(); window.scrollTo(0, 0); if (b) toBottom(); } });
+  if (window.visualViewport) ['resize', 'scroll'].forEach(ev => window.visualViewport.addEventListener(ev, () => { if (shown()) { const b = nearBottom(); fit(); if (b) toBottom(); } }));
 
   /* ---------- unread messages: a badge on the « Chat » tab ---------- */
   const SEEN = () => 'chat-seen-' + (o ? o.key : '') + '-' + cat;
@@ -14422,7 +14434,7 @@ var Chat = (() => {
   function tick() {
     if (!box || !document.body.contains(box)) { clearInterval(timer); timer = null; box = null; setOn(false); return; }
     const on = shown(); setOn(on);
-    if (on && !wasShown) { fit(); toBottom(); markSeen(); }
+    if (on && !wasShown) { fit(); toBottom(); markSeen(); } else if (on) fit();
     wasShown = on;
     if (document.visibilityState !== 'visible') return;
     if (Date.now() - lastPoll >= (on ? FAST : SLOW) - 200) load(false);
@@ -14513,7 +14525,11 @@ var Chat = (() => {
   function mount(el, opts) {
     if (!el) return; css();
     if (!o || o.key !== opts.key) { view = null; cat = ''; draft = ''; mode = 'chat'; sheet = null; whoOpen.clear(); }
-    o = opts; box = el; wasShown = false; bind(el); drawAll();
+    const old = box && box !== el && view && o && o.key === opts.key && box.firstElementChild;
+    o = opts; bind(el);
+    if (old) { const l = old.querySelector('#cxList'), top = l ? l.scrollTop : 0, f = document.activeElement; el.innerHTML = ''; el.appendChild(old); box = el;
+      if (l) l.scrollTop = top; if (f && old.contains(f)) f.focus({ preventScroll: true }); fit(); }
+    else { box = el; wasShown = false; drawAll(); }
     if (!view) load(true); else if (Date.now() - lastPoll > FAST) load(false);
     if (!timer) timer = setInterval(tick, 500);
     tick();
@@ -16344,7 +16360,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 100, UPD = AppCfg.key('update-tried');
+  const BUILD = 101, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
