@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.87';
+  const VERSION = '1.88';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8012,7 +8012,7 @@ var Live = (() => {
     SP().score.forEach(e => { o[e.k] = [e.ic, e.l, e.us ? '#15803d' : '#be123c']; });
     o.sub = ['🔁', 'Changement', '#2563eb'];
     SP().extra.forEach(([k, ic, l, c]) => { o[k] = [ic, l, c]; });
-    if (!SP().sets) o.chance = ['🎯', 'Occasion', '#0891b2'];
+    if (!SP().sets) { o.chance = ['🎯', 'Occasion', '#0891b2']; o.chanceThem = ['⚠️', 'Occasion adverse', '#b45309']; o.post = ['🥅', 'Poteau / barre', '#0e7490']; } // (1.88) both teams, for the automatic highlights
     o.injury = ['🚑', 'Blessure', '#9333ea']; o.note = ['📝', 'Note', '#475569'];
     return o;
   }
@@ -8206,7 +8206,7 @@ var Live = (() => {
     let body = '';
     if (isUs(ev)) body = `<div class="lbl">${SP().scorer[0]}</div>${pick('player', on.length ? on : all.map(p => p.id), csc ? `<button class="chip ${ev.player === 'csc' ? 'on' : ''}" data-k="player" data-v="csc">CSC adverse</button>` : '')}<div class="lbl">${SP().assist}</div>${pick('assist', on.length ? on : all.map(p => p.id), `<button class="chip ${!ev.assist ? 'on' : ''}" data-k="assist" data-v="">Aucune</button>`)}`;
     else if (ev.type === 'sub') body = `<div class="lbl">Sort</div>${pick('out', on.length ? on : all.map(p => p.id))}<div class="lbl">Entre</div>${pick('in', benchIds.length ? benchIds : all.map(p => p.id))}`;
-    else if (ev.type !== 'note' && !isThem(ev)) body = `<div class="lbl">Joueur ${ev.type === 'chance' || ev.type === 'injury' ? '(facultatif)' : ''}</div>${pick('player', ev.type === 'chance' || ev.type === 'injury' ? all.map(p => p.id) : on.length ? on : all.map(p => p.id))}`;
+    else if (ev.type !== 'note' && ev.type !== 'chanceThem' && !isThem(ev)) body = `<div class="lbl">Joueur ${ev.type === 'chance' || ev.type === 'post' || ev.type === 'injury' ? '(facultatif)' : ''}</div>${pick('player', ev.type === 'chance' || ev.type === 'post' || ev.type === 'injury' ? all.map(p => p.id) : on.length ? on : all.map(p => p.id))}`;
     body += `<label class="fld"><span>${ev.type === 'note' ? 'Note' : 'Précision (facultatif)'}</span><input id="lvText" value="${esc(ev.text || '')}" maxlength="120" placeholder="${isThem(ev) ? 'ex : sur contre-attaque, erreur de placement' : 'ex : après une belle combinaison'}"></label>
       <label class="fld inline"><span>${SP().sets ? 'Set' : 'Minute'}</span><input id="lvMin" value="${esc(ev.min)}" maxlength="8" style="max-width:90px"></label>`;
     modal({ title: `${EV[ev.type][0]} ${EV[ev.type][1]} · ${ev.min}`, noFocus: true, body,
@@ -8231,7 +8231,7 @@ var Live = (() => {
 
   /* ---------- the match video: sequences from the live events ----------
      kick-off (and start of the 2nd half) located in the video → each event at its moment */
-  const tagOf = e => isUs(e) ? 'but' : isThem(e) ? 'encaisse' : ({ chance: 'occasion', yellow: 'erreur', red: 'erreur', two: 'erreur', foul: 'erreur', err: 'erreur', save: 'autre', reb: 'autre', stl: 'autre', ace: 'but', block: 'autre', injury: 'autre', note: 'autre' })[e.type];
+  const tagOf = e => isUs(e) ? 'but' : isThem(e) ? 'encaisse' : ({ chance: 'occasion', post: 'occasion', chanceThem: 'autre', yellow: 'erreur', red: 'erreur', two: 'erreur', foul: 'erreur', err: 'erreur', save: 'autre', reb: 'autre', stl: 'autre', ace: 'but', block: 'autre', injury: 'autre', note: 'autre' })[e.type];
   function videoClips(m, rec, ko1, ko2) {
     const l = m.live; if (!l || !l.periods.length) return [];
     const p1 = l.periods[0].start, p2 = l.periods[1] && l.periods[1].start;
@@ -13356,6 +13356,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 44, date: '2026-10-07', title: 'Le monteur vidéo ne prend pas de pause café 🎬🤖', items: [
+      ['🤖', "Match → Après → Highlights → « Créer automatiquement » : l'appli écoute le son de la vidéo (cris, sifflets) et place les actions du direct. Tu valides en 2 minutes au lieu de revoir tout le match."],
+      ['🥅', "Match en direct : nouveaux boutons « Poteau / barre » et « Occasion adverse », pour les highlights des deux équipes."],
+      ['🔍', "Lecteur vidéo : zoom à deux doigts, double-tap ou ＋/－, et boutons ⏪ ⏯ ⏩."],
+    ] },
     { n: 43, date: '2026-10-07', title: 'Les blessures arrivent en groupe 🤕🤕', items: [
       ['🚑', "Joueurs et parents peuvent signaler plusieurs blessures en une fois (« ＋ Ajouter une autre blessure »), jusqu'à 5."],
     ] },
@@ -14120,7 +14125,7 @@ var VPlayer = (() => {
   const mmss = n => n ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}` : '';
   // the embeddable address of a link (null: not playable here)
   function src(url, start) {
-    const u = String(url || '').trim(); if (!/^https:\/\//.test(u)) return null;
+    const u = String(url || '').trim(); if (!/^https:\/\/|^http:\/\/localhost[:/]/.test(u)) return null; // localhost: the tests
     const st = secs(start) || secs((u.match(/[?&#]t=(\d+[hms\d]*)/) || [])[1]);
     let m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/);
     if (m) return { kind: 'frame', url: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0&playsinline=1${st ? '&start=' + st : ''}` };
@@ -14139,10 +14144,52 @@ var VPlayer = (() => {
     const st = document.createElement('style'); st.id = 'vpCss';
     st.textContent = '.vp-back{position:fixed;inset:0;z-index:120;background:rgba(5,8,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}'
       + '.vp-box{width:min(960px,100%)}.vp-frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}.vp-frame iframe,.vp-frame video{position:absolute;inset:0;width:100%;height:100%;border:0}'
+      + '.vp-zoom{position:absolute;inset:0;transform-origin:0 0;will-change:transform}.vp-frame:has(video){touch-action:none}.vp-frame.zoomed{cursor:grab}.vp-pan{position:absolute;inset:0;z-index:2;cursor:grab;touch-action:none;background:rgba(255,255,255,.03);outline:2px dashed rgba(226,194,125,.7);outline-offset:-2px}'
+      + '.vp-tools{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;margin-top:8px;color:#fff}.vp-tools button{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:10px;padding:9px 13px;font:inherit;font-weight:700;cursor:pointer;min-width:44px}.vp-tools button.on{background:#c9a45c;color:#14172b}.vp-zl{min-width:56px;text-align:center}'
+      + '.vp-hint{color:rgba(255,255,255,.65);font-size:13px;text-align:center;margin:6px 0 0}'
       + '.vp-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#fff;margin-bottom:8px}.vp-bar b{font-size:16px}.vp-bar button,.vp-bar a{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}'
       + '.vp-list{display:grid;gap:8px}.vp-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line,#ddd);background:var(--surface,#fff);color:inherit;font:inherit;text-align:left;cursor:pointer;width:100%}'
       + '.vp-item .pl{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#be123c;color:#fff;font-size:15px}.vp-item small{display:block;opacity:.7}';
     document.head.appendChild(st);
+  }
+  /* (1.88) the zoom of the player: two fingers, double-tap, ＋ / －; one finger moves the zoomed image.
+     A video file: everything on the image (its own buttons ⏪ ⏯ ⏩, because the native ones are zoomed too).
+     YouTube and the others (a frame that keeps the touches): ＋ / － and « ✋ Déplacer » (a layer over the frame while moving). */
+  function zoom(frame, tools) {
+    const box = frame.querySelector('.vp-zoom'), v = frame.querySelector('video'), pan = frame.querySelector('.vp-pan'), lbl = tools.querySelector('.vp-zl');
+    let z = 1, x = 0, y = 0;
+    const clamp = () => { const W = frame.clientWidth, H = frame.clientHeight; x = Math.min(0, Math.max(W - W * z, x)); y = Math.min(0, Math.max(H - H * z, y)); };
+    const apply = () => { clamp(); box.style.transform = `translate(${x}px,${y}px) scale(${z})`; lbl.textContent = Math.round(z * 100) + ' %'; frame.classList.toggle('zoomed', z > 1); };
+    const at = (px, py, nz) => { nz = Math.min(5, Math.max(1, nz)); x = px - (px - x) * nz / z; y = py - (py - y) * nz / z; z = nz; apply(); };
+    const mid = () => [frame.clientWidth / 2, frame.clientHeight / 2];
+    tools.onclick = e => {
+      const b = e.target.closest('[data-vz]'); if (!b) return; const k = b.dataset.vz;
+      if (k === 'in') at(...mid(), z * 1.5); else if (k === 'out') at(...mid(), z / 1.5); else if (k === 'reset') { z = 1; x = y = 0; apply(); }
+      else if (k === 'play' && v) v.paused ? v.play() : v.pause(); else if (k === 'back' && v) v.currentTime = Math.max(0, v.currentTime - 5); else if (k === 'fwd' && v) v.currentTime += 5;
+      else if (k === 'pan' && pan) { pan.hidden = !pan.hidden; b.classList.toggle('on', !pan.hidden); }
+    };
+    // the touches: on the video itself, or on the « Déplacer » layer over a YouTube frame
+    const surf = v ? frame : pan; if (!surf) return;
+    const pts = new Map(); let last = null, tap = 0;
+    const rel = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    surf.addEventListener('pointerdown', e => {
+      if (v && e.target.closest('.vp-tools')) return;
+      pts.set(e.pointerId, rel(e)); if (pts.size === 2 || z > 1 || !v) { try { surf.setPointerCapture(e.pointerId); } catch (x) {} }
+      if (pts.size === 2) { const [a, b] = [...pts.values()]; last = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z }; }
+    });
+    surf.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return; const p = rel(e), q = pts.get(e.pointerId);
+      if (pts.size === 2 && last) { pts.set(e.pointerId, p); const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); at((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, last.z * d / last.d); e.preventDefault(); return; }
+      if (z > 1 || !v) { x += p[0] - q[0]; y += p[1] - q[1]; pts.set(e.pointerId, p); apply(); e.preventDefault(); }
+    });
+    const up = e => {
+      if (!pts.has(e.pointerId)) return; const p = rel(e); pts.delete(e.pointerId); if (pts.size < 2) last = null;
+      if (v && e.pointerType === 'touch' && pts.size === 0) { const now = Date.now(); if (now - tap < 300) { z > 1 ? (z = 1, x = y = 0, apply()) : at(p[0], p[1], 2.5); tap = 0; } else tap = now; }
+    };
+    surf.addEventListener('pointerup', up); surf.addEventListener('pointercancel', up);
+    if (v) frame.addEventListener('dblclick', e => { e.preventDefault(); const p = rel(e); z > 1 ? (z = 1, x = y = 0, apply()) : at(p[0], p[1], 2.5); });
+    frame.addEventListener('wheel', e => { if (!v && pan.hidden) return; e.preventDefault(); const p = rel(e); at(p[0], p[1], z * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }, { passive: false });
+    addEventListener('resize', apply);
   }
   // opens the player over the page
   function open(url, start, title) {
@@ -14150,12 +14197,16 @@ var VPlayer = (() => {
     if (!s) { window.open(url, '_blank', 'noopener'); return; }
     const o = document.createElement('div'); o.className = 'vp-back';
     o.innerHTML = `<div class="vp-box"><div class="vp-bar"><b>${esc(title || 'Vidéo')}</b><span><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">↗</a> <button type="button" data-vpx>✕ Fermer</button></span></div>
-      <div class="vp-frame">${s.kind === 'video' ? `<video src="${esc(s.url)}" controls autoplay playsinline></video>` : `<iframe src="${esc(s.url)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`}</div></div>`;
+      <div class="vp-frame"><div class="vp-zoom">${s.kind === 'video' ? `<video src="${esc(s.url)}" controls autoplay playsinline></video>` : `<iframe src="${esc(s.url)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`}</div>${s.kind === 'video' ? '' : '<div class="vp-pan" hidden></div>'}</div>
+      <div class="vp-tools">${s.kind === 'video' ? '<button type="button" data-vz="back">⏪ 5 s</button><button type="button" data-vz="play">⏯</button><button type="button" data-vz="fwd">5 s ⏩</button>' : '<button type="button" data-vz="pan">✋ Déplacer</button>'}
+        <button type="button" data-vz="out" aria-label="Dézoomer">－</button><b class="vp-zl">100 %</b><button type="button" data-vz="in" aria-label="Zoomer">＋</button><button type="button" data-vz="reset">⟲</button></div>
+      <p class="vp-hint">${s.kind === 'video' ? 'Zoom : deux doigts, double-tap ou ＋ / －. Zoomé : glisse un doigt pour te déplacer.' : 'Zoom : ＋ / －, puis « ✋ Déplacer » pour bouger l\'image (re-touche-le pour retrouver les commandes de la vidéo).'}</p></div>`;
     const close = () => { o.remove(); document.removeEventListener('keydown', key); };
     const key = e => { if (e.key === 'Escape') close(); };
     o.onclick = e => { if (e.target === o || e.target.closest('[data-vpx]')) close(); };
     document.addEventListener('keydown', key); document.body.appendChild(o);
     // a format the browser can't read (AVI, MPG, WMV…): say it, and offer to download it
+    zoom(o.querySelector('.vp-frame'), o.querySelector('.vp-tools'));
     const v = o.querySelector('video'); if (v) v.onerror = () => { const f = o.querySelector('.vp-frame'); f.style.aspectRatio = 'auto'; f.innerHTML = `<div style="padding:24px;color:#fff;text-align:center;line-height:1.5"><p>😕 Ce format de vidéo ne se lit pas dans le navigateur (souvent AVI, MPG ou WMV).</p><p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" download style="color:#e2c27d;font-weight:700">⬇️ Télécharger la vidéo</a></p><p style="opacity:.75;font-size:14px">Coach : mets plutôt la vidéo en MP4, ou sur YouTube (en « non répertoriée ») ou Google Drive.</p></div>`; };
   }
   // a list of clips: [{ url, t, title }] → buttons that open the player (data-vp…)
@@ -14185,7 +14236,7 @@ var Highlights = (() => {
         <label class="fld"><span>Lien de la vidéo</span><input id="hlUrl" inputmode="url" placeholder="https://youtu.be/…"></label>
         <label class="fld"><span>Début (min:s)</span><input id="hlT" maxlength="8" placeholder="1:23"></label>
       </div>
-      <div class="chips"><button class="btn soft" data-hladd>＋ Ajouter la vidéo</button>
+      <div class="chips"><button class="btn primary" data-hlauto>🤖 Créer automatiquement</button><button class="btn soft" data-hladd>＋ Ajouter la vidéo</button>
         ${cl.length ? `<button class="btn primary" data-hlsend>📣 ${m.hlSent ? 'Renvoyer aux joueurs' : 'Envoyer aux joueurs'}</button>` : ''}</div>
       ${m.hlSent ? `<p class="muted small">✓ Envoyé le ${esc(new Date(m.hlSent).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }))} : les joueurs de l'équipe les voient dans l'onglet « Vidéos ».</p>` : ''}</section>`;
   }
@@ -14196,6 +14247,7 @@ var Highlights = (() => {
     draw();
     box.onclick = e => {
       if (VPlayer.onClick(e)) return;
+      if (e.target.closest('[data-hlauto]')) return AutoHL.open(m, save, draw); // (1.88) from the sound of the video and the live match
       const d = e.target.closest('[data-hldel]');
       if (d) { if (!confirm('Retirer cette vidéo ?')) return; m.highlights = (m.highlights || []).filter(c => c.id !== d.dataset.hldel); save(); return draw(); }
       if (e.target.closest('[data-hladd]')) {
@@ -14211,6 +14263,186 @@ var Highlights = (() => {
     };
   }
   return { mount, html };
+})();
+
+;
+/* ===== autohl.js ===== */
+/* (1.88) Highlights made by the app (coach, page of a match → Highlights → « 🤖 Créer automatiquement »).
+   Two sources, merged:
+   - the sound of the match video (a file on the coach's device, read on the device, nothing sent): the moments where the noise jumps
+     (shouts, whistles, applause) above the usual level of the minute around them;
+   - the actions noted during the live match (goals of both teams, chances, post, saves, cards), placed in the video
+     thanks to the time of the kick-off in the video.
+   The coach checks the proposals (a preview of each one), names them (goal, chance, post… us or them) and adds them to the highlights,
+   with the online link of the same video (YouTube, Drive…) so the players can watch them. */
+var AutoHL = (() => {
+  const { esc, toast, modal } = UI;
+  const MP4BOX = 'https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js';
+  const BIN = 0.5; // seconds per loudness value
+  const loadScript = src => new Promise((ok, ko) => { if (window.MP4Box) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => ko(new Error('Pas de connexion internet pour charger l\'outil d\'analyse.')); document.head.appendChild(s); });
+  const mmss = n => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
+
+  /* ---------- 1. the loudness of the sound, every half second (MP4 / MOV: the audio track only is decoded) ---------- */
+  async function loudness(file, progress) {
+    await loadScript(MP4BOX);
+    if (typeof AudioDecoder === 'undefined') throw new Error('Ton navigateur ne sait pas analyser le son : utilise Chrome ou Edge à jour (ou Safari récent).');
+    return new Promise((resolve, reject) => {
+      const mp = MP4Box.createFile(), sums = [], cnts = [];
+      let track = null, decoder = null, total = 1, got = 0, finished = false, failed = false;
+      const fail = e => { if (failed || finished) return; failed = true; reject(e instanceof Error ? e : new Error(String(e))); };
+      const finish = async () => {
+        if (finished || failed) return; finished = true;
+        try { if (decoder && decoder.state === 'configured') await decoder.flush(); } catch (e) {}
+        const db = sums.map((s, i) => 10 * Math.log10((s || 0) / Math.max(1, cnts[i] || 0) + 1e-10));
+        resolve(db);
+      };
+      mp.onError = e => fail(new Error('Vidéo illisible (' + e + '). Utilise un fichier MP4 ou MOV.'));
+      mp.onReady = info => {
+        track = (info.audioTracks || [])[0]; if (!track) return fail(new Error('Cette vidéo n\'a pas de son : impossible de repérer les moments forts au bruit.'));
+        total = track.nb_samples || 1;
+        let desc; try { const en = mp.getTrackById(track.id).mdia.minf.stbl.stsd.entries[0]; desc = en.esds.esd.descs[0].descs[0].data; } catch (e) {}
+        decoder = new AudioDecoder({
+          output: ad => {
+            try {
+              const n = ad.numberOfFrames, a = new Float32Array(n); ad.copyTo(a, { planeIndex: 0, format: 'f32-planar' });
+              const t0 = ad.timestamp / 1e6, sr = ad.sampleRate, step = Math.max(1, Math.floor(sr * BIN / 8));
+              for (let i = 0; i < n; i += 4) { const b = Math.floor((t0 + i / sr) / BIN); sums[b] = (sums[b] || 0) + a[i] * a[i]; cnts[b] = (cnts[b] || 0) + 1; }
+              void step;
+            } catch (e) {} finally { ad.close(); }
+          }, error: e => fail(new Error('Son illisible : ' + e.message)) });
+        try { decoder.configure({ codec: track.codec, sampleRate: track.audio.sample_rate, numberOfChannels: track.audio.channel_count, description: desc }); }
+        catch (e) { return fail(new Error('Format du son non pris en charge (' + track.codec + ').')); }
+        mp.setExtractionOptions(track.id, null, { nbSamples: 400 }); mp.start();
+      };
+      mp.onSamples = (id, user, samples) => {
+        for (const s of samples) { try { decoder.decode(new EncodedAudioChunk({ type: 'key', timestamp: Math.round(s.cts * 1e6 / s.timescale), duration: Math.round(s.duration * 1e6 / s.timescale), data: s.data })); } catch (e) {} }
+        got += samples.length; mp.releaseUsedSamples(id, samples[samples.length - 1].number + 1);
+        progress(Math.min(0.99, got / total)); if (got >= total) finish();
+      };
+      // the file is given piece by piece (a match is several GB): MP4Box says where to read next (it jumps over the images)
+      (async () => {
+        const CH = 4 << 20; let off = 0, same = 0;
+        while (off < file.size && !finished && !failed) {
+          const buf = await file.slice(off, off + CH).arrayBuffer(); buf.fileStart = off;
+          const next = mp.appendBuffer(buf);
+          if (typeof next === 'number' && next !== off) { off = next; same = 0; } else { off += buf.byteLength; if (++same > 3) off += CH; }
+          if (!track) progress(Math.min(0.2, off / file.size / 5));
+        }
+        mp.flush(); setTimeout(finish, 400);
+      })().catch(fail);
+    });
+  }
+
+  /* ---------- 2. the loud moments: well above the level of the minute around them ---------- */
+  function peaks(db, max = 22) {
+    const n = db.length; if (n < 20) return [];
+    const W = Math.round(30 / BIN), base = new Array(n), sm = new Array(n);
+    for (let i = 0; i < n; i++) { const w = db.slice(Math.max(0, i - W), Math.min(n, i + W)).filter(Number.isFinite).sort((a, b) => a - b); base[i] = w[Math.floor(w.length / 2)] || -100; }
+    for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let j = i - 1; j <= i + 1; j++) if (j >= 0 && j < n && Number.isFinite(db[j])) { s += db[j]; c++; } sm[i] = c ? s / c - base[i] : 0; }
+    const cand = []; for (let i = 1; i < n - 1; i++) if (sm[i] >= 5 && sm[i] >= sm[i - 1] && sm[i] >= sm[i + 1]) cand.push({ t: i * BIN, score: sm[i] });
+    cand.sort((a, b) => b.score - a.score); const out = [];
+    for (const c of cand) { if (out.length >= max) break; if (out.every(o => Math.abs(o.t - c.t) > 40)) out.push(c); }
+    return out.sort((a, b) => a.t - b.t);
+  }
+
+  /* ---------- 3. the actions noted live, placed in the video ---------- */
+  const KEEP = { chance: ['chance', '🎯 Occasion'], post: ['post', '🥅 Poteau / barre'], chanceThem: ['chanceThem', '⚠️ Occasion adverse'], save: ['save', '🧤 Arrêt'], yellow: ['card', '🟨 Carton'], red: ['card', '🟥 Carton rouge'] };
+  function liveMoments(m, k1, k2) {
+    const l = m.live || {}, per = l.periods || [], evs = (l.events || []).slice().sort((a, b) => a.wall - b.wall), out = [];
+    if (k1 == null) return out;
+    const kick = p => p === 2 && k2 != null ? k2 : p > 1 && per[p - 1] && per[0] ? k1 + (per[p - 1].start - per[0].start) / 1000 : k1;
+    evs.forEach(e => {
+      const sc = Sport.scoreOf(e.type), keep = KEEP[e.type]; if (!sc && !keep) return;
+      const p = e.period || 1, start = per[p - 1] && per[p - 1].start;
+      const tv = start && e.wall ? kick(p) + (e.wall - start) / 1000 : k1 + (+e.min || 0) * 60;
+      const who = e.player ? Store.shortName(Store.get('players', e.player) || {}) : '';
+      out.push({ t: Math.max(0, tv), src: 'live', kind: sc ? (sc.us ? 'goalUs' : 'goalThem') : keep[0], title: sc ? (sc.us ? `⚽ But${who ? ' de ' + who : ''}` : '⚽ But adverse') : `${keep[1]}${who ? ' · ' + who : ''}`, min: e.min });
+    });
+    return out;
+  }
+
+  /* ---------- 4. the window: the video, the proposals, the check ---------- */
+  const KINDS = [['goalUs', '⚽ But (nous)'], ['goalThem', '⚽ But (eux)'], ['chance', '🎯 Occasion (nous)'], ['chanceThem', '⚠️ Occasion (eux)'], ['post', '🥅 Poteau'], ['save', '🧤 Arrêt'], ['card', '🟨 Carton']];
+  const BEFORE = { live: 12, sound: 15 }; // the clip starts a little before the action (the noise comes after it)
+  function open(m, save, done) {
+    const st = { file: null, url: null, db: null, sound: [], k1: m.videoKick1 || '', k2: m.videoKick2 || '', link: m.videoUrl || '', list: [], busy: '' };
+    const merge = () => {
+      const live = liveMoments(m, VPlayer.secs(st.k1) || (st.k1 === '0:00' || st.k1 === '0' ? 0 : null), st.k2 ? VPlayer.secs(st.k2) : null);
+      const all = [...live.map(x => Object.assign({ keep: true }, x)), ...st.sound.filter(s => live.every(l => Math.abs(l.t - s.t) > 25)).map((s, i) => ({ t: s.t, src: 'sound', kind: '', title: `🔊 Action chaude ${i + 1}`, score: s.score, keep: true }))];
+      const old = {}; st.list.forEach(x => { old[x.src + Math.round(x.t)] = x; });
+      st.list = all.sort((a, b) => a.t - b.t).map(x => Object.assign(x, old[x.src + Math.round(x.t)] ? { keep: old[x.src + Math.round(x.t)].keep, kind: old[x.src + Math.round(x.t)].kind || x.kind, title: old[x.src + Math.round(x.t)].title } : {}));
+    };
+    const hasLive = ((m.live || {}).events || []).some(e => Sport.scoreOf(e.type) || KEEP[e.type]);
+    const body = () => {
+      const n = st.list.filter(x => x.keep).length;
+      return `<p class="muted small">Gratuit, sur ton appareil : la vidéo n'est envoyée nulle part. L'appli repère les moments où le bruit monte (cris, sifflets, applaudissements)${hasLive ? ' et place les actions notées pendant le match en direct' : ''}. Tu vérifies, tu nommes, tu ajoutes.</p>
+        <div class="ahl-step"><b>1. La vidéo complète du match</b> (fichier MP4 ou MOV, même plusieurs Go)
+          <label class="btn soft ahl-file">📁 ${st.file ? esc(st.file.name) : 'Choisir le fichier'}<input type="file" accept="video/mp4,video/quicktime,video/*" id="ahlFile" hidden></label>
+          ${st.busy ? `<p class="ahl-busy">⏳ ${esc(st.busy)}</p>` : st.db ? `<p class="muted small">✓ Son analysé : ${st.sound.length} moment${st.sound.length > 1 ? 's' : ''} fort${st.sound.length > 1 ? 's' : ''} repéré${st.sound.length > 1 ? 's' : ''}.</p>` : ''}
+          ${st.url ? `<video id="ahlVid" src="${st.url}" controls playsinline preload="metadata"></video>` : ''}</div>
+        ${hasLive ? `<div class="ahl-step"><b>2. Le coup d'envoi dans la vidéo</b> <span class="muted small">(pour placer les actions du direct)</span>
+          <div class="row3"><label class="fld"><span>1re mi-temps à</span><input id="ahlK1" placeholder="2:35" value="${esc(st.k1)}"></label><label class="fld"><span>2e mi-temps à (si la vidéo est coupée)</span><input id="ahlK2" placeholder="52:10" value="${esc(st.k2)}"></label>
+          ${st.url ? '<div class="fld"><span>&nbsp;</span><button class="btn soft" data-ahl="k1now">⏱️ Mettre l\'instant de la vidéo</button></div>' : ''}</div></div>` : ''}
+        ${st.list.length ? `<div class="ahl-step"><b>${hasLive ? 3 : 2}. Les moments proposés</b> <span class="muted small">(décoche ceux à jeter, choisis ce que c'est)</span>
+          <div class="ahl-list">${st.list.map((x, i) => `<div class="ahl-row ${x.keep ? '' : 'off'}"><label class="ahl-ck"><input type="checkbox" data-ahlk="${i}" ${x.keep ? 'checked' : ''}><b>${mmss(Math.max(0, x.t - BEFORE[x.src]))}</b></label>
+            ${st.url ? `<button class="btn soft ahl-play" data-ahlp="${i}">▶</button>` : ''}<input class="ahl-title" data-ahlt="${i}" value="${esc(x.title)}" maxlength="80">
+            <select data-ahls="${i}"><option value="">C'est…</option>${KINDS.map(([k, l]) => `<option value="${k}" ${x.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+            <span class="muted small">${x.src === 'live' ? '📱 direct' : '🔊 bruit'}</span></div>`).join('')}</div></div>` : ''}
+        <div class="ahl-step"><b>${st.list.length ? (hasLive ? 4 : 3) : hasLive ? 3 : 2}. Le lien en ligne de cette même vidéo</b> <span class="muted small">(YouTube « non répertoriée », Google Drive, Dropbox… : c'est lui que les joueurs regardent)</span>
+          <input id="ahlLink" class="ahl-link" inputmode="url" placeholder="https://youtu.be/…" value="${esc(st.link)}"></div>
+        <p class="muted small">${n} extrait${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''}.</p>`;
+    };
+    let root = null;
+    const draw = () => { if (!root) return; const b = root.querySelector('#ahlBody'), sc = b.scrollTop; b.innerHTML = body(); b.scrollTop = sc; };
+    const readInputs = () => { if (!root) return; const g = id => (root.querySelector(id) || {}).value; if (root.querySelector('#ahlK1')) { st.k1 = g('#ahlK1').trim(); st.k2 = g('#ahlK2').trim(); } if (root.querySelector('#ahlLink')) st.link = g('#ahlLink').trim(); };
+    async function analyse(file) {
+      if (st.url) URL.revokeObjectURL(st.url);
+      st.file = file; st.url = URL.createObjectURL(file); st.db = null; st.sound = []; st.busy = 'Lecture du son… 0 %'; draw();
+      try {
+        let lastDraw = 0;
+        st.db = await loudness(file, p => { const now = Date.now(); if (now - lastDraw > 500) { lastDraw = now; st.busy = `Lecture du son… ${Math.round(p * 100)} %`; const el = root && root.querySelector('.ahl-busy'); if (el) el.textContent = '⏳ ' + st.busy; } });
+        st.sound = peaks(st.db); st.busy = ''; merge(); draw();
+        if (!st.sound.length) toast('Pas de moment fort repéré au son (vidéo très calme ou sans son).');
+      } catch (e) { st.busy = ''; draw(); toast(e.message || 'Analyse impossible', 'err'); }
+    }
+    modal({ title: '🤖 Highlights automatiques', noFocus: true, wide: true, body: `<div id="ahlBody" class="ahl">${(merge(), body())}</div>`,
+      onOpen: r => {
+        root = r; css();
+        r.addEventListener('change', e => {
+          if (e.target.id === 'ahlFile' && e.target.files[0]) return analyse(e.target.files[0]);
+          const k = e.target.dataset.ahlk; if (k != null) { st.list[+k].keep = e.target.checked; return draw(); }
+          const s = e.target.dataset.ahls; if (s != null) { const x = st.list[+s]; x.kind = e.target.value; const l = (KINDS.find(z => z[0] === x.kind) || [])[1]; if (l && /^🔊|^(⚽|🎯|⚠️|🥅|🧤|🟨)/.test(x.title)) x.title = l.replace(/ \((nous|eux)\)/, x.kind.endsWith('Them') ? ' adverse' : ''); return draw(); }
+          if (e.target.id === 'ahlK1' || e.target.id === 'ahlK2') { readInputs(); merge(); draw(); }
+        });
+        r.addEventListener('input', e => { const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
+        r.addEventListener('click', e => {
+          const p = e.target.closest('[data-ahlp]'); if (p) { const v = r.querySelector('#ahlVid'), x = st.list[+p.dataset.ahlp]; if (v) { v.currentTime = Math.max(0, x.t - BEFORE[x.src]); v.play(); v.scrollIntoView({ block: 'nearest' }); } return; }
+          if (e.target.closest('[data-ahl="k1now"]')) { const v = r.querySelector('#ahlVid'); if (v) { readInputs(); st.k1 = mmss(v.currentTime); merge(); draw(); } }
+        });
+      },
+      actions: [{ label: 'Fermer' }, { label: 'Ajouter aux highlights', kind: 'primary', onClick: () => {
+        readInputs();
+        const keep = st.list.filter(x => x.keep);
+        if (!keep.length) { toast('Aucun extrait sélectionné', 'err'); return false; }
+        if (!/^https:\/\//.test(st.link)) { toast('Colle le lien en ligne de la vidéo (YouTube, Drive…) : c\'est lui que les joueurs regardent', 'err'); const i = root.querySelector('#ahlLink'); if (i) i.focus(); return false; }
+        m.videoUrl = st.link; m.videoKick1 = st.k1; m.videoKick2 = st.k2;
+        const have = new Set((m.highlights || []).map(c => c.url + '|' + c.t));
+        const add = keep.map(x => ({ id: Math.random().toString(36).slice(2, 10), url: st.link, t: mmss(Math.max(0, x.t - BEFORE[x.src])), title: x.title, kind: x.kind || '', auto: true })).filter(c => !have.has(c.url + '|' + c.t));
+        m.highlights = [...(m.highlights || []), ...add].sort((a, b) => VPlayer.secs(a.t) - VPlayer.secs(b.t));
+        save(); if (st.url) URL.revokeObjectURL(st.url); done && done(); toast(`${add.length} extrait${add.length > 1 ? 's' : ''} ajouté${add.length > 1 ? 's' : ''} : vérifie, puis « Envoyer aux joueurs » 🎬`);
+      } }] });
+  }
+  function css() {
+    if (document.getElementById('ahlCss')) return;
+    const s = document.createElement('style'); s.id = 'ahlCss';
+    s.textContent = '.ahl-step{margin:12px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.ahl-step>b{display:block;margin-bottom:6px}.ahl-file{display:inline-flex;cursor:pointer;margin:4px 0}'
+      + '.ahl video{width:100%;max-height:44vh;background:#000;border-radius:10px;margin-top:8px}.ahl-busy{font-weight:700}.ahl-list{display:grid;gap:6px;max-height:46vh;overflow:auto}'
+      + '.ahl-row{display:grid;grid-template-columns:auto auto minmax(140px,1fr) minmax(0,150px) auto;gap:6px;align-items:center;padding:6px;border-radius:10px;background:var(--bg)}.ahl-row.off{opacity:.45}.ahl-ck{display:flex;gap:6px;align-items:center;white-space:nowrap}'
+      + '.ahl-title,.ahl-row select,.ahl-link{min-height:38px;border-radius:10px;border:1px solid var(--line);padding:0 8px;font:inherit;background:var(--surface);color:var(--ink);min-width:0}.ahl-link{width:100%;box-sizing:border-box}'
+      + '@media (max-width:640px){.ahl-row{grid-template-columns:auto auto 1fr}.ahl-row select{grid-column:1/3}.ahl-row>span{grid-column:3}}';
+    document.head.appendChild(s);
+  }
+  return { open, loudness, peaks, liveMoments };
 })();
 
 ;
@@ -15535,7 +15767,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 88, UPD = AppCfg.key('update-tried');
+  const BUILD = 89, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -13,7 +13,7 @@ const Highlights = (() => {
         <label class="fld"><span>Lien de la vidéo</span><input id="hlUrl" inputmode="url" placeholder="https://youtu.be/…"></label>
         <label class="fld"><span>Début (min:s)</span><input id="hlT" maxlength="8" placeholder="1:23"></label>
       </div>
-      <div class="chips"><button class="btn soft" data-hladd>＋ Ajouter la vidéo</button>
+      <div class="chips"><button class="btn primary" data-hlauto>🤖 Créer automatiquement</button><button class="btn soft" data-hladd>＋ Ajouter la vidéo</button>
         ${cl.length ? `<button class="btn primary" data-hlsend>📣 ${m.hlSent ? 'Renvoyer aux joueurs' : 'Envoyer aux joueurs'}</button>` : ''}</div>
       ${m.hlSent ? `<p class="muted small">✓ Envoyé le ${esc(new Date(m.hlSent).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }))} : les joueurs de l'équipe les voient dans l'onglet « Vidéos ».</p>` : ''}</section>`;
   }
@@ -24,6 +24,7 @@ const Highlights = (() => {
     draw();
     box.onclick = e => {
       if (VPlayer.onClick(e)) return;
+      if (e.target.closest('[data-hlauto]')) return AutoHL.open(m, save, draw); // (1.88) from the sound of the video and the live match
       const d = e.target.closest('[data-hldel]');
       if (d) { if (!confirm('Retirer cette vidéo ?')) return; m.highlights = (m.highlights || []).filter(c => c.id !== d.dataset.hldel); save(); return draw(); }
       if (e.target.closest('[data-hladd]')) {

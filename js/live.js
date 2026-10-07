@@ -13,7 +13,7 @@ const Live = (() => {
     SP().score.forEach(e => { o[e.k] = [e.ic, e.l, e.us ? '#15803d' : '#be123c']; });
     o.sub = ['🔁', 'Changement', '#2563eb'];
     SP().extra.forEach(([k, ic, l, c]) => { o[k] = [ic, l, c]; });
-    if (!SP().sets) o.chance = ['🎯', 'Occasion', '#0891b2'];
+    if (!SP().sets) { o.chance = ['🎯', 'Occasion', '#0891b2']; o.chanceThem = ['⚠️', 'Occasion adverse', '#b45309']; o.post = ['🥅', 'Poteau / barre', '#0e7490']; } // (1.88) both teams, for the automatic highlights
     o.injury = ['🚑', 'Blessure', '#9333ea']; o.note = ['📝', 'Note', '#475569'];
     return o;
   }
@@ -207,7 +207,7 @@ const Live = (() => {
     let body = '';
     if (isUs(ev)) body = `<div class="lbl">${SP().scorer[0]}</div>${pick('player', on.length ? on : all.map(p => p.id), csc ? `<button class="chip ${ev.player === 'csc' ? 'on' : ''}" data-k="player" data-v="csc">CSC adverse</button>` : '')}<div class="lbl">${SP().assist}</div>${pick('assist', on.length ? on : all.map(p => p.id), `<button class="chip ${!ev.assist ? 'on' : ''}" data-k="assist" data-v="">Aucune</button>`)}`;
     else if (ev.type === 'sub') body = `<div class="lbl">Sort</div>${pick('out', on.length ? on : all.map(p => p.id))}<div class="lbl">Entre</div>${pick('in', benchIds.length ? benchIds : all.map(p => p.id))}`;
-    else if (ev.type !== 'note' && !isThem(ev)) body = `<div class="lbl">Joueur ${ev.type === 'chance' || ev.type === 'injury' ? '(facultatif)' : ''}</div>${pick('player', ev.type === 'chance' || ev.type === 'injury' ? all.map(p => p.id) : on.length ? on : all.map(p => p.id))}`;
+    else if (ev.type !== 'note' && ev.type !== 'chanceThem' && !isThem(ev)) body = `<div class="lbl">Joueur ${ev.type === 'chance' || ev.type === 'post' || ev.type === 'injury' ? '(facultatif)' : ''}</div>${pick('player', ev.type === 'chance' || ev.type === 'post' || ev.type === 'injury' ? all.map(p => p.id) : on.length ? on : all.map(p => p.id))}`;
     body += `<label class="fld"><span>${ev.type === 'note' ? 'Note' : 'Précision (facultatif)'}</span><input id="lvText" value="${esc(ev.text || '')}" maxlength="120" placeholder="${isThem(ev) ? 'ex : sur contre-attaque, erreur de placement' : 'ex : après une belle combinaison'}"></label>
       <label class="fld inline"><span>${SP().sets ? 'Set' : 'Minute'}</span><input id="lvMin" value="${esc(ev.min)}" maxlength="8" style="max-width:90px"></label>`;
     modal({ title: `${EV[ev.type][0]} ${EV[ev.type][1]} · ${ev.min}`, noFocus: true, body,
@@ -232,7 +232,7 @@ const Live = (() => {
 
   /* ---------- the match video: sequences from the live events ----------
      kick-off (and start of the 2nd half) located in the video → each event at its moment */
-  const tagOf = e => isUs(e) ? 'but' : isThem(e) ? 'encaisse' : ({ chance: 'occasion', yellow: 'erreur', red: 'erreur', two: 'erreur', foul: 'erreur', err: 'erreur', save: 'autre', reb: 'autre', stl: 'autre', ace: 'but', block: 'autre', injury: 'autre', note: 'autre' })[e.type];
+  const tagOf = e => isUs(e) ? 'but' : isThem(e) ? 'encaisse' : ({ chance: 'occasion', post: 'occasion', chanceThem: 'autre', yellow: 'erreur', red: 'erreur', two: 'erreur', foul: 'erreur', err: 'erreur', save: 'autre', reb: 'autre', stl: 'autre', ace: 'but', block: 'autre', injury: 'autre', note: 'autre' })[e.type];
   function videoClips(m, rec, ko1, ko2) {
     const l = m.live; if (!l || !l.periods.length) return [];
     const p1 = l.periods[0].start, p2 = l.periods[1] && l.periods[1].start;
