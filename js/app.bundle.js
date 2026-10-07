@@ -3534,7 +3534,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.02';
+  const VERSION = '2.03';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3927,7 +3927,9 @@ var Cloud = (() => {
     game: team => rpc('club_game', { p_team: team }),
     // (1.96) the chat of a category (players and coaches)
     chat: (team, after) => rpc('club_chat', { p_team: team, p_after: after || 0 }),
-    chatPost: (team, body) => rpc('club_chat_post', { p_team: team, p_body: body }),
+    chatPost: (team, body, reply) => rpc('club_chat_post', Object.assign({ p_team: team, p_body: body }, reply ? { p_reply: reply } : {})),
+    chatReact: (team, id, emo) => rpc('club_chat_react', { p_team: team, p_id: id, p_emo: emo }),
+    chatMute: on => rpc('club_chat_mute', { p_on: on }),
     chatDel: (team, id) => rpc('club_chat_del', { p_team: team, p_id: id }),
     chatOff: (team, off) => rpc('club_chat_off', { p_team: team, p_off: off }),
     chatPoll: (team, q, opts, multi) => rpc('club_chat_poll', { p_team: team, p_q: q, p_opts: opts, p_multi: multi }),
@@ -4019,7 +4021,14 @@ var Sync = (() => {
     if (x && typeof x === 'object') return '{' + Object.keys(x).filter(k => x[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + canon(x[k])).join(',') + '}';
     return JSON.stringify(x === undefined ? null : x);
   }
+  // (2.03) the slow part (keys sorted at every level) is done again only when the item really changed: the browser's own
+  // JSON.stringify (fast) tells it; same item, same text → the fingerprint kept. Same result as before, much less work for a big club.
+  const fpMemo = new WeakMap();
   function fp(x) {
+    if (x && typeof x === 'object') { const raw = JSON.stringify(x), m = fpMemo.get(x); if (m && m.raw === raw) return m.fp; const f = fp0(x); fpMemo.set(x, { raw, fp: f }); return f; }
+    return fp0(x);
+  }
+  function fp0(x) {
     const s = canon(x); let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
     return (h >>> 0).toString(36) + '.' + s.length.toString(36);
@@ -13395,6 +13404,13 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 59, date: '2026-10-07', title: 'Le chat en mieux 💬', items: [
+      ['👆', 'Touche une bulle : réagis (👍 ❤️ 😂 ⚽ 🔥 👏), réponds à ce message (la citation s\'affiche), signale-le ou supprime-le.'],
+      ['🚩', '« Signaler » : les coachs de la catégorie sont prévenus tout de suite.'],
+      ['🌙', 'Heures calmes : pas de notification du chat aux jeunes entre 22 h et 7 h (les messages restent là).'],
+      ['🔕', 'La cloche en haut du chat coupe (ou remet) ses notifications.'],
+      ['📱', 'Coachs : sur téléphone, les en-têtes chargés gardent 2 boutons, les autres sont dans « ⋯ ». Familles : onglets lisibles, pages plus légères. Synchro plus économe pour les gros clubs.'],
+    ] },
     { n: 58, date: '2026-10-07', title: 'La page du match plus réactive', items: [
       ['⚡', 'Page d\'un match : un but, une passe, le score ou un convoqué se mettent à jour tout de suite, sans redessiner toute la page. La page se remet complètement à jour une seconde et demie après le dernier appui.'],
     ] },
@@ -14232,6 +14248,9 @@ var Chat = (() => {
   let box = null, o = null, view = null, cat = '', draft = '', timer = null, busy = false, lastPoll = 0, wasShown = false, pend = 0, queue = Promise.resolve(), armed = null;
   // (1.99) polls: the « Sondages » part, whose votes are shown, the new poll being written
   let mode = 'chat', sheet = null; const whoOpen = new Set(), drawn = new Set(); let animate = false;
+  // (2.03) the message being answered, the bubble whose actions are open (« sure? » for a report)
+  let replyTo = null, sure = null;
+  const RX = ['👍', '❤️', '😂', '⚽', '🔥', '👏'];
 
   /* ---------- look ---------- */
   function css() {
@@ -14284,6 +14303,13 @@ var Chat = (() => {
       '.cx-sheet{position:absolute;inset:0;z-index:3;background:rgba(10,15,34,.45);display:flex;align-items:flex-end}.cx-sheet form{width:100%;max-height:100%;overflow-y:auto;background:var(--surface,#fff);border-radius:18px 18px 0 0;padding:14px;display:flex;flex-direction:column;gap:8px}',
       '.cx-sheet input[type=text]{min-height:42px;padding:8px 12px;border-radius:12px;border:1px solid var(--line,#d0d4dc);background:var(--bg,#f2f3f7);color:inherit;font:inherit;font-size:16px}',
       '.cx-sheet label{display:flex;align-items:center;gap:8px;font-size:14px}.cx-sh-b{display:flex;gap:8px;justify-content:flex-end}.cx-sh-b button,.cx-addopt{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:12px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer}.cx-sh-b button[type=submit]{background:#8c1024;color:#fff;border-color:#8c1024}',
+      '.cx-q{display:block;margin:0 0 4px;padding:4px 8px;border-left:3px solid currentColor;border-radius:8px;background:color-mix(in srgb,currentColor 9%,transparent);font-size:13px;opacity:.9;cursor:pointer;max-height:3.2em;overflow:hidden}.cx-q b{display:block;font-size:12px}',
+      '.cx-rxs{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 4px 36px}.cx-rxs.mine{justify-content:flex-end;margin:2px 0 4px}.cx-rxs button{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;min-height:30px;padding:2px 9px;font:inherit;font-size:13px;cursor:pointer}.cx-rxs button.me{border-color:#0e1d45;background:color-mix(in srgb,#0e1d45 10%,var(--surface,#fff));font-weight:700}',
+      '.cx-flag{display:inline-block;margin-left:6px;font-size:11.5px;font-weight:800;color:#dc2626}',
+      '.cx-menu{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px;padding:8px;border-radius:14px;background:var(--surface,#fff);box-shadow:0 4px 14px rgba(0,0,0,.14)}.cx-menu .cx-rxpick{display:flex;justify-content:space-around}.cx-menu .cx-rxpick button{border:0;background:none;font-size:26px;min-width:44px;min-height:44px;cursor:pointer;border-radius:12px}.cx-menu .cx-rxpick button.me{background:color-mix(in srgb,#0e1d45 12%,transparent)}',
+      '.cx-menu .cx-mbtn{display:flex;flex-wrap:wrap;gap:6px}.cx-menu .cx-mbtn button{flex:1 1 auto;border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:12px;min-height:42px;padding:6px 12px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}.cx-menu .cx-mbtn .del,.cx-menu .cx-mbtn .rep.go{background:#dc2626;color:#fff;border-color:#dc2626}',
+      '.cx-replybar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:1px solid var(--line,#e3e5ea);background:var(--surface,#fff);font-size:13px}.cx-replybar span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid #8c1024;padding-left:8px}.cx-replybar button{border:0;background:none;font-size:18px;min-width:40px;min-height:40px;cursor:pointer;color:inherit}',
+      '.cx-row.flash .cx-b{outline:3px solid #c9a45c}.cx-mute{border:0;background:none;font-size:20px;min-width:40px;min-height:40px;cursor:pointer}',
       '@keyframes cxIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.cx-b.cx-in{animation:none}}',
     ].join('');
     document.head.appendChild(st);
@@ -14337,9 +14363,21 @@ var Chat = (() => {
     const av = m.mine ? '' : `<span class="cx-av ${first ? '' : 'ghost'}" style="background:${color(m.name)}" aria-hidden="true">${esc(initials(m.name))}</span>`;
     const name = !m.mine && first ? `<span class="cx-name" style="color:${color(m.name)}">${esc(m.name.replace(/^Coach\s+/, ''))}${m.kind === 'coach' ? '<span class="cx-coach">COACH</span>' : ''}</span>` : '';
     const st = m.fail ? '⚠️' : m.ok ? '✓' : m.pend ? '🕓' : '';
+    const quote = m.reply && !m.deleted ? `<span class="cx-q" data-cxgoto="${m.reply.id}"><b>↩️ ${esc(String(m.reply.name || '').replace(/^Coach\s+/, ''))}</b>${m.reply.body == null ? '<i>Message supprimé</i>' : esc(m.reply.body)}</span>` : '';
+    const rep = view && view.mod && view.reports && view.reports[m.id], flag = rep ? `<span class="cx-flag" title="Signalé par ${esc(rep.join(', '))}">🚩 ${rep.length}</span>` : '';
+    const rx = (view && view.reacts && view.reacts[m.id]) || [];
+    const rxs = rx.length && !m.deleted ? `<div class="cx-rxs ${m.mine ? 'mine' : ''}">${rx.map(r => `<button class="${r.me ? 'me' : ''}" data-cxrx="${m.id}:${r.e}" title="${esc((r.who || []).join(', '))}">${r.e} ${r.n}</button>`).join('')}</div>` : '';
     return `${day}<div class="cx-row ${m.mine ? 'mine' : ''} ${first ? 'first' : ''} ${m.kind === 'coach' ? 'coach' : ''}" data-cx="${m.id}">${av}
-      <div class="cx-b ${animate && !drawn.has(m.id) ? 'cx-in' : ''} ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${body}<span class="cx-t">${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
-      ${m.fail ? `<div class="cx-retry" data-cxretry="${m.id}">Pas envoyé · toucher pour réessayer</div>` : ''}`;
+      <div class="cx-b ${animate && !drawn.has(m.id) ? 'cx-in' : ''} ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${quote}${body}<span class="cx-t">${flag}${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
+      ${rxs}${m.fail ? `<div class="cx-retry" data-cxretry="${m.id}">Pas envoyé · toucher pour réessayer</div>` : ''}`;
+  }
+  // (2.03) the actions of a bubble: a reaction, answer, report, delete
+  function menuHtml(m) {
+    const mine = new Set(((view.reacts || {})[m.id] || []).filter(r => r.me).map(r => r.e));
+    const canDel = m.mine || view.mod, canRep = !m.mine && o.report && o.kind !== 'coach';
+    return `<div class="cx-menu" data-cxmenu="${m.id}"><div class="cx-rxpick">${RX.map(e => `<button class="${mine.has(e) ? 'me' : ''}" data-cxrx="${m.id}:${e}" aria-label="Réagir ${e}">${e}</button>`).join('')}</div>
+      <div class="cx-mbtn">${canWrite() ? `<button data-cxreply="${m.id}">↩️ Répondre</button>` : ''}${canRep ? `<button class="rep ${sure === m.id ? 'go' : ''}" data-cxreport="${m.id}">${sure === m.id ? '🚩 Oui, prévenir les coachs' : '🚩 Signaler'}</button>` : ''}
+        ${canDel ? `<button class="del" data-cxdel="${m.id}">🗑️ Supprimer</button>` : ''}<button data-cxno>Fermer</button></div></div>`;
   }
   const withWho = m => Object.assign(m, { who: m.mine ? 'me' : m.name });
   function listHtml() {
@@ -14359,12 +14397,14 @@ var Chat = (() => {
       <div class="cx-top"><b>${esc(view.cat)}</b>${view.filtered ? '<span class="cx-shield" title="Les mots grossiers ou insultants sont bloqués">🛡️</span>' : ''}
         <span class="cx-seg"><button class="${mode === 'chat' ? 'on' : ''}" data-cxmode="chat">💬 Chat</button><button class="${mode === 'polls' ? 'on' : ''}" data-cxmode="polls">📊 Sondages${openPolls() ? ` (${openPolls()})` : ''}</button></span><span class="cx-sp"></span>
         ${cats.length > 1 ? `<span class="cx-cats">${cats.map(c => `<button class="${c === view.cat ? 'on' : ''}" data-cxcat="${esc(c)}">${esc(c)}</button>`).join('')}</span>` : ''}
-        ${view.mod && o.off ? `<button class="cx-mod" data-cxoff="${view.off ? 0 : 1}">${view.off ? '🔓 Rouvrir' : '🔒 Fermer'}</button>` : ''}</div>
+        ${o.mute && typeof view.muted === 'boolean' ? `<button class="cx-mute" data-cxmute="${view.muted ? 0 : 1}" title="${view.muted ? 'Notifications du chat coupées : toucher pour les remettre' : 'Couper les notifications du chat'}" aria-label="${view.muted ? 'Remettre les notifications' : 'Couper les notifications'}">${view.muted ? '🔕' : '🔔'}</button>` : ''}
+        ${view.mod && o.off ? `<button class="cx-mod" data-cxoff=""${view.off ? 0 : 1}">${view.off ? '🔓 Rouvrir' : '🔒 Fermer'}</button>` : ''}</div>
       ${view.off ? `<div class="cx-off">🔒 Chat fermé par les coachs${view.mod ? ' (toi, tu peux écrire)' : ''}</div>` : ''}
       <div class="cx-list" id="cxList">${listHtml()}</div>
       <button class="cx-new" id="cxNew" hidden>⬇ Nouveaux messages</button>
       ${canWrite() && mode === 'polls' && o.poll ? '<div class="cx-bar"><button class="cx-newpoll" data-cxnewpoll>＋ Nouveau sondage</button></div>' : ''}
       ${canWrite() && mode === 'chat' ? `<div class="cx-emo" id="cxEmo" hidden>${EMOJI.map(e => `<button data-cxemo="${e}">${e}</button>`).join('')}</div>
+      ${replyTo ? `<div class="cx-replybar"><span>↩️ Réponse à <b>${esc(String(replyTo.name).replace(/^Coach\s+/, ''))}</b> : ${esc(replyTo.body || '')}</span><button type="button" data-cxreplyno aria-label="Ne plus répondre">✕</button></div>` : ''}
       <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}
         <textarea id="cxText" rows="1" maxlength="500" placeholder="Message" aria-label="Message" enterkeyhint="send">${esc(draft)}</textarea>
         <button type="submit" class="cx-ic cx-send" id="cxSend" aria-label="Envoyer" ${draft.trim() ? '' : 'disabled'}>➤</button></form>
@@ -14387,6 +14427,7 @@ var Chat = (() => {
     const l = $('#cxList'); if (!l) return drawAll();
     const was = nearBottom(), top = l.scrollTop;
     l.innerHTML = listHtml();
+    if (armed != null && mode === 'chat') openMenu(armed, false);
     if (mode === 'polls') { l.scrollTop = top; return; }
     if (stick || was) l.scrollTop = l.scrollHeight; else { l.scrollTop = top; const n = $('#cxNew'); if (n) n.hidden = false; }
   }
@@ -14439,8 +14480,9 @@ var Chat = (() => {
         view.msgs.forEach(m => { if (gone.has(m.id) && !m.deleted) { m.deleted = true; m.body = null; changed = true; } });
         const fresh = (r.msgs || []).filter(m => !had.has(m.id));
         const topSame = sameTop(r) && openPolls() === (r.polls || []).filter(p => !p.closed).length;
-        if (JSON.stringify(r.polls || []) !== JSON.stringify(view.polls || [])) changed = true;
-        Object.assign(view, { off: r.off, filtered: r.filtered, mod: r.mod, cats: r.cats || view.cats, polls: r.polls || [] });
+        if (JSON.stringify(r.polls || []) !== JSON.stringify(view.polls || []) || JSON.stringify(r.reacts || {}) !== JSON.stringify(view.reacts || {}) || JSON.stringify(r.reports || {}) !== JSON.stringify(view.reports || {})) changed = true;
+        if (r.muted !== view.muted) setTimeout(drawAll, 0);
+        Object.assign(view, { off: r.off, filtered: r.filtered, mod: r.mod, cats: r.cats || view.cats, polls: r.polls || [], reacts: r.reacts || {}, reports: r.reports || {}, muted: r.muted });
         if (fresh.length) {
           // my messages back from the server: their copy replaces the ones shown at once
           let mine = fresh.filter(m => m.mine).length;
@@ -14465,7 +14507,8 @@ var Chat = (() => {
   // sent at once on the screen, then to the server one after the other
   function send(text) {
     const b = String(text || '').trim(); if (!b || !canWrite()) return;
-    const m = { id: 'p' + (++pend), at: new Date().toISOString(), name: 'moi', kind: o.kind || 'player', mine: true, body: b, pend: true };
+    const m = { id: 'p' + (++pend), at: new Date().toISOString(), name: 'moi', kind: o.kind || 'player', mine: true, body: b, pend: true, reply: replyTo };
+    if (replyTo) { replyTo = null; const rb = box.querySelector('.cx-replybar'); if (rb) rb.remove(); }
     view.msgs.push(m); draft = ''; const t = $('#cxText'); if (t && t.value.trim() === b) { t.value = ''; grow(); }
     const s = $('#cxSend'); if (s) s.disabled = true;
     drawList(true);
@@ -14473,7 +14516,7 @@ var Chat = (() => {
   }
   async function post(m, again) {
     try {
-      await o.post(view.cat, m.body); m.ok = true;
+      await o.post(view.cat, m.body, m.reply ? m.reply.id : null); m.ok = true;
       for (let i = 0; i < 10 && busy; i++) await new Promise(r => setTimeout(r, 150));
       lastPoll = 0; await load(false);
     }
@@ -14485,6 +14528,20 @@ var Chat = (() => {
     }
   }
 
+  function closeMenu() { if (box) box.querySelectorAll('.cx-menu').forEach(x => x.remove()); }
+  function openMenu(id, scroll) {
+    closeMenu(); const m = view && view.msgs.find(x => x.id === id), row = m && box.querySelector(`.cx-row[data-cx="${id}"]`); if (!row) { armed = null; return; }
+    const after = row.nextElementSibling && row.nextElementSibling.classList.contains('cx-rxs') ? row.nextElementSibling : row;
+    after.insertAdjacentHTML('afterend', menuHtml(m));
+    if (scroll) { const mn = box.querySelector('.cx-menu'); if (mn && mn.scrollIntoView) mn.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  }
+  async function react(id, e) {
+    const l = (view.reacts = view.reacts || {})[id] = (view.reacts[id] || []).map(r => Object.assign({}, r)); let r = l.find(x => x.e === e);
+    if (r && r.me) { r.n--; r.me = false; if (!r.n) l.splice(l.indexOf(r), 1); } else if (r) { r.n++; r.me = true; } else l.push({ e, n: 1, me: true, who: ['Moi'] });
+    if (!l.length) delete view.reacts[id];
+    drawList(false);
+    try { await o.react(view.cat, id, e); } catch (err) { (o.toast || alert)(nice(err), true); lastPoll = 0; load(true); }
+  }
   // a vote shows at once, then the server's count
   async function vote(id, i) {
     const p = pollOf(id); if (!p || p.closed) return;
@@ -14536,22 +14593,33 @@ var Chat = (() => {
       const c = q('[data-cxcat]'); if (c) { cat = c.dataset.cxcat; view = null; drawAll(); for (let i = 0; i < 20 && busy; i++) await new Promise(r => setTimeout(r, 100)); return load(true); }
       const f = q('[data-cxoff]');
       if (f && o.off) { const off = f.dataset.cxoff === '1'; try { await o.off(off); view.off = off; drawAll(); (o.toast || (() => {}))(off ? '🔒 Chat fermé : les joueurs peuvent lire, plus écrire.' : '🔓 Chat rouvert.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
-      // delete: touch the bubble (mine, or any for a coach), then « Supprimer »
+      // (2.03) a reaction (in the menu or a chip under a bubble): shown at once
+      const rx = q('[data-cxrx]'); if (rx && o.react) { const [id, e2] = rx.dataset.cxrx.split(':'); armed = null; sure = null; closeMenu(); return react(+id, e2); }
+      const gt = q('[data-cxgoto]'); if (gt) { const r = el.querySelector(`.cx-row[data-cx="${gt.dataset.cxgoto}"]`); if (r) { r.scrollIntoView({ block: 'center', behavior: 'smooth' }); r.classList.add('flash'); setTimeout(() => r.classList.remove('flash'), 1400); } return; }
+      const rp = q('[data-cxreply]'); if (rp) { const m = view.msgs.find(x => String(x.id) === rp.dataset.cxreply); if (m) { replyTo = { id: m.id, name: m.mine ? 'toi' : m.name, body: (m.body || '').slice(0, 90) }; armed = null; drawAll(); const t = $('#cxText'); if (t) t.focus(); } return; }
+      if (q('[data-cxreplyno]')) { replyTo = null; drawAll(); return; }
+      const rr = q('[data-cxreport]');
+      if (rr) { const id = +rr.dataset.cxreport; if (sure !== id) { sure = id; openMenu(id, true); return; }
+        sure = null; armed = null; closeMenu();
+        try { await o.report(view.cat, id); (o.toast || (() => {}))('🚩 Merci, les coachs sont prévenus.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
+      const mu = q('[data-cxmute]'); if (mu && o.mute) { const on = mu.dataset.cxmute === '1';
+        try { await o.mute(on); view.muted = on; drawAll(); (o.toast || (() => {}))(on ? '🔕 Plus de notifications du chat sur tes téléphones.' : '🔔 Les notifications du chat sont remises.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       const yes = q('[data-cxdel]');
-      if (yes) { const id = +yes.dataset.cxdel; armed = null; yes.closest('.cx-act').remove();
+      if (yes) { const id = +yes.dataset.cxdel; armed = null; closeMenu();
         try { await o.del(view.cat, id); const m = view.msgs.find(x => x.id === id); if (m) { m.deleted = true; m.body = null; } drawList(false); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
-      if (q('[data-cxno]')) { armed = null; q('.cx-act').remove(); return; }
+      if (q('[data-cxno]')) { armed = null; sure = null; closeMenu(); return; }
+      // touch a bubble: its actions (again: closed)
       const row = q('.cx-row');
-      if (row && !q('a')) { const m = view.msgs.find(x => String(x.id) === row.dataset.cx); el.querySelectorAll('.cx-act').forEach(a => a.remove());
-        if (!m || m.deleted || m.pend || m.fail || !(m.mine || view.mod) || armed === m.id) { armed = null; return; }
-        armed = m.id; row.insertAdjacentHTML('afterend', `<div class="cx-act"><button class="no" data-cxno>Annuler</button><button data-cxdel="${m.id}">🗑️ Supprimer</button></div>`); }
+      if (row && !q('a')) { const m = view.msgs.find(x => String(x.id) === row.dataset.cx);
+        if (!m || m.deleted || m.pend || m.fail || armed === m.id) { armed = null; sure = null; closeMenu(); return; }
+        armed = m.id; sure = null; openMenu(m.id, true); }
     });
   }
   /* el: the box; opts: { key (who / which team: a new key = a new chat), kind ('player' | 'coach'), note, load(cat, after), post(cat, body), del(cat, id), off(bool) (coaches),
-     poll(cat, q, opts, multi), vote(cat, id, opt), pollClose(cat, id, closed) (1.99), toast(msg, err) } */
+     poll(cat, q, opts, multi), vote(cat, id, opt), pollClose(cat, id, closed) (1.99), react(cat, id, emoji), report(cat, id), mute(on) (2.03), toast(msg, err) } */
   function mount(el, opts) {
     if (!el) return; css();
-    if (!o || o.key !== opts.key) { view = null; cat = ''; draft = ''; mode = 'chat'; sheet = null; whoOpen.clear(); }
+    if (!o || o.key !== opts.key) { view = null; cat = ''; draft = ''; mode = 'chat'; sheet = null; whoOpen.clear(); replyTo = null; armed = null; sure = null; }
     const old = box && box !== el && view && o && o.key === opts.key && box.firstElementChild;
     o = opts; bind(el);
     if (old) { const l = old.querySelector('#cxList'), top = l ? l.scrollTop : 0, f = document.activeElement; el.innerHTML = ''; el.appendChild(old); box = el;
@@ -15191,7 +15259,20 @@ var Views = (() => {
     $$('[data-team]', root).forEach(b => b.onclick = () => { S().ui.teamId = b.dataset.team; Store.save(); rerender(); });
     $$('[data-teamsel]', root).forEach(s => s.onchange = () => { S().ui.teamId = s.value; Store.save(); rerender(); });
   }
-  const header = (title, sub, actions = '') => `<header class="page-head"><div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div><div class="head-actions">${actions}</div></header>`;
+  // (2.03) on a phone, a header with more than 3 buttons keeps the first 2, the others go in a « ⋯ » menu (instead of 3 or 4 lines of buttons)
+  function compactActions(actions) {
+    if (!actions || !window.matchMedia || !matchMedia('(max-width: 760px)').matches) return actions;
+    const t = document.createElement('template'); t.innerHTML = actions; const kids = [...t.content.children];
+    if (kids.length <= 3) return actions;
+    // the main button (« Nouvel entraînement »…, often the last one) always stays in sight, then the first others, 2 in all
+    const keep = new Set(kids.filter(k => k.classList.contains('primary')).slice(0, 2));
+    for (const k of kids) { if (keep.size >= 2) break; keep.add(k); }
+    const shown = kids.filter(k => keep.has(k)), rest = kids.filter(k => !keep.has(k));
+    return `<details class="more-acts"><summary class="btn" aria-label="Plus d'actions">⋯</summary><div class="more-pop">${rest.map(k => k.outerHTML).join('')}</div></details>` + shown.map(k => k.outerHTML).join('');
+  }
+  const header = (title, sub, actions = '') => `<header class="page-head"><div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div><div class="head-actions">${compactActions(actions)}</div></header>`;
+  // the menu closes after a choice, or a touch elsewhere
+  document.addEventListener('click', e => { document.querySelectorAll('details.more-acts[open]').forEach(d => { if (!d.contains(e.target) || e.target.closest('.more-pop')) setTimeout(() => d.removeAttribute('open'), 0); }); });
 
   /* ================= Accueil ================= */
   // Getting the club ready: shown to responsables until every step is done
@@ -16255,8 +16336,9 @@ var Views = (() => {
     bindTeamSwitch(root, () => chat(root));
     const box = $('#chatBox', root); if (!box) return;
     Chat.mount(box, { key: 't:' + t.id, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(t.id, after),
-      post: (c, b) => Cloud.chatPost(t.id, b), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off),
-      poll: (c, q, opts, multi) => Cloud.chatPoll(t.id, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(t.id, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(t.id, id, closed) });
+      post: (c, b, r) => Cloud.chatPost(t.id, b, r), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off),
+      poll: (c, q, opts, multi) => Cloud.chatPoll(t.id, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(t.id, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(t.id, id, closed),
+      react: (c, id, e) => Cloud.chatReact(t.id, id, e), mute: on => Cloud.chatMute(on) });
   }
   return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat };
 })();
@@ -16405,7 +16487,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 103, UPD = AppCfg.key('update-tried');
+  const BUILD = 104, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

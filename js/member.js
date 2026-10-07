@@ -164,7 +164,10 @@ const Member = (() => {
       + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}'
       // (2.01) more comfortable for a finger: bigger small buttons, the well-being scale on two lines, small texts readable
       + '.b.small{min-height:40px}.b:disabled{opacity:.55}.wb-scale{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}.wb-scale button{min-height:44px!important;font-size:16px}'
-      + '.gm-s small,.gm-src{font-size:12.5px!important}.tab span{font-size:12px}'
+      + '.gm-s small,.gm-src{font-size:12.5px!important}'
+      // (2.03) 7 or 8 tabs: a bit smaller, so « Bénévoles » or « Résultats » are not cut
+      + '.tabbar[data-n="7"] .tab,.tabbar[data-n="8"] .tab{padding:6px 0 5px;gap:2px}.tabbar[data-n="7"] .tab .ti,.tabbar[data-n="8"] .tab .ti{font-size:19px}'
+      + '.tabbar[data-n="7"] .tab span:not(.ti),.tabbar[data-n="8"] .tab span:not(.ti){font-size:10.5px;letter-spacing:-.2px}'
       // (1.94) the other view, chosen by the player: one small menu at the top right instead of the bar at the bottom
       + '.tabmenu{display:none}body.tabs-top main{padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}body.tabs-top header.top .top-in{padding-right:96px}body.tabs-top .toast{bottom:calc(env(safe-area-inset-bottom) + 16px)}'
       + 'body.tabs-top .tabbar{top:calc(env(safe-area-inset-top) + 10px);bottom:auto;left:auto;right:10px;flex-direction:column;align-items:stretch;gap:2px;padding:4px;border:1px solid rgba(201,164,92,.55);border-radius:18px;background:rgba(14,29,69,.94);box-shadow:0 6px 18px rgba(0,0,0,.25)}'
@@ -211,7 +214,7 @@ const Member = (() => {
     if (/^#chat\b/.test(location.hash) && list.some(t => t.id === 'chat')) { tabCur = 'chat'; try { sessionStorage.setItem(TABKEY(kind), 'chat'); history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
     if (!list.some(t => t.id === tabCur)) { let s = ''; try { s = sessionStorage.getItem(TABKEY(kind)) || ''; } catch (e) {} tabCur = list.some(t => t.id === s) ? s : list[0].id; }
     return list.map(t => `<section class="tab-pane" data-pane="${t.id}" role="tabpanel" ${t.id === tabCur ? '' : 'hidden'}>${t.html && t.html.trim() ? t.html : `<p class="tip">${t.empty || 'Rien pour l\'instant.'}</p>`}</section>`).join('')
-      + `<nav class="tabbar" role="tablist" data-kind="${kind}">${menuBtn(list.find(t => t.id === tabCur))}${list.map(t => `<button class="tab ${t.id === tabCur ? 'on' : ''}" role="tab" aria-selected="${t.id === tabCur}" data-tab="${t.id}"><span class="ti">${t.icon}</span><span>${esc(t.label)}</span></button>`).join('')}</nav>`;
+      + `<nav class="tabbar" role="tablist" data-kind="${kind}" data-n="${list.length}">${menuBtn(list.find(t => t.id === tabCur))}${list.map(t => `<button class="tab ${t.id === tabCur ? 'on' : ''}" role="tab" aria-selected="${t.id === tabCur}" data-tab="${t.id}"><span class="ti">${t.icon}</span><span>${esc(t.label)}</span></button>`).join('')}</nav>`;
   }
   // (1.65) the coach's personal suggestions for this player (Séances tab), from the club server (member_tips)
   const fmtDay = d => { try { return new Date(d + 'T12:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch (e) { return d; } };

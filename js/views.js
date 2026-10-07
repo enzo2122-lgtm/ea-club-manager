@@ -71,7 +71,20 @@ const Views = (() => {
     $$('[data-team]', root).forEach(b => b.onclick = () => { S().ui.teamId = b.dataset.team; Store.save(); rerender(); });
     $$('[data-teamsel]', root).forEach(s => s.onchange = () => { S().ui.teamId = s.value; Store.save(); rerender(); });
   }
-  const header = (title, sub, actions = '') => `<header class="page-head"><div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div><div class="head-actions">${actions}</div></header>`;
+  // (2.03) on a phone, a header with more than 3 buttons keeps the first 2, the others go in a « ⋯ » menu (instead of 3 or 4 lines of buttons)
+  function compactActions(actions) {
+    if (!actions || !window.matchMedia || !matchMedia('(max-width: 760px)').matches) return actions;
+    const t = document.createElement('template'); t.innerHTML = actions; const kids = [...t.content.children];
+    if (kids.length <= 3) return actions;
+    // the main button (« Nouvel entraînement »…, often the last one) always stays in sight, then the first others, 2 in all
+    const keep = new Set(kids.filter(k => k.classList.contains('primary')).slice(0, 2));
+    for (const k of kids) { if (keep.size >= 2) break; keep.add(k); }
+    const shown = kids.filter(k => keep.has(k)), rest = kids.filter(k => !keep.has(k));
+    return `<details class="more-acts"><summary class="btn" aria-label="Plus d'actions">⋯</summary><div class="more-pop">${rest.map(k => k.outerHTML).join('')}</div></details>` + shown.map(k => k.outerHTML).join('');
+  }
+  const header = (title, sub, actions = '') => `<header class="page-head"><div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div><div class="head-actions">${compactActions(actions)}</div></header>`;
+  // the menu closes after a choice, or a touch elsewhere
+  document.addEventListener('click', e => { document.querySelectorAll('details.more-acts[open]').forEach(d => { if (!d.contains(e.target) || e.target.closest('.more-pop')) setTimeout(() => d.removeAttribute('open'), 0); }); });
 
   /* ================= Accueil ================= */
   // Getting the club ready: shown to responsables until every step is done
@@ -1135,8 +1148,9 @@ const Views = (() => {
     bindTeamSwitch(root, () => chat(root));
     const box = $('#chatBox', root); if (!box) return;
     Chat.mount(box, { key: 't:' + t.id, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(t.id, after),
-      post: (c, b) => Cloud.chatPost(t.id, b), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off),
-      poll: (c, q, opts, multi) => Cloud.chatPoll(t.id, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(t.id, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(t.id, id, closed) });
+      post: (c, b, r) => Cloud.chatPost(t.id, b, r), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off),
+      poll: (c, q, opts, multi) => Cloud.chatPoll(t.id, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(t.id, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(t.id, id, closed),
+      react: (c, id, e) => Cloud.chatReact(t.id, id, e), mute: on => Cloud.chatMute(on) });
   }
   return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat };
 })();

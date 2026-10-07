@@ -13,7 +13,14 @@ const Sync = (() => {
     if (x && typeof x === 'object') return '{' + Object.keys(x).filter(k => x[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + canon(x[k])).join(',') + '}';
     return JSON.stringify(x === undefined ? null : x);
   }
+  // (2.03) the slow part (keys sorted at every level) is done again only when the item really changed: the browser's own
+  // JSON.stringify (fast) tells it; same item, same text → the fingerprint kept. Same result as before, much less work for a big club.
+  const fpMemo = new WeakMap();
   function fp(x) {
+    if (x && typeof x === 'object') { const raw = JSON.stringify(x), m = fpMemo.get(x); if (m && m.raw === raw) return m.fp; const f = fp0(x); fpMemo.set(x, { raw, fp: f }); return f; }
+    return fp0(x);
+  }
+  function fp0(x) {
     const s = canon(x); let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
     return (h >>> 0).toString(36) + '.' + s.length.toString(36);
