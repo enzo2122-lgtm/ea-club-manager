@@ -29,14 +29,15 @@ addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'&&!n
     // an error is shown (it was silent)
     const fc = `(async()=>{const A=${A};const RG=/De\\s+(\\d+)\\s+à\\s+(\\d+)\\s+sur\\s+(\\d+)/i,DT=/^\\d{2}\\/\\d{2}\\/\\d{4}$/;
 if(!/footclubs\\.fff\\.fr$/.test(location.host)){alert('Ouvre Footclubs (connecté), puis touche ce favori.');return;}
+const w=window.open(A+'#/recevoir-source','clubimport');if(!w){alert('Ton navigateur a bloqué la fenêtre : autorise les fenêtres pour footclubs.fff.fr (icône à droite de la barre d\\'adresse), puis touche à nouveau ce favori.');return;}
 const T=window.top;const all=()=>{const out=[];const go=(x,d)=>{out.push(x);if(d>4)return;let fs=[];try{fs=x.document.querySelectorAll('frame,iframe');}catch(e){return;}for(const f of fs){try{if(f.contentWindow&&f.contentWindow.document)go(f.contentWindow,d+1);}catch(e){}}};go(T,0);return out;};
 const txt=x=>{try{return x.document.body?x.document.body.innerText:'';}catch(e){return '';}};
 const dates=x=>{try{return [...x.document.querySelectorAll('td')].filter(td=>DT.test(td.innerText.trim())).length;}catch(e){return 0;}};
 const find=()=>{const ws=all();return ws.find(x=>RG.test(txt(x))&&dates(x)>0)||ws.find(x=>dates(x)>=3)||null;};
 let W=find();
 if(!W){try{const M=T.frames['menu'],a=[...M.document.querySelectorAll('a')].find(x=>/'LILIST'/.test(x.getAttribute('onclick')||''));M.gestOpen(a,'2',1,'LILIST');}catch(e){}for(let k=0;k<80&&!W;k++){await new Promise(r=>setTimeout(r,250));W=find();}}
-if(!W){const ws=all();alert('Liste des licences introuvable ('+ws.length+' cadre'+(ws.length>1?'s':'')+' lus). Ouvre Licences → liste des licences (le tableau avec les dates de naissance), puis touche à nouveau ce favori.');return;}
-const w=window.open(A+'#/recevoir-source','clubimport');if(!w){alert('Ton navigateur a bloqué la fenêtre : autorise les fenêtres pour footclubs.fff.fr (icône à droite de la barre d\\'adresse), puis touche à nouveau ce favori.');return;}
+if(!W){const ws=all();try{w.close();}catch(e){}alert('Liste des licences introuvable ('+ws.length+' cadre'+(ws.length>1?'s':'')+' lus). Ouvre Licences → liste des licences (le tableau avec les dates de naissance), puis touche à nouveau ce favori.');return;}
+let bn=null;try{const d=W.document;bn=d.createElement('div');bn.style.cssText='position:fixed;top:8px;right:8px;z-index:99999;padding:12px 16px;background:#0e1d45;color:#fff;font:bold 15px sans-serif;border-radius:10px';bn.textContent='📥 Lecture des licences pour l\\'appli… ne touche à rien';d.body.appendChild(bn);}catch(e){}
 try{let ready=false,data=null;
 const send=()=>{if(ready&&data){w.postMessage({type:'club-import',source:'footclubs',payload:data},new URL(A).origin);data=null;}};
 addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'){ready=true;send();}});

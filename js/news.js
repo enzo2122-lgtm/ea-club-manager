@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 40, date: '2026-10-07', title: 'Footclubs, deuxième round 🥊', items: [
+      ['📥', "Favori Footclubs : l'appli s'ouvre dès le clic (plus de fenêtre bloquée), il ouvre la liste des licences tout seul, et un bandeau montre qu'il travaille."],
+    ] },
     { n: 39, date: '2026-10-07', title: 'Footclubs, on a trouvé ta cachette', items: [
       ['🔎', 'Favori Footclubs : il trouve la liste des licences même cachée dans un cadre dans un cadre. Si ça coince, il dit enfin pourquoi.'],
     ] },
