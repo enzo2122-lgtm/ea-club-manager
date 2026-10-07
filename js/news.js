@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 61, date: '2026-10-08', title: 'Installer l\'appli en 1 minute, et vos données', items: [
+      ['📲', 'Espaces joueurs et parents : « Installe l\'appli » guide pas à pas selon le téléphone (iPhone, Android, lien ouvert dans Facebook ou Instagram), avec ton code à copier. Une fois installée : « Activer les notifications ».'],
+      ['🔒', 'Confidentialité mise à jour : qui voit quoi dans le chat et les classements, protections des jeunes, durées (photos du chat 90 jours, messages 1 an).'],
+      ['🏆', 'Onglet Moi : « Ne pas apparaître dans les classements » (tes badges restent).'],
+      ['🗑️', 'Un joueur supprimé par le club : ses messages, photos et réactions du chat partent avec lui.'],
+    ] },
     { n: 60, date: '2026-10-08', title: 'Photos, parents, relances et badges 🏅', items: [
       ['📷', 'Chat : envoie une photo (📷). Chez les jeunes, seuls les coachs en envoient, sauf si un coach ouvre les photos aux joueurs.'],
       ['📌', 'Les coachs épinglent un message en haut du chat (horaires, infos importantes).'],

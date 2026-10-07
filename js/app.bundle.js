@@ -3534,7 +3534,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.04';
+  const VERSION = '2.05';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13409,6 +13409,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 61, date: '2026-10-08', title: 'Installer l\'appli en 1 minute, et vos données', items: [
+      ['📲', 'Espaces joueurs et parents : « Installe l\'appli » guide pas à pas selon le téléphone (iPhone, Android, lien ouvert dans Facebook ou Instagram), avec ton code à copier. Une fois installée : « Activer les notifications ».'],
+      ['🔒', 'Confidentialité mise à jour : qui voit quoi dans le chat et les classements, protections des jeunes, durées (photos du chat 90 jours, messages 1 an).'],
+      ['🏆', 'Onglet Moi : « Ne pas apparaître dans les classements » (tes badges restent).'],
+      ['🗑️', 'Un joueur supprimé par le club : ses messages, photos et réactions du chat partent avec lui.'],
+    ] },
     { n: 60, date: '2026-10-08', title: 'Photos, parents, relances et badges 🏅', items: [
       ['📷', 'Chat : envoie une photo (📷). Chez les jeunes, seuls les coachs en envoient, sauf si un coach ouvre les photos aux joueurs.'],
       ['📌', 'Les coachs épinglent un message en haut du chat (horaires, infos importantes).'],
@@ -16566,7 +16572,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 105, UPD = AppCfg.key('update-tried');
+  const BUILD = 106, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
