@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.85';
+  const VERSION = '1.86';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13356,6 +13356,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 42, date: '2026-10-07', title: 'Le lecteur vidéo a pris des vitamines 📼', items: [
+      ['🎬', "Highlights : le lecteur intégré lit aussi Dropbox et les fichiers MP4, MOV, WebM, 3GP. Pour un AVI ou un MPG (que les navigateurs ne savent pas lire), il propose de le télécharger."],
+    ] },
     { n: 41, date: '2026-10-07', title: 'Footclubs, troisième round : KO 🥊', items: [
       ['📥', "Favori Footclubs : à la fin de la lecture, un bouton « Envoyer à l'appli » apparaît sur Footclubs. Ça marche même quand l'appli est installée sur le PC."],
     ] },
@@ -14122,7 +14125,9 @@ var VPlayer = (() => {
     if ((m = u.match(/dai(?:lymotion\.com\/video|\.ly)\/([a-z0-9]+)/i))) return { kind: 'frame', url: `https://www.dailymotion.com/embed/video/${m[1]}${st ? '?start=' + st : ''}` };
     if ((m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) return { kind: 'frame', url: `https://drive.google.com/file/d/${m[1]}/preview` };
     if ((m = u.match(/streamable\.com\/([a-z0-9]+)/i))) return { kind: 'frame', url: `https://streamable.com/e/${m[1]}` };
-    if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(u)) return { kind: 'video', url: u + (st ? '#t=' + st : '') };
+    // (1.86) Dropbox: the file itself; any video file is tried in the player (MP4, WebM, MOV play everywhere; AVI, MPG, MKV, WMV: a message if the browser can't)
+    if (/dropbox\.com\//.test(u)) { try { const x = new URL(u); x.searchParams.delete('dl'); x.searchParams.set('raw', '1'); x.hash = st ? 't=' + st : ''; return { kind: 'video', url: x.href }; } catch (e) { return null; } }
+    if (/\.(mp4|webm|ogg|ogv|mov|m4v|3gp|mpe?g|mpg4|avi|mkv|wmv|flv|ts)(\?|#|$)/i.test(u)) return { kind: 'video', url: u + (st ? '#t=' + st : '') };
     return null;
   }
   const label = url => { const h = (String(url).match(/^https:\/\/(?:www\.)?([^/]+)/) || [])[1] || 'lien'; return /youtu/.test(h) ? 'YouTube' : /vimeo/.test(h) ? 'Vimeo' : /drive\.google/.test(h) ? 'Google Drive' : h; };
@@ -14147,6 +14152,8 @@ var VPlayer = (() => {
     const key = e => { if (e.key === 'Escape') close(); };
     o.onclick = e => { if (e.target === o || e.target.closest('[data-vpx]')) close(); };
     document.addEventListener('keydown', key); document.body.appendChild(o);
+    // a format the browser can't read (AVI, MPG, WMV…): say it, and offer to download it
+    const v = o.querySelector('video'); if (v) v.onerror = () => { const f = o.querySelector('.vp-frame'); f.style.aspectRatio = 'auto'; f.innerHTML = `<div style="padding:24px;color:#fff;text-align:center;line-height:1.5"><p>😕 Ce format de vidéo ne se lit pas dans le navigateur (souvent AVI, MPG ou WMV).</p><p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" download style="color:#e2c27d;font-weight:700">⬇️ Télécharger la vidéo</a></p><p style="opacity:.75;font-size:14px">Coach : mets plutôt la vidéo en MP4, ou sur YouTube (en « non répertoriée ») ou Google Drive.</p></div>`; };
   }
   // a list of clips: [{ url, t, title }] → buttons that open the player (data-vp…)
   function list(clips) {
@@ -14168,7 +14175,7 @@ var Highlights = (() => {
   function html(m) {
     const cl = m.highlights || [];
     return `<section class="card hl-card"><h2>🎬 Highlights du match</h2>
-      <p class="muted small">Colle le lien de chaque vidéo (YouTube, Google Drive, Vimeo, Veo, fichier mp4…) avec un titre et, si besoin, la minute où ça commence. Les joueurs les regardent dans l'appli.</p>
+      <p class="muted small">Colle le lien de chaque vidéo (YouTube, Google Drive, Dropbox, Vimeo, Veo, fichier MP4, MOV, WebM…) avec un titre et, si besoin, la minute où ça commence. Les joueurs les regardent dans l'appli. Les AVI, MPG ou WMV ne se lisent pas dans un navigateur : convertis-les en MP4 ou mets-les sur YouTube (« non répertoriée »).</p>
       ${cl.length ? VPlayer.list(cl) + `<div class="chips" style="margin-top:6px">${cl.map(c => `<button class="chip" data-hldel="${esc(c.id)}">✕ ${esc(c.title || 'Vidéo')}</button>`).join('')}</div>` : ''}
       <div class="row3" style="margin-top:10px">
         <label class="fld"><span>Titre</span><input id="hlTitle" maxlength="80" placeholder="But de Yanis, 23e"></label>
@@ -15525,7 +15532,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 86, UPD = AppCfg.key('update-tried');
+  const BUILD = 87, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

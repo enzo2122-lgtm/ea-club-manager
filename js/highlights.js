@@ -6,7 +6,7 @@ const Highlights = (() => {
   function html(m) {
     const cl = m.highlights || [];
     return `<section class="card hl-card"><h2>🎬 Highlights du match</h2>
-      <p class="muted small">Colle le lien de chaque vidéo (YouTube, Google Drive, Vimeo, Veo, fichier mp4…) avec un titre et, si besoin, la minute où ça commence. Les joueurs les regardent dans l'appli.</p>
+      <p class="muted small">Colle le lien de chaque vidéo (YouTube, Google Drive, Dropbox, Vimeo, Veo, fichier MP4, MOV, WebM…) avec un titre et, si besoin, la minute où ça commence. Les joueurs les regardent dans l'appli. Les AVI, MPG ou WMV ne se lisent pas dans un navigateur : convertis-les en MP4 ou mets-les sur YouTube (« non répertoriée »).</p>
       ${cl.length ? VPlayer.list(cl) + `<div class="chips" style="margin-top:6px">${cl.map(c => `<button class="chip" data-hldel="${esc(c.id)}">✕ ${esc(c.title || 'Vidéo')}</button>`).join('')}</div>` : ''}
       <div class="row3" style="margin-top:10px">
         <label class="fld"><span>Titre</span><input id="hlTitle" maxlength="80" placeholder="But de Yanis, 23e"></label>

@@ -15,7 +15,9 @@ const VPlayer = (() => {
     if ((m = u.match(/dai(?:lymotion\.com\/video|\.ly)\/([a-z0-9]+)/i))) return { kind: 'frame', url: `https://www.dailymotion.com/embed/video/${m[1]}${st ? '?start=' + st : ''}` };
     if ((m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) return { kind: 'frame', url: `https://drive.google.com/file/d/${m[1]}/preview` };
     if ((m = u.match(/streamable\.com\/([a-z0-9]+)/i))) return { kind: 'frame', url: `https://streamable.com/e/${m[1]}` };
-    if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(u)) return { kind: 'video', url: u + (st ? '#t=' + st : '') };
+    // (1.86) Dropbox: the file itself; any video file is tried in the player (MP4, WebM, MOV play everywhere; AVI, MPG, MKV, WMV: a message if the browser can't)
+    if (/dropbox\.com\//.test(u)) { try { const x = new URL(u); x.searchParams.delete('dl'); x.searchParams.set('raw', '1'); x.hash = st ? 't=' + st : ''; return { kind: 'video', url: x.href }; } catch (e) { return null; } }
+    if (/\.(mp4|webm|ogg|ogv|mov|m4v|3gp|mpe?g|mpg4|avi|mkv|wmv|flv|ts)(\?|#|$)/i.test(u)) return { kind: 'video', url: u + (st ? '#t=' + st : '') };
     return null;
   }
   const label = url => { const h = (String(url).match(/^https:\/\/(?:www\.)?([^/]+)/) || [])[1] || 'lien'; return /youtu/.test(h) ? 'YouTube' : /vimeo/.test(h) ? 'Vimeo' : /drive\.google/.test(h) ? 'Google Drive' : h; };
@@ -40,6 +42,8 @@ const VPlayer = (() => {
     const key = e => { if (e.key === 'Escape') close(); };
     o.onclick = e => { if (e.target === o || e.target.closest('[data-vpx]')) close(); };
     document.addEventListener('keydown', key); document.body.appendChild(o);
+    // a format the browser can't read (AVI, MPG, WMV…): say it, and offer to download it
+    const v = o.querySelector('video'); if (v) v.onerror = () => { const f = o.querySelector('.vp-frame'); f.style.aspectRatio = 'auto'; f.innerHTML = `<div style="padding:24px;color:#fff;text-align:center;line-height:1.5"><p>😕 Ce format de vidéo ne se lit pas dans le navigateur (souvent AVI, MPG ou WMV).</p><p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" download style="color:#e2c27d;font-weight:700">⬇️ Télécharger la vidéo</a></p><p style="opacity:.75;font-size:14px">Coach : mets plutôt la vidéo en MP4, ou sur YouTube (en « non répertoriée ») ou Google Drive.</p></div>`; };
   }
   // a list of clips: [{ url, t, title }] → buttons that open the player (data-vp…)
   function list(clips) {
