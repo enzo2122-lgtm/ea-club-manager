@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.91';
+  const VERSION = '1.92';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -11166,6 +11166,8 @@ var Analyse = (() => {
       <div id="teleBox" class="tele-box"></div>
       <section class="card"><div class="row-head"><h2>Marquer une action</h2><button class="linkish" data-a="pref">Séquence : ${pref().before} s avant, ${pref().after} s après</button></div>
         <div class="an-tags">${TAGS.map(([k, ic, l, c]) => `<button class="an-tag" data-tag="${k}" style="--c:${c}"><b>${ic}</b><span>${esc(l)}</span></button>`).join('')}</div></section>
+      ${yt ? '' : `<section class="card an-auto"><div class="row-head"><h2>🤖 Analyse automatique</h2><button class="btn primary" data-a="auto">🤖<span>Repérer les actions automatiquement</span></button></div>
+        <p class="muted small">Sans regarder le match : l'appli écoute le son de la vidéo (cris, sifflets, applaudissements) et crée une séquence à chaque moment fort. Rien n'est envoyé : tout se passe sur cet appareil. Ensuite, regarde seulement ces séquences et choisis ce que c'est (but, occasion…). Pour une analyse par l'IA qui regarde l'image : fiche du match → Après → Highlights → « Créer automatiquement ».</p></section>`}
       <div id="anLive"></div>
       <div id="anStats"></div>
       <h2 class="section">Séquences</h2><div id="anClips"></div>`;
@@ -11237,6 +11239,20 @@ var Analyse = (() => {
       if (a === '-5' || a === '+5') { const to = v.currentTime + (a === '-5' ? -5 : 5); v.currentTime = Math.max(0, isFinite(v.duration) && v.duration ? Math.min(v.duration, to) : to); return; }
       if (a === '-f' || a === '+f') { v.pause(); v.currentTime = Math.max(0, v.currentTime + (a === '-f' ? -1 : 1) / 25); return; }
       if (a === 'pref') return prefDialog(() => page(root, id));
+      // (1.92) the sound of the whole video, read on the device (AutoHL): one sequence at each loud moment, to check afterwards
+      if (a === 'auto') {
+        const bz = UI.busy('Écoute du match… (quelques minutes pour une vidéo d\'1 Go, garde l\'appli ouverte)');
+        try {
+          const db = await AutoHL.loudness(rec.blob, p => bz.progress(p)), pk = AutoHL.peaks(db, 30), p = pref();
+          const dur = isFinite(v.duration) && v.duration ? v.duration : Infinity;
+          const add = pk.filter(x => rec.clips.every(c => Math.abs((c.at != null ? c.at : c.start) - x.t) > 20))
+            .map(x => ({ id: Store.uid(), tag: 'autre', start: Math.max(0, x.t - Math.max(p.before, 8)), end: Math.min(dur, x.t + Math.max(p.after, 4)), at: x.t, note: '🔊 Moment fort repéré au son : à vérifier', players: [], auto: true }));
+          rec.clips.push(...add); await save(); drawClips();
+          toast(add.length ? `${add.length} séquence${add.length > 1 ? 's' : ''} créée${add.length > 1 ? 's' : ''} : regarde-les et choisis ce que c'est (But, Occasion…)` : 'Aucun moment fort trouvé au son (vidéo sans son, ou trop calme)', add.length ? '' : 'err');
+        } catch (e) { toast(e.message || 'Analyse impossible', 'err'); }
+        finally { bz.done(); }
+        return;
+      }
       if (b.dataset.rate) { v.playbackRate = +b.dataset.rate; $$('[data-rate]', root).forEach(x => x.classList.toggle('on', x === b)); return; }
       if (b.dataset.tag) {
         const t = v.currentTime, p = pref(), c = { id: Store.uid(), tag: b.dataset.tag, start: Math.max(0, t - p.before), end: Math.min(isFinite(v.duration) && v.duration ? v.duration : t + p.after, t + p.after), at: t, note: '', players: [] };
@@ -13356,6 +13372,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 48, date: '2026-10-07', title: 'L\'analyse vidéo se fait toute seule 🤖', items: [
+      ['🤖', 'Bibliothèque → une vidéo → Analyser → « Repérer les actions automatiquement » : l\'appli écoute le son du match (cris, sifflets) et crée une séquence à chaque moment fort, sans regarder la vidéo. Tu choisis ensuite ce que c\'est.'],
+    ] },
     { n: 47, date: '2026-10-07', title: 'Programme par semaine, vidéos jusqu\'à 1 Go', items: [
       ['📅', 'Espaces joueur et parents : le programme (entraînements et matchs) rangé par semaine — cette semaine et la suivante ouvertes, les autres semaines et les mois suivants en menus repliés, avec les réponses qui manquent.'],
       ['🎬', 'Bibliothèque et briefings vidéo : les vidéos jusqu\'à 1 Go (un match entier) pour faire les highlights.'],
@@ -15864,7 +15883,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 92, UPD = AppCfg.key('update-tried');
+  const BUILD = 93, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

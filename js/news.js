@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 48, date: '2026-10-07', title: 'L\'analyse vidéo se fait toute seule 🤖', items: [
+      ['🤖', 'Bibliothèque → une vidéo → Analyser → « Repérer les actions automatiquement » : l\'appli écoute le son du match (cris, sifflets) et crée une séquence à chaque moment fort, sans regarder la vidéo. Tu choisis ensuite ce que c\'est.'],
+    ] },
     { n: 47, date: '2026-10-07', title: 'Programme par semaine, vidéos jusqu\'à 1 Go', items: [
       ['📅', 'Espaces joueur et parents : le programme (entraînements et matchs) rangé par semaine — cette semaine et la suivante ouvertes, les autres semaines et les mois suivants en menus repliés, avec les réponses qui manquent.'],
       ['🎬', 'Bibliothèque et briefings vidéo : les vidéos jusqu\'à 1 Go (un match entier) pour faire les highlights.'],
