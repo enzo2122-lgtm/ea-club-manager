@@ -1990,3 +1990,20 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
   body.nav-top .quick-fab { bottom: calc(env(safe-area-inset-bottom) + 18px); }
   body.nav-top .save-pill { bottom: calc(env(safe-area-inset-bottom) + 24px); }
 }
+
+/* ---------- 2.01 : plus confortable au doigt sur téléphone ---------- */
+@media (max-width: 760px) {
+  /* les boutons d'en-tête sur une seule ligne qui défile, au lieu de 3 ou 4 lignes avant le contenu */
+  .head-actions { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent); mask-image: linear-gradient(to right, #000 88%, transparent); }
+  .head-actions::-webkit-scrollbar { display: none; }
+  .head-actions .btn { min-height: 42px; }
+  .mini-step button { width: 42px; height: 42px; }
+  .ex .ex-tog { min-height: 42px; }
+  .linkish[data-delm] { padding: 8px 6px; margin-left: 6px; font-size: 13px; }
+  .team-switch { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .team-switch::-webkit-scrollbar { display: none; }
+  .team-switch .chip { flex: none; min-height: 38px; }
+}
+/* le bouton d'envoi des messages pendant l'envoi */
+button.sending { opacity: .55; pointer-events: none; }

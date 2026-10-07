@@ -267,16 +267,17 @@ Réponds seulement avec la liste JSON.`;
     modal({ title: '🤖 Highlights automatiques', noFocus: true, wide: true, body: `<div class="ahl"><div id="ahlMedia"></div><div id="ahlBody">${(merge(), body())}</div></div>`,
       onOpen: r => {
         root = r; css(); setMedia();
-        r.addEventListener('change', e => {
+        const host = r.querySelector('.sheet'); // (2.01) new at each opening: the handlers do not pile up on the shared #modal
+        host.addEventListener('change', e => {
           if (e.target.id === 'ahlFile' && e.target.files[0]) return analyse(e.target.files[0]);
           const k = e.target.dataset.ahlk; if (k != null) { st.list[+k].keep = e.target.checked; return draw(); }
           const s = e.target.dataset.ahls; if (s != null) { const x = st.list[+s]; x.kind = e.target.value; const l = (KINDS.find(z => z[0] === x.kind) || [])[1]; if (l && /^🔊|^(⚽|🎯|⚠️|🥅|🧤|🟨)/.test(x.title)) x.title = l.replace(/ \((nous|eux)\)/, x.kind.endsWith('Them') ? ' adverse' : ''); return draw(); }
           if (e.target.id === 'ahlK1' || e.target.id === 'ahlK2') { readInputs(); merge(); draw(); }
           if (e.target.id === 'ahlLink') { st.link = e.target.value.trim(); setMedia(); draw(); }
         });
-        r.addEventListener('input', e => { if (e.target.id === 'ahlGKey') setGKey(e.target.value.trim()); if (e.target.id === 'ahlColors') st.colors = e.target.value; const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
-        r.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('ahl-ai')) st.aiOpen = e.target.open; }, true);
-        r.addEventListener('click', e => {
+        host.addEventListener('input', e => { if (e.target.id === 'ahlGKey') setGKey(e.target.value.trim()); if (e.target.id === 'ahlColors') st.colors = e.target.value; const t = e.target.dataset.ahlt; if (t != null) st.list[+t].title = e.target.value; if (e.target.id === 'ahlLink') st.link = e.target.value.trim(); });
+        host.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('ahl-ai')) st.aiOpen = e.target.open; }, true);
+        host.addEventListener('click', e => {
           if (e.target.closest('[data-ahl="ai"]')) { runAI(); return; }
           const p = e.target.closest('[data-ahlp]'); if (p) { const x = st.list[+p.dataset.ahlp]; if (P) { P.seek(Math.max(0, x.t - BEFORE[x.src])); r.querySelector('#ahlMedia').scrollIntoView({ block: 'nearest' }); } return; }
           if (e.target.closest('[data-ahl="k1now"]')) { if (P) { readInputs(); st.k1 = mmss(P.time()); merge(); draw(); } }

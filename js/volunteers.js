@@ -62,7 +62,7 @@ const Vol = (() => {
     if (b.hasAttribute('data-vset')) { settings(redraw); return true; }
     const [mid, key, pid] = (b.dataset.vme || b.dataset.vadd || b.dataset.vrm).split('|'), m = Store.get('matches', mid), t = tasks().find(x => x.key === key); if (!m || !t) return true;
     const save = () => { m.vol = m.vol || {}; Store.upsert('matches', m); redraw && redraw(); };
-    if (b.dataset.vme) { const u = me(); (m.vol = m.vol || {})[key] = [...list(m, key), { id: Store.uid(), name: Messages.coachName(u), staffId: u.id }]; save(); toast(`Merci ! ${t.icon} ${t.label} le ${UI.fmtDate(m.date)}`); }
+    if (b.dataset.vme) { const u = me(); if (list(m, key).some(p => p.staffId === u.id)) return true; /* (2.01) already in: a second tap does nothing */ (m.vol = m.vol || {})[key] = [...list(m, key), { id: Store.uid(), name: Messages.coachName(u), staffId: u.id }]; save(); toast(`Merci ! ${t.icon} ${t.label} le ${UI.fmtDate(m.date)}`); }
     if (b.dataset.vadd) {
       modal({ title: `${t.icon} ${t.label} · ${UI.fmtDate(m.date)}`, body: `<label class="fld"><span>Nom (un parent, un joueur, un dirigeant)</span><input id="vName" maxlength="40" placeholder="ex : Maman de Noah"></label>
         <div class="chips">${S().staff.filter(s => !list(m, key).some(p => p.staffId === s.id) && (s.teamIds || []).includes(m.teamId)).slice(0, 12).map(s => `<button class="chip" data-vst="${s.id}">${esc(Store.fullName(s))}</button>`).join('')}</div>`,

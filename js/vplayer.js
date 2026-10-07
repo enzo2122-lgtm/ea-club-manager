@@ -72,6 +72,7 @@ const VPlayer = (() => {
     if (v) frame.addEventListener('dblclick', e => { e.preventDefault(); const p = rel(e); z > 1 ? (z = 1, x = y = 0, apply()) : at(p[0], p[1], 2.5); });
     frame.addEventListener('wheel', e => { if (!v && pan.hidden) return; e.preventDefault(); const p = rel(e); at(p[0], p[1], z * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }, { passive: false });
     addEventListener('resize', apply);
+    return () => removeEventListener('resize', apply); // (2.01) taken away when the player closes
   }
   // opens the player over the page
   function open(url, start, title) {
@@ -83,12 +84,12 @@ const VPlayer = (() => {
       <div class="vp-tools">${s.kind === 'video' ? '<button type="button" data-vz="back">⏪ 5 s</button><button type="button" data-vz="play">⏯</button><button type="button" data-vz="fwd">5 s ⏩</button>' : '<button type="button" data-vz="pan">✋ Déplacer</button>'}
         <button type="button" data-vz="out" aria-label="Dézoomer">－</button><b class="vp-zl">100 %</b><button type="button" data-vz="in" aria-label="Zoomer">＋</button><button type="button" data-vz="reset">⟲</button></div>
       <p class="vp-hint">${s.kind === 'video' ? 'Zoom : deux doigts, double-tap ou ＋ / －. Zoomé : glisse un doigt pour te déplacer.' : 'Zoom : ＋ / －, puis « ✋ Déplacer » pour bouger l\'image (re-touche-le pour retrouver les commandes de la vidéo).'}</p></div>`;
-    const close = () => { o.remove(); document.removeEventListener('keydown', key); };
+    let unzoom = null; const close = () => { o.remove(); document.removeEventListener('keydown', key); if (unzoom) unzoom(); };
     const key = e => { if (e.key === 'Escape') close(); };
     o.onclick = e => { if (e.target === o || e.target.closest('[data-vpx]')) close(); };
     document.addEventListener('keydown', key); document.body.appendChild(o);
     // a format the browser can't read (AVI, MPG, WMV…): say it, and offer to download it
-    zoom(o.querySelector('.vp-frame'), o.querySelector('.vp-tools'));
+    unzoom = zoom(o.querySelector('.vp-frame'), o.querySelector('.vp-tools'));
     const v = o.querySelector('video'); if (v) v.onerror = () => { const f = o.querySelector('.vp-frame'); f.style.aspectRatio = 'auto'; f.innerHTML = `<div style="padding:24px;color:#fff;text-align:center;line-height:1.5"><p>😕 Ce format de vidéo ne se lit pas dans le navigateur (souvent AVI, MPG ou WMV).</p><p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" download style="color:#e2c27d;font-weight:700">⬇️ Télécharger la vidéo</a></p><p style="opacity:.75;font-size:14px">Coach : mets plutôt la vidéo en MP4, ou sur YouTube (en « non répertoriée ») ou Google Drive.</p></div>`; };
   }
   // a list of clips: [{ url, t, title }] → buttons that open the player (data-vp…)

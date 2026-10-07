@@ -13,6 +13,13 @@
   let tt;
   function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(tt); tt = setTimeout(() => { t.className = 'toast'; }, 2600); }
   const rpc = Member.rpc;
+  // (2.01) one tap = one sending: the button waits (« Envoi… ») until the club server has answered
+  const busy = new Set();
+  async function only(key, fn) {
+    if (busy.has(key)) return; busy.add(key);
+    const bs = [...document.querySelectorAll(`[data-${key}]`)]; bs.forEach(b => { b.disabled = true; b.dataset.was = b.textContent; b.textContent = 'Envoi…'; });
+    try { await fn(); } finally { busy.delete(key); bs.forEach(b => { if (document.contains(b)) { b.disabled = false; b.textContent = b.dataset.was; } }); }
+  }
 
   const result = m => !m.played ? '' : +m.gf > +m.ga ? 'V' : +m.gf < +m.ga ? 'D' : 'N';
   const RES = { V: 'Gagné', D: 'Perdu', N: 'Nul' };
@@ -77,19 +84,19 @@
 
   // the well-being questionnaire of the day (1 to 10), sent to the coaches
   const WB = [['mood', '🙂', 'Ressenti général'], ['mental', '🧠', 'Mental'], ['sleep', '😴', 'Sommeil'], ['legs', '🦵', 'Jambes'], ['sore', '💪', 'Courbatures (10 = aucune)']];
-  const wbVals = {};
+  const wbVals = {}; let wbNote = ''; // (2.01) the note survives a redraw
   function wbCard(now) {
     if ((data.me || {}).wb === now) return '<div class="card wb-done">💚 Merci, ton questionnaire du jour est envoyé.</div>';
     return `<div class="card wb"><h3>💚 Comment tu te sens aujourd'hui ?</h3><p class="info">De 1 (très mal) à 10 (au top). Ton coach voit tes réponses.</p>
       ${WB.map(([k, ic, lab]) => `<div class="wb-row"><span>${ic} ${lab}</span><span class="wb-scale">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button class="${wbVals[k] === n ? 'on' : ''} v${n}" data-wb="${k}" data-v="${n}">${n}</button>`).join('')}</span></div>`).join('')}
-      <input id="wbNote" maxlength="200" placeholder="Un mot pour le coach (douleur, fatigue…)" class="wb-note">
+      <input id="wbNote" maxlength="200" placeholder="Un mot pour le coach (douleur, fatigue…)" class="wb-note" value="${esc(wbNote)}">
       <button class="b yes on" data-wbsend>Envoyer</button></div>`;
   }
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   async function wbSend() {
     if (WB.some(([k]) => !wbVals[k])) return toast('Réponds aux 5 questions', true);
-    try { await rpc('member_wellness', { p_code: code, p_mood: wbVals.mood, p_mental: wbVals.mental, p_sleep: wbVals.sleep, p_legs: wbVals.legs, p_sore: wbVals.sore, p_note: ($('#wbNote') || {}).value || '' });
-      data.me.wb = today(); toast('Merci ! 💚'); render(); }
+    try { await rpc('member_wellness', { p_code: code, p_mood: wbVals.mood, p_mental: wbVals.mental, p_sleep: wbVals.sleep, p_legs: wbVals.legs, p_sore: wbVals.sore, p_note: ($('#wbNote') || {}).value || wbNote });
+      (data.me = data.me || {}).wb = today(); wbNote = ''; toast('Merci ! 💚'); render(); }
     catch (e) { toast(e.message, true); }
   }
   // a session: the answer (when the club's server gives the sessions with their id)
@@ -195,6 +202,7 @@
   // the BMI follows the typing; the drafts survive a redraw
   document.addEventListener('input', e => {
     if (e.target.id === 'msgBody') { msgDraft = e.target.value; return; }
+    if (e.target.id === 'wbNote') { wbNote = e.target.value; return; }
     if (!/^pf/.test(e.target.id || '')) return;
     const p = readProf(), v = bmi(p.weight, p.height); $('#pfBmi').textContent = v || '–'; $('#pfBmiL').textContent = v ? 'IMC · ' + bmiLabel(v) : 'IMC (auto)';
   });
@@ -204,13 +212,13 @@
     document.title = `${(data.me || {}).name || 'Joueur'} · ${club()}`;
     $('#club').textContent = `${club()} · Espace joueur`; $('#team').textContent = data.team || 'Équipe';
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now && !m.exempt), past = ms.filter(m => m.played).reverse();
-    const my = season();
+    const my = season(), prog = Member.programme(data.trainings, data.matches, trRow);
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
         { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}${Injury.card()}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
-          ${Member.programme(data.trainings, data.matches, trRow) ? `<h2>Entraînements et matchs à venir</h2>${Member.programme(data.trainings, data.matches, trRow)}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
+          ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.96) the chat of his category (players and coaches)
         { id: 'saison', icon: '📊', label: 'Saison', html: `${my.conv || my.f.mp ? `<h2>Ma saison</h2><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div>${my.yc || my.rc ? `<div><b>${my.yc ? '🟨' + my.yc : ''}${my.rc ? ' 🟥' + my.rc : ''}</b><span>cartons</span></div>` : ''}${my.sessions && my.sessions.total ? `<div><b>${Math.round(my.sessions.present / my.sessions.total * 100)} %</b><span>présence aux séances (${my.sessions.present}/${my.sessions.total})</span></div>` : ''}</div>${my.teams && Object.keys(my.teams).length > 1 ? `<p class="info">Joué avec : ${Object.entries(my.teams).map(([t, n]) => `<b>${esc(t)}</b> (${n})`).join(' · ')}</p>` : ''}<p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
@@ -232,14 +240,23 @@
     if (typeof Game !== 'undefined') Game.mount($('#gameBox'), { load: () => rpc('member_game', { p_code: code }), bet: (e, h, a, ko) => rpc('member_game_bet', { p_code: code, p_event: e, p_h: h, p_a: a, p_kickoff: ko }), fav: f => rpc('member_game_fav', { p_code: code, p_fav: f }), toast, quiet: true });
   }
 
+  // (2.01) everything asked at the same time, the page drawn twice (at once, then complete); another code: nothing of the one before
+  let loadTok = 0, lastLoad = 0;
   async function load(quiet) {
-    code = Member.current();
-    try { data = await rpc('member_view', { p_code: code }); window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); await Member.replies(code, data); render();
-      tips = await Member.tips(code); if (tips.length) render();
-      await Injury.load(code); render();
-      try { vids = await rpc('member_videos', { p_code: code }) || []; prof = await rpc('member_profile', { p_code: code }) || {}; render(); } catch (e) { /* a club server not yet updated */ }
-      try { extra = await rpc('member_standings', { p_code: code }); render(); } catch (e) { /* a club server not yet updated: the page stays as before */ } }
+    const tok = ++loadTok, c = Member.current(); lastLoad = Date.now();
+    if (c !== code) { code = c; data = null; extra = null; tips = []; vids = []; prof = null; draft = null; msgDraft = ''; wbNote = ''; Object.keys(wbVals).forEach(k => delete wbVals[k]); Object.keys(sess).forEach(k => delete sess[k]); }
+    try {
+      const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
+      data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render();
+      const soft = p => p.catch(() => undefined); // a club server not yet updated: that part stays empty
+      const [, t, , v, pr, st] = await Promise.all([Member.replies(code, data), Member.tips(code), soft(Injury.load(code)),
+        soft(rpc('member_videos', { p_code: code })), soft(rpc('member_profile', { p_code: code })), soft(rpc('member_standings', { p_code: code }))]);
+      if (tok !== loadTok) return;
+      tips = t || []; vids = v || []; if (pr !== undefined) prof = pr || {}; if (st) extra = st;
+      render();
+    }
     catch (e) {
+      if (tok !== loadTok) return;
       if (e.code === 'CODE') { Member.forget(code); location.replace('moi.html'); return; }
       if (quiet && data) return;
       $('#team').textContent = 'Espace joueur'; $('#page').innerHTML = `<p class="tip">${esc(e.message)}</p><p><button class="b" id="again">Réessayer</button></p>`;
@@ -247,8 +264,13 @@
     }
   }
   // présent / absent to a match or a session; absent: the reason first
+  const answering = new Set();
   async function answer(kind, id, status) {
+    if (answering.has(id)) return; // (2.01) the answer before is still on its way
     const x = (kind === 'match' ? data.matches : data.trainings || []).find(y => y.id === id); if (!x) return;
+    answering.add(id); try { await answer2(kind, id, status, x); } finally { answering.delete(id); }
+  }
+  async function answer2(kind, id, status, x) {
     let reason = '';
     if (status === 'non') { reason = await Member.askReason(kind === 'match' ? 'Absent pour ce match' : 'Absent à cet entraînement'); if (reason == null) return; }
     const before = { answer: x.answer, reason: x.reason }; x.answer = status; x.reason = reason; render();
@@ -269,21 +291,21 @@
     if (VPlayer.onClick(e)) return;
     if (Injury.onClick(e, code, false, '', msg => { toast(msg); render(); })) return;
     const mk = e.target.closest('[data-mk]'); if (mk) { msgKind = mk.dataset.mk; render(); const ta = $('#msgBody'); if (ta) ta.focus(); return; }
-    if (e.target.closest('[data-msgsend]')) { msgSend(); return; }
-    if (e.target.closest('[data-profsave]')) { profSave(); return; }
+    if (e.target.closest('[data-msgsend]')) { only('msgsend', msgSend); return; }
+    if (e.target.closest('[data-profsave]')) { only('profsave', profSave); return; }
     const ft = e.target.closest('[data-foot]'); if (ft) { readProf(); profDraft().foot = ft.dataset.foot === profDraft().foot ? '' : ft.dataset.foot; render(); return; }
     if (e.target.closest('[data-perso]')) return Perso.open({ key: 'perso-' + ((data.me || {}).id || code), who: (data.me || {}).name || 'un joueur', toast, send: text => rpc('member_message', { p_code: code, p_body: text, p_parent: false }) });
     const c = e.target.closest('[data-cal]');
-    if (c) { const m = data.matches.find(x => x.id === c.dataset.cal); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics(m)], { type: 'text/calendar;charset=utf-8' })); a.download = `match-${m.date}.ics`; document.body.appendChild(a); a.click(); a.remove(); return; }
+    if (c) { const m = data.matches.find(x => x.id === c.dataset.cal); const a = document.createElement('a'); if (!m) return; a.href = URL.createObjectURL(new Blob([ics(m)], { type: 'text/calendar;charset=utf-8' })); setTimeout(() => URL.revokeObjectURL(a.href), 30000); a.download = `match-${m.date}.ics`; document.body.appendChild(a); a.click(); a.remove(); return; }
     const wb = e.target.closest('[data-wb]'); if (wb) { wbVals[wb.dataset.wb] = +wb.dataset.v; document.querySelectorAll(`[data-wb="${wb.dataset.wb}"]`).forEach(x => x.classList.toggle('on', x === wb)); return; }
-    if (e.target.closest('[data-wbsend]')) { wbSend(); return; }
+    if (e.target.closest('[data-wbsend]')) { only('wbsend', wbSend); return; }
     const sb = e.target.closest('[data-sess]'); if (sb) { const x = sess[sb.dataset.sess]; if (x && x.data) { x.open = !x.open; render(); } else loadSession(sb.dataset.sess); return; }
     const stb = e.target.closest('[data-st]'); if (stb) { stTeam = stb.dataset.st; render(); return; }
     const tb = e.target.closest('[data-tans]'); if (tb) { answer('training', tb.closest('[data-t]').dataset.t, tb.dataset.tans); return; }
     const b = e.target.closest('[data-ans]'); if (!b) return;
     answer('match', b.closest('[data-m]').dataset.m, b.dataset.ans);
   });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && data) load(true); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && data && Date.now() - lastLoad > 60000) load(true); }); // (2.01) at most once a minute
   document.addEventListener('member-redraw', () => { if (data) render(); });
   load();
 })();
