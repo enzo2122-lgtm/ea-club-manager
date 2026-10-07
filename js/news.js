@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 52, date: '2026-10-07', title: 'Le chat de la catégorie 💬', items: [
+      ['💬', 'Un chat par catégorie : tous les joueurs (équipes A et B) et leurs coachs. Joueurs : onglet « Chat ». Coachs : Plus → « Chat des joueurs ».'],
+      ['🛡️', 'Les mots grossiers ou insultants sont bloqués dans toutes les catégories, sauf Seniors et Vétérans.'],
+      ['🧢', 'Les coachs peuvent supprimer un message ou fermer le chat un moment.'],
+    ] },
     { n: 51, date: '2026-10-07', title: 'Ton menu, ta place', items: [
       ['🧭', 'Coachs et dirigeants aussi : Réglages → « Menu sur le téléphone » → la barre en bas, ou un petit menu discret en haut à droite. Le choix reste sur ton téléphone.'],
     ] },

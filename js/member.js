@@ -41,6 +41,10 @@ const Member = (() => {
     const txt = await r.text();
     if (!r.ok) {
       let m = txt; try { m = JSON.parse(txt).message || txt; } catch (e) {}
+      if (/MOT_INTERDIT/.test(m)) throw new Error('Message non envoyé : un mot grossier ou insultant n\'est pas accepté dans ce chat. Reformule gentiment 🙂');
+      if (/TROP_VITE/.test(m)) throw new Error('Doucement : attends quelques secondes entre deux messages.');
+      if (/CHAT_FERME/.test(m)) throw new Error('Le chat est fermé pour l\'instant par les coachs.');
+      if (/LIMITE_CHAT/.test(m)) throw new Error('Beaucoup de messages aujourd\'hui : réessaie demain.');
       if (/LIMITE/.test(m)) throw new Error('Tu as déjà envoyé 10 messages aujourd’hui : réessaie demain.');
       if (/CODE_PERSO/.test(m)) { const e = new Error('Ce code ne fonctionne pas. Vérifie-le, ou demande ton code au coach.'); e.code = 'CODE'; throw e; }
       if (/MATCH_PASSE/.test(m)) throw new Error('C\'est passé : les réponses sont fermées.');
