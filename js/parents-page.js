@@ -118,7 +118,7 @@
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Pour ${esc(kid())} : physique, technique ou tactique, seul ou à plusieurs. Ses footings (temps, distance) et l'envoi au coach.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'resultats', icon: '🏆', label: 'Résultats', html: past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : '', empty: 'Pas encore de résultat.' },
         { id: 'coachs', icon: '📞', label: 'Coachs', html: (data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '', empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
-        { id: 'moi', icon: '👤', label: 'Moi', html: `<h2>Réglages</h2>${Member.notifyCard('parents')}
+        { id: 'moi', icon: '👤', label: 'Moi', html: `<h2>Réglages</h2>${Member.notifyCard('parents')}${Member.tabPosCard()}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil ») pour la retrouver. Le code de ton enfant est personnel : ne le donne à personne. Une question ? Écris au coach.</p>
           ${Member.privacy()}` },
