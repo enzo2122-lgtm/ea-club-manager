@@ -1119,7 +1119,8 @@ const Views = (() => {
     bindTeamSwitch(root, () => chat(root));
     const box = $('#chatBox', root); if (!box) return;
     Chat.mount(box, { key: 't:' + t.id, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(t.id, after),
-      post: (c, b) => Cloud.chatPost(t.id, b), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off) });
+      post: (c, b) => Cloud.chatPost(t.id, b), del: (c, id) => Cloud.chatDel(t.id, id), off: off => Cloud.chatOff(t.id, off),
+      poll: (c, q, opts, multi) => Cloud.chatPoll(t.id, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(t.id, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(t.id, id, closed) });
   }
   return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat };
 })();

@@ -44,6 +44,7 @@ const Member = (() => {
       if (/MOT_INTERDIT/.test(m)) throw new Error('Message non envoyé : un mot grossier ou insultant n\'est pas accepté dans ce chat. Reformule gentiment 🙂');
       if (/TROP_VITE/.test(m)) throw new Error('Doucement : attends quelques secondes entre deux messages.');
       if (/CHAT_FERME/.test(m)) throw new Error('Le chat est fermé pour l\'instant par les coachs.');
+      if (/SONDAGE_FINI/.test(m)) throw new Error('Ce sondage est terminé.');
       if (/LIMITE_CHAT/.test(m)) throw new Error('Beaucoup de messages aujourd\'hui : réessaie demain.');
       if (/LIMITE/.test(m)) throw new Error('Tu as déjà envoyé 10 messages aujourd’hui : réessaie demain.');
       if (/CODE_PERSO/.test(m)) { const e = new Error('Ce code ne fonctionne pas. Vérifie-le, ou demande ton code au coach.'); e.code = 'CODE'; throw e; }

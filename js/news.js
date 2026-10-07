@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 55, date: '2026-10-07', title: 'Les sondages dans le chat 📊', items: [
+      ['📊', 'Dans le chat, touche 📊 : une question, 2 à 6 réponses (une seule ou plusieurs possibles). Toute la catégorie est prévenue.'],
+      ['🗳️', 'Vote d\'une touche, change d\'avis quand tu veux, vois les pourcentages et « qui a voté ».'],
+      ['🗂️', 'La partie « Sondages » (en haut du chat) rassemble tous les sondages. L\'auteur ou un coach peut le clôturer : 🏆 la réponse gagnante.'],
+    ] },
     { n: 54, date: '2026-10-07', title: 'Le chat comme une vraie messagerie 💬', items: [
       ['💬', 'Le chat prend tout l\'écran : bulles par personne avec initiales, messages qui s\'affichent tout de suite, nouveaux messages toutes les 3 secondes, émojis, bouton « Nouveaux messages ».'],
       ['🗑️', 'Supprimer un message : touche la bulle, puis « Supprimer ».'],
