@@ -152,6 +152,9 @@ const Member = (() => {
       + '.kb{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;color:#fff;margin:2px 6px 2px 0;white-space:nowrap}'
       + '.kb-team{background:#0e1d45}.kb-champ{background:#2563eb}.kb-cup{background:#b7791f}.kb-ami{background:#15803d}.kb-tour{background:#ea580c}.kb-tr{background:#7c3aed;font-size:12px;padding:2px 8px}'
       + '.card.k-champ{border-left:6px solid #2563eb}.card.k-cup{border-left:6px solid #b7791f}.card.k-ami{border-left:6px solid #15803d}.card.k-tour{border-left:6px solid #ea580c}'
+      + '.prog-g{margin:8px 0;max-width:100%;overflow:hidden}.prog-g .tr{flex-wrap:wrap;align-items:center;gap:6px 10px}.prog-g .tr .d{min-width:0;width:100%;text-transform:capitalize}.prog-g .tr>span:nth-child(2){flex:1 1 160px;min-width:0}'
+      + '.prog-g .tr .btns{display:flex;flex-direction:row;flex-wrap:nowrap;gap:6px}.prog-g .tr .btns .b{min-height:40px;padding:0 12px}.tr-m .why{display:block;font-size:13px;color:var(--muted)}.prog-g>summary{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;padding:12px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);list-style:none;font-size:16px}'
+      + '.prog-g>summary::-webkit-details-marker{display:none}.prog-g>summary::after{content:"▾";font-size:18px;color:var(--muted)}.prog-g[open]>summary::after{content:"▴"}.prog-g[open]>summary{border-radius:14px 14px 0 0;border-bottom:0}.prog-g>.card{border-radius:0 0 14px 14px;margin-top:0}.prog-g .todo{color:#b45309}'
       + '.tr-ans{border-left:4px solid #7c3aed;padding-left:10px}.tr-m{padding-left:10px;border-left:4px solid #2563eb}.tr.k-cup{border-left-color:#b7791f}.tr.k-ami{border-left-color:#15803d}.tr.k-tour{border-left-color:#ea580c}'
       + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}';
     document.head.appendChild(st);
@@ -253,14 +256,38 @@ const Member = (() => {
     const d = new Date(m.date + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }), h = String(m.time || '').replace(':', 'h');
     const st = m.answer === 'oui' ? (m.convoked ? '✓ présent' : '✓ dispo') : m.answer === 'non' ? (m.convoked ? '✗ absent' : '✗ pas dispo') : m.convoked ? 'convoqué : réponds' : 'pas encore répondu';
     return `<div class="tr tr-m ${kindCls(m)}" data-m="${esc(m.id)}"><span class="d">${esc(d)}</span><span>${kindBadge(m)}<br>${m.home ? '🏠 contre' : '🚌 chez'} <b>${esc(m.opponent || '?')}</b>${h ? ' · ' + esc(h) : ''}
-      <span class="why">${m.convoked ? '<b>📣 Tu es convoqué</b> · ' : ''}${esc(st)}</span></span>
+      <span class="why">${m.convoked ? '<b>📣 Tu es convoqué</b> · ' : ''}${esc(st)}${m.rdv ? ' · RDV ' + esc(String(m.rdv).replace(':', 'h')) : ''}</span>
+      ${m.talk && (m.talk.objective || m.talk.final || m.talk.video) ? `<span class="why">🗣️ ${esc(m.talk.objective || m.talk.final || '')}${m.talk.video ? ` <a href="${esc(m.talk.video)}" target="_blank" rel="noopener noreferrer">▶ vidéo du coach</a>` : ''}</span>` : ''}</span>
       <span class="btns"><button class="b small yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">${m.convoked ? 'Présent' : 'Dispo'}</button><button class="b small no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">${m.convoked ? 'Absent' : 'Pas dispo'}</button></span></div>`;
   }
+  // (1.81) grouped by week: this week and next week open, weeks 3 and 4 folded, then one folded menu per month
+  const opened = {};
+  document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.grp) opened[d.dataset.grp] = d.open; }, true);
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   function programme(trainings, matches, trRow) {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date(), today = iso(now);
     const ms = (matches || []).filter(m => !m.played && !m.exempt && m.date >= today).map(m => ({ date: m.date, time: m.time, _m: m }));
-    const all = [...(trainings || []), ...ms].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
-    return all.length ? trList(all, x => x._m ? matchRow(x._m) : trRow(x)) : '';
+    const all = [...(trainings || []), ...ms].filter(x => x.date >= today).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+    if (!all.length) return '';
+    const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7)), week = k => iso(new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 7 * k));
+    const groups = [];
+    all.forEach(x => {
+      let k = 0; while (k < 4 && x.date >= week(k + 1)) k++;
+      const key = k < 4 ? 'w' + k : 'm' + x.date.slice(0, 7);
+      let g = groups.find(y => y.key === key);
+      if (!g) { const d0 = new Date(week(k) + 'T12:00');
+        g = { key, open: k < 2, items: [], label: k === 0 ? 'Cette semaine' : k === 1 ? 'Semaine prochaine' : k < 4 ? 'Semaine du ' + d0.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+          : new Date(x.date + 'T12:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase()) };
+        groups.push(g); }
+      g.items.push(x);
+    });
+    return groups.map(g => {
+      const nt = g.items.filter(x => !x._m).length, nm = g.items.length - nt, todo = g.items.filter(x => !(x._m ? x._m.answer : x.answer)).length;
+      const sum = [nt ? `${nt} entraînement${nt > 1 ? 's' : ''}` : '', nm ? `${nm} match${nm > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ') + (todo ? ` · <b class="todo">⚠️ ${todo} sans réponse</b>` : ' · ✓');
+      const open = g.key in opened ? opened[g.key] : g.open;
+      return `<details class="prog-g" data-grp="${g.key}" ${open ? 'open' : ''}><summary><b>${esc(g.label)}</b><span class="info small">${sum}</span></summary>
+        <div class="card">${g.items.map(x => x._m ? matchRow(x._m) : trRow(x)).join('')}</div></details>`;
+    }).join('');
   }
   /* (1.77) the sessions to come: the next 3 weeks (at least 3), then « Voir les suivants » */
   let allTr = false;

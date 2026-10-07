@@ -141,8 +141,7 @@
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
         { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${wbCard(now)}
-          <h2>Prochain match</h2>${up.length ? nextCard(up[0]) : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}
-          ${up.length > 1 ? `<h2>Ensuite</h2>${up.slice(1).map(upCard).join('')}` : ''}` },
+          <p class="tip">📅 Tes entraînements et tes matchs (dispo / pas dispo) sont dans l'onglet <b>Séances</b>. <button class="b small" data-tab="seances">Voir mon programme</button></p>` },
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, 'toi')}
           ${Member.programme(data.trainings, data.matches, trRow) ? `<h2>Entraînements et matchs à venir</h2>${Member.programme(data.trainings, data.matches, trRow)}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },

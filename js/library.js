@@ -52,7 +52,7 @@ const Library = (() => {
         if (total > MAX_PAGES) toast(`Seules les ${MAX_PAGES} premières pages sont gardées`);
         await Media.put(Object.assign(base, { kind: 'pdf', blob: f, mime: 'application/pdf', pages, thumb: pages[0] && pages[0].thumb }));
       } else if (f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm)$/i.test(f.name)) {
-        if (f.size > Media.MAX_VIDEO) { toast(`${f.name} est trop lourde (plus de 300 Mo)`, 'err'); continue; }
+        if (f.size > Media.MAX_VIDEO) { toast(`${f.name} est trop lourde (plus de 1 Go) : coupe-la en deux ou baisse sa qualité`, 'err'); continue; }
         onStep(`Import de la vidéo ${f.name}…`);
         await Media.put(Object.assign(base, { kind: 'video', blob: f, mime: f.type || 'video/mp4', thumb: await Media.videoThumb(f) }));
       } else if (f.type.startsWith('image/')) {
