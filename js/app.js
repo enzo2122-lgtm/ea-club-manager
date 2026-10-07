@@ -36,6 +36,18 @@ const App = (() => {
     const lo = document.getElementById('logoutBtn'); if (lo) lo.onclick = () => Auth.logout();
     document.title = (u ? coach + ' · ' : '') + (c.name || AppCfg.name);
   }
+  // (1.95) on a phone, the menu at the bottom (by default) or one small menu at the top right, chosen in Réglages, kept on this device
+  const NAVPOS = () => AppCfg.key('navpos');
+  function navPos() { try { return localStorage.getItem(NAVPOS()) === 'haut' ? 'haut' : 'bas'; } catch (e) { return 'bas'; } }
+  function setNavPos(p) {
+    try { localStorage.setItem(NAVPOS(), p); } catch (e) {}
+    document.body.classList.toggle('nav-top', p === 'haut');
+    const r = document.querySelector('.rail'); if (r) r.classList.remove('open');
+  }
+  document.addEventListener('click', e => {
+    if (e.target.closest('#navToggle')) { e.target.closest('.rail').classList.toggle('open'); return; }
+    if (!e.target.closest('.rail') || e.target.closest('#nav a, #navMore')) { const r = document.querySelector('.rail.open'); if (r) r.classList.remove('open'); }
+  });
   function renderNav(active) {
     // the responsables also have the club's dashboard (before Réglages)
     const pv = Auth.preview();
@@ -43,6 +55,12 @@ const App = (() => {
     const nav = pv && pv.role === 'benevole' ? [['benevoles', 'Bénévoles', 'team'], NAV[6]]
       : Auth.isAdmin() ? [...NAV.slice(0, -1), ['gestion', 'Gestion du club', 'shield', 'Gestion'], NAV[NAV.length - 1]] : NAV;
     const idx = nav.findIndex(n => n[0] === active);
+    document.body.classList.toggle('nav-top', navPos() === 'haut');
+    const rail = document.querySelector('.rail'), cur = nav[idx] || null;
+    let tg = document.getElementById('navToggle');
+    if (!tg) { tg = document.createElement('button'); tg.id = 'navToggle'; tg.className = 'nav-toggle'; tg.setAttribute('aria-label', 'Menu'); rail.insertBefore(tg, document.getElementById('nav')); }
+    tg.innerHTML = `${cur ? I[cur[2]] : I.layers}<span>${UI.esc(cur ? cur[3] || cur[1] : 'Menu')}</span><span aria-hidden="true">▾</span>`;
+    rail.classList.remove('open');
     document.getElementById('nav').innerHTML = nav.map(([h, l, ic, short], i) =>
       `<a href="#/${h}" class="${h === active ? 'on' : ''} ${i >= PHONE_MAIN ? 'more' : ''}" ${h === active ? 'aria-current="page"' : ''} aria-label="${l}">${I[ic]}<span class="lg">${l}</span><span class="sh">${short || l}</span></a>`).join('')
       + `<button class="nav-more ${idx >= PHONE_MAIN ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
@@ -122,7 +140,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 95, UPD = AppCfg.key('update-tried');
+  const BUILD = 96, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -213,6 +231,6 @@ const App = (() => {
     Quick.start();
     Notify.refresh(); // the phone's subscription to the notifications, sent again at each start
   }
-  return { start, route, refreshChrome, checkUpdate };
+  return { start, route, refreshChrome, checkUpdate, navPos, setNavPos };
 })();
 App.start();

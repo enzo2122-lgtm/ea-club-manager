@@ -916,6 +916,11 @@ const Views = (() => {
       <h2 class="group-h">👤 Moi</h2>
       ${Auth.settingsSection()}
       ${Help.settingsSection()}
+      <section class="card nav-pos-card">
+        <h2>🧭 Menu sur le téléphone</h2>
+        <p class="muted">Où veux-tu le menu de l'appli quand tu es sur ton téléphone ? Le choix reste sur cet appareil.</p>
+        <div class="chips"><button class="chip ${App.navPos() === 'bas' ? 'on' : ''}" data-navpos="bas">⬇️ Barre en bas</button><button class="chip ${App.navPos() === 'haut' ? 'on' : ''}" data-navpos="haut">↗️ Menu discret en haut à droite</button></div>
+      </section>
       ${installed ? '' : `<section class="card">
         <h2>${I.help}Installer l'appli sur le téléphone</h2>
         <ol class="steps-help"><li>Ouvre cette page dans <b>Safari</b> (iPhone) ou <b>Chrome</b> (Android).</li><li>Touche <b>Partager</b> (le carré avec une flèche) ou le menu <b>⋮</b>.</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li></ol>
@@ -953,6 +958,7 @@ const Views = (() => {
     root.onclick = async e => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.navpos) { App.setNavPos(b.dataset.navpos); return settings(root); }
       if (b.dataset.home) { c.homeBib = b.dataset.home; Store.save(); App.refreshChrome(); return settings(root); }
       if (b.dataset.away) { c.awayBib = b.dataset.away; Store.save(); return settings(root); }
       if (b.dataset.act === 'exportAll') return runExport('Préparation du fichier…', async () => { S().ui.clubFileSent = true; Store.save(); return Exporter.json(await Library.withBackgrounds(Store.exportAll()), `${c.name}-${today()}`); });
