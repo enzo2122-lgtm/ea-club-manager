@@ -681,6 +681,20 @@ const Views = (() => {
   }
   // (1.37) the tab of each match page and its « Modifier » state, kept while the app is open
   const matchTabs = {}, mEdit = {};
+  /* (2.06) the result on the social networks: a picture in the club's colours; the scorers (first name + initial) only if the coach wants,
+     not by default for the young ones */
+  function shareResult(m) {
+    const t = teamOf(m.teamId), club = S().club.name || AppCfg.name, cat = t ? t.name : '', adult = /s[eé]nior|v[eé]t[eé]ran/i.test((t && (t.category || t.name)) || '');
+    const scorers = () => Object.entries(m.stats || {}).filter(([, st]) => +st.g > 0).sort((a, b) => b[1].g - a[1].g)
+      .map(([id, st]) => { const p = Store.get('players', id); return p ? Store.shortName(p) + (+st.g > 1 ? ' ×' + st.g : '') : ''; }).filter(Boolean);
+    const r = +m.gf > +m.ga ? 'V' : +m.gf < +m.ga ? 'D' : 'N', [h, a, hs, as] = m.home ? [club, m.opponent || '?', m.gf, m.ga] : [m.opponent || '?', club, m.ga, m.gf];
+    const tag = Share.tagOf(club);
+    Share.open({ title: 'Partager le résultat', filename: `${cat}-${m.date}`.replace(/\s+/g, '-'), url: Share.appUrl(),
+      option: { label: 'Afficher les buteurs (prénom et initiale)', on: adult },
+      make: o => Share.result({ club, crest: S().club.crest || AppCfg.crest, cat, competition: m.competition, home: m.home, us: club, them: m.opponent || '?', gf: m.gf, ga: m.ga,
+        date: fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }), place: m.place, scorers: o.on ? scorers() : [], tag }),
+      textOf: o => `${{ V: '✅ Victoire', N: '🟰 Match nul', D: '❌ Défaite' }[r]} · ${cat}${m.competition ? ' · ' + m.competition : ''}\n${h} ${hs} – ${as} ${a}${o.on && scorers().length ? '\n⚽ ' + scorers().join(', ') : ''}\n${tag}` });
+  }
   let matchGen = 0; // (2.02) the match page shown last
   function match(root, id) {
     const m = Store.get('matches', id); if (!m) return (location.hash = '#/matchs');
@@ -743,6 +757,7 @@ const Views = (() => {
         </div>
         <div ${panel('apres')}>
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
+        ${m.played && !m.exempt ? `<section class="card share-card"><div><h2>📣 Réseaux sociaux</h2><p class="muted small">Une image du résultat aux couleurs du club, prête pour Instagram, Facebook, WhatsApp, X…</p></div><button class="btn primary" data-act="shareres">📣<span>Partager le résultat</span></button></section>` : ''}
         ${Sources.sheetCard(m)}
         <div id="hlBox"></div>
         <h2 class="section">Score</h2>
@@ -820,6 +835,7 @@ const Views = (() => {
         const v = b.parentElement.querySelector('b'); if (v) v.textContent = st[b.dataset.k]; return later(); }
       switch (b.dataset.act) {
         case 'pdf': return runExport('Création de la feuille de match…', () => Exporter.pdfMatch(m, teamOf(m.teamId), S().club, { homeBib: S().club.homeBib }));
+        case 'shareres': return shareResult(m); // (2.06)
         case 'report': return runExport('Création du compte-rendu…', () => Exporter.pdfReport(m, teamOf(m.teamId), S().club));
         case 'lineup': return makeLineup(m);
         case 'delete': if (await confirmBox('Supprimer ce match ?')) { Store.remove('matches', m.id); Media.removeRef('match:' + m.id); location.hash = '#/matchs'; } return;

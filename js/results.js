@@ -71,7 +71,7 @@ const Results = (() => {
       <div class="side-legend"><span class="side-home">🏠 Domicile</span><span class="side-away">🚌 Extérieur</span></div>
       ${nextList.length ? `<section class="card"><h2>${I.calendar}À venir · ${esc(weekendName(nextMon))}</h2><div class="rs-list">${nextList.map(row).join('')}</div></section>` : ''}
       ${weekKeys.length ? weekKeys.map(k => { const list = weeks.get(k).sort((a, b) => rank(a) - rank(b) || a.date.localeCompare(b.date));
-        return `<section class="card"><div class="row-head"><h2>${I.medal}${esc(weekendName(k))}</h2><div class="rs-tally">${tally(list)}</div></div><div class="rs-list">${list.map(row).join('')}</div></section>`; }).join('')
+        return `<section class="card"><div class="row-head"><h2>${I.medal}${esc(weekendName(k))}</h2><div class="rs-tally">${tally(list)}<button class="btn soft small" data-shwk="${k}" aria-label="Partager ce week-end">📣</button></div></div><div class="rs-list">${list.map(row).join('')}</div></section>`; }).join('')
         : `<div class="empty"><p>Pas encore de résultat cette saison. Dès qu'un éducateur note le score d'un match (Matchs → le match → score), il apparaît ici pour tout le club.</p></div>`}`;
 
     root.onclick = e => {
@@ -79,6 +79,7 @@ const Results = (() => {
       if (b.dataset.cheer) { ClubLife.cheer(b.dataset.cheer); return page(root); }
       if (b.dataset.season) { ui.resSeason = +b.dataset.season; Store.save(); return page(root); }
       if (b.dataset.act === 'share') return share(weekKeys[0], weeks.get(weekKeys[0]));
+      if (b.dataset.shwk) return share(b.dataset.shwk, weeks.get(b.dataset.shwk)); // (2.06) any weekend
     };
   }
 
@@ -86,8 +87,12 @@ const Results = (() => {
   function share(mon, list) {
     const lines = list.slice().sort((a, b) => rank(a) - rank(b)).map(m => { const [h, a] = sides(m, true), r = result(m); return `${RES[r][1]} ${teamName(m)} : ${h} ${score(m)} ${a}`; });
     const text = `${Sport.W().icon} ${club()} · ${weekendName(mon)}\n\n${lines.join('\n')}\n\n${list.filter(m => result(m) === 'V').length} victoire(s), ${list.filter(m => result(m) === 'N').length} nul(s), ${list.filter(m => result(m) === 'D').length} défaite(s)`;
-    if (navigator.share) return navigator.share({ title: 'Résultats du week-end', text }).catch(() => {});
-    navigator.clipboard.writeText(text).then(() => toast('Récapitulatif copié : colle-le dans WhatsApp')).catch(() => UI.modal({ title: 'Récapitulatif', body: `<textarea rows="10" readonly>${esc(text)}</textarea>`, actions: [{ label: 'OK', kind: 'primary' }] }));
+    // (2.06) a picture of the weekend in the club's colours, and the networks
+    const rows = list.slice().sort((a, b) => rank(a) - rank(b)).map(m => { const [h, a] = sides(m, true); return { cat: teamName(m), h, a, s: score(m), r: result(m), us: m.home ? 'h' : 'a' }; });
+    const n = r => list.filter(m => result(m) === r).length;
+    Share.open({ title: 'Partager le week-end', filename: 'resultats-' + mon, url: Share.appUrl(), text,
+      make: () => Share.weekend({ club: club(), crest: S().club.crest || AppCfg.crest, title: 'Résultats du week-end', sub: weekendName(mon), rows,
+        tally: `${n('V')} victoire${n('V') > 1 ? 's' : ''} · ${n('N')} nul${n('N') > 1 ? 's' : ''} · ${n('D')} défaite${n('D') > 1 ? 's' : ''}`, tag: Share.tagOf(club()) }) });
   }
 
   // Small card for the home page: the last weekend with results

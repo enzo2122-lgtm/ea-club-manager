@@ -88,7 +88,7 @@
       <div class="m-title">${m.home ? `${us} <i>contre</i> ${them}` : `${them} <i>contre</i> ${us}`}</div>
       <span class="tag">${m.home ? '🏠 À domicile' : '🚌 À l\'extérieur'}</span>
       ${m.played ? `<p><span class="score">${m.home ? `${esc(m.gf)} – ${esc(m.ga)}` : `${esc(m.ga)} – ${esc(m.gf)}`}</span>${r ? `<span class="res ${r}">${RES[r]}</span>` : ''}</p>
-        ${m.my ? `<p class="me-line">${esc(kid())} : <b>${+m.my.min ? esc(m.my.min) + "'" : 'pas joué'}</b>${+m.my.g ? ` · ⚽ ${esc(m.my.g)}` : ''}${+m.my.a ? ` · 🅿️ ${esc(m.my.a)}` : ''}</p>` : ''}` : `
+        ${m.my ? `<p class="me-line">${esc(kid())} : <b>${+m.my.min ? esc(m.my.min) + "'" : 'pas joué'}</b>${+m.my.g ? ` · ⚽ ${esc(m.my.g)}` : ''}${+m.my.a ? ` · 🅿️ ${esc(m.my.a)}` : ''}</p>` : ''}${typeof Share !== 'undefined' ? `<p><button class="b small" data-shm="${esc(m.id)}">📣 Partager le résultat</button></p>` : ''}` : `
         <p class="info">${m.rdv ? `🕘 Rendez-vous <b>${esc(hh(m.rdv))}</b>` : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? `coup d'envoi <b>${esc(hh(m.time))}</b>` : ''}${!m.rdv && !m.time ? '🕘 Horaire à confirmer' : ''}</p>
         ${place ? `<p class="info">📍 ${mapLink(place)}</p>` : ''}`}
       ${m.open && m.convoked ? `<div class="kid mine"><span class="nm">${esc(kid())} est convoqué</span>
@@ -192,6 +192,7 @@
     if (ph) { e.preventDefault(); const v = $('#phView'); v.innerHTML = '<p>Chargement de la photo…</p>'; v.hidden = false;
       photo(ph.dataset.photo).then(src => { v.innerHTML = src ? `<img alt="Photo du match" src="${src}"><p>Touche pour fermer</p>` : '<p>Photo indisponible. Touche pour fermer</p>'; }); return; }
     if (e.target.closest('#phView')) { $('#phView').hidden = true; return; }
+    const shm = e.target.closest('[data-shm]'); if (shm) { const m = (data.matches || []).find(x => x.id === shm.dataset.shm); if (m) Member.shareMatch(data, m, kid()); return; } // (2.06)
     const oo = e.target.closest('[data-optout]'); if (oo) { (async () => { oo.disabled = true; try { await rpc('member_leader_optout', { p_code: code, p_on: oo.dataset.optout === '1' }); lead = await rpc('member_leaders', { p_code: code }); render(); toast(oo.dataset.optout === '1' ? `${kid()} n'apparaît plus dans les classements.` : `${kid()} apparaît dans les classements.`); } catch (err) { oo.disabled = false; toast(err.message, true); } })(); return; } // (2.05)
     const v = e.target.closest('[data-vol]'); if (v) { volunteer(v.closest('[data-m]').dataset.m, v.dataset.vol, v.dataset.label, !!v.dataset.rm); return; }
     const tb = e.target.closest('[data-tans]'); if (tb) { answer(tb.closest('[data-t]').dataset.t, tb.dataset.tans, 0, 'training'); return; }
