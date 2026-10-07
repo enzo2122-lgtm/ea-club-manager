@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 39, date: '2026-10-07', title: 'Footclubs, on a trouvé ta cachette', items: [
+      ['🔎', 'Favori Footclubs : il trouve la liste des licences même cachée dans un cadre dans un cadre. Si ça coince, il dit enfin pourquoi.'],
+    ] },
     { n: 38, date: '2026-10-07', title: 'Le bonhomme est allé à la muscu 💪', items: [
       ['🦵', 'Blessures : un vrai corps humain (muscles) à toucher. Chaque zone propose l\'avant et l\'arrière : cuisse → quadriceps ou ischios, jambe → mollet, cheville → Achille.'],
     ] },

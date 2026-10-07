@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.82';
+  const VERSION = '1.83';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13356,6 +13356,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 39, date: '2026-10-07', title: 'Footclubs, on a trouvé ta cachette', items: [
+      ['🔎', 'Favori Footclubs : il trouve la liste des licences même cachée dans un cadre dans un cadre. Si ça coince, il dit enfin pourquoi.'],
+    ] },
     { n: 38, date: '2026-10-07', title: 'Le bonhomme est allé à la muscu 💪', items: [
       ['🦵', 'Blessures : un vrai corps humain (muscles) à toucher. Chaque zone propose l\'avant et l\'arrière : cuisse → quadriceps ou ischios, jambe → mollet, cheville → Achille.'],
     ] },
@@ -13585,23 +13588,29 @@ const D={source:'assistcoachai',effectif:{players:(eff.players||[]).filter(p=>!p
 let n=0;const send=()=>{try{w.postMessage({type:'club-import',source:'assistcoachai',payload:D},new URL(A).origin);}catch(e){}};
 addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'&&!n++)send();});}catch(e){alert('Lecture impossible : '+e.message);}})()`;
     // Footclubs shows the list 30 by 30 (« De 1 à 30 sur 361 »): the bookmark reads every page (« page suivante », reading only)
-    const fc = `(async()=>{const A=${A};const RG=/De (\\d+) à (\\d+) sur (\\d+)/;
+    // (1.83) every frame, at any depth; the counter with any space (Footclubs puts non-breaking spaces); one page only if there is no counter;
+    // an error is shown (it was silent)
+    const fc = `(async()=>{const A=${A};const RG=/De\\s+(\\d+)\\s+à\\s+(\\d+)\\s+sur\\s+(\\d+)/i,DT=/^\\d{2}\\/\\d{2}\\/\\d{4}$/;
 if(!/footclubs\\.fff\\.fr$/.test(location.host)){alert('Ouvre Footclubs (connecté), puis touche ce favori.');return;}
-const w=window.open(A+'#/recevoir-source','clubimport');const T=window.top;
-const find=()=>{const wins=[T];for(const f of T.document.querySelectorAll('frame,iframe')){try{if(f.contentWindow&&f.contentWindow.document)wins.push(f.contentWindow);}catch(e){}}return wins.find(x=>{try{return RG.test(x.document.body.innerText);}catch(e){return false;}});};
+const T=window.top;const all=()=>{const out=[];const go=(x,d)=>{out.push(x);if(d>4)return;let fs=[];try{fs=x.document.querySelectorAll('frame,iframe');}catch(e){return;}for(const f of fs){try{if(f.contentWindow&&f.contentWindow.document)go(f.contentWindow,d+1);}catch(e){}}};go(T,0);return out;};
+const txt=x=>{try{return x.document.body?x.document.body.innerText:'';}catch(e){return '';}};
+const dates=x=>{try{return [...x.document.querySelectorAll('td')].filter(td=>DT.test(td.innerText.trim())).length;}catch(e){return 0;}};
+const find=()=>{const ws=all();return ws.find(x=>RG.test(txt(x))&&dates(x)>0)||ws.find(x=>dates(x)>=3)||null;};
 let W=find();
 if(!W){try{const M=T.frames['menu'],a=[...M.document.querySelectorAll('a')].find(x=>/'LILIST'/.test(x.getAttribute('onclick')||''));M.gestOpen(a,'2',1,'LILIST');}catch(e){}for(let k=0;k<80&&!W;k++){await new Promise(r=>setTimeout(r,250));W=find();}}
-if(!W){try{w.close();}catch(e){}alert('Connecte-toi à Footclubs (page d\\'accueil du club), puis touche à nouveau ce favori.');return;}
-let ready=false,data=null;
+if(!W){const ws=all();alert('Liste des licences introuvable ('+ws.length+' cadre'+(ws.length>1?'s':'')+' lus). Ouvre Licences → liste des licences (le tableau avec les dates de naissance), puis touche à nouveau ce favori.');return;}
+const w=window.open(A+'#/recevoir-source','clubimport');if(!w){alert('Ton navigateur a bloqué la fenêtre : autorise les fenêtres pour footclubs.fff.fr (icône à droite de la barre d\\'adresse), puis touche à nouveau ce favori.');return;}
+try{let ready=false,data=null;
 const send=()=>{if(ready&&data){w.postMessage({type:'club-import',source:'footclubs',payload:data},new URL(A).origin);data=null;}};
 addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'){ready=true;send();}});
-const range=()=>{const m=RG.exec(W.document.body.innerText);return m?[+m[1],+m[2],+m[3]]:null;};
+const range=()=>{const m=RG.exec(txt(W));return m?[+m[1],+m[2],+m[3]]:null;};
 const wait=async s=>{for(let k=0;k<80;k++){await new Promise(r=>setTimeout(r,250));try{const r=range();if(r&&r[0]===s)return true;}catch(e){}}return false;};
-const rows=[],seen={};const grab=()=>{for(const tr of W.document.querySelectorAll('tr')){const c=[...tr.cells].map(x=>x.innerText.trim());const i=c.findIndex(x=>/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(x));
+const rows=[],seen={};const grab=()=>{for(const tr of W.document.querySelectorAll('tr')){const c=[...tr.cells].map(x=>x.innerText.trim());const i=c.findIndex(x=>DT.test(x));
 if(i>0&&/[A-Z]/.test(c[i-1])&&c[i+1]){const k=c[i-1]+c[i]+c[i+1];if(!seen[k]){seen[k]=1;rows.push({name:c[i-1],birth:c[i],cat:c[i+1]||'',date:c[i+2]||'',etat:c[i+3]||'',lic:(tr.innerHTML.match(/selectPersonne\\('(\\d+)'/)||[])[1]||''});}}}};
-let r=range();if(r&&r[0]!==1){W.otherlist(W.firstlist,W.name,'F');await wait(1);}
-for(let p=0;p<80;p++){grab();r=range();if(!r||r[1]>=r[2])break;const nx=r[1]+1;W.otherlist(W.nextlist,W.name,'N');if(!await wait(nx))break;}
-data={rows,total:(range()||[0,0,rows.length])[2]};send();})()`;
+const paged=typeof W.otherlist==='function';let r=range();if(paged&&r&&r[0]!==1){W.otherlist(W.firstlist,W.name,'F');await wait(1);}
+for(let p=0;p<80;p++){grab();r=range();if(!paged||!r||r[1]>=r[2])break;const nx=r[1]+1;W.otherlist(W.nextlist,W.name,'N');if(!await wait(nx))break;}
+if(!rows.length){alert('Aucune licence lue dans ce tableau. Envoie une capture de la liste au créateur de l\\'appli.');try{w.close();}catch(e){}return;}
+data={rows,total:(range()||[0,0,rows.length])[2]};send();}catch(e){alert('Footclubs : lecture impossible ('+e.message+')');}})()`;
     const link = code => 'javascript:' + encodeURIComponent(code.replace(/\n/g, ''));
     // (1.40) the club's page on epreuves.fff.fr (public): the results shown and the official table of each of our divisions
     const ff = `(async()=>{const A=${A};const cm=/\\/competition\\/club\\/(\\d+)/.exec(location.pathname);
@@ -15498,7 +15507,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 83, UPD = AppCfg.key('update-tried');
+  const BUILD = 84, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
