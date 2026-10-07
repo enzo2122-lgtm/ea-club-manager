@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 43, date: '2026-10-07', title: 'Les blessures arrivent en groupe 🤕🤕', items: [
+      ['🚑', "Joueurs et parents peuvent signaler plusieurs blessures en une fois (« ＋ Ajouter une autre blessure »), jusqu'à 5."],
+    ] },
     { n: 42, date: '2026-10-07', title: 'Le lecteur vidéo a pris des vitamines 📼', items: [
       ['🎬', "Highlights : le lecteur intégré lit aussi Dropbox et les fichiers MP4, MOV, WebM, 3GP. Pour un AVI ou un MPG (que les navigateurs ne savent pas lire), il propose de le télécharger."],
     ] },

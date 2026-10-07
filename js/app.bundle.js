@@ -3529,7 +3529,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '1.86';
+  const VERSION = '1.87';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13356,6 +13356,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 43, date: '2026-10-07', title: 'Les blessures arrivent en groupe 🤕🤕', items: [
+      ['🚑', "Joueurs et parents peuvent signaler plusieurs blessures en une fois (« ＋ Ajouter une autre blessure »), jusqu'à 5."],
+    ] },
     { n: 42, date: '2026-10-07', title: 'Le lecteur vidéo a pris des vitamines 📼', items: [
       ['🎬', "Highlights : le lecteur intégré lit aussi Dropbox et les fichiers MP4, MOV, WebM, 3GP. Pour un AVI ou un MPG (que les navigateurs ne savent pas lire), il propose de le télécharger."],
     ] },
@@ -15532,7 +15535,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 87, UPD = AppCfg.key('update-tried');
+  const BUILD = 88, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

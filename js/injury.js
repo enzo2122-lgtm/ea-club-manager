@@ -8,7 +8,7 @@ const Injury = (() => {
   function css() {
     if (document.getElementById('injCss')) return;
     const st = document.createElement('style'); st.id = 'injCss';
-    st.textContent = '.inj-sheet{max-height:92vh;overflow:auto}.inj-now{display:grid;gap:6px;margin-bottom:10px;padding:10px;border-radius:12px;background:#fde8ec;color:#7f1d1d}.inj-now .b{justify-self:start}@media (prefers-color-scheme: dark){.inj-now{background:#3b1220;color:#fecaca}}';
+    st.textContent = '.inj-sheet{max-height:92vh;overflow:auto}.inj-now{display:grid;gap:6px;margin-bottom:10px;padding:10px;border-radius:12px;background:#fde8ec;color:#7f1d1d}.inj-now .b{justify-self:start}.inj-kept{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 6px}.inj-chip{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:999px;background:#fde8ec;color:#7f1d1d;font-size:14px}.inj-chip button{border:0;background:none;color:inherit;font-size:14px;cursor:pointer;padding:0 2px}@media (prefers-color-scheme: dark){.inj-now{background:#3b1220;color:#fecaca}}';
     document.head.appendChild(st);
   }
   let list = null; // null: the club server has not answered (or is not updated)
@@ -24,28 +24,44 @@ const Injury = (() => {
       : `<p class="info">${who ? esc(who) + ' s\'est blessé' : 'Tu t\'es blessé'} ? Montre où sur le corps : le coach est prévenu tout de suite.</p>`}
       <button class="b ${cur.length ? '' : 'no on'}" data-injnew>🚑 Signaler une blessure</button></div>`;
   }
-  // the sheet over the page
+  // the sheet over the page; (1.87) several injuries at once: « ＋ Ajouter une autre blessure » keeps the current one in a list
+  const NEW = () => ({ zone: '', side: '', part: '', type: '', days: null, note: '' });
+  const ready = s => s.part && s.days != null;
+  const label = s => `${s.part}${s.side && BodyMap.SIDE[s.side] ? ' ' + BodyMap.SIDE[s.side] : ''}${s.type ? ' · ' + s.type : ''}`;
   function open(code, parent, who, done) {
-    const sel = { zone: '', side: '', part: '', type: '', days: null }; let note = '';
+    let sel = NEW(); const kept = [];
     Member.sheetCss(); css(); const o = document.createElement('div'); o.className = 'rs-back';
     const draw = () => {
+      const n = kept.length + (ready(sel) ? 1 : 0);
       o.innerHTML = `<div class="rs-sheet inj-sheet" role="dialog" aria-label="Signaler une blessure"><h3>🚑 ${who ? 'Blessure de ' + esc(who) : 'Signaler une blessure'}</h3>
+        ${kept.length ? `<div class="inj-kept"><b>Déjà ajoutées :</b>${kept.map((k, i) => `<span class="inj-chip">🚑 ${esc(label(k))} <button type="button" data-injrm="${i}" aria-label="Retirer">✕</button></span>`).join('')}</div><p class="bm-lbl">Blessure ${kept.length + 1}</p>` : ''}
         ${BodyMap.html(sel)}
-        ${sel.part ? `<input class="rs-note" maxlength="140" placeholder="Une précision (comment, quand, soins, kiné…)" value="${esc(note)}" data-injnote>` : ''}
-        <div class="btns"><button class="b" type="button" data-x>Annuler</button><button class="b no on" type="button" data-ok ${sel.part && sel.days != null ? '' : 'disabled'}>Envoyer au coach</button></div></div>`;
+        ${sel.part ? `<input class="rs-note" maxlength="140" placeholder="Une précision (comment, quand, soins, kiné…)" value="${esc(sel.note)}" data-injnote>` : ''}
+        ${ready(sel) && kept.length < 4 ? '<p><button class="b" type="button" data-injmore>＋ Ajouter une autre blessure</button></p>' : ''}
+        <div class="btns"><button class="b" type="button" data-x>Annuler</button><button class="b no on" type="button" data-ok ${n ? '' : 'disabled'}>Envoyer au coach${n > 1 ? ' (' + n + ' blessures)' : ''}</button></div></div>`;
     };
     draw(); document.body.appendChild(o);
-    o.addEventListener('input', e => { if (e.target.dataset.injnote != null) note = e.target.value; });
+    o.addEventListener('input', e => { if (e.target.dataset.injnote != null) sel.note = e.target.value; });
     o.addEventListener('click', async e => {
       e.stopPropagation();
       if (e.target === o || e.target.closest('[data-x]')) return o.remove();
-      if (BodyMap.click(e, sel)) { const sc = o.querySelector('.rs-sheet').scrollTop; draw(); o.querySelector('.rs-sheet').scrollTop = sc; return; }
+      const keepScroll = () => { const sc = o.querySelector('.rs-sheet').scrollTop; draw(); o.querySelector('.rs-sheet').scrollTop = sc; };
+      if (BodyMap.click(e, sel)) return keepScroll();
+      if (e.target.closest('[data-injmore]')) { kept.push(sel); sel = NEW(); draw(); o.querySelector('.rs-sheet').scrollTop = 0; return; }
+      const rm = e.target.closest('[data-injrm]'); if (rm) { kept.splice(+rm.dataset.injrm, 1); return keepScroll(); }
       const ok = e.target.closest('[data-ok]'); if (!ok || ok.disabled) return;
-      ok.disabled = true; ok.textContent = 'Envoi…';
+      const all = [...kept, ...(ready(sel) ? [sel] : [])]; ok.disabled = true; ok.textContent = 'Envoi…';
+      let sent = 0;
       try {
-        const r = await Member.rpc('member_injury', { p_code: code, p_action: 'add', p_parent: !!parent, p_data: { part: sel.part, zone: sel.zone, side: sel.side, type: sel.type, days: sel.days || 0, note } });
-        list = Array.isArray(r) ? r : list; o.remove(); done && done('Le coach est prévenu. Soigne-toi bien 🙏');
-      } catch (x) { ok.disabled = false; ok.textContent = 'Envoyer au coach'; alert(x.message); }
+        for (const s of all) {
+          const r = await Member.rpc('member_injury', { p_code: code, p_action: 'add', p_parent: !!parent, p_data: { part: s.part, zone: s.zone, side: s.side, type: s.type, days: s.days || 0, note: s.note } });
+          list = Array.isArray(r) ? r : list; sent++;
+        }
+        o.remove(); done && done(all.length > 1 ? `Les ${all.length} blessures sont envoyées. Le coach est prévenu. Soigne-toi bien 🙏` : 'Le coach est prévenu. Soigne-toi bien 🙏');
+      } catch (x) {
+        kept.length = 0; kept.push(...all.slice(sent)); sel = NEW(); // the ones not sent stay in the list
+        draw(); alert((sent ? sent + ' blessure(s) envoyée(s), les autres non : ' : '') + x.message);
+      }
     });
   }
   // the clicks of the card (true when handled)
