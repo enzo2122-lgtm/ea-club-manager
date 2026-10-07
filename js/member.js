@@ -156,15 +156,43 @@ const Member = (() => {
       + '.prog-g .tr .btns{display:flex;flex-direction:row;flex-wrap:nowrap;gap:6px}.prog-g .tr .btns .b{min-height:40px;padding:0 12px}.tr-m .why{display:block;font-size:13px;color:var(--muted)}.prog-g>summary{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;padding:12px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);list-style:none;font-size:16px}'
       + '.prog-g>summary::-webkit-details-marker{display:none}.prog-g>summary::after{content:"▾";font-size:18px;color:var(--muted)}.prog-g[open]>summary::after{content:"▴"}.prog-g[open]>summary{border-radius:14px 14px 0 0;border-bottom:0}.prog-g>.card{border-radius:0 0 14px 14px;margin-top:0}.prog-g .todo{color:#b45309}'
       + '.tr-ans{border-left:4px solid #7c3aed;padding-left:10px}.tr-m{padding-left:10px;border-left:4px solid #2563eb}.tr.k-cup{border-left-color:#b7791f}.tr.k-ami{border-left-color:#15803d}.tr.k-tour{border-left-color:#ea580c}'
-      + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}';
+      + 'body.has-tabs .toast{bottom:calc(env(safe-area-inset-bottom) + 84px)}'
+      // (1.94) the other view, chosen by the player: one small menu at the top right instead of the bar at the bottom
+      + '.tabmenu{display:none}body.tabs-top main{padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}body.tabs-top header.top .top-in{padding-right:96px}body.tabs-top .toast{bottom:calc(env(safe-area-inset-bottom) + 16px)}'
+      + 'body.tabs-top .tabbar{top:calc(env(safe-area-inset-top) + 10px);bottom:auto;left:auto;right:10px;flex-direction:column;align-items:stretch;gap:2px;padding:4px;border:1px solid rgba(201,164,92,.55);border-radius:18px;background:rgba(14,29,69,.94);box-shadow:0 6px 18px rgba(0,0,0,.25)}'
+      + 'body.tabs-top .tabmenu{display:flex;align-items:center;justify-content:flex-end;gap:6px;border:0;border-radius:14px;padding:6px 10px;background:transparent;color:#e2c27d;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}'
+      + 'body.tabs-top .tabbar .tab{display:none}body.tabs-top .tabbar.open{min-width:190px}body.tabs-top .tabbar.open .tab{display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:10px;max-width:none;padding:9px 12px;font-size:14px}'
+      + 'body.tabs-top .tab .ti{font-size:18px}body.tabs-top .tab.on{box-shadow:inset 3px 0 0 #c9a45c}'
+      + '.tabpos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}';
     document.head.appendChild(st);
   }
   // list: [{ id, icon, label, html, empty }] — the chosen tab stays the same when the page is redrawn
+  // (1.94) where the tabs are: « bas » (the bar at the bottom, by default) or « haut » (a small menu at the top right), kept on this phone
+  const TABPOS = () => AppCfg.key('tabpos');
+  function tabPos() { try { return localStorage.getItem(TABPOS()) === 'haut' ? 'haut' : 'bas'; } catch (e) { return 'bas'; } }
+  const menuIn = (icon, label) => `<span>${icon}</span><span>${esc(label)}</span><span aria-hidden="true">▾</span>`;
+  const menuBtn = t => `<button class="tabmenu" data-tabmenu aria-label="Changer d'onglet">${menuIn(t.icon, t.label)}</button>`;
+  function tabPosCard() {
+    const p = tabPos();
+    return `<div class="card"><p class="info">🧭 Où veux-tu les onglets ?</p><div class="tabpos">
+      <button class="b small ${p === 'bas' ? 'yes on' : ''}" data-tabpos="bas">⬇️ Barre en bas</button><button class="b small ${p === 'haut' ? 'yes on' : ''}" data-tabpos="haut">↗️ Menu discret en haut à droite</button></div></div>`;
+  }
+  function setTabPos(p) {
+    try { localStorage.setItem(TABPOS(), p); } catch (e) {}
+    document.body.classList.toggle('tabs-top', p === 'haut');
+    document.querySelectorAll('.tabbar').forEach(n => n.classList.remove('open'));
+    document.querySelectorAll('[data-tabpos]').forEach(b => { const on = b.dataset.tabpos === p; b.classList.toggle('on', on); b.classList.toggle('yes', on); });
+  }
+  document.addEventListener('click', e => {
+    const m = e.target.closest('[data-tabmenu]'); if (m) { m.closest('.tabbar').classList.toggle('open'); return; }
+    const tp = e.target.closest('[data-tabpos]'); if (tp) { setTabPos(tp.dataset.tabpos); return; }
+    if (!e.target.closest('.tabbar')) document.querySelectorAll('.tabbar.open').forEach(n => n.classList.remove('open'));
+  });
   function tabs(kind, list) {
-    tabCss(); document.body.classList.add('has-tabs'); checkNew();
+    tabCss(); document.body.classList.add('has-tabs'); document.body.classList.toggle('tabs-top', tabPos() === 'haut'); checkNew();
     if (!list.some(t => t.id === tabCur)) { let s = ''; try { s = sessionStorage.getItem(TABKEY(kind)) || ''; } catch (e) {} tabCur = list.some(t => t.id === s) ? s : list[0].id; }
     return list.map(t => `<section class="tab-pane" data-pane="${t.id}" role="tabpanel" ${t.id === tabCur ? '' : 'hidden'}>${t.html && t.html.trim() ? t.html : `<p class="tip">${t.empty || 'Rien pour l\'instant.'}</p>`}</section>`).join('')
-      + `<nav class="tabbar" role="tablist" data-kind="${kind}">${list.map(t => `<button class="tab ${t.id === tabCur ? 'on' : ''}" role="tab" aria-selected="${t.id === tabCur}" data-tab="${t.id}"><span class="ti">${t.icon}</span><span>${esc(t.label)}</span></button>`).join('')}</nav>`;
+      + `<nav class="tabbar" role="tablist" data-kind="${kind}">${menuBtn(list.find(t => t.id === tabCur))}${list.map(t => `<button class="tab ${t.id === tabCur ? 'on' : ''}" role="tab" aria-selected="${t.id === tabCur}" data-tab="${t.id}"><span class="ti">${t.icon}</span><span>${esc(t.label)}</span></button>`).join('')}</nav>`;
   }
   // (1.65) the coach's personal suggestions for this player (Séances tab), from the club server (member_tips)
   const fmtDay = d => { try { return new Date(d + 'T12:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch (e) { return d; } };
@@ -212,6 +240,7 @@ const Member = (() => {
     try { sessionStorage.setItem(TABKEY(kind), tabCur); } catch (e) {}
     document.querySelectorAll('.tab-pane').forEach(p => { p.hidden = p.dataset.pane !== tabCur; });
     document.querySelectorAll('.tabbar .tab').forEach(x => { const on = x.dataset.tab === tabCur; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+    document.querySelectorAll('.tabbar').forEach(n => { n.classList.remove('open'); const mb = n.querySelector('[data-tabmenu]'); if (mb) mb.innerHTML = menuIn(b.querySelector('.ti').textContent, b.lastElementChild.textContent); });
     window.scrollTo(0, 0);
   }
   /* ---------- (1.67) « Mettre à jour l'appli » : no need to close and reopen it ---------- */
@@ -364,5 +393,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { sheetCss, tabs, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
 })();
