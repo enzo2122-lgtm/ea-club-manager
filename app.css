@@ -2227,3 +2227,8 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .an-row:has(.lv-poss-bar) { grid-template-columns: 170px minmax(0, 1fr) auto; }
 .an-chip { display: inline-flex; gap: 6px; padding: 4px 10px; border-radius: 99px; background: var(--soft, #f1f5f9); font-size: 13px; }
 @media (max-width: 520px) { .an-row, .an-row:has(.lv-poss-bar) { grid-template-columns: 1fr; } }
+/* (2.57) pre-match brief */
+.brief-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.brief-row span { color: var(--muted); font-weight: 700; }
+.brief-row b { font-weight: 600; }
+@media (max-width: 520px) { .brief-row { grid-template-columns: 1fr; gap: 2px; } }
