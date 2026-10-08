@@ -61,6 +61,11 @@ const Chat = (() => {
       '.cx-hello button,.cx-emo button{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}',
       '.cx-new{position:absolute;left:50%;transform:translateX(-50%);bottom:76px;border:0;border-radius:999px;padding:7px 14px;background:#8c1024;color:#fff;font:inherit;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.2);cursor:pointer;z-index:2}',
       '.cx-off{padding:6px 12px;font-size:13px;font-weight:700;background:color-mix(in srgb,#b7791f 18%,transparent);text-align:center}',
+      // (2.39) @ to tag a player: the suggestions above the box, the names tagged in the messages
+      '.cx-ment{display:flex;flex-direction:column;max-height:190px;overflow-y:auto;margin:0 8px 4px;border:1px solid var(--line,#e3e5ea);border-radius:14px;background:var(--surface,#fff);box-shadow:0 -6px 20px rgba(0,0,0,.12)}.cx-ment[hidden]{display:none}',
+      '.cx-ment button{display:flex;align-items:center;gap:10px;padding:9px 12px;border:0;border-bottom:1px solid var(--line,#eef0f3);background:none;text-align:left;font:600 15px/1.2 inherit;color:inherit}.cx-ment button:last-child{border-bottom:0}.cx-ment button:active,.cx-ment button.on{background:rgba(29,78,216,.08)}',
+      '.cx-ment i{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#1d4ed8;color:#fff;font:800 11px/1 system-ui;font-style:normal}',
+      '.cx-at{font-weight:800;color:#1d4ed8}.cx-row.mine .cx-at{color:inherit;text-decoration:underline}',
       '.cx-emo{display:flex;gap:4px;overflow-x:auto;padding:6px 10px 0;scrollbar-width:none}.cx-emo button{font-size:20px;padding:2px 8px;border:0;background:none}',
       '.cx-bar{display:flex;align-items:flex-end;gap:6px;padding:8px;border-top:1px solid var(--line,#e3e5ea);background:var(--surface,#fff)}',
       '.cx-bar textarea{flex:1;min-height:42px;max-height:120px;resize:none;padding:10px 14px;border-radius:21px;border:1px solid var(--line,#d0d4dc);background:var(--bg,#f2f3f7);color:inherit;font:inherit;font-size:16px;line-height:1.3;outline:none}',
@@ -105,7 +110,39 @@ const Chat = (() => {
   const dayOf = d => { try { const x = new Date(d), n = new Date(); if (x.toDateString() === n.toDateString()) return 'Aujourd\'hui'; n.setDate(n.getDate() - 1); if (x.toDateString() === n.toDateString()) return 'Hier';
     return x.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { return ''; } };
   const onlyEmoji = s => /^(\p{Extended_Pictographic}|\p{Emoji_Component}|‍|️|\s){1,12}$/u.test(s || '') && !/^[\d#*\s]+$/.test(s);
-  const linkify = s => esc(s).replace(/https?:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`).split('\n').join('<br>');
+  const linkify = s => tags(esc(s).replace(/https?:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`)).split('\n').join('<br>');
+  // (2.39) the players tagged (@Lucas M.) stand out in the messages
+  const fold = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const people = () => ((view && view.people) || []).filter(n => typeof n === 'string' && n);
+  function tags(h) {
+    if (h.indexOf('@') < 0) return h;
+    const names = people().slice().sort((a, b) => b.length - a.length);
+    return h.replace(/@([^\s@<]+(?: [A-Z][a-zA-Z]?\.)?)/g, (all, w) => {
+      const n = names.find(x => fold(all).startsWith('@' + fold(esc(x)))) || names.find(x => fold(w).replace(/[^a-z0-9-]+$/, '') === fold(x.split(' ')[0]));
+      if (!n) return all;
+      const exact = fold(all).startsWith('@' + fold(esc(n))), len = exact ? esc(n).length + 1 : 1 + w.replace(/[^\p{L}\p{N}-]+$/u, '').length;
+      return `<b class="cx-at">${all.slice(0, len)}</b>${all.slice(len)}`;
+    });
+  }
+  // the suggestions when « @ » is typed: the players of the category whose name starts with what follows
+  let ment = null;
+  function mentionAsk(t) {
+    const p = $('#cxMent'); if (!p) return;
+    const before = t.value.slice(0, t.selectionStart ?? t.value.length), m = before.match(/(^|\s)@([^\s@]*(?: [^\s@]*)?)$/);
+    const w = m ? fold(m[2]) : null;
+    const list = w === null ? [] : people().filter(n => { const f = fold(n); return f.startsWith(w) || f.split(' ').some(x => x.startsWith(w)); }).slice(0, 8);
+    if (!list.length) { ment = null; if (!p.hidden) { p.hidden = true; p.innerHTML = ''; fit(); } return; }
+    ment = { from: before.length - m[2].length - 1, to: before.length };
+    p.innerHTML = list.map(n => `<button type="button" data-cxment="${esc(n)}"><i>${esc(n.split(' ').map(x => x[0] || '').join('').slice(0, 2).toUpperCase())}</i>${esc(n)}</button>`).join('');
+    if (p.hidden) { p.hidden = false; fit(); }
+  }
+  function mentionPick(n) {
+    const t = $('#cxText'); if (!t || !ment) return;
+    const add = '@' + n + ' ';
+    t.value = t.value.slice(0, ment.from) + add + t.value.slice(ment.to); const at = ment.from + add.length;
+    draft = t.value; t.focus({ preventScroll: true }); t.setSelectionRange(at, at); grow();
+    const s = $('#cxSend'); if (s) s.disabled = !draft.trim(); mentionAsk(t);
+  }
   const $ = q => box && box.querySelector(q);
 
   /* ---------- (1.99) the polls ---------- */
@@ -240,6 +277,7 @@ const Chat = (() => {
       ${canWrite() && mode === 'polls' && o.poll ? '<div class="cx-bar"><button class="cx-newpoll" data-cxnewpoll>＋ Nouveau sondage</button></div>' : ''}
       ${canWrite() && mode === 'chat' ? `<div class="cx-emo" id="cxEmo" hidden>${EMOJI.map(e => `<button data-cxemo="${e}">${e}</button>`).join('')}</div>
       ${replyTo ? `<div class="cx-replybar"><span>↩️ Réponse à <b>${esc(String(replyTo.name).replace(/^Coach\s+/, ''))}</b> : ${esc(replyTo.body || '')}</span><button type="button" data-cxreplyno aria-label="Ne plus répondre">✕</button></div>` : ''}
+      <div class="cx-ment" id="cxMent" hidden></div>
       <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}${o.photo && (view.mod || view.photos) ? '<button type="button" class="cx-ic" data-cxphoto aria-label="Envoyer une photo">📷</button><input type="file" accept="image/*" id="cxFile" hidden>' : ''}
         <textarea id="cxText" rows="1" maxlength="500" placeholder="Message" aria-label="Message" enterkeyhint="send">${esc(draft)}</textarea>
         <button type="submit" class="cx-ic cx-send" id="cxSend" aria-label="Envoyer" ${draft.trim() ? '' : 'disabled'}>➤</button></form>
@@ -367,7 +405,7 @@ const Chat = (() => {
     const b = String(text || '').trim(); if (!b || !canWrite()) return;
     const m = { id: 'p' + (++pend), at: new Date().toISOString(), name: 'moi', kind: o.kind || 'player', mine: true, body: b, pend: true, reply: replyTo };
     if (replyTo) { replyTo = null; const rb = box.querySelector('.cx-replybar'); if (rb) rb.remove(); }
-    view.msgs.push(m); draft = ''; const t = $('#cxText'); if (t && t.value.trim() === b) { t.value = ''; grow(); }
+    view.msgs.push(m); draft = ''; const t = $('#cxText'); if (t && t.value.trim() === b) { t.value = ''; grow(); } { const mp = $('#cxMent'); if (mp && !mp.hidden) { mp.hidden = true; ment = null; fit(); } }
     const s = $('#cxSend'); if (s) s.disabled = true;
     drawList(true);
     queue = queue.then(() => post(m));
@@ -427,17 +465,22 @@ const Chat = (() => {
       if (sheet) { if (e.target.id === 'cxPq') sheet.q = e.target.value; if (e.target.dataset.cxopt) sheet.opts[+e.target.dataset.cxopt] = e.target.value; if (e.target.id === 'cxPmulti') sheet.multi = e.target.checked; }
     });
     el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; if (e.target.id === 'cxFile' && e.target.files && e.target.files[0]) { sendPhoto(e.target.files[0]); e.target.value = ''; } });
-    el.addEventListener('input', e => { if (e.target.id !== 'cxText') return; draft = e.target.value; grow(); const s = $('#cxSend'); if (s) s.disabled = !draft.trim(); });
+    el.addEventListener('input', e => { if (e.target.id !== 'cxText') return; draft = e.target.value; grow(); const s = $('#cxSend'); if (s) s.disabled = !draft.trim(); mentionAsk(e.target); });
+    // a touch on a name: the keyboard stays open
+    el.addEventListener('pointerdown', e => { if (e.target.closest('[data-cxment]')) e.preventDefault(); });
+    el.addEventListener('mousedown', e => { if (e.target.closest('[data-cxment]')) e.preventDefault(); });
     // (2.34) typing: no tab bar, the chat placed once the keyboard is up (not at each step of its animation)
     let kbT = 0;
     const kb = on => { clearTimeout(kbT); kbT = setTimeout(() => { document.body.classList.toggle('chat-kb', on); window.scrollTo(0, 0); fit(); toBottom(); }, on ? 0 : 120); };
     el.addEventListener('focusin', e => { if (e.target.id === 'cxText') { kb(true); setTimeout(() => { fit(); toBottom(); }, 300); } });
     el.addEventListener('focusout', e => { if (e.target.id === 'cxText') kb(false); });
-    el.addEventListener('keydown', e => { if (e.target.id === 'cxText' && e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer:fine)').matches) { e.preventDefault(); send(e.target.value); } });
+    el.addEventListener('keydown', e => { if (e.target.id === 'cxText' && e.key === 'Enter' && ment) { const f = box.querySelector('#cxMent:not([hidden]) [data-cxment]'); if (f) { e.preventDefault(); mentionPick(f.dataset.cxment); return; } }
+      if (e.target.id === 'cxText' && e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer:fine)').matches) { e.preventDefault(); send(e.target.value); } });
     el.addEventListener('scroll', e => { if (e.target.id === 'cxList' && nearBottom()) { const n = $('#cxNew'); if (n) n.hidden = true; markSeen(); } }, true);
     el.addEventListener('click', async e => {
       const q = s => e.target.closest(s);
       if (q('#cxNew')) return toBottom(true);
+      const mn = q('[data-cxment]'); if (mn) return mentionPick(mn.dataset.cxment);
       const md = q('[data-cxmode]'); if (md) { mode = md.dataset.cxmode; drawAll(); if (mode === 'chat') toBottom(); else { const l = $('#cxList'); if (l) l.scrollTop = 0; } return; }
       if (q('[data-cxnewpoll]')) { sheet = { q: '', opts: ['', ''], multi: false }; drawAll(); const i = $('#cxPq'); if (i) i.focus(); return; }
       if (q('[data-cxsheetno]') || e.target.id === 'cxSheet') { sheet = null; drawAll(); return; }

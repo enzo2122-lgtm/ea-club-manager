@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 95, date: '2026-10-08', title: 'Tague un joueur avec @ 📣', items: [
+      ['📣', 'Dans le chat, tape @ : la liste des joueurs de la catégorie s\'affiche, touche un nom pour le taguer. Il ressort en bleu dans le message.'],
+      ['🔔', 'Le joueur tagué reçoit une notification rien que pour lui, même s\'il a mis le chat en sourdine. Dans le chat des parents, ce sont ses parents qui la reçoivent.'],
+    ] },
     { n: 94, date: '2026-10-08', title: 'L\'écran reprend toute sa hauteur après le clavier 📱', items: [
       ['📱', 'Sur iPhone (appli installée), iOS gardait l\'écran raccourci après l\'ouverture du clavier : une bande restait sous la barre du bas. L\'appli fait maintenant remesurer l\'écran à iOS dès que le clavier se ferme.'],
       ['🔧', 'La barre du bas n\'est plus à moitié coupée (retour en arrière sur la version précédente).'],
