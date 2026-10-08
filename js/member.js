@@ -418,11 +418,48 @@ const Member = (() => {
   const opened = {};
   document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.grp) opened[d.dataset.grp] = d.open; }, true);
   const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  /* ---------- (2.27) reactions 🔥 and comments 💬 under each session and match (same rules as the chat) ---------- */
+  const evCache = {}, evOpen = {}, evAsked = new Set();
+  const evFmt = at => new Date(at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  function evCss() {
+    if (document.getElementById('evCss')) return;
+    const st = document.createElement('style'); st.id = 'evCss';
+    st.textContent = '.evb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 0 8px 10px}.evb>button{border:1px solid var(--line,#ddd);background:var(--surface,#fff);color:inherit;border-radius:999px;padding:4px 10px;font:inherit;font-size:13px;cursor:pointer}.evb>button.on{background:#fde8ec;border-color:#dc2626}'
+      + '.evb-panel{flex-basis:100%;display:grid;gap:4px;font-size:14px}.evb-panel .c{padding:5px 8px;border-radius:8px;background:var(--bg,#f3f4f6)}.evb-panel .c.coach{border-left:3px solid #c9a45c}.evb-panel .c small{opacity:.6}.evb-panel .x{border:0;background:none;cursor:pointer;opacity:.6}'
+      + '.evb-form{display:flex;gap:6px}.evb-form input{flex:1;min-width:0;min-height:38px;border-radius:10px;border:1px solid var(--line,#ddd);padding:0 10px;font:inherit;background:var(--surface,#fff);color:inherit}';
+    document.head.appendChild(st);
+  }
+  async function evLoad(ids, force) {
+    const n = ids.filter(i => i && (force || !evAsked.has(i))); if (!n.length || PREVIEW) return;
+    n.forEach(i => evAsked.add(i));
+    try { const r = await rpc('member_event', { p_code: current(), p_ids: n }); n.forEach(i => { evCache[i] = (r || {})[i] || { fire: 0, mine: null, n: 0, last: [] }; }); document.dispatchEvent(new Event('member-redraw')); }
+    catch (e) { /* an old club server: no bar */ }
+  }
+  function evBar(id) {
+    const f = id && evCache[id]; if (!f) return ''; evCss();
+    return `<div class="evb" data-evb="${esc(id)}"><button type="button" class="${f.mine ? 'on' : ''}" data-evreact="${esc(id)}">🔥 ${f.fire || ''}</button><button type="button" class="${evOpen[id] ? 'on' : ''}" data-evopen="${esc(id)}">💬 ${f.n || ''}</button>
+      ${evOpen[id] ? `<div class="evb-panel">${(f.last || []).map(c => `<div class="c ${c.kind === 'coach' ? 'coach' : ''}"><b>${esc(c.name)}</b> <small>${esc(evFmt(c.at))}</small>${c.mine ? ` <button type="button" class="x" data-evdel="${c.id}" data-evid="${esc(id)}" aria-label="Supprimer">✕</button>` : ''}<br>${esc(c.body)}</div>`).join('') || '<small>Pas encore de commentaire.</small>'}
+        <div class="evb-form"><input maxlength="300" placeholder="Un commentaire (vu par la catégorie et les coachs)" data-evin="${esc(id)}"><button type="button" class="b small yes on" data-evsend="${esc(id)}">Envoyer</button></div></div>` : ''}</div>`;
+  }
+  async function evAct(e) {
+    const r = e.target.closest('[data-evreact]'), o = e.target.closest('[data-evopen]'), s = e.target.closest('[data-evsend]'), d = e.target.closest('[data-evdel]');
+    if (o) { evOpen[o.dataset.evopen] = !evOpen[o.dataset.evopen]; document.dispatchEvent(new Event('member-redraw')); return true; }
+    if (!r && !s && !d) return false;
+    const id = r ? r.dataset.evreact : s ? s.dataset.evsend : d.dataset.evid, parent = /parents/.test(location.pathname);
+    try {
+      if (r) await rpc('member_event_react', { p_code: current(), p_event: id, p_emo: (evCache[id] || {}).mine ? '' : '🔥' });
+      else if (d) { if (!confirm('Supprimer ton commentaire ?')) return true; await rpc('member_event_del', { p_code: current(), p_id: +d.dataset.evdel }); }
+      else { const i = document.querySelector(`[data-evin="${id}"]`), v = (i && i.value.trim()) || ''; if (!v) { if (i) i.focus(); return true; } s.disabled = true; await rpc('member_event_post', { p_code: current(), p_event: id, p_body: v, p_parent: parent }); }
+      await evLoad([id], true);
+    } catch (x) { alert(x.message); }
+    return true;
+  }
   // (2.26) the events shown are told to the club server (« vu »), once per opening; the coach sees who saw the convocation
   const pinged = new Set();
   function seenPing(ids) {
     const n = ids.filter(i => i && !pinged.has(i)); if (!n.length || PREVIEW) return;
     n.forEach(i => pinged.add(i)); rpc('member_seen', { p_code: current(), p_ids: n }).catch(() => {});
+    evLoad(n);
   }
   function programme(trainings, matches, trRow) {
     const now = new Date(), today = iso(now);
@@ -447,7 +484,7 @@ const Member = (() => {
       const sum = [nt ? `${nt} entraînement${nt > 1 ? 's' : ''}` : '', nm ? `${nm} match${nm > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ') + (todo ? ` · <b class="todo">⚠️ ${todo} sans réponse</b>` : ' · ✓');
       const open = g.key in opened ? opened[g.key] : g.open;
       return `<details class="prog-g" data-grp="${g.key}" ${open ? 'open' : ''}><summary><b>${esc(g.label)}</b><span class="info small">${sum}</span></summary>
-        <div class="card">${g.items.map(x => x._m ? matchRow(x._m) : trRow(x)).join('')}</div></details>`;
+        <div class="card">${g.items.map(x => (x._m ? matchRow(x._m) : trRow(x)) + evBar(x._m ? x._m.id : x.id)).join('')}</div></details>`;
     }).join('');
   }
   /* (1.77) the sessions to come: the next 3 weeks (at least 3), then « Voir les suivants » */
@@ -455,9 +492,10 @@ const Member = (() => {
   function trList(list, row) {
     if (!list.length) return '';
     const lim = new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10), near = list.filter((t, i) => i < 3 || t.date <= lim), more = list.length - near.length;
-    return `<div class="card">${(allTr ? list : near).map(row).join('')}</div>${more ? `<p><button class="b small" data-alltr>${allTr ? 'Voir seulement les 3 prochaines semaines' : `Voir les ${more} entraînement${more > 1 ? 's' : ''} suivant${more > 1 ? 's' : ''}`}</button></p>` : ''}`;
+    return `<div class="card">${(allTr ? list : near).map(x => row(x) + evBar(x._m ? x._m.id : x.id)).join('')}</div>${more ? `<p><button class="b small" data-alltr>${allTr ? 'Voir seulement les 3 prochaines semaines' : `Voir les ${more} entraînement${more > 1 ? 's' : ''} suivant${more > 1 ? 's' : ''}`}</button></p>` : ''}`;
   }
   function onBar(e, reload) {
+    if (e.target.closest('[data-evreact], [data-evopen], [data-evsend], [data-evdel]')) { evAct(e); return true; }
     if (e.target.closest('[data-alltr]')) { allTr = !allTr; document.dispatchEvent(new Event('member-redraw')); return true; }
     if (e.target.closest('[data-mupdate]')) { updateApp(); return true; }
     const tb = e.target.closest('[data-tab]'); if (tb && !tb.closest('#psOverlay, .ps-in')) { showTab(tb); return true; } // (2.01) not the tabs of « Mon entraînement perso »

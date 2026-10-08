@@ -109,6 +109,10 @@ const Cloud = (() => {
     memberCodes: (ids, renew) => rpc('club_member_codes', { admin_k: adminKey() || null, p_players: ids, p_renew: renew || [] }),
     memberGiven: (id, given) => rpc('club_member_given', { admin_k: adminKey() || null, p_player: id, p_given: !!given }),
     answers: matchIds => rpc('club_answers', { p_matches: matchIds }),
+    evFeed: ids => rpc('club_event', { p_ids: ids }), // (2.27) reactions and comments under an event
+    evReact: (id, emo) => rpc('club_event_react', { p_event: id, p_emo: emo }),
+    evPost: (id, body) => rpc('club_event_post', { p_event: id, p_body: body }),
+    evDel: id => rpc('club_event_del', { p_id: id }),
     seen: ids => rpc('club_seen', { admin_k: adminKey() || null, p_ids: ids }), // (2.26) who saw the event, and the players' last openings
     setAnswer: (matchId, playerId, status) => rpc('club_set_answer', { p_match: matchId, p_player: playerId, p_status: status || '' }),
     // (2.09) the answers of AssistCoachAI ({ m, p, s, note, at }) and the answers of merged matches ({ from, to })

@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.26';
+  const VERSION = '2.27';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3955,6 +3955,10 @@ var Cloud = (() => {
     memberCodes: (ids, renew) => rpc('club_member_codes', { admin_k: adminKey() || null, p_players: ids, p_renew: renew || [] }),
     memberGiven: (id, given) => rpc('club_member_given', { admin_k: adminKey() || null, p_player: id, p_given: !!given }),
     answers: matchIds => rpc('club_answers', { p_matches: matchIds }),
+    evFeed: ids => rpc('club_event', { p_ids: ids }), // (2.27) reactions and comments under an event
+    evReact: (id, emo) => rpc('club_event_react', { p_event: id, p_emo: emo }),
+    evPost: (id, body) => rpc('club_event_post', { p_event: id, p_body: body }),
+    evDel: id => rpc('club_event_del', { p_id: id }),
     seen: ids => rpc('club_seen', { admin_k: adminKey() || null, p_ids: ids }), // (2.26) who saw the event, and the players' last openings
     setAnswer: (matchId, playerId, status) => rpc('club_set_answer', { p_match: matchId, p_player: playerId, p_status: status || '' }),
     // (2.09) the answers of AssistCoachAI ({ m, p, s, note, at }) and the answers of merged matches ({ from, to })
@@ -12747,6 +12751,39 @@ var Parents = (() => {
 })();
 
 ;
+/* ===== evfeed.js ===== */
+/* (2.27) Reactions and comments under a session or a match, coach side: the 🔥 of the players and the parents, their comments,
+   the coach reacts and comments too, and moderates (he deletes any comment). Players' side: Member.evBar in member.js. */
+var EvFeed = (() => {
+  const { esc, toast } = UI;
+  const fmt = at => { const d = new Date(at); return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+  async function mount(box, id) {
+    if (!box || !Cloud.ready() || !Cloud.evFeed) return;
+    let f = null;
+    const load = async () => { try { f = ((await Cloud.evFeed([id])) || {})[id] || { fire: 0, mine: null, n: 0, last: [] }; } catch (e) { f = null; } };
+    const draw = () => {
+      if (!box.isConnected) return;
+      if (!f) { box.innerHTML = ''; return; }
+      box.innerHTML = `<section class="card evf"><div class="row-head"><h3>🔥 Réactions et commentaires</h3><span class="muted small">${f.fire} 🔥 · ${f.n} 💬</span></div>
+        <div class="chips"><button class="chip ${f.mine ? 'on' : ''}" data-evf="react">🔥 ${f.mine ? 'Tu as réagi' : 'Réagir'}</button></div>
+        ${(f.last || []).length ? `<div class="evf-list">${f.last.map(c => `<div class="evf-c ${c.kind === 'coach' ? 'coach' : ''}"><b>${esc(c.name)}</b> <span class="muted small">${esc(fmt(c.at))}</span><button class="linkish" data-evf="del" data-id="${c.id}" title="Supprimer">✕</button><div>${esc(c.body)}</div></div>`).join('')}</div>` : '<p class="muted small">Pas encore de commentaire. Les joueurs et les parents peuvent en laisser depuis leur espace.</p>'}
+        <div class="evf-in"><input maxlength="300" placeholder="Un mot aux joueurs (visible par la catégorie)" data-evf-in><button class="btn soft" data-evf="post">${I.chat}<span>Envoyer</span></button></div></section>`;
+    };
+    box.onclick = async e => {
+      const b = e.target.closest('[data-evf]'); if (!b) return;
+      try {
+        if (b.dataset.evf === 'react') await Cloud.evReact(id, f.mine ? '' : '🔥');
+        else if (b.dataset.evf === 'del') { if (!await UI.confirmBox('Supprimer ce commentaire ?', 'Supprimer')) return; await Cloud.evDel(+b.dataset.id); }
+        else if (b.dataset.evf === 'post') { const i = box.querySelector('[data-evf-in]'), v = i.value.trim(); if (!v) return i.focus(); await Cloud.evPost(id, v); }
+        await load(); draw();
+      } catch (err) { toast(err.message || 'Impossible pour l\'instant', 'err'); }
+    };
+    await load(); draw();
+  }
+  return { mount };
+})();
+
+;
 /* ===== codes.js ===== */
 /* Personal codes of the licensees (#/codes/teamId) and the QR codes of the app.
    Each player has one code (made by the club server): it opens his own page, or his parents' page, and nothing else.
@@ -14015,6 +14052,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 83, date: '2026-10-08', title: "Ça chauffe sous les séances 🔥", items: [
+      ['🔥', "Sous chaque séance et chaque match, joueurs et parents réagissent (🔥) et commentent (💬). Toi aussi, depuis la page de la séance ou du match : carte « Réactions et commentaires », tu supprimes ce qui dépasse, et tu es prévenu d'un commentaire. Mêmes règles que le chat (mots interdits, limites)."],
+    ] },
     { n: 82, date: '2026-10-08', title: "Vu, pas vu, pas lu 👁️", items: [
       ['👁️', "Sur chaque séance et chaque match : « Qui a vu » — ont répondu, vu sans répondre, pas ouvert l'appli, jamais utilisé leur code. Avec les prénoms pour relancer les bons."],
       ['📶', "Page Codes : les joueurs silencieux (appli pas ouverte depuis 30 jours)."],
@@ -16944,6 +16984,7 @@ var Views = (() => {
           <p class="muted small">Un toucher par joueur. Le % est sa présence sur la saison (séances où l'appel a été fait).</p>
           ${pickList(tm.id, Parents.trainingDispo(tr), tr.presents || [], p => `<button class="chip ${(tr.presents || []).includes(p.id) ? 'on' : ''}" data-present="${p.id}">${presChip(p, tm.id)}</button>`, render, 'data-addpres', 'présents')}` : ''}
         <div id="trAnsBox"></div>
+        <div id="evFeed"></div>
         <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">notes des joueurs, effort, documents, photos et vidéos</span></summary>
         <div id="rateBox"></div>
         <div id="rpeBox"></div>
@@ -16955,6 +16996,7 @@ var Views = (() => {
       gagesInto($('#gageBox', root), tr);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
       Parents.mountTraining($('#trAnsBox', root), tr, ids => { tr.presents = [...new Set([...(tr.presents || []), ...ids])]; save(); render(); toast('Présents annoncés cochés'); });
+      EvFeed.mount($('#evFeed', root), tr.id);
     };
     const renderModel = total => {
       root.innerHTML = `${header(`<input class="h1-input" id="trTitle" value="${esc(tr.title)}" aria-label="Thème">`, `📚 Séance type du club · ${total} min`,
@@ -17225,6 +17267,7 @@ var Views = (() => {
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
         <div id="answersBox"></div>
+        <div id="evFeed"></div>
         ${!m.home && !m.exempt ? '<div id="carpoolBox"></div>' : ''}
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(m.teamId, m.staffIds)}</div>
         ${!m.exempt ? Prepa.card(m) + Vol.card(m) : ''}
@@ -17265,7 +17308,7 @@ var Views = (() => {
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
         </div>
         <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button></div>`;
-      Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m);
+      Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m); EvFeed.mount($('#evFeed', root), m.id);
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
       Media.mount(root); Library.mountDocs($('#docsBox', root), m, save);
       Highlights.mount($('#hlBox', root), m, save, toast);
@@ -17808,7 +17851,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 127, UPD = AppCfg.key('update-tried');
+  const BUILD = 128, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

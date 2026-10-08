@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 83, date: '2026-10-08', title: "Ça chauffe sous les séances 🔥", items: [
+      ['🔥', "Sous chaque séance et chaque match, joueurs et parents réagissent (🔥) et commentent (💬). Toi aussi, depuis la page de la séance ou du match : carte « Réactions et commentaires », tu supprimes ce qui dépasse, et tu es prévenu d'un commentaire. Mêmes règles que le chat (mots interdits, limites)."],
+    ] },
     { n: 82, date: '2026-10-08', title: "Vu, pas vu, pas lu 👁️", items: [
       ['👁️', "Sur chaque séance et chaque match : « Qui a vu » — ont répondu, vu sans répondre, pas ouvert l'appli, jamais utilisé leur code. Avec les prénoms pour relancer les bons."],
       ['📶', "Page Codes : les joueurs silencieux (appli pas ouverte depuis 30 jours)."],

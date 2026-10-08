@@ -495,6 +495,7 @@ const Views = (() => {
           <p class="muted small">Un toucher par joueur. Le % est sa présence sur la saison (séances où l'appel a été fait).</p>
           ${pickList(tm.id, Parents.trainingDispo(tr), tr.presents || [], p => `<button class="chip ${(tr.presents || []).includes(p.id) ? 'on' : ''}" data-present="${p.id}">${presChip(p, tm.id)}</button>`, render, 'data-addpres', 'présents')}` : ''}
         <div id="trAnsBox"></div>
+        <div id="evFeed"></div>
         <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">notes des joueurs, effort, documents, photos et vidéos</span></summary>
         <div id="rateBox"></div>
         <div id="rpeBox"></div>
@@ -506,6 +507,7 @@ const Views = (() => {
       gagesInto($('#gageBox', root), tr);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
       Parents.mountTraining($('#trAnsBox', root), tr, ids => { tr.presents = [...new Set([...(tr.presents || []), ...ids])]; save(); render(); toast('Présents annoncés cochés'); });
+      EvFeed.mount($('#evFeed', root), tr.id);
     };
     const renderModel = total => {
       root.innerHTML = `${header(`<input class="h1-input" id="trTitle" value="${esc(tr.title)}" aria-label="Thème">`, `📚 Séance type du club · ${total} min`,
@@ -776,6 +778,7 @@ const Views = (() => {
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
         <div id="answersBox"></div>
+        <div id="evFeed"></div>
         ${!m.home && !m.exempt ? '<div id="carpoolBox"></div>' : ''}
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(m.teamId, m.staffIds)}</div>
         ${!m.exempt ? Prepa.card(m) + Vol.card(m) : ''}
@@ -816,7 +819,7 @@ const Views = (() => {
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
         </div>
         <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button></div>`;
-      Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m);
+      Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m); EvFeed.mount($('#evFeed', root), m.id);
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
       Media.mount(root); Library.mountDocs($('#docsBox', root), m, save);
       Highlights.mount($('#hlBox', root), m, save, toast);
