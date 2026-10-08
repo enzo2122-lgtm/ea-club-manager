@@ -3643,7 +3643,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.50';
+  const VERSION = '2.51';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8604,8 +8604,10 @@ var Health = (() => {
   /* ---------- training load (RPE × minutes) ---------- */
   const trMinutes = t => (t.exercises || []).reduce((a, e) => a + (+e.duration || 0), 0) || 90;
   function loadOf(pid, from, to) {
-    return S().trainings.filter(t => !t.model && t.date >= from && t.date <= to && t.rpe && t.rpe[pid]).reduce((a, t) => a + t.rpe[pid] * trMinutes(t), 0)
-      + S().matches.filter(m => m.played && m.date >= from && m.date <= to && m.rpe && m.rpe[pid]).reduce((a, m) => a + m.rpe[pid] * ((m.minutes || {})[pid] || m.duration || 90), 0);
+    // (2.51) the coach's mark, otherwise the one the player gave himself
+    const rv = e => (e.rpe || {})[pid] || (e.rpeSelf || {})[pid] || 0;
+    return S().trainings.filter(t => !t.model && t.date >= from && t.date <= to && rv(t)).reduce((a, t) => a + rv(t) * trMinutes(t), 0)
+      + S().matches.filter(m => m.played && m.date >= from && m.date <= to && rv(m)).reduce((a, m) => a + rv(m) * ((m.minutes || {})[pid] || m.duration || 90), 0);
   }
   // last 7 days compared with the average week of the 4 weeks before
   function risk(pid) {
@@ -8614,12 +8616,14 @@ var Health = (() => {
   }
   // the effort of a session or a match, for each player present
   function rpeBox(ev, ids, kind) {
-    const r = ev.rpe || {}, vals = ids.map(id => r[id]).filter(Boolean), avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const own = ev.rpeSelf || {}, fun = ev.fun || {}, r = Object.assign({}, own, ev.rpe || {}), vals = ids.map(id => r[id]).filter(Boolean), avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const nOwn = ids.filter(id => own[id]).length, funs = ids.map(id => fun[id]).filter(Boolean);
     const mins = kind === 'match' ? (ev.duration || 90) : trMinutes(ev);
     return `<section class="card hl-rpe"><div class="row-head"><h2>💪 Effort ressenti (RPE)</h2>${avg ? `<b class="hl-avg">${avg.toFixed(1).replace('.', ',')} / 10</b>` : ''}</div>
-      <p class="muted small">Après ${kind === 'match' ? 'le match' : 'la séance'}, chaque joueur dit de 1 (très facile) à 10 (maximal) si c'était dur. Charge = effort × ${mins} min. Ça sert à repérer ceux qui en font trop.</p>
-      ${ids.length ? `<div class="hl-rpe-list">${ids.map(id => { const p = Store.get('players', id); if (!p) return ''; const v = r[id] || 0;
-        return `<div class="hl-rpe-row"><span>${esc(Store.shortName(p))}</span><span class="hl-scale">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button class="${n === v ? 'on' : ''} r${n}" data-rpe="${id}" data-v="${n}" title="${RPE[n]}">${n}</button>`).join('')}</span></div>`; }).join('')}</div>
+      <p class="muted small">Après ${kind === 'match' ? 'le match' : 'la séance'}, chaque joueur dit de 1 (très facile) à 10 (maximal) si c'était dur. Charge = effort × ${mins} min. Ça sert à repérer ceux qui en font trop.${nOwn ? ` <b>📱 ${nOwn} joueur${nOwn > 1 ? 's ont' : ' a'} répondu ${nOwn > 1 ? 'eux-mêmes' : 'lui-même'}</b> (le 📱 : sa réponse ; touche une note pour la remplacer).` : ' Les joueurs peuvent aussi répondre eux-mêmes dans leur espace.'}</p>
+      ${funs.length ? `<p class="small">Ont-ils aimé ? ${['😃', '🙂', '😕'].map((e, i) => { const n = funs.filter(x => x === 3 - i).length; return n ? `${e} ${n}` : ''; }).filter(Boolean).join(' · ')}</p>` : ''}
+      ${ids.length ? `<div class="hl-rpe-list">${ids.map(id => { const p = Store.get('players', id); if (!p) return ''; const v = r[id] || 0, mine = !(ev.rpe || {})[id] && own[id];
+        return `<div class="hl-rpe-row"><span>${mine ? '📱 ' : ''}${esc(Store.shortName(p))}${fun[id] ? ' ' + ['', '😕', '🙂', '😃'][fun[id]] : ''}</span><span class="hl-scale">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button class="${n === v ? 'on' : ''} r${n}" data-rpe="${id}" data-v="${n}" title="${RPE[n]}">${n}</button>`).join('')}</span></div>`; }).join('')}</div>
         <div class="chips"><button class="btn soft" data-rpeall="5">Tous à 5</button><button class="btn soft" data-rpeall="7">Tous à 7</button><button class="btn soft" data-rpeall="0">Effacer</button></div>`
         : `<p class="muted">${kind === 'match' ? 'Coche les convoqués' : 'Fais l\'appel'} pour noter l'effort.</p>`}</section>`;
   }
@@ -15605,6 +15609,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 107, date: '2026-10-09', title: 'Après l\'effort, le joueur répond 💪', items: [
+      ['💪', 'Après une séance ou un match, le joueur (ou ses parents) dit sur son accueil si c\'était dur (1 à 10) et s\'il a aimé. Ça compte dans la charge quand le coach n\'a rien noté (📱 sur la séance).'],
+      ['🙋', 'Après un match, 3 h après le coup d\'envoi : il se note de 0 à 10, dit son match et l\'équipe en un mot, et vote pour l\'étoile du match.'],
+      ['⭐', 'Sur le match, onglet Après : les auto-évaluations à côté de la note du coach (« se surestime » / « se sous-estime ») et l\'étoile élue par l\'équipe.'],
+    ] },
     { n: 106, date: '2026-10-09', title: 'Prévenir le coach 📣', items: [
       ['📣', 'Joueurs et parents, sur l\'accueil : « En retard », « Souci de transport », « Une douleur », « Empêché » pour la prochaine séance ou le prochain match. Le coach reçoit le message tout de suite.'],
       ['✈️', '« Absent plusieurs jours » : vacances, examens, malade… Le coach voit le joueur indisponible ces jours-là (✈️ dans les convocations et l\'appel). « Finalement je serai là » l\'annule.'],
@@ -18994,6 +19003,19 @@ var Views = (() => {
       <p class="muted small">« Match complet pour les autres » met ${full} min à ceux qui n'ont pas encore de temps. ${total ? `Total saisi : ${total} min.` : ''}</p></section>`;
   }
   // (1.41) « Qui joue où ? » : each position of the lineup gets a player called up (his name goes on the drawing and the match sheet)
+  // (2.51) what the players said of their match (their mark, in words) and the star the team elected
+  function selfEvalCard(m, conv) {
+    const se = m.selfEval || {}, ids = conv.map(p => p.id).filter(id => se[id]);
+    if (!ids.length) return `<section class="card self-card"><h2>🙋 Auto-évaluations</h2><p class="muted small">3 h après le coup d'envoi, chaque joueur peut se noter de 0 à 10, dire son match et l'équipe en un mot, et voter pour l'étoile du match (dans son espace). Personne n'a encore répondu.</p></section>`;
+    const votes = {}; ids.forEach(id => { const s = se[id].star; if (s) votes[s] = (votes[s] || 0) + 1; });
+    const top = Object.entries(votes).sort((a, b) => b[1] - a[1]), best = top.length && top[0][1] > (top[1] ? top[1][1] : 0) ? top[0] : null;
+    const fr = v => String(v).replace('.', ',');
+    return `<section class="card self-card"><h2>🙋 Auto-évaluations (${ids.length}/${conv.length})</h2>
+      ${best ? `<p class="self-star">⭐ Étoile élue par l'équipe : <b>${esc(Store.shortName(Store.get('players', best[0]) || {}))}</b> (${best[1]} vote${best[1] > 1 ? 's' : ''})</p>` : top.length ? `<p class="self-star">⭐ Égalité pour l'étoile : ${top.filter(x => x[1] === top[0][1]).map(x => esc(Store.shortName(Store.get('players', x[0]) || {}))).join(', ')}</p>` : ''}
+      <div class="self-list">${ids.map(id => { const p = Store.get('players', id), x = se[id], c = Ratings.avg ? Ratings.avg(m, id) : null, cv = c && c.v != null ? c.v : null, gap = cv != null ? x.v - cv : null;
+        return `<div class="self-row"><b>${esc(Store.shortName(p))}</b><span class="self-v">${fr(x.v)}<small>/10</small></span><span class="muted small">${cv != null ? `coach ${Ratings.fr ? Ratings.fr(cv) : fr(cv)}${Math.abs(gap) >= 2 ? (gap > 0 ? ' · se surestime' : ' · se sous-estime') : ''}` : 'pas de note coach'}</span>
+          ${x.word || x.team ? `<span class="small">${x.word ? `Son match : « ${esc(x.word)} »` : ''}${x.word && x.team ? ' · ' : ''}${x.team ? `L'équipe : « ${esc(x.team)} »` : ''}</span>` : ''}</div>`; }).join('')}</div></section>`;
+  }
   // (2.43) the shirt numbers of the match: his usual one by default, another one for this match only (a shirt missing, a renfort…)
   function numbersCard(m, conv) {
     const nums = conv.map(p => String(Store.numOf(p, m) || '')), dup = new Set(nums.filter((n, i) => n && nums.indexOf(n) !== i));
@@ -19129,6 +19151,7 @@ var Views = (() => {
         </section>
         ${m.played && conv.length ? minutesCard(m, conv) + Season.detailCard(m) + Health.rpeBox(m, conv.map(p => p.id), 'match') : ''}
         <div id="rateBox"></div>
+        ${m.played && conv.length ? selfEvalCard(m, conv) : ''}
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('match:' + m.id, 'Photos et vidéos du match')}
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
@@ -19706,7 +19729,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 151, UPD = AppCfg.key('update-tried');
+  const BUILD = 152, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
