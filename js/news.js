@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 81, date: '2026-10-08', title: "Alors, cette cheville ? 🩹", items: [
+      ['🩹', "Suivi après blessure : après chaque séance ou match où le blessé était présent, l'appli lui demande « comment ça s'est passé ? » (plus rien / à surveiller / toujours blessé). « Plus rien » termine la blessure, « toujours blessé » te prévient tout de suite."],
+      ['✅', "Infirmerie et accueil : les blessures signalées depuis l'appli par un joueur ou ses parents attendent ta validation (« Signalements à valider »)."],
+    ] },
     { n: 80, date: '2026-10-08', title: "Fini les chamailleries pour faire les équipes 👥", items: [
       ['👥', "Former des équipes (Joueurs → « Former des équipes ») : 2 à 5 équipes équilibrées d'après le niveau (global, technique, physique, vitesse des sprints…), un gardien par équipe, les postes répartis. Présents seulement, « Remélanger », image WhatsApp, impression."],
     ] },

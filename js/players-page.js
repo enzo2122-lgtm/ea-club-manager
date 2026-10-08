@@ -220,7 +220,7 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${wbCard(now)}${Injury.card()}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${wbCard(now)}${Injury.card('', Injury.events(data))}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },

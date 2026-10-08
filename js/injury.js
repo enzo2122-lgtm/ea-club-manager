@@ -8,18 +8,32 @@ const Injury = (() => {
   function css() {
     if (document.getElementById('injCss')) return;
     const st = document.createElement('style'); st.id = 'injCss';
-    st.textContent = '.inj-sheet{max-height:92vh;overflow:auto}.inj-now{display:grid;gap:6px;margin-bottom:10px;padding:10px;border-radius:12px;background:#fde8ec;color:#7f1d1d}.inj-now .b{justify-self:start}.inj-kept{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 6px}.inj-chip{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:999px;background:#fde8ec;color:#7f1d1d;font-size:14px}.inj-chip button{border:0;background:none;color:inherit;font-size:14px;cursor:pointer;padding:0 2px}@media (prefers-color-scheme: dark){.inj-now{background:#3b1220;color:#fecaca}}';
+    st.textContent = '.inj-sheet{max-height:92vh;overflow:auto}.inj-now{display:grid;gap:6px;margin-bottom:10px;padding:10px;border-radius:12px;background:#fde8ec;color:#7f1d1d}.inj-now .b{justify-self:start}.inj-ask{margin:8px 0;padding:10px;border-radius:12px;background:var(--surface,#fff);color:var(--ink,#14172b);border:1px dashed #dc2626}.inj-ask .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.inj-kept{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 6px}.inj-chip{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:999px;background:#fde8ec;color:#7f1d1d;font-size:14px}.inj-chip button{border:0;background:none;color:inherit;font-size:14px;cursor:pointer;padding:0 2px}@media (prefers-color-scheme: dark){.inj-now{background:#3b1220;color:#fecaca}}';
     document.head.appendChild(st);
   }
   let list = null; // null: the club server has not answered (or is not updated)
   async function load(code) { try { const r = await Member.rpc('member_injury', { p_code: code, p_action: 'list' }); list = Array.isArray(r) ? r : []; } catch (e) { list = null; } return list; }
   const current = () => (list || []).filter(u => u.kind === 'injury' && u.from <= today() && (!u.to || u.to > today()));
   const line = u => `${esc(u.part || 'Blessure')}${u.side && BodyMap.SIDE[u.side] ? ' ' + BodyMap.SIDE[u.side] : ''}${u.type ? ' · ' + esc(u.type) : ''}`;
-  // the card: his injury now (with « Je suis rétabli »), or the button to report one
-  function card(who) {
+  /* (2.25) the follow-up: after each session or match of the last 4 days where he was present, « comment ça s'est passé ? »
+     (plus rien → healed today / à surveiller / toujours blessé), once per event; the coaches are told when it is over or still bad */
+  const gap = d => (new Date(today() + 'T12:00') - new Date(d + 'T12:00')) / 864e5;
+  function events(data) {
+    const t = today(), ev = [];
+    (data.trainings || []).forEach(x => { if (x.id && x.answer === 'oui' && x.date <= t && gap(x.date) <= 4) ev.push({ id: x.id, date: x.date, label: 'la séance du ' + fmt(x.date) }); });
+    (data.matches || []).forEach(m => { if (m.id && (m.answer === 'oui' || m.convoked) && m.date <= t && gap(m.date) <= 4 && !m.exempt) ev.push({ id: m.id, date: m.date, label: 'le match ' + (m.home ? 'contre ' : 'chez ') + (m.opponent || '?') + ' du ' + fmt(m.date) }); });
+    return ev.sort((a, b) => b.date.localeCompare(a.date));
+  }
+  const asked = (u, ev) => (u.checks || []).some(c => c.ev === ev.id);
+  const followBox = (u, evs, who) => evs.filter(e => e.date >= u.from && !asked(u, e)).slice(0, 1).map(e => `<div class="inj-ask"><b>🩹 Comment ça s'est passé pendant ${esc(e.label)} ?</b>
+      <div class="btns"><button class="b yes" data-injchk="${esc(u.id)}|${esc(e.id)}|ok">✅ Plus rien</button><button class="b" data-injchk="${esc(u.id)}|${esc(e.id)}|watch">⚠️ À surveiller</button><button class="b no" data-injchk="${esc(u.id)}|${esc(e.id)}|hurt">🩺 Toujours blessé</button></div>
+      <p class="info small">« Plus rien » termine la blessure. « À surveiller » : la question revient après la prochaine séance.</p></div>`).join('');
+  // the card: his injury now (with the follow-up question and « Je suis rétabli »), or the button to report one
+  function card(who, evs) {
     if (list === null) return ''; css();
     const cur = current();
     return `<h2>🚑 Blessure</h2><div class="card inj-card">${cur.length ? cur.map(u => `<div class="inj-now"><b>🚑 ${line(u)}</b><span class="info">depuis le ${esc(fmt(u.from))}${u.to ? ` · retour prévu le ${esc(fmt(u.to))}` : ' · retour à confirmer'}</span>
+        ${followBox(u, evs || [], who)}
         <button class="b yes on" data-injback="${esc(u.id)}">💪 ${who ? esc(who) + ' est rétabli' : 'Je suis rétabli'}</button></div>`).join('')
       : `<p class="info">${who ? esc(who) + ' s\'est blessé' : 'Tu t\'es blessé'} ? Montre où sur le corps : le coach est prévenu tout de suite.</p>`}
       <button class="b ${cur.length ? '' : 'no on'}" data-injnew>🚑 Signaler une blessure</button></div>`;
@@ -67,13 +81,20 @@ const Injury = (() => {
   // the clicks of the card (true when handled)
   function onClick(e, code, parent, who, done) {
     if (e.target.closest('[data-injnew]')) { open(code, parent, who, done); return true; }
+    const ck = e.target.closest('[data-injchk]'); if (ck) { const [id, ev, status] = ck.dataset.injchk.split('|'); check(id, ev, status, code, parent, done); return true; }
     const b = e.target.closest('[data-injback]'); if (!b) return false;
     if (confirm(`${who ? who + ' est' : 'Tu es'} rétabli et peut rejouer ?`)) back(b.dataset.injback, code, parent, done);
     return true;
+  }
+  async function check(id, ev, status, code, parent, done) {
+    let note = ''; if (status === 'hurt') { note = prompt('Où ça fait mal, qu\'est-ce qui s\'est passé ? (facultatif)') || ''; }
+    try { const r = await Member.rpc('member_injury', { p_code: code, p_action: 'check', p_parent: !!parent, p_data: { id, ev, status, note } }); list = Array.isArray(r) ? r : list;
+      done && done(status === 'ok' ? 'Super, blessure terminée 💪' : status === 'watch' ? 'Noté : on surveille. Le coach le voit.' : 'Le coach est prévenu. Soigne-toi bien 🙏'); }
+    catch (x) { alert(x.message); }
   }
   async function back(id, code, parent, done) {
     try { const r = await Member.rpc('member_injury', { p_code: code, p_action: 'back', p_parent: !!parent, p_data: { id } }); list = Array.isArray(r) ? r : list; done && done('Super, bon retour sur le terrain 💪'); }
     catch (x) { alert(x.message); }
   }
-  return { load, card, open, onClick, current };
+  return { load, card, open, onClick, current, events };
 })();

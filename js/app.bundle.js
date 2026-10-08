@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.24';
+  const VERSION = '2.25';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8371,7 +8371,12 @@ var Health = (() => {
   const on = (p, date = today()) => (p && p.unavail || []).find(u => u.from <= date && (!u.to || date < u.to)) || null;
   // (1.81) the part with its side and the kind of injury; « 📱 » when the player or his parents reported it
   const side = u => u.side && typeof BodyMap !== 'undefined' ? ' ' + BodyMap.SIDE[u.side] : '';
-  const label = u => `${KINDS[u.kind][0]} ${KINDS[u.kind][1]}${u.part ? ' · ' + u.part + side(u) : u.reason ? ' · ' + u.reason : ''}${u.type ? ' · ' + u.type.toLowerCase() : ''}${u.to ? ' · retour le ' + fmt(u.to) : ' · retour à confirmer'}${u.self ? (u.parent ? ' · 📱 signalé par les parents' : ' · 📱 signalé par le joueur') : ''}`;
+  // (2.25) the last answer of the player to « comment ça s'est passé ? » after a session or a match (u.checks: objects; the coaches' calls: u.calls)
+  const CHK = { ok: '✅ plus rien', watch: '⚠️ à surveiller', hurt: '🩺 toujours blessé' };
+  const selfChecks = u => (u.checks || []).filter(c => c && typeof c === 'object');
+  const calls = u => [...(u.calls || []), ...(u.checks || []).filter(c => typeof c === 'string')].sort();
+  const lastCheck = u => { const c = selfChecks(u).slice(-1)[0]; return c && CHK[c.status] ? ` · ${CHK[c.status]} (${fmt(c.date)})` : ''; };
+  const label = u => `${KINDS[u.kind][0]} ${KINDS[u.kind][1]}${u.part ? ' · ' + u.part + side(u) : u.reason ? ' · ' + u.reason : ''}${u.type ? ' · ' + u.type.toLowerCase() : ''}${u.to ? ' · retour le ' + fmt(u.to) : ' · retour à confirmer'}${u.self ? (u.parent ? ' · 📱 signalé par les parents' : ' · 📱 signalé par le joueur') : ''}${lastCheck(u)}`;
   // the small sign before a name (convocation, call of a session)
   const flag = (p, date) => { const u = on(p, date); return u ? `<span class="hl-flag" title="${esc(label(u))}" aria-label="${esc(label(u))}">${KINDS[u.kind][0]}</span>` : ''; };
 
@@ -8495,23 +8500,29 @@ var Health = (() => {
   function followUps() {
     const t = today();
     return S().players.filter(Auth.seesPerson).map(p => { const u = on(p, t); if (!u || u.kind !== 'injury') return null;
-      const checks = u.checks || [], last = checks.length ? checks[checks.length - 1] : null;
-      const due = last ? days(last, t) >= EVERY : (u.self || days(u.from, t) >= EVERY);
+      const cl = calls(u), last = cl.length ? cl[cl.length - 1] : null, sc = selfChecks(u).slice(-1)[0];
+      const due = (sc && sc.status === 'hurt' && (!last || last < sc.date)) || (last ? days(last, t) >= EVERY : (u.self || days(u.from, t) >= EVERY)); // « toujours blessé » answered: at once
       return due ? { p, u, last, since: days(u.from, t) } : null; }).filter(Boolean).sort((a, b) => b.since - a.since);
   }
+  // (2.25) the injuries reported by a player or his parents, not yet seen by a coach
+  const toValidate = () => S().players.filter(Auth.seesPerson).flatMap(p => (p.unavail || []).filter(u => u.kind === 'injury' && u.self && !u.seen && days(u.from, today()) <= 60).map(u => ({ p, u })));
   function followCard() {
-    const l = followUps(); if (!l.length) return '';
-    return `<section class="card hl-follow"><h2>📞 Prendre des nouvelles des blessés (${l.length})</h2><p class="muted small">Un petit appel ou un message : ça compte beaucoup pour un joueur blessé. Rappel tous les ${EVERY} jours.</p>
+    const l = followUps(), v = toValidate(); if (!l.length && !v.length) return '';
+    return `${v.length ? `<section class="card hl-follow hl-valid"><h2>🩹 Signalements à valider (${v.length})</h2><p class="muted small">Blessures signalées depuis l'appli par le joueur ou ses parents : vérifie, corrige la fiche si besoin, puis valide.</p>
+      ${v.map(({ p, u }) => `<div class="hl-fu"><a href="#/joueur/${p.id}"><b>${esc(Store.fullName(p))}</b><span class="muted small">${esc(label(u).replace(/^\S+ \S+ · /, ''))} · le ${esc(fmt(u.from))}${u.note ? ' · « ' + esc(u.note) + ' »' : ''}</span></a>
+        <span class="chips"><a class="btn soft" href="#/joueur/${p.id}">✏️<span>Fiche</span></a><button class="btn primary" data-hlseen="${p.id}|${u.id}">✓<span>Validé</span></button></span></div>`).join('')}</section>` : ''}
+    ${l.length ? `<section class="card hl-follow"><h2>📞 Prendre des nouvelles des blessés (${l.length})</h2><p class="muted small">Un petit appel ou un message : ça compte beaucoup pour un joueur blessé. Rappel tous les ${EVERY} jours.</p>
       ${l.map(({ p, u, last, since }) => `<div class="hl-fu" data-fu="${p.id}|${u.id}"><a href="#/joueur/${p.id}"><b>${esc(Store.fullName(p))}</b><span class="muted small">${esc(label(u).replace(/^\S+ \S+ · /, ''))} · blessé depuis ${since} j · ${last ? 'nouvelles prises le ' + esc(fmt(last)) : 'pas encore de nouvelles'}</span></a>
-        <span class="chips">${p.phone ? `<a class="btn soft" href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ''))}">📞<span>Appeler</span></a>` : ''}<button class="btn primary" data-hlcheck="${p.id}|${u.id}">✓<span>Nouvelles prises</span></button></span></div>`).join('')}</section>`;
+        <span class="chips">${p.phone ? `<a class="btn soft" href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ''))}">📞<span>Appeler</span></a>` : ''}<button class="btn primary" data-hlcheck="${p.id}|${u.id}">✓<span>Nouvelles prises</span></button></span></div>`).join('')}</section>` : ''}`;
   }
-  // « Nouvelles prises »: kept on the injury (shared with the other coaches), the line leaves the list
+  // « Nouvelles prises » and « Validé »: kept on the injury (shared with the other coaches), the line leaves the list
   if (typeof document !== 'undefined') document.addEventListener('click', ev => {
-    const b = ev.target.closest('[data-hlcheck]'); if (!b) return;
-    const [pid, uid] = b.dataset.hlcheck.split('|'), p = Store.get('players', pid), u = p && (p.unavail || []).find(x => x.id === uid); if (!u) return;
-    u.checks = [...(u.checks || []), today()].slice(-30); Store.upsert('players', p);
+    const b = ev.target.closest('[data-hlcheck], [data-hlseen]'); if (!b) return;
+    const seen = b.dataset.hlseen != null, [pid, uid] = (b.dataset.hlcheck || b.dataset.hlseen).split('|'), p = Store.get('players', pid), u = p && (p.unavail || []).find(x => x.id === uid); if (!u) return;
+    if (seen) u.seen = today(); else u.calls = [...calls(u), today()].slice(-30);
+    Store.upsert('players', p);
     const row = b.closest('.hl-fu'), card = b.closest('.hl-follow'); if (row) row.remove(); if (card && !card.querySelector('.hl-fu')) card.remove();
-    toast(`Noté : nouvelles de ${Store.shortName(p)} prises 💚`);
+    toast(seen ? `Signalement de ${Store.shortName(p)} validé ✓` : `Noté : nouvelles de ${Store.shortName(p)} prises 💚`);
   });
 
   /* ---------- well-being: mood, mental, sleep, legs, soreness (1 to 10), filled in by the player on his page ---------- */
@@ -13984,6 +13995,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 81, date: '2026-10-08', title: "Alors, cette cheville ? 🩹", items: [
+      ['🩹', "Suivi après blessure : après chaque séance ou match où le blessé était présent, l'appli lui demande « comment ça s'est passé ? » (plus rien / à surveiller / toujours blessé). « Plus rien » termine la blessure, « toujours blessé » te prévient tout de suite."],
+      ['✅', "Infirmerie et accueil : les blessures signalées depuis l'appli par un joueur ou ses parents attendent ta validation (« Signalements à valider »)."],
+    ] },
     { n: 80, date: '2026-10-08', title: "Fini les chamailleries pour faire les équipes 👥", items: [
       ['👥', "Former des équipes (Joueurs → « Former des équipes ») : 2 à 5 équipes équilibrées d'après le niveau (global, technique, physique, vitesse des sprints…), un gardien par équipe, les postes répartis. Présents seulement, « Remélanger », image WhatsApp, impression."],
     ] },
@@ -17769,7 +17784,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 125, UPD = AppCfg.key('update-tried');
+  const BUILD = 126, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
