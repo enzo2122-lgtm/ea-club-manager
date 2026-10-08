@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 86, date: '2026-10-08', title: 'Des séances générées plus variées et des schémas complets ✨', items: [
+      ['🎲', '« Générer une séance » tire maintenant au sort parmi tous les exercices du thème, et évite ceux des 4 dernières semaines de l\'équipe : deux séances de suite ne se ressemblent plus.'],
+      ['🔄', 'Avant de créer la séance, un aperçu : touche 🔄 pour changer un exercice, ou 🎲 pour tout retirer au sort. Touche un schéma pour l\'agrandir.'],
+      ['📚', 'Une bibliothèque de 69 exercices avec un schéma dessiné pour chacun : zones, plots, buts, joueurs numérotés et l\'action étape par étape (échauffements, rondos, pressing, transitions, finition, défense, relance, coups de pied arrêtés, physique, gardien, jeux, et des jeux pour les plus jeunes).'],
+      ['🗺️', 'Les schémas montrent toute l\'action sur une seule image : passes en pointillé, courses, conduites, pressing en rouge, frappes. Sur la séance, ils s\'animent toujours étape par étape.'],
+    ] },
     { n: 85, date: '2026-10-08', title: "L'appli fait sa valise pour le Play Store 🧳", items: [
       ['📲', "Espaces joueur et parents : la copie hors ligne se prépare dès l'ouverture de la page (plus seulement quand on active les notifications), ce que le Play Store vérifie."],
     ] },
