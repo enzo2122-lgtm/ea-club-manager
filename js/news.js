@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 87, date: '2026-10-08', title: 'La séance générée va dans ton entraînement 📅', items: [
+      ['📅', 'Dans l\'aperçu de la séance générée, choisis « Mettre la séance dans » : un nouvel entraînement, ou un entraînement déjà prévu au planning (le prochain vide est proposé). Sa date, son heure, son lieu et l\'appel restent.'],
+      ['✨', 'Sur la page d\'un entraînement, nouveau bouton « Générer la séance » : la séance générée arrive directement dedans. S\'il y a déjà des exercices, tu choisis de les garder ou de les remplacer.'],
+      ['🧹', 'Corrigé : une photo ou un PDF ajouté à une séance (« Depuis un fichier ») n\'est plus proposé comme exercice par le générateur.'],
+      ['🎲', 'Le tirage est plus juste : les exercices déjà proposés récemment reviennent moins, ceux qui ont un schéma dessiné passent devant.'],
+    ] },
     { n: 86, date: '2026-10-08', title: 'Des séances générées plus variées et des schémas complets ✨', items: [
       ['🎲', '« Générer une séance » tire maintenant au sort parmi tous les exercices du thème, et évite ceux des 4 dernières semaines de l\'équipe : deux séances de suite ne se ressemblent plus.'],
       ['🔄', 'Avant de créer la séance, un aperçu : touche 🔄 pour changer un exercice, ou 🎲 pour tout retirer au sort. Touche un schéma pour l\'agrandir.'],

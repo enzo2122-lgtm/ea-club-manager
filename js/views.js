@@ -488,7 +488,7 @@ const Views = (() => {
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
         <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
-        <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
+        <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(tr.teamId, tr.staffIds)}</div>
         ${tm ? `<div class="row-head"><h2 class="section" id="presH">Présents (${(tr.presents || []).length}/${squad(tm.id).length})</h2>
           <div class="chips"><button class="btn soft" data-allpres="1">${I.check}<span>Tous présents</span></button><button class="btn soft" data-allpres="0">${I.x}<span>Personne</span></button></div></div>
@@ -581,6 +581,7 @@ const Views = (() => {
       if (b.hasAttribute('data-draw')) return newSchema({ name: ex.title, teamId: tr.teamId, onCreate: s => { ex.schemaId = s.id; save(); } });
       if (b.hasAttribute('data-pick')) return pickSchema(s => { ex.schemaId = s.id; save(); render(); });
       switch (b.dataset.act) {
+        case 'exGen': return Exos.generator({ teamId: tr.teamId, date: tr.date, target: tr.id }); // (2.31) the generated session goes into this training
         case 'exClub': return Exos.pick(tr.teamId, ex => { tr.exercises.push(ex); save(); render(); toast('Exercice ajouté à la séance'); });
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
