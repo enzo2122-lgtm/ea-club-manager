@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 94, date: '2026-10-08', title: 'L\'écran reprend toute sa hauteur après le clavier 📱', items: [
+      ['📱', 'Sur iPhone (appli installée), iOS gardait l\'écran raccourci après l\'ouverture du clavier : une bande restait sous la barre du bas. L\'appli fait maintenant remesurer l\'écran à iOS dès que le clavier se ferme.'],
+      ['🔧', 'La barre du bas n\'est plus à moitié coupée (retour en arrière sur la version précédente).'],
+    ] },
     { n: 93, date: '2026-10-08', title: 'Le chat prend tout l\'écran 💬', items: [
       ['💬', 'Sur téléphone, le chat n\'est plus une carte posée au milieu : il va d\'un bord à l\'autre de l\'écran et descend jusqu\'à la barre des onglets. Il fait vraiment partie de l\'appli.'],
     ] },

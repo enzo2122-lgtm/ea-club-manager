@@ -21,29 +21,32 @@ var AppCfg = (() => {
   };
 })();
 
-/* (2.36) iPhone, app installed on the home screen: iOS can make the page shorter than the screen by the height of the status bar
-   (the page covers the whole screen, but « the bottom » of the page stops above the real edge). A bar fixed at the bottom then floats
-   above a light band. The gap is measured on the phone and the bottom bars are moved down by it (--iosgap), to rest on the edge. */
-(function iosGap() {
+(function iosViewport() {
+  // (2.38) iPhone installed app: once the keyboard has been opened, iOS keeps the screen of the app shorter (bug of iOS),
+  // a band stays under the tab bar. Hiding and showing the page for one instant makes iOS measure the screen again: the band goes.
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   const ios = /iP(hone|od|ad)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   if (!ios || !standalone) return;
-  const topInset = () => { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:0;padding-top:env(safe-area-inset-top);visibility:hidden;pointer-events:none'; document.body.appendChild(d); const t = d.offsetHeight; d.remove(); return t; };
   const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
-  let last = -1;
-  const measure = () => {
-    if (!document.body || typing()) return;
-    const portrait = window.innerHeight > window.innerWidth, screenH = Math.max(screen.height, screen.width), top = topInset();
-    const gap = portrait ? Math.round(screenH - window.innerHeight) : 0;
-    // only the case of the bug: a gap no bigger than the status bar (never a page that really starts under the status bar)
-    const v = top > 0 && gap > 0 && gap <= top + 6 ? gap : 0;
-    if (v !== last) { last = v; document.documentElement.style.setProperty('--iosgap', v + 'px'); document.documentElement.classList.toggle('ios-gap', v > 0); }
+  const portrait = () => window.innerHeight > window.innerWidth;
+  let peak = { p: 0, l: 0 }, t = 0;
+  const note = () => { const k = portrait() ? 'p' : 'l'; if (!typing()) peak[k] = Math.max(peak[k], window.innerHeight); };
+  const remeasure = () => {
+    const b = document.body; if (!b || typing()) return;
+    const k = portrait() ? 'p' : 'l'; if (peak[k] - window.innerHeight <= 4) return;
+    // the places in the lists are kept (a hidden list forgets where it was)
+    const keep = [...document.querySelectorAll('*')].filter(e => e.scrollTop > 0).map(e => [e, e.scrollTop]), x = window.scrollX, y = window.scrollY;
+    b.style.display = 'none'; void b.offsetHeight; b.style.display = '';
+    keep.forEach(([e, v]) => { e.scrollTop = v; }); window.scrollTo(x, y);
+    window.dispatchEvent(new Event('resize'));
   };
-  const soon = () => setTimeout(measure, 350);
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', measure); else measure();
-  ['resize', 'orientationchange', 'pageshow', 'focusout'].forEach(e => window.addEventListener(e, soon));
+  const soon = () => { clearTimeout(t); t = setTimeout(() => { remeasure(); setTimeout(remeasure, 450); }, 160); };
+  note(); window.addEventListener('resize', note); window.addEventListener('orientationchange', () => { peak = { p: 0, l: 0 }; setTimeout(note, 500); });
+  document.addEventListener('focusout', soon);
+  window.addEventListener('pageshow', soon);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) soon(); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (!typing()) soon(); });
 })();
 
 ;
@@ -3580,7 +3583,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.37';
+  const VERSION = '2.38';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15387,6 +15390,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 94, date: '2026-10-08', title: 'L\'écran reprend toute sa hauteur après le clavier 📱', items: [
+      ['📱', 'Sur iPhone (appli installée), iOS gardait l\'écran raccourci après l\'ouverture du clavier : une bande restait sous la barre du bas. L\'appli fait maintenant remesurer l\'écran à iOS dès que le clavier se ferme.'],
+      ['🔧', 'La barre du bas n\'est plus à moitié coupée (retour en arrière sur la version précédente).'],
+    ] },
     { n: 93, date: '2026-10-08', title: 'Le chat prend tout l\'écran 💬', items: [
       ['💬', 'Sur téléphone, le chat n\'est plus une carte posée au milieu : il va d\'un bord à l\'autre de l\'écran et descend jusqu\'à la barre des onglets. Il fait vraiment partie de l\'appli.'],
     ] },
@@ -16451,7 +16458,7 @@ var Chat = (() => {
       'body.chat-on main#view .page-head{display:none}body.chat-on main#view{padding-top:calc(env(safe-area-inset-top) + 8px)}',
       '.cx{display:flex;flex-direction:column;min-height:320px;box-sizing:border-box;border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ea);overflow:hidden;position:relative}',
       // (2.37) phone: the chat is part of the screen (no rounded card, no margins); the top of the chat sits under the status bar
-      'body.chat-full .cx{border-radius:0;border:0;box-shadow:none}body.chat-full .cx-top{padding-top:calc(env(safe-area-inset-top) + 8px)}body.chat-full.tabs-top:not(.chat-kb) .cx-bar,body.chat-full.nav-top:not(.chat-kb) .cx-bar{padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}',
+      'body.chat-full .cx{border-radius:0;border:0;box-shadow:none}body.chat-edge .cx-top{padding-top:calc(env(safe-area-inset-top) + 8px)}body.chat-full.tabs-top:not(.chat-kb) .cx-bar,body.chat-full.nav-top:not(.chat-kb) .cx-bar{padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}',
       '.cx-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line,#e3e5ea);min-height:46px}',
       'body.tabs-top .cx-top,body.nav-top .cx-top{padding-right:118px}',
       '@media (max-width:430px){.cx-w{display:none}}', // (2.08) a narrow phone: the icons only, so the name of the room stays readable
@@ -16683,6 +16690,8 @@ var Chat = (() => {
 
   /* ---------- the size: the chat fills the screen, above the tab bar and the keyboard ---------- */
   function shown() { return !!(box && document.body.contains(box) && box.offsetParent !== null); }
+  let sTop = -1;
+  function safeTop() { if (sTop < 0) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:0;padding-top:env(safe-area-inset-top);visibility:hidden;pointer-events:none'; document.body.appendChild(d); sTop = d.offsetHeight; d.remove(); } return sTop; }
   function fit() {
     const cx = $('#cx') || (box && box.firstElementChild); if (!cx || !shown()) return;
     if (!document.body.classList.contains('chat-on')) { if (cx.dataset.fit) { cx.style.cssText = ''; cx.dataset.fit = ''; } return; }
@@ -16694,14 +16703,16 @@ var Chat = (() => {
     let bottom = full ? 0 : 8;
     if (keyboard) bottom = Math.max(full ? 0 : 4, vh - (vvH + vvTop) + (full ? 0 : 4));
     else document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2) bottom = Math.max(bottom, vh - r.top + pad); });
-    const r = box.getBoundingClientRect(), top = (full ? 0 : Math.max(8, r.top)) + vvTop;
+    // on a phone, the chat starts at the very top when nothing is above it (players, parents), under what stays above it otherwise (the category of the coach)
+    const r = box.getBoundingClientRect(), edge = full && r.top <= safeTop() + 14, top = (full ? (edge ? 0 : Math.max(0, r.top - 4)) : Math.max(8, r.top)) + vvTop;
+    document.body.classList.toggle('chat-edge', edge);
     const css = full ? `left:0;width:100%;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`
       : `left:${Math.round(r.left)}px;width:${Math.round(r.width)}px;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`;
     if (cx.dataset.fit !== css) { cx.style.cssText = css; cx.dataset.fit = css; }
   }
   function setOn(on) {
     if (on === document.body.classList.contains('chat-on')) return;
-    document.body.classList.toggle('chat-on', on); if (!on) document.body.classList.remove('chat-kb', 'chat-full');
+    document.body.classList.toggle('chat-on', on); if (!on) document.body.classList.remove('chat-kb', 'chat-full', 'chat-edge');
     if (on) { window.scrollTo(0, 0); requestAnimationFrame(() => { fit(); toBottom(); }); }
     else { const cx = box && box.firstElementChild; if (cx) { cx.style.cssText = ''; cx.dataset.fit = ''; } }
   }
@@ -19269,7 +19280,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 138, UPD = AppCfg.key('update-tried');
+  const BUILD = 139, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
