@@ -238,6 +238,7 @@ const Member = (() => {
     const st = document.createElement('style'); st.id = 'tabCss';
     st.textContent = 'body.has-tabs main{padding-bottom:calc(env(safe-area-inset-bottom) + 96px)}'
       + '.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;justify-content:center;gap:2px;padding:6px 6px calc(env(safe-area-inset-bottom) + 6px);background:#0e1d45;border-top:3px solid #8c1024;box-shadow:0 -6px 20px rgba(0,0,0,.18);border-radius:18px 18px 0 0}'
+      + 'body:not(.tabs-top) .tabbar{transform:translateY(var(--iosgap,0px))}' // (2.36) iPhone installed app: on the edge of the screen
       + 'body:not(.tabs-top) .tabbar::after{content:"";position:absolute;left:0;right:0;top:100%;height:120px;background:#0e1d45;pointer-events:none}'
       + '.tab{flex:1 1 0;max-width:120px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px 6px;border:0;border-radius:12px;background:transparent;color:rgba(255,255,255,.72);font-family:inherit;font-weight:600;font-size:11.5px;line-height:1.2;cursor:pointer}'
       + '.tab .ti{font-size:21px;line-height:1}.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}'

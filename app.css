@@ -2125,3 +2125,6 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 /* (2.27) réactions et commentaires sous un événement */
 .evf-list { display: grid; gap: 6px; margin: 8px 0; } .evf-c { padding: 6px 10px; border-radius: 10px; background: var(--surface2); position: relative; } .evf-c.coach { border-left: 3px solid var(--gold, #c9a45c); } .evf-c .linkish { position: absolute; right: 8px; top: 6px; }
 .evf-in { display: flex; gap: 6px; } .evf-in input { flex: 1; min-width: 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--line); padding: 0 10px; font: inherit; background: var(--surface); color: var(--ink); }
+
+/* (2.36) iPhone installed app: the bottom bar rests on the edge of the screen (the gap iOS leaves is measured in appcfg.js) */
+@media (max-width: 760px) { body:not(.nav-top):not(.editing) .rail { transform: translateY(var(--iosgap, 0px)); } }
