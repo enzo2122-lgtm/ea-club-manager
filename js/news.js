@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 104, date: '2026-10-09', title: 'Plus de saut d\'écran 📱', items: [
+      ['📱', 'Corrigé sur iPhone : l\'écran ne clignote plus en ouvrant « Plus » (ni en fermant le clavier), et les onglets du bas ne sont plus rognés.'],
+    ] },
     { n: 103, date: '2026-10-09', title: 'Modifier son message ✏️', items: [
       ['✏️', 'Dans le chat, touche ton message : « Modifier » pour corriger le texte (il s\'affiche « modifié »), « Supprimer » pour l\'enlever.'],
       ['🔒', 'Seul l\'auteur d\'un message peut le modifier ou le supprimer, coachs compris. Pour un message déplacé : « Signaler », ou fermer le chat.'],

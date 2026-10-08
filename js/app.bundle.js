@@ -21,33 +21,7 @@ var AppCfg = (() => {
   };
 })();
 
-(function iosViewport() {
-  // (2.38) iPhone installed app: once the keyboard has been opened, iOS keeps the screen of the app shorter (bug of iOS),
-  // a band stays under the tab bar. Hiding and showing the page for one instant makes iOS measure the screen again: the band goes.
-  if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  const ios = /iP(hone|od|ad)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-  if (!ios || !standalone) return;
-  const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
-  const portrait = () => window.innerHeight > window.innerWidth;
-  let peak = { p: 0, l: 0 }, t = 0;
-  const note = () => { const k = portrait() ? 'p' : 'l'; if (!typing()) peak[k] = Math.max(peak[k], window.innerHeight); };
-  const remeasure = () => {
-    const b = document.body; if (!b || typing()) return;
-    const k = portrait() ? 'p' : 'l'; if (peak[k] - window.innerHeight <= 4) return;
-    // the places in the lists are kept (a hidden list forgets where it was)
-    const keep = [...document.querySelectorAll('*')].filter(e => e.scrollTop > 0).map(e => [e, e.scrollTop]), x = window.scrollX, y = window.scrollY;
-    b.style.display = 'none'; void b.offsetHeight; b.style.display = '';
-    keep.forEach(([e, v]) => { e.scrollTop = v; }); window.scrollTo(x, y);
-    window.dispatchEvent(new Event('resize'));
-  };
-  const soon = () => { clearTimeout(t); t = setTimeout(() => { remeasure(); setTimeout(remeasure, 450); }, 160); };
-  note(); window.addEventListener('resize', note); window.addEventListener('orientationchange', () => { peak = { p: 0, l: 0 }; setTimeout(note, 500); });
-  document.addEventListener('focusout', soon);
-  window.addEventListener('pageshow', soon);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) soon(); });
-  if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (!typing()) soon(); });
-})();
+/* (2.38 → removed in 2.48: hiding and showing the page to make iOS measure again made the screen flash; the gap is handled by iosFill) */
 
 /* (2.41) « 📏 Mesurer l'écran » (Plus): the sizes the phone gives to the app, and marks to see what the phone draws at the bottom.
    A red line at the bottom of the page as iOS sees it (fixed), a green block just below it (in the page): a screenshot tells where the band comes from. */
@@ -89,7 +63,7 @@ window.ScreenDiag = function () {
   const st = document.createElement('style'); st.id = 'iosFillCss';
   st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
     + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:19;pointer-events:none;background:var(--iosfill,#0e1d45)}'
-    + '@media (max-width:760px){html.ios-gap body:not(.nav-top):not(.editing) .rail{padding-bottom:4px}}html.ios-gap body:not(.tabs-top) .tabbar{padding-bottom:6px}';
+    + '@media (max-width:760px){html.ios-gap body:not(.nav-top):not(.editing) .rail{padding-bottom:12px}}html.ios-gap body:not(.tabs-top) .tabbar{padding-bottom:12px}';
   const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
   const probe = css => { const d = document.createElement('div'); d.style.cssText = 'position:absolute;left:0;top:0;width:1px;visibility:hidden;pointer-events:none;' + css; document.documentElement.appendChild(d); const h = d.offsetHeight; d.remove(); return h; };
   let fill = null, last = -1;
@@ -3661,7 +3635,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.47';
+  const VERSION = '2.48';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15623,6 +15597,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 104, date: '2026-10-09', title: 'Plus de saut d\'écran 📱', items: [
+      ['📱', 'Corrigé sur iPhone : l\'écran ne clignote plus en ouvrant « Plus » (ni en fermant le clavier), et les onglets du bas ne sont plus rognés.'],
+    ] },
     { n: 103, date: '2026-10-09', title: 'Modifier son message ✏️', items: [
       ['✏️', 'Dans le chat, touche ton message : « Modifier » pour corriger le texte (il s\'affiche « modifié »), « Supprimer » pour l\'enlever.'],
       ['🔒', 'Seul l\'auteur d\'un message peut le modifier ou le supprimer, coachs compris. Pour un message déplacé : « Signaler », ou fermer le chat.'],
@@ -19714,7 +19691,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 148, UPD = AppCfg.key('update-tried');
+  const BUILD = 149, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
