@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 97, date: '2026-10-08', title: 'Mesurer l\'écran 📏', items: [
+      ['📏', 'Dans « Plus », « Mesurer l\'écran » affiche les tailles que le téléphone donne à l\'appli, pour régler la bande sous la barre du bas sur iPhone.'],
+    ] },
     { n: 96, date: '2026-10-08', title: 'Tague aussi les coachs 🧢', items: [
       ['🧢', 'Avec @, les coachs de la catégorie sont proposés en premier (« @Coach Karim »). Le coach tagué reçoit sa notification, même s\'il a mis le chat en sourdine.'],
     ] },

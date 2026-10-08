@@ -66,9 +66,9 @@ const App = (() => {
       + `<button class="nav-more ${idx >= PHONE_MAIN ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
     document.getElementById('navMore').onclick = () => {
       const close = UI.modal({ title: 'Plus', noFocus: true,
-        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
+        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button><button class="more-item" data-morediag>📏<span>Mesurer l'écran</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
         onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; const nw = r.querySelector('[data-morenews]'); if (nw) nw.onclick = () => { close(); setTimeout(() => News.all(), 60); };
-          const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; } }); // (1.67) the latest version in one tap
+          const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; const dg = r.querySelector('[data-morediag]'); if (dg) dg.onclick = () => { close(); setTimeout(() => window.ScreenDiag && window.ScreenDiag(), 350); }; } }); // (1.67) the latest version in one tap
     };
     Messages.badge(); Help.inboxBadge();
   }
@@ -140,7 +140,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 141, UPD = AppCfg.key('update-tried');
+  const BUILD = 142, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
