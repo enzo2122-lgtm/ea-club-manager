@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 110, date: '2026-10-09', title: 'Tests VMA avec les bips 🏃', items: [
+      ['🏃', 'Chrono et score → « Test VMA » : VAMEVAL, 45-15 ou 30-15 IFT avec leurs bips, la vitesse de départ au choix. Touche le nom d\'un joueur quand il s\'arrête : sa vitesse est notée.'],
+      ['💾', 'À la fin, « Enregistrer » met la VMA (ou la VIFT du 30-15) dans la fiche de chaque joueur, avec les autres tests physiques.'],
+    ] },
     { n: 109, date: '2026-10-09', title: 'Chrono d\'exercice et score par chasubles ⏱️', items: [
       ['⏱️', 'Plus → « Chrono et score » : chrono d\'exercice avec effort / récup, répétitions, séries, décompte 3-2-1 et sons (sifflet, bip, klaxon…). Réglages tout prêts : 30-30, 15-15, 45-15, jeu 4\' / 1\', gainage. L\'écran reste allumé.'],
       ['🎽', 'Score par chasubles : 2 à 4 équipes à leurs couleurs, + / − en gros boutons, gardé sur le téléphone.'],
