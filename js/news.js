@@ -5,8 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
-    { n: 73, date: '2026-10-08', title: 'Les VMA et VTI d\'AssistCoachAI', items: [
-      ['🏃', 'L\'import AssistCoachAI ramène la VMA et la VTI (VIFT du 30-15) de chaque joueur, avec leur date : Joueurs → Tests, la fiche du joueur et ses allures de course. Un nouvel import ne fait pas de doublon.'],
+    { n: 74, date: '2026-10-08', title: 'Les tests physiques d\'AssistCoachAI', items: [
+      ['🏃', 'L\'import AssistCoachAI ramène les tests physiques de chaque joueur, avec leur date : VMA, VTI (VIFT du 30-15), sprints 10, 20 et 30 m, détente, saut en longueur, Illinois, T-test, Yo-Yo, Cooper, jongles et conduite. À voir dans Joueurs → Tests et sur la fiche du joueur. Un nouvel import ne fait pas de doublon.'],
+      ['📏', 'Les unités sont remises d\'aplomb (un sprint en millisecondes, une détente en mètres…) et une valeur impossible est écartée. Un test qu\'AssistCoachAI a mais que l\'appli ne connaît pas est listé dans la fenêtre d\'import.'],
       ['🔁', 'Refais le favori AssistCoachAI (Réglages → Le club) : il lit maintenant aussi les tests.'],
     ] },
     { n: 72, date: '2026-10-08', title: 'Petites corrections sur téléphone', items: [
