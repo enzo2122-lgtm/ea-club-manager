@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 88, date: '2026-10-08', title: 'Plus de « Enregistrement… » à chaque lettre 🤫', items: [
+      ['🤫', 'L\'appli enregistre en silence : les messages « Enregistrement… » et « Enregistré » ne s\'affichent plus quand tu écris. Un message n\'apparaît que s\'il y a un souci (pas de réseau, envoi au club en attente).'],
+    ] },
     { n: 87, date: '2026-10-08', title: 'La séance générée va dans ton entraînement 📅', items: [
       ['📅', 'Dans l\'aperçu de la séance générée, choisis « Mettre la séance dans » : un nouvel entraînement, ou un entraînement déjà prévu au planning (le prochain vide est proposé). Sa date, son heure, son lieu et l\'appel restent.'],
       ['✨', 'Sur la page d\'un entraînement, nouveau bouton « Générer la séance » : la séance générée arrive directement dedans. S\'il y a déjà des exercices, tu choisis de les garder ou de les remplacer.'],
