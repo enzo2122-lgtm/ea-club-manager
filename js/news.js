@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 69, date: '2026-10-08', title: 'Le temps additionnel compte', items: [
+      ['⏱️', '« Corriger le match » : le temps additionnel de chaque mi-temps, pris du match suivi en direct ou de la feuille FFF, à corriger si besoin. « Tout » donne la durée réelle (90 + temps additionnel).'],
+      ['🔎', 'La vérification des temps de jeu en tient compte : 95 minutes ne sont plus « trop » quand il y a eu 5 minutes de temps additionnel, et un écart avec la feuille FFF dû au temps additionnel n\'est plus signalé.'],
+      ['⚽', 'Un but peut se noter « 45+2 ».'],
+    ] },
     { n: 68, date: '2026-10-08', title: 'Les temps de jeu vérifiés', items: [
       ['🔎', 'Chaque match joué est vérifié : total des minutes (joueurs sur le terrain × durée), un joueur au-delà de la durée, trop de joueurs du début à la fin, un buteur sans temps de jeu, un temps non saisi.'],
       ['🔁', 'Les temps sont comparés aux remplacements (match suivi en direct, feuille FFF, AssistCoachAI) : « Appliquer ces temps » corrige en un toucher.'],
