@@ -140,7 +140,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 110, UPD = AppCfg.key('update-tried');
+  const BUILD = 111, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -202,7 +202,7 @@ const App = (() => {
     const recv = (location.hash.match(/^#\/recevoir\/([\w-]+)/) || [])[1];
     // (1.39) opened by the « AssistCoachAI / Footclubs → app » bookmark: the data arrive from the site
     const fromSite = /^#\/recevoir-source/.test(location.hash);
-    const fcData = (location.hash.match(/^#\/recevoir-source\/fc=(.+)$/) || [])[1]; // (1.85) the Footclubs data in the address
+    const fcData = (location.hash.match(/^#\/recevoir-source\/((?:fc|ac)=.+)$/) || [])[1]; // (1.85) the Footclubs data in the address; (2.10) AssistCoachAI's too
     if (fromSite) history.replaceState(null, '', location.pathname + location.search + '#/');
     if (recv) history.replaceState(null, '', location.pathname + location.search + '#/entrainements');
     const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
