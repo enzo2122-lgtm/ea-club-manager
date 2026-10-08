@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 77, date: '2026-10-08', title: 'Les notes des coachs d\'AssistCoachAI', items: [
+      ['⭐', 'L\'import AssistCoachAI ramène les notes des coachs : le niveau de chaque joueur (technique, intelligence de jeu, physique, attitude, mental) va dans « Niveau des joueurs », ramené sur 5 quelle que soit l\'échelle d\'AssistCoachAI, avec le commentaire du coach.'],
+      ['📝', 'Les notes d\'un joueur après un match ou un entraînement vont dans « Notes des dirigeants » sur sa fiche (sur 10), avec le commentaire. Elles sont marquées « AssistCoachAI ».'],
+      ['✋', 'Un niveau changé à la main dans l\'appli après la date d\'AssistCoachAI est gardé. Rien n\'est montré aux joueurs ni aux parents.'],
+      ['🔁', 'Refais le favori AssistCoachAI (Réglages → Le club) : il cherche aussi les pages de notes et d\'évaluations, y compris la fiche de chaque joueur.'],
+    ] },
     { n: 76, date: '2026-10-08', title: 'Le niveau des joueurs', items: [
       ['📊', 'Nouveau : le niveau de chaque joueur sur 5 critères notés de 1 à 5 : technique, intelligence de jeu, physique, attitude et mental. Sur la fiche du joueur (touche les étoiles) et dans Équipes → Niveau des joueurs.'],
       ['⭐', '« Noter l\'équipe » : tous les joueurs à la suite, ceux qui n\'ont pas de note d\'abord. Le tableau se trie par critère, avec la moyenne de l\'équipe, ses points forts et ses points à travailler.'],

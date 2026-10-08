@@ -2101,3 +2101,5 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
   .lv-chip { min-width: 22px; font-size: 13px; padding: 2px 0; border-radius: 6px; }
   .lv-m { font-size: 13px; }
 }
+
+.lv-note { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #c9a45c 14%, transparent); white-space: pre-line; }

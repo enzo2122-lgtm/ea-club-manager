@@ -16,13 +16,23 @@ const Level = (() => {
   const who = id => { const s = id && Store.get('staff', id); return s ? Store.shortName(s) : ''; };
 
   function set(p, k, v) {
-    const s = Object.assign({}, cur(p)); delete s.date; delete s.by;
+    const s = Object.assign({}, cur(p)); delete s.date; delete s.by; delete s.src;
     if (v) s[k] = v; else delete s[k];
     const date = UI.today(), by = (Auth.current() || {}).id || null;
     p.level = Object.assign({}, s, { date, by });
     const scores = Object.fromEntries(CRIT.map(([c]) => [c, s[c]]).filter(x => x[1]));
     p.levelHist = [...(p.levelHist || []).filter(x => x.date !== date), { date, s: scores }].slice(-12);
     Store.upsert('players', p);
+  }
+  // (2.21) a level brought by an import (AssistCoachAI): the criteria it has; a level set by hand in the app since then is kept
+  function put(p, scores, date, src, comment) {
+    const c = cur(p), d = date || UI.today(), mine = c.date && !c.src && c.date > d;
+    const s = {}; CRIT.forEach(([k]) => { const v = mine ? (+c[k] || +scores[k]) : (+scores[k] || +c[k]); if (v) s[k] = v; });
+    if (!Object.keys(s).length && !comment) return false;
+    p.level = Object.assign(s, { date: mine ? c.date : d, by: mine ? c.by : null }, mine ? {} : { src }, comment ? { note: comment, noteSrc: src } : c.note ? { note: c.note, noteSrc: c.noteSrc } : {});
+    const sc = Object.fromEntries(CRIT.map(([k]) => [k, s[k]]).filter(x => x[1]));
+    p.levelHist = [...(p.levelHist || []).filter(x => x.date !== p.level.date), { date: p.level.date, s: sc }].sort((a, b) => a.date.localeCompare(b.date)).slice(-12);
+    return true;
   }
   const stars = (p, k, small) => { const v = +cur(p)[k] || 0;
     return `<span class="lv-stars ${small ? 'sm' : ''}">${[1, 2, 3, 4, 5].map(n => `<button class="${v >= n ? 'on' : ''}" data-lv="${k}:${n}" aria-label="${n} sur 5 : ${WORD[n]}" title="${WORD[n]}">★</button>`).join('')}</span>`; };
@@ -35,7 +45,8 @@ const Level = (() => {
       <p class="muted small">🔒 Seulement pour les coachs et les responsables. Touche les étoiles (touche à nouveau la même pour l'enlever).</p>
       ${CRIT.map(([k, ic, l, col]) => { const v = +s[k] || 0, d = pv && pv[k] && v ? v - pv[k] : 0;
         return `<div class="lv-row" style="--c:${col}"><span class="lv-l">${ic} ${esc(l)}</span>${stars(p, k)}<span class="lv-w">${v ? esc(WORD[v]) : ''}${d ? ` <i class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</i>` : ''}</span></div>`; }).join('')}
-      <p class="muted small">${s.date ? `Mis à jour le ${esc(UI.fmtDate(s.date, { day: 'numeric', month: 'long', year: 'numeric' }))}${who(s.by) ? ' par ' + esc(who(s.by)) : ''}` : 'Pas encore noté.'}
+      ${s.note ? `<p class="lv-note">💬 ${esc(s.note)}${s.noteSrc ? ` <span class="muted small">(${esc(s.noteSrc)})</span>` : ''}</p>` : ''}
+      <p class="muted small">${s.date ? `Mis à jour le ${esc(UI.fmtDate(s.date, { day: 'numeric', month: 'long', year: 'numeric' }))}${who(s.by) ? ' par ' + esc(who(s.by)) : s.src ? ' par ' + esc(s.src) : ''}` : 'Pas encore noté.'}
         ${(p.teamIds || [])[0] ? ` · <a class="linkish" href="#/niveau/${p.teamIds[0]}">Niveau de l'équipe</a>` : ''}</p></section>`;
   }
   // a star touched on the player's page (true: handled)
@@ -89,5 +100,5 @@ const Level = (() => {
     };
   }
 
-  return { card, click, page, avg, cur, CRIT };
+  return { card, click, page, avg, cur, put, CRIT };
 })();

@@ -188,7 +188,7 @@ const People = (() => {
     return `<h3 class="sub-h">⭐ Notes des dirigeants</h3>
       <p class="muted">${am ? 'Matchs : ' + Ratings.fr(am) + '/10' : ''}${am && at ? ' · ' : ''}${at ? 'Entraînements : ' + Ratings.fr(at) + '/10' : ''}</p>
       <ul class="notes-list">${h.slice(0, 12).map(x => `<li><span class="note-ro" aria-label="${x.v} sur 10"><b>${x.v}</b>/10</span>
-        <span><b>${x.kind === 'match' ? 'Match contre ' + esc(x.ev.opponent || '') : esc(x.ev.title || 'Entraînement')}</b> · ${esc(UI.fmtDate(x.date))}${x.by ? ' · ' + esc(Store.fullName(x.by)) : ''}${x.c ? `<br><span class="muted">« ${esc(x.c)} »</span>` : ''}</span></li>`).join('')}</ul>`;
+        <span><b>${x.kind === 'match' ? 'Match contre ' + esc(x.ev.opponent || '') : esc(x.ev.title || 'Entraînement')}</b> · ${esc(UI.fmtDate(x.date))}${x.by ? ' · ' + esc(Store.fullName(x.by)) : x.src ? ' · ' + esc(x.src) : ''}${x.c ? `<br><span class="muted">« ${esc(x.c)} »</span>` : ''}</span></li>`).join('')}</ul>`;
   }
 
   /* ---------- staff sheet ---------- */
