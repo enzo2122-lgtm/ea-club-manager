@@ -2159,3 +2159,5 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .self-row .self-v { font-size: 20px; font-weight: 800; text-align: right; }
 .self-row .self-v small { font-size: 12px; font-weight: 600; color: var(--muted); }
 .self-row > .small, .self-row > .muted { grid-column: 1 / -1; }
+.fam-notif { margin-top: 12px; }
+.fam-notif .fld { margin-top: 8px; }

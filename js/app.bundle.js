@@ -3643,7 +3643,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.51';
+  const VERSION = '2.52';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -7382,7 +7382,20 @@ var Notify = (() => {
       <label class="switch small"><input type="checkbox" data-notifpref="messages" ${p.messages ? 'checked' : ''}><span>Messages (tout le club, mes catégories, privés)</span></label>
       ${Auth.isAdmin() ? `<label class="switch small"><input type="checkbox" data-notifpref="reports" ${p.reports ? 'checked' : ''}><span>Signalements et idées des éducateurs</span></label>` : ''}
       <label class="switch small"><input type="checkbox" data-notifpref="planning" ${p.planning ? 'checked' : ''}><span>Planning de mes catégories (créneaux, matchs et séances ajoutés, déplacés, supprimés)</span></label>
-      <p class="muted small">Quand quelqu'un écrit <b>@</b> suivi de ton prénom dans un message, tu es prévenu dans tous les cas.</p></div>`;
+      <p class="muted small">Quand quelqu'un écrit <b>@</b> suivi de ton prénom dans un message, tu es prévenu dans tous les cas.</p></div>
+      ${Auth.isAdmin() ? familySection() : ''}`;
+  }
+  // (2.52) what the families' phones receive (the whole club, set by a responsable)
+  const FAM = () => Object.assign({ matchDays: 30, trainDays: 7, relance: S().club.noRelance ? 0 : 1, changeHours: 72 }, S().club.notif || {});
+  function familySection() {
+    const f = FAM(), sel = (k, opts) => `<select data-famnotif="${k}">${opts.map(([v, l]) => `<option value="${v}" ${+f[k] === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+    return `<div class="notif-box fam-notif"><b>👪 Notifications envoyées aux familles</b>
+      <p class="muted small">Pour tout le club. Ce que reçoivent les téléphones des joueurs et des parents qui ont activé les notifications.</p>
+      <label class="fld"><span>📅 Nouveau match : prévenir s'il a lieu dans</span>${sel('matchDays', [[7, 'les 7 jours'], [14, 'les 14 jours'], [30, 'les 30 jours'], [0, 'jamais']])}</label>
+      <label class="fld"><span>🏃 Nouvelle séance : prévenir si elle a lieu dans</span>${sel('trainDays', [[3, 'les 3 jours'], [7, 'les 7 jours'], [14, 'les 14 jours'], [0, 'jamais']])}</label>
+      <label class="fld"><span>⏰ Relance de ceux qui n'ont pas répondu</span>${sel('relance', [[0, 'Aucune'], [1, 'La veille (vers 18 h)'], [2, '2 jours avant et la veille']])}</label>
+      <label class="fld"><span>⚠️ Changement d'horaire, de lieu ou annulation : prévenir si c'est dans</span>${sel('changeHours', [[48, 'les 48 h'], [72, 'les 72 h'], [-1, 'toujours'], [0, 'jamais']])}</label>
+      <p class="muted small">Les convocations, le chat, les tags @ et les messages des coachs ne changent pas.</p></div>`;
   }
   async function mountAccount(root) {
     const box = $('#notifBox', root); if (!box) return;
@@ -7405,6 +7418,7 @@ var Notify = (() => {
     if (act === 'test') { try { const n = await Cloud.pushTest(); toast(n ? 'Test envoyé : la notification arrive dans quelques secondes' : 'Ce téléphone n\'est pas encore inscrit : touche « Activer »', n ? '' : 'err'); } catch (e) { toast(why(e), 'err'); } return; }
   }
   async function onChange(t) {
+    if (t.dataset.famnotif) { S().club.notif = Object.assign(FAM(), { [t.dataset.famnotif]: +t.value }); delete S().club.noRelance; Store.save(); toast('Choix enregistré pour tout le club'); return true; }
     if (!t.dataset.notifpref) return false;
     S().ui.notifPrefs = Object.assign(prefs(), { [t.dataset.notifpref]: t.checked }); Store.persistNow();
     const sub = await current(); if (sub) { try { await Cloud.pushSub(sub.endpoint, prefs()); } catch (e) {} }
@@ -15609,6 +15623,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 108, date: '2026-10-09', title: 'Réglages des notifications aux familles 🔔', items: [
+      ['🔔', 'Réglages → Notifications : le responsable choisit ce que reçoivent les familles. Nouveau match (7, 14, 30 jours avant ou jamais), nouvelle séance (3, 7, 14 jours ou jamais), relance des indécis (aucune, la veille, ou 2 jours avant et la veille), changement ou annulation (48 h, 72 h, toujours ou jamais).'],
+    ] },
     { n: 107, date: '2026-10-09', title: 'Après l\'effort, le joueur répond 💪', items: [
       ['💪', 'Après une séance ou un match, le joueur (ou ses parents) dit sur son accueil si c\'était dur (1 à 10) et s\'il a aimé. Ça compte dans la charge quand le coach n\'a rien noté (📱 sur la séance).'],
       ['🙋', 'Après un match, 3 h après le coup d\'envoi : il se note de 0 à 10, dit son match et l\'équipe en un mot, et vote pour l\'étoile du match.'],
@@ -19407,7 +19424,7 @@ var Views = (() => {
       <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="News.all()">Nouveautés</button> · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
-    root.onchange = e => { if (e.target.dataset.notifpref) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
+    root.onchange = e => { if (e.target.dataset.notifpref || e.target.dataset.famnotif) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
     root.onclick = async e => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
@@ -19729,7 +19746,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 152, UPD = AppCfg.key('update-tried');
+  const BUILD = 153, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

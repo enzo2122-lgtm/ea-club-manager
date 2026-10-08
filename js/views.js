@@ -1153,7 +1153,7 @@ const Views = (() => {
       <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="News.all()">Nouveautés</button> · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
-    root.onchange = e => { if (e.target.dataset.notifpref) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
+    root.onchange = e => { if (e.target.dataset.notifpref || e.target.dataset.famnotif) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
     root.onclick = async e => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
