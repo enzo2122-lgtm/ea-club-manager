@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 102, date: '2026-10-09', title: 'Mesurer l\'écran, plus précis 📏', items: [
+      ['📏', '« Mesurer l\'écran » montre aussi la version de l\'appli et l\'état de la correction de la barre du bas.'],
+    ] },
     { n: 101, date: '2026-10-09', title: 'La barre du bas va jusqu\'au bord 📱', items: [
       ['📱', 'Sur iPhone (appli installée), iOS coupait le bas de l\'écran à la hauteur de la barre d\'état : une bande claire restait sous les onglets. Mesuré sur un iPhone : la barre descend maintenant jusqu\'au bord.'],
     ] },

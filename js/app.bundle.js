@@ -63,14 +63,16 @@ window.ScreenDiag = function () {
     ['100vh / 100dvh / 100lvh / 100svh', [probe('height:100vh'), probe('height:100dvh'), probe('height:100lvh'), probe('height:100svh')].join(' / ')],
     ['Défilement', Math.round(scrollX) + ', ' + Math.round(scrollY)], ['Barre du bas', rr ? Math.round(rr.top) + ' → ' + Math.round(rr.bottom) : '—'],
     ['Appli installée', (navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) ? 'oui' : 'non'], ['Barre d\'état', ms ? ms.content : '—'],
-    ['iOS', (navigator.userAgent.match(/OS (\d+[_\d]*)/) || [, '?'])[1].replace(/_/g, '.')]];
+    ['iOS', (navigator.userAgent.match(/OS (\d+[_\d]*)/) || [, '?'])[1].replace(/_/g, '.')],
+    ['Version de l\'appli', (typeof Help !== 'undefined' && Help.VERSION) || (document.querySelector('script[src*="appcfg.js?v="]') || { src: '' }).src.split('v=')[1] || '?'],
+    ['Correction de la bande', (() => { const f = document.getElementById('iosFill'); if (!f) return 'absente'; const r = f.getBoundingClientRect(); return (document.documentElement.classList.contains('ios-gap') ? 'active' : 'inactive') + ' · ' + Math.round(r.top) + ' → ' + Math.round(r.bottom); })()]];
   const box = document.createElement('div'); box.id = 'scrDiag';
   box.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 10px);z-index:99999;background:#111827;color:#fff;border-radius:14px;padding:12px 14px;font:13px/1.45 system-ui;box-shadow:0 10px 30px rgba(0,0,0,.4)';
   box.innerHTML = '<b style="font-size:15px">📏 Mesures de l\'écran</b><div style="margin:6px 0 8px;opacity:.8">Fais une capture d\'écran et envoie-la. Ligne rouge = bas de la page pour iOS ; bloc vert = juste en dessous. Touche ce cadre pour fermer.</div>'
     + rows.map(r => '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.12);padding:3px 0"><span style="opacity:.75">' + r[0] + '</span><b>' + r[1] + '</b></div>').join('');
   box.onclick = () => window.ScreenDiag();
   const red = document.createElement('div'); red.className = 'scr-mark'; red.style.cssText = 'position:fixed;left:0;right:0;bottom:0;height:6px;background:#ef4444;z-index:99998;pointer-events:none';
-  const green = document.createElement('div'); green.className = 'scr-mark'; green.style.cssText = 'position:absolute;left:0;right:0;height:140px;background:repeating-linear-gradient(45deg,#16a34a 0 14px,#22c55e 14px 28px);z-index:99998;pointer-events:none;top:' + (scrollY + innerHeight) + 'px';
+  const green = document.createElement('div'); green.className = 'scr-mark'; green.style.cssText = 'position:absolute;left:0;width:30%;height:140px;background:repeating-linear-gradient(45deg,#16a34a 0 14px,#22c55e 14px 28px);z-index:99998;pointer-events:none;top:' + (scrollY + innerHeight) + 'px';
   const blue = document.createElement('div'); blue.className = 'scr-mark'; blue.style.cssText = 'position:fixed;left:0;width:40%;top:0;height:100lvh;border-right:6px solid #3b82f6;z-index:99997;pointer-events:none';
   document.body.append(box, red, green, blue);
 };
@@ -3659,7 +3661,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.45';
+  const VERSION = '2.46';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15620,6 +15622,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 102, date: '2026-10-09', title: 'Mesurer l\'écran, plus précis 📏', items: [
+      ['📏', '« Mesurer l\'écran » montre aussi la version de l\'appli et l\'état de la correction de la barre du bas.'],
+    ] },
     { n: 101, date: '2026-10-09', title: 'La barre du bas va jusqu\'au bord 📱', items: [
       ['📱', 'Sur iPhone (appli installée), iOS coupait le bas de l\'écran à la hauteur de la barre d\'état : une bande claire restait sous les onglets. Mesuré sur un iPhone : la barre descend maintenant jusqu\'au bord.'],
     ] },
@@ -19682,7 +19687,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 146, UPD = AppCfg.key('update-tried');
+  const BUILD = 147, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
