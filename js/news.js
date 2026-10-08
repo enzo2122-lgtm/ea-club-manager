@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 112, date: '2026-10-09', title: 'Le match en profondeur 📈', items: [
+      ['🥅', 'Match en direct : sur un but encaissé, l\'origine (contre-attaque, corner, coup franc…), les joueurs impliqués, ce qui n\'a pas marché (placement, duel, marquage…) et leur part (décisive, importante, mitigée).'],
+      ['⚽', 'Sur nos buts : leur origine. Nouveau bouton « 🧤 Arrêt du gardien » : le type d\'arrêt (sur sa ligne, dans les pieds, aérien, de loin, face à face, penalty) et ⭐ arrêt décisif.'],
+      ['👍', 'Possession : deux gros boutons « Nous » / « Eux », le pourcentage se calcule pendant que le chrono tourne.'],
+      ['📈', 'Onglet Après : « Analyse du match » avec tout ça résumé.'],
+    ] },
     { n: 111, date: '2026-10-09', title: 'Générateur de tournoi 🏆', items: [
       ['🏆', 'Chrono et score → « Tournoi » : écris les équipes, choisis la formule (tous contre tous, 2 poules + finales, élimination directe) et le nombre de terrains. Les matchs sont rangés par créneau et par terrain.'],
       ['📊', 'Tu tapes les scores : le classement se calcule tout seul, les finales et les tours suivants se créent dès que c\'est fini (tirs au but en cas d\'égalité), et le vainqueur s\'affiche.'],

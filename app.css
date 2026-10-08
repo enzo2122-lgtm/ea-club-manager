@@ -2212,3 +2212,18 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .tn-table th, .tn-table td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: center; }
 .tn-table td:nth-child(2), .tn-table th:nth-child(2) { text-align: left; }
 .tn-champ { padding: 16px; border-radius: 18px; background: linear-gradient(135deg, #fde68a, #f59e0b); color: #422006; font-size: 20px; text-align: center; margin: 12px 0; }
+/* (2.56) live: possession, analysis of the match */
+.lv-poss-bar { height: 12px; border-radius: 99px; background: #fecaca; overflow: hidden; flex: 1; min-width: 80px; }
+.lv-poss-bar i { display: block; height: 100%; background: #16a34a; border-radius: 99px; transition: width .3s; }
+.lv-poss-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 4px; }
+.lv-poss-btns button { min-height: 64px; border-radius: 16px; border: 2px solid #16a34a; background: var(--surface); color: #15803d; font-size: 20px; font-weight: 900; }
+.lv-poss-btns button.them { border-color: #dc2626; color: #b91c1c; }
+.lv-poss-btns button.on { background: #16a34a; color: #fff; }
+.lv-poss-btns button.them.on { background: #dc2626; color: #fff; }
+.an-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.an-card { text-align: left; }
+.an-row > span { font-weight: 700; font-size: 14px; }
+.an-row > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.an-row:has(.lv-poss-bar) { grid-template-columns: 170px minmax(0, 1fr) auto; }
+.an-chip { display: inline-flex; gap: 6px; padding: 4px 10px; border-radius: 99px; background: var(--soft, #f1f5f9); font-size: 13px; }
+@media (max-width: 520px) { .an-row, .an-row:has(.lv-poss-bar) { grid-template-columns: 1fr; } }

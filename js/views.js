@@ -898,6 +898,7 @@ const Views = (() => {
         ${m.played && conv.length ? minutesCard(m, conv) + Season.detailCard(m) + Health.rpeBox(m, conv.map(p => p.id), 'match') : ''}
         <div id="rateBox"></div>
         ${m.played && conv.length ? selfEvalCard(m, conv) : ''}
+        ${m.played ? Live.analysis(m) : ''}
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('match:' + m.id, 'Photos et vidéos du match')}
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
