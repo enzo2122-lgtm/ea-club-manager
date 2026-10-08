@@ -81,6 +81,7 @@ const Sync = (() => {
 
   /* ---------- send ---------- */
   async function push() {
+    if (typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly()) return; // (2.61) observation: nothing goes to the server
     const H = meta().h, cur = current(), out = [], now = Date.now();
     for (const [k, [col, x]] of Object.entries(cur)) {
       if (fp(x) === H[k]) continue;

@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 117, date: '2026-10-09', title: 'Accès en observation (lecture seule) 👀', items: [
+      ['👀', 'Sur la fiche d\'un dirigeant, le responsable choisit « Accès : Observation » : il voit les catégories qui lui sont ouvertes (toutes pour un président ou un superviseur) sans rien pouvoir modifier. Le serveur refuse aussi ses changements.'],
+    ] },
     { n: 116, date: '2026-10-09', title: 'Documents PDF de l\'équipe 📄', items: [
       ['🧾', 'Sur la page d\'une catégorie, « Documents PDF » : les fiches de tout l\'effectif en un PDF (postes, contacts, fiche urgence, saison, tests, niveau).'],
       ['📅', 'Le bilan des entraînements de date à date : la présence de chaque joueur (%, retards, motifs d\'absence) et la liste des séances.'],
