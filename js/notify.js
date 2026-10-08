@@ -7,7 +7,7 @@ const Notify = (() => {
   const ios = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = () => matchMedia('(display-mode: standalone)').matches || !!navigator.standalone;
   const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-  const prefs = () => Object.assign({ messages: true, planning: true }, S().ui.notifPrefs || {});
+  const prefs = () => Object.assign({ messages: true, planning: true, reports: true }, S().ui.notifPrefs || {});
   const b64 = s => { const r = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
   const why = e => e && e.code === 'MISE_A_JOUR' ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes.' : (e && e.message) || 'Erreur';
   // the app's service worker (it shows the notifications); null if it does not answer within 4 s
@@ -46,7 +46,8 @@ const Notify = (() => {
     return `<div class="notif-box" id="notifBox"><b>🔔 Notifications sur ce téléphone</b>
       <p class="muted small" id="notifState">Vérification…</p>
       <div class="chips" id="notifBtns"></div>
-      <label class="switch small"><input type="checkbox" data-notifpref="messages" ${p.messages ? 'checked' : ''}><span>Messages (tout le club, mes catégories, privés, signalements)</span></label>
+      <label class="switch small"><input type="checkbox" data-notifpref="messages" ${p.messages ? 'checked' : ''}><span>Messages (tout le club, mes catégories, privés)</span></label>
+      ${Auth.isAdmin() ? `<label class="switch small"><input type="checkbox" data-notifpref="reports" ${p.reports ? 'checked' : ''}><span>Signalements et idées des éducateurs</span></label>` : ''}
       <label class="switch small"><input type="checkbox" data-notifpref="planning" ${p.planning ? 'checked' : ''}><span>Planning de mes catégories (créneaux, matchs et séances ajoutés, déplacés, supprimés)</span></label>
       <p class="muted small">Quand quelqu'un écrit <b>@</b> suivi de ton prénom dans un message, tu es prévenu dans tous les cas.</p></div>`;
   }

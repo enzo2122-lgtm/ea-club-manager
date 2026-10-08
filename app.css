@@ -1993,8 +1993,10 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 
 /* ---------- 2.01 : plus confortable au doigt sur téléphone ---------- */
 @media (max-width: 760px) {
-  /* les boutons d'en-tête sur une seule ligne qui défile, au lieu de 3 ou 4 lignes avant le contenu */
-  .head-actions { flex-wrap: nowrap; }
+  /* (2.14) les boutons d'en-tête : le surplus est dans « ⋯ » ; ce qui reste passe à la ligne au lieu d'élargir la page (le téléphone dézoomait) */
+  .head-actions { flex-wrap: wrap; max-width: 100%; min-width: 0; }
+  .head-actions > .btn { max-width: 100%; min-width: 0; }
+  .head-actions > .btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   .head-actions .btn { min-height: 42px; }
   .mini-step button { width: 42px; height: 42px; }
   .ex .ex-tog { min-height: 42px; }
@@ -2022,3 +2024,22 @@ button.sending { opacity: .55; pointer-events: none; }
 .fx-pen:hover { border-color: var(--accent, #c9a45c); }
 .fix-card { border-left: 4px solid var(--accent, #c9a45c); }
 .fx-warn-pen { border-color: #b7791f; background: color-mix(in srgb, #b7791f 14%, var(--surface, #fff)); }
+/* (2.14) « Signalements et idées » */
+.rep-card .rep-top { display: flex; align-items: flex-start; gap: 10px; }
+.rep-card .rep-top > div { flex: 1; min-width: 0; }
+.rep-card .rep-ic { font-size: 22px; line-height: 1; }
+.rep-card .rep-st { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: color-mix(in srgb, #b7791f 16%, transparent); white-space: nowrap; }
+.rep-card .rep-st.ok { background: color-mix(in srgb, #15803d 16%, transparent); }
+.rep-card .rep-text { margin: 8px 0 4px; white-space: pre-wrap; }
+.rep-card.done { opacity: .75; }
+.rep-shotbtn { border: 0; padding: 0; background: none; cursor: zoom-in; margin-top: 6px; }
+.rep-shotbtn img { max-width: 180px; max-height: 220px; border-radius: 10px; border: 1px solid var(--line, #d0d4dc); }
+
+/* (2.14) téléphone : la page ne déborde jamais sur le côté (sinon il dézoome puis rezoome), et un champ touché ne fait plus zoomer l'iPhone (texte de 16 px au moins) */
+@media (max-width: 760px) {
+  html, body { overflow-x: hidden; }
+  .page-head, .page-head > div { min-width: 0; max-width: 100%; }
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea { font-size: 16px !important; }
+}
+/* (2.14) le menu « ⋯ » : placé par le script pour rester dans l'écran (à gauche comme à droite) */
+.more-pop { max-height: calc(100vh - 120px); overflow-y: auto; }

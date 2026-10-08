@@ -2,7 +2,7 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.13';
+  const VERSION = '2.14';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -194,7 +194,7 @@ const Help = (() => {
       <div class="rep-shot"><button class="btn soft" type="button" id="repShot">${I.image}<span>Ajouter une capture d'écran</span></button><span id="repShotView"></span></div>
       <p class="muted small">Astuce : fais une capture d'écran du problème avec ton téléphone, puis ajoute-la ici.</p>
       <label class="switch"><input type="checkbox" id="repDiag" checked><span>Joindre les infos techniques (version, appareil, erreurs)</span></label>
-      <p class="tip">${toAdmins ? 'Le message part tout de suite aux responsables du club, dans leurs <b>messages privés</b>.' : Auth.isAdmin() ? 'Tu es responsable : le message est gardé dans Tableau de bord → Signalements.' : 'Le message est gardé dans l\'appli et part au serveur du club au retour du réseau.'}${email ? ` « E-mail » l'envoie aussi à ${esc(email)}.` : ''}</p>`,
+      <p class="tip">${toAdmins ? 'Le message part tout de suite aux responsables du club, dans <b>Signalements et idées</b> (pas dans la messagerie), avec une notification.' : Auth.isAdmin() ? 'Tu es responsable : le message est gardé dans Tableau de bord → Signalements.' : 'Le message est gardé dans l\'appli et part au serveur du club au retour du réseau.'}${email ? ` « E-mail » l'envoie aussi à ${esc(email)}.` : ''}</p>`,
       onOpen: r => {
         $$('#repType .chip', r).forEach(b => b.onclick = () => { $$('#repType .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); });
         // a screenshot, made light (it travels with the report)
@@ -210,16 +210,9 @@ const Help = (() => {
         { label: toAdmins ? 'Envoyer au responsable' : 'Enregistrer', kind: 'primary', icon: I.check, onClick: (c, r) => send(r, 'app', page, shot) },
       ] });
   }
-  // The report goes to every responsable as a private message (club messaging), so it is seen at once
-  async function deliver(rep) {
-    const me = Auth.current(); if (!me || !Cloud.ready()) return 0;
-    const admins = ((await Cloud.accounts()) || []).filter(a => a.admin && a.staff_id !== me.id);
-    const msg = [`${TYPES[rep.type][0]} ${TYPES[rep.type][1]} signalé depuis la page « ${rep.page} »`, rep.text, rep.context ? 'Ce que je faisais : ' + rep.context : '',
-      rep.withDiag ? `(version ${VERSION} · ${/iPhone|iPad/.test(navigator.userAgent) ? 'iPhone / iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'ordinateur'}${(rep.diag.errors || []).length ? ' · ' + rep.diag.errors.length + ' erreur(s) notée(s)' : ''})` : '',
-      ].filter(Boolean).join('\n').slice(0, 1900) + (rep.shot ? `\n[[signalement:${rep.id}]]` : ''); // the screenshot shows in the message
-    let n = 0; for (const a of admins) { try { await Cloud.post('dm:' + [me.id, a.staff_id].sort().join(':'), msg); n++; } catch (e) {} }
-    return n;
-  }
+  // (2.14) the report is no longer a private message: it is kept with the club's data (synced) and lands in « Signalements et idées »;
+  // the club server sends the responsables a notification when it arrives
+  const deliver = () => Promise.resolve(1);
   function send(r, how, page, shot) {
     const text = $('#repText', r).value.trim();
     if (!text) { toast('Écris d\'abord ton message', 'err'); return false; }
@@ -235,7 +228,7 @@ const Help = (() => {
       else if (navigator.clipboard) navigator.clipboard.writeText(body).then(() => toast('Message copié : colle-le dans WhatsApp ou un mail')).catch(() => {});
     }
     if (how === 'app' && Cloud.ready() && !Auth.isAdmin()) {
-      deliver(rep).then(n => toast(n ? `Merci ! ${n > 1 ? 'Les responsables ont' : 'Le responsable a'} reçu ton message` : 'Merci ! Ton message est enregistré, le responsable le verra dans l\'appli')).catch(() => toast('Merci ! Ton message est enregistré'));
+      deliver(rep).then(() => { if (typeof Sync !== 'undefined' && Sync.now) Sync.now(); toast('Merci ! Les responsables le reçoivent dans « Signalements et idées »'); }).catch(() => toast('Merci ! Ton message est enregistré'));
     } else toast('Merci ! Ton message est enregistré');
   }
 
@@ -248,8 +241,8 @@ const Help = (() => {
       ${admin ? `<label class="fld" style="margin-top:14px"><span>E-mail qui reçoit les signalements des éducateurs</span><input id="repEmail" type="email" inputmode="email" value="${esc(c.reportEmail || '')}" placeholder="ton.adresse@exemple.fr"></label>
         <p class="muted small">Cet e-mail est transmis aux autres éducateurs avec « Envoyer toutes mes données ». Les messages enregistrés sur leur appareil te reviennent aussi quand ils t'envoient leurs données.</p>
         ${votesHtml()}
-        <h3 class="sub-h">Messages reçus (${reps.length})</h3>
-        ${reps.length ? `<div class="rep-list">${reps.map(x => `<details class="rep ${x.status === 'done' ? 'done' : ''}"><summary><span>${TYPES[x.type][0]}</span><b>${esc(x.text.slice(0, 70))}${x.text.length > 70 ? '…' : ''}</b><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}</span></summary>
+        <p style="margin-top:12px"><a class="btn primary" href="#/signalements">🐞<span>Signalements et idées (${reps.filter(x => x.status !== 'done').length} à traiter)</span></a></p>
+        ${false ? `<div class="rep-list">${reps.map(x => `<details class="rep ${x.status === 'done' ? 'done' : ''}"><summary><span>${TYPES[x.type][0]}</span><b>${esc(x.text.slice(0, 70))}${x.text.length > 70 ? '…' : ''}</b><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}</span></summary>
           <pre>${esc(textOf(x))}</pre>${x.shot ? `<img class="rep-img" alt="Capture d'écran" src="${x.shot}">` : ''}<button class="btn" data-repdone="${x.id}">${x.status === 'done' ? 'Marquer à traiter' : 'Marquer comme traité'}</button></details>`).join('')}</div>` : '<p class="muted">Aucun message pour l\'instant.</p>'}` : ''}
     </section>`;
   }
@@ -259,6 +252,41 @@ const Help = (() => {
     $$('[data-repdone]', root).forEach(b => b.onclick = e => { e.stopPropagation(); const x = Store.get('reports', b.dataset.repdone); x.status = x.status === 'done' ? 'new' : 'done'; Store.upsert('reports', x); rerender(); });
   }
 
-  return { watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES };
+  /* ---------- (2.14) « Signalements et idées »: problems, ideas and questions together, apart from the messages ----------
+     A responsable sees everything (to handle); a coach sees his own and whether they were handled. */
+  const listOf = () => { const me = Auth.current(), admin = Auth.isAdmin();
+    return Store.state.reports.filter(x => !x.life && x.type !== 'avis' && TYPES[x.type] && (admin || (me && x.by === me.id))).sort((a, b) => b.at - a.at); };
+  const toDo = () => Auth.isAdmin() ? listOf().filter(x => x.status !== 'done').length : 0;
+  function inboxBadge() {
+    const n = toDo(); document.querySelectorAll('a[href="#/signalements"]').forEach(a => { if (!a.closest('#nav, .more-item, .rail, nav')) return;
+      let b = a.querySelector('.nav-badge'); if (!b) { b = document.createElement('i'); b.className = 'nav-badge'; a.appendChild(b); } b.textContent = n > 9 ? '9+' : n; b.hidden = !n; });
+  }
+  let flt = { type: '', st: 'todo' };
+  function inbox(root) {
+    const admin = Auth.isAdmin(), all = listOf(), me = Auth.current();
+    const list = all.filter(x => (!flt.type || x.type === flt.type) && (flt.st === 'all' || (flt.st === 'done' ? x.status === 'done' : x.status !== 'done')));
+    const n = t => all.filter(x => x.type === t && (flt.st === 'all' || (flt.st === 'done' ? x.status === 'done' : x.status !== 'done'))).length;
+    const dm = x => x.by && me && x.by !== me.id ? '#/messages/dm:' + [me.id, x.by].sort().join(':') : '';
+    root.innerHTML = `<header class="page-head"><div><h1>🐞 Signalements et idées</h1><p class="sub">${admin ? 'Les problèmes, idées et questions envoyés par les éducateurs, à part des messages' : 'Ce que tu as signalé ou proposé, et où ça en est'}</p></div>
+      </header><div class="chips" style="margin-bottom:10px"><button class="btn" data-help="bug">🐞<span>Signaler un problème</span></button><button class="btn primary" data-help="idea">💡<span>Proposer une idée</span></button></div>
+      <div class="chips"><button class="chip ${!flt.type ? 'on' : ''}" data-ft="">Tout</button>${Object.entries(TYPES).map(([k, [e, l]]) => `<button class="chip ${flt.type === k ? 'on' : ''}" data-ft="${k}">${e} ${l === 'Idée' ? 'Idées' : l === 'Problème' ? 'Problèmes' : 'Questions'} (${n(k)})</button>`).join('')}</div>
+      <div class="chips" style="margin:8px 0 12px"><button class="chip ${flt.st === 'todo' ? 'on' : ''}" data-fs="todo">⏳ À traiter (${all.filter(x => x.status !== 'done').length})</button><button class="chip ${flt.st === 'done' ? 'on' : ''}" data-fs="done">✅ Traités (${all.filter(x => x.status === 'done').length})</button><button class="chip ${flt.st === 'all' ? 'on' : ''}" data-fs="all">Tous</button></div>
+      ${list.length ? `<div class="rep-list">${list.map(x => `<section class="card rep-card ${x.status === 'done' ? 'done' : ''}">
+        <div class="rep-top"><span class="rep-ic">${TYPES[x.type][0]}</span><div><b>${esc(TYPES[x.type][1])}</b> · <span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}${x.page ? ' · page « ' + esc(x.page) + ' »' : ''}</span></div>
+          <span class="rep-st ${x.status === 'done' ? 'ok' : ''}">${x.status === 'done' ? '✅ Traité' : '⏳ À traiter'}</span></div>
+        <p class="rep-text">${esc(x.text)}</p>${x.context ? `<p class="muted small">Ce qu'il faisait : ${esc(x.context)}</p>` : ''}
+        ${x.shot ? `<button class="rep-shotbtn" data-repshot="${esc(x.id)}" aria-label="Voir la capture d'écran"><img alt="Capture d'écran" src="${x.shot}"></button>` : ''}
+        ${x.withDiag ? `<details class="muted small"><summary>Infos techniques</summary><pre>${esc(textOf(x).split('--- Infos techniques ---')[1] || '')}</pre></details>` : ''}
+        ${admin ? `<div class="chips" style="margin-top:8px"><button class="btn ${x.status === 'done' ? '' : 'primary'}" data-repdone="${esc(x.id)}">${x.status === 'done' ? '↩️<span>Remettre à traiter</span>' : '✅<span>Marquer comme traité</span>'}</button>${dm(x) ? `<a class="btn soft" href="${dm(x)}">💬<span>Répondre en message privé</span></a>` : ''}</div>` : ''}
+      </section>`).join('')}</div>` : `<p class="empty">${flt.st === 'todo' ? (admin ? 'Rien à traiter 🎉' : 'Rien en attente.') : 'Rien ici.'}</p>`}
+      ${admin ? votesHtml() : ''}`;
+    $$('[data-ft]', root).forEach(b => b.onclick = () => { flt.type = b.dataset.ft; inbox(root); });
+    $$('[data-fs]', root).forEach(b => b.onclick = () => { flt.st = b.dataset.fs; inbox(root); });
+    $$('[data-help]', root).forEach(b => b.onclick = () => report(b.dataset.help));
+    $$('[data-repdone]', root).forEach(b => b.onclick = () => { const x = Store.get('reports', b.dataset.repdone); x.status = x.status === 'done' ? 'new' : 'done'; x.doneAt = Date.now(); Store.upsert('reports', x); inbox(root); inboxBadge(); });
+    $$('[data-repshot]', root).forEach(b => b.onclick = () => { const x = Store.get('reports', b.dataset.repshot); if (x && x.shot) modal({ title: 'Capture d\'écran', body: `<img alt="Capture d'écran" src="${x.shot}" style="width:100%;border-radius:10px">`, actions: [{ label: 'Fermer' }] }); });
+    inboxBadge();
+  }
+  return { watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES, inbox, inboxBadge };
 })();
 Help.watch();

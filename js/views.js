@@ -84,6 +84,13 @@ const Views = (() => {
   }
   const header = (title, sub, actions = '') => `<header class="page-head"><div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div><div class="head-actions">${compactActions(actions)}</div></header>`;
   // the menu closes after a choice, or a touch elsewhere
+  // (2.14) « ⋯ » at the left of the screen (phone): its menu opened to the left, out of the screen; now it is moved back inside
+  document.addEventListener('toggle', e => {
+    const d = e.target; if (!d.matches || !d.matches('details.more-acts') || !d.open) return;
+    const pop = d.querySelector('.more-pop'); if (!pop) return; pop.style.transform = '';
+    const r = pop.getBoundingClientRect(), W = document.documentElement.clientWidth, m = 8;
+    const dx = r.left < m ? m - r.left : r.right > W - m ? (W - m) - r.right : 0; if (dx) pop.style.transform = `translateX(${Math.round(dx)}px)`;
+  }, true);
   document.addEventListener('click', e => { document.querySelectorAll('details.more-acts[open]').forEach(d => { if (!d.contains(e.target) || e.target.closest('.more-pop')) setTimeout(() => d.removeAttribute('open'), 0); }); });
 
   /* ================= Accueil ================= */

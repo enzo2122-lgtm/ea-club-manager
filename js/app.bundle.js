@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.13';
+  const VERSION = '2.14';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3745,7 +3745,7 @@ var Help = (() => {
       <div class="rep-shot"><button class="btn soft" type="button" id="repShot">${I.image}<span>Ajouter une capture d'écran</span></button><span id="repShotView"></span></div>
       <p class="muted small">Astuce : fais une capture d'écran du problème avec ton téléphone, puis ajoute-la ici.</p>
       <label class="switch"><input type="checkbox" id="repDiag" checked><span>Joindre les infos techniques (version, appareil, erreurs)</span></label>
-      <p class="tip">${toAdmins ? 'Le message part tout de suite aux responsables du club, dans leurs <b>messages privés</b>.' : Auth.isAdmin() ? 'Tu es responsable : le message est gardé dans Tableau de bord → Signalements.' : 'Le message est gardé dans l\'appli et part au serveur du club au retour du réseau.'}${email ? ` « E-mail » l'envoie aussi à ${esc(email)}.` : ''}</p>`,
+      <p class="tip">${toAdmins ? 'Le message part tout de suite aux responsables du club, dans <b>Signalements et idées</b> (pas dans la messagerie), avec une notification.' : Auth.isAdmin() ? 'Tu es responsable : le message est gardé dans Tableau de bord → Signalements.' : 'Le message est gardé dans l\'appli et part au serveur du club au retour du réseau.'}${email ? ` « E-mail » l'envoie aussi à ${esc(email)}.` : ''}</p>`,
       onOpen: r => {
         $$('#repType .chip', r).forEach(b => b.onclick = () => { $$('#repType .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); });
         // a screenshot, made light (it travels with the report)
@@ -3761,16 +3761,9 @@ var Help = (() => {
         { label: toAdmins ? 'Envoyer au responsable' : 'Enregistrer', kind: 'primary', icon: I.check, onClick: (c, r) => send(r, 'app', page, shot) },
       ] });
   }
-  // The report goes to every responsable as a private message (club messaging), so it is seen at once
-  async function deliver(rep) {
-    const me = Auth.current(); if (!me || !Cloud.ready()) return 0;
-    const admins = ((await Cloud.accounts()) || []).filter(a => a.admin && a.staff_id !== me.id);
-    const msg = [`${TYPES[rep.type][0]} ${TYPES[rep.type][1]} signalé depuis la page « ${rep.page} »`, rep.text, rep.context ? 'Ce que je faisais : ' + rep.context : '',
-      rep.withDiag ? `(version ${VERSION} · ${/iPhone|iPad/.test(navigator.userAgent) ? 'iPhone / iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'ordinateur'}${(rep.diag.errors || []).length ? ' · ' + rep.diag.errors.length + ' erreur(s) notée(s)' : ''})` : '',
-      ].filter(Boolean).join('\n').slice(0, 1900) + (rep.shot ? `\n[[signalement:${rep.id}]]` : ''); // the screenshot shows in the message
-    let n = 0; for (const a of admins) { try { await Cloud.post('dm:' + [me.id, a.staff_id].sort().join(':'), msg); n++; } catch (e) {} }
-    return n;
-  }
+  // (2.14) the report is no longer a private message: it is kept with the club's data (synced) and lands in « Signalements et idées »;
+  // the club server sends the responsables a notification when it arrives
+  const deliver = () => Promise.resolve(1);
   function send(r, how, page, shot) {
     const text = $('#repText', r).value.trim();
     if (!text) { toast('Écris d\'abord ton message', 'err'); return false; }
@@ -3786,7 +3779,7 @@ var Help = (() => {
       else if (navigator.clipboard) navigator.clipboard.writeText(body).then(() => toast('Message copié : colle-le dans WhatsApp ou un mail')).catch(() => {});
     }
     if (how === 'app' && Cloud.ready() && !Auth.isAdmin()) {
-      deliver(rep).then(n => toast(n ? `Merci ! ${n > 1 ? 'Les responsables ont' : 'Le responsable a'} reçu ton message` : 'Merci ! Ton message est enregistré, le responsable le verra dans l\'appli')).catch(() => toast('Merci ! Ton message est enregistré'));
+      deliver(rep).then(() => { if (typeof Sync !== 'undefined' && Sync.now) Sync.now(); toast('Merci ! Les responsables le reçoivent dans « Signalements et idées »'); }).catch(() => toast('Merci ! Ton message est enregistré'));
     } else toast('Merci ! Ton message est enregistré');
   }
 
@@ -3799,8 +3792,8 @@ var Help = (() => {
       ${admin ? `<label class="fld" style="margin-top:14px"><span>E-mail qui reçoit les signalements des éducateurs</span><input id="repEmail" type="email" inputmode="email" value="${esc(c.reportEmail || '')}" placeholder="ton.adresse@exemple.fr"></label>
         <p class="muted small">Cet e-mail est transmis aux autres éducateurs avec « Envoyer toutes mes données ». Les messages enregistrés sur leur appareil te reviennent aussi quand ils t'envoient leurs données.</p>
         ${votesHtml()}
-        <h3 class="sub-h">Messages reçus (${reps.length})</h3>
-        ${reps.length ? `<div class="rep-list">${reps.map(x => `<details class="rep ${x.status === 'done' ? 'done' : ''}"><summary><span>${TYPES[x.type][0]}</span><b>${esc(x.text.slice(0, 70))}${x.text.length > 70 ? '…' : ''}</b><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}</span></summary>
+        <p style="margin-top:12px"><a class="btn primary" href="#/signalements">🐞<span>Signalements et idées (${reps.filter(x => x.status !== 'done').length} à traiter)</span></a></p>
+        ${false ? `<div class="rep-list">${reps.map(x => `<details class="rep ${x.status === 'done' ? 'done' : ''}"><summary><span>${TYPES[x.type][0]}</span><b>${esc(x.text.slice(0, 70))}${x.text.length > 70 ? '…' : ''}</b><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}</span></summary>
           <pre>${esc(textOf(x))}</pre>${x.shot ? `<img class="rep-img" alt="Capture d'écran" src="${x.shot}">` : ''}<button class="btn" data-repdone="${x.id}">${x.status === 'done' ? 'Marquer à traiter' : 'Marquer comme traité'}</button></details>`).join('')}</div>` : '<p class="muted">Aucun message pour l\'instant.</p>'}` : ''}
     </section>`;
   }
@@ -3810,7 +3803,42 @@ var Help = (() => {
     $$('[data-repdone]', root).forEach(b => b.onclick = e => { e.stopPropagation(); const x = Store.get('reports', b.dataset.repdone); x.status = x.status === 'done' ? 'new' : 'done'; Store.upsert('reports', x); rerender(); });
   }
 
-  return { watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES };
+  /* ---------- (2.14) « Signalements et idées »: problems, ideas and questions together, apart from the messages ----------
+     A responsable sees everything (to handle); a coach sees his own and whether they were handled. */
+  const listOf = () => { const me = Auth.current(), admin = Auth.isAdmin();
+    return Store.state.reports.filter(x => !x.life && x.type !== 'avis' && TYPES[x.type] && (admin || (me && x.by === me.id))).sort((a, b) => b.at - a.at); };
+  const toDo = () => Auth.isAdmin() ? listOf().filter(x => x.status !== 'done').length : 0;
+  function inboxBadge() {
+    const n = toDo(); document.querySelectorAll('a[href="#/signalements"]').forEach(a => { if (!a.closest('#nav, .more-item, .rail, nav')) return;
+      let b = a.querySelector('.nav-badge'); if (!b) { b = document.createElement('i'); b.className = 'nav-badge'; a.appendChild(b); } b.textContent = n > 9 ? '9+' : n; b.hidden = !n; });
+  }
+  let flt = { type: '', st: 'todo' };
+  function inbox(root) {
+    const admin = Auth.isAdmin(), all = listOf(), me = Auth.current();
+    const list = all.filter(x => (!flt.type || x.type === flt.type) && (flt.st === 'all' || (flt.st === 'done' ? x.status === 'done' : x.status !== 'done')));
+    const n = t => all.filter(x => x.type === t && (flt.st === 'all' || (flt.st === 'done' ? x.status === 'done' : x.status !== 'done'))).length;
+    const dm = x => x.by && me && x.by !== me.id ? '#/messages/dm:' + [me.id, x.by].sort().join(':') : '';
+    root.innerHTML = `<header class="page-head"><div><h1>🐞 Signalements et idées</h1><p class="sub">${admin ? 'Les problèmes, idées et questions envoyés par les éducateurs, à part des messages' : 'Ce que tu as signalé ou proposé, et où ça en est'}</p></div>
+      </header><div class="chips" style="margin-bottom:10px"><button class="btn" data-help="bug">🐞<span>Signaler un problème</span></button><button class="btn primary" data-help="idea">💡<span>Proposer une idée</span></button></div>
+      <div class="chips"><button class="chip ${!flt.type ? 'on' : ''}" data-ft="">Tout</button>${Object.entries(TYPES).map(([k, [e, l]]) => `<button class="chip ${flt.type === k ? 'on' : ''}" data-ft="${k}">${e} ${l === 'Idée' ? 'Idées' : l === 'Problème' ? 'Problèmes' : 'Questions'} (${n(k)})</button>`).join('')}</div>
+      <div class="chips" style="margin:8px 0 12px"><button class="chip ${flt.st === 'todo' ? 'on' : ''}" data-fs="todo">⏳ À traiter (${all.filter(x => x.status !== 'done').length})</button><button class="chip ${flt.st === 'done' ? 'on' : ''}" data-fs="done">✅ Traités (${all.filter(x => x.status === 'done').length})</button><button class="chip ${flt.st === 'all' ? 'on' : ''}" data-fs="all">Tous</button></div>
+      ${list.length ? `<div class="rep-list">${list.map(x => `<section class="card rep-card ${x.status === 'done' ? 'done' : ''}">
+        <div class="rep-top"><span class="rep-ic">${TYPES[x.type][0]}</span><div><b>${esc(TYPES[x.type][1])}</b> · <span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}${x.page ? ' · page « ' + esc(x.page) + ' »' : ''}</span></div>
+          <span class="rep-st ${x.status === 'done' ? 'ok' : ''}">${x.status === 'done' ? '✅ Traité' : '⏳ À traiter'}</span></div>
+        <p class="rep-text">${esc(x.text)}</p>${x.context ? `<p class="muted small">Ce qu'il faisait : ${esc(x.context)}</p>` : ''}
+        ${x.shot ? `<button class="rep-shotbtn" data-repshot="${esc(x.id)}" aria-label="Voir la capture d'écran"><img alt="Capture d'écran" src="${x.shot}"></button>` : ''}
+        ${x.withDiag ? `<details class="muted small"><summary>Infos techniques</summary><pre>${esc(textOf(x).split('--- Infos techniques ---')[1] || '')}</pre></details>` : ''}
+        ${admin ? `<div class="chips" style="margin-top:8px"><button class="btn ${x.status === 'done' ? '' : 'primary'}" data-repdone="${esc(x.id)}">${x.status === 'done' ? '↩️<span>Remettre à traiter</span>' : '✅<span>Marquer comme traité</span>'}</button>${dm(x) ? `<a class="btn soft" href="${dm(x)}">💬<span>Répondre en message privé</span></a>` : ''}</div>` : ''}
+      </section>`).join('')}</div>` : `<p class="empty">${flt.st === 'todo' ? (admin ? 'Rien à traiter 🎉' : 'Rien en attente.') : 'Rien ici.'}</p>`}
+      ${admin ? votesHtml() : ''}`;
+    $$('[data-ft]', root).forEach(b => b.onclick = () => { flt.type = b.dataset.ft; inbox(root); });
+    $$('[data-fs]', root).forEach(b => b.onclick = () => { flt.st = b.dataset.fs; inbox(root); });
+    $$('[data-help]', root).forEach(b => b.onclick = () => report(b.dataset.help));
+    $$('[data-repdone]', root).forEach(b => b.onclick = () => { const x = Store.get('reports', b.dataset.repdone); x.status = x.status === 'done' ? 'new' : 'done'; x.doneAt = Date.now(); Store.upsert('reports', x); inbox(root); inboxBadge(); });
+    $$('[data-repshot]', root).forEach(b => b.onclick = () => { const x = Store.get('reports', b.dataset.repshot); if (x && x.shot) modal({ title: 'Capture d\'écran', body: `<img alt="Capture d'écran" src="${x.shot}" style="width:100%;border-radius:10px">`, actions: [{ label: 'Fermer' }] }); });
+    inboxBadge();
+  }
+  return { watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES, inbox, inboxBadge };
 })();
 Help.watch();
 
@@ -4700,8 +4728,10 @@ var Messages = (() => {
   const S = () => Store.state;
   const CACHE = AppCfg.key('msgs'), READ = AppCfg.key('msg-read');
   let msgs = [], last = '1970-01-01T00:00:00Z', timer = null, fast = false, busy = false;
+  // (2.14) a report sent before as a private message: shown in « Signalements et idées », not here
+  const isReport = m => /\[\[signalement:[\w-]+\]\]/.test(String(m.body || '')) || /^(🐞|💡|❓) (Problème|Idée|Question) signalé depuis la page/.test(String(m.body || ''));
 
-  try { msgs = JSON.parse(localStorage.getItem(CACHE)) || []; if (!Array.isArray(msgs)) msgs = []; if (msgs.length) last = msgs[msgs.length - 1].created_at; } catch (e) { msgs = []; } // a damaged copy: read again from the server
+  try { msgs = JSON.parse(localStorage.getItem(CACHE)) || []; if (!Array.isArray(msgs)) msgs = []; msgs = msgs.filter(m => !isReport(m)); if (msgs.length) last = msgs[msgs.length - 1].created_at; } catch (e) { msgs = []; } // a damaged copy: read again from the server
   const reads = () => { try { return JSON.parse(localStorage.getItem(READ)) || {}; } catch (e) { return {}; } };
   // categories whose teams A / B are shown in the list of conversations (this device)
   const FAMS = AppCfg.key('msg-fams');
@@ -4749,7 +4779,11 @@ var Messages = (() => {
   function authorName(m) {
     const s = m.author_id && Store.get('staff', m.author_id);
     if (s) return coachName(s);
-    const n = String(m.author_name || '').trim(), first = n.split(/\s+/).find(w => w !== w.toUpperCase());
+    const n = String(m.author_name || '').trim();
+    // (2.14) a message from the players' or parents' space (« Écrire au coach », an injury): a player or a parent, never « Coach »
+    if (/^member:/.test(m.author_id || '')) { const p = Store.get('players', m.author_id.slice(7)), parent = /\(parent\)\s*$/i.test(n), nm = p ? Store.shortName(p) : n.replace(/\s*\((joueur|parent)\)\s*$/i, '') || 'un joueur';
+      return parent ? `Parent de ${nm}` : `${nm} · joueur`; }
+    const first = n.split(/\s+/).find(w => w !== w.toUpperCase());
     return first ? 'Coach ' + first : n || '?';
   }
   // Documents sent from the library: [[fichier:id,id]] = pictures travelling as schemas (with their image) to every device
@@ -4781,7 +4815,7 @@ var Messages = (() => {
       for (let more = fresh, n = 0; more && more.length >= 500 && n < 20; n++) { more = await Cloud.messages(more[more.length - 1].created_at); if (more && more.length) fresh = fresh.concat(more); }
       if (fresh && fresh.length) {
         const ids = new Set(msgs.map(m => m.id));
-        fresh.forEach(m => { if (!ids.has(m.id)) msgs.push(m); });
+        fresh.forEach(m => { if (!ids.has(m.id) && !isReport(m)) msgs.push(m); });
         msgs.sort((a, b) => a.created_at.localeCompare(b.created_at)); msgs = msgs.slice(-800);
         last = msgs[msgs.length - 1].created_at;
         try { localStorage.setItem(CACHE, JSON.stringify(msgs)); } catch (e) {}
@@ -7136,7 +7170,7 @@ var Notify = (() => {
   const ios = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = () => matchMedia('(display-mode: standalone)').matches || !!navigator.standalone;
   const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-  const prefs = () => Object.assign({ messages: true, planning: true }, S().ui.notifPrefs || {});
+  const prefs = () => Object.assign({ messages: true, planning: true, reports: true }, S().ui.notifPrefs || {});
   const b64 = s => { const r = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
   const why = e => e && e.code === 'MISE_A_JOUR' ? 'Le serveur Clubbo est en cours de mise à jour : réessaie dans quelques minutes.' : (e && e.message) || 'Erreur';
   // the app's service worker (it shows the notifications); null if it does not answer within 4 s
@@ -7175,7 +7209,8 @@ var Notify = (() => {
     return `<div class="notif-box" id="notifBox"><b>🔔 Notifications sur ce téléphone</b>
       <p class="muted small" id="notifState">Vérification…</p>
       <div class="chips" id="notifBtns"></div>
-      <label class="switch small"><input type="checkbox" data-notifpref="messages" ${p.messages ? 'checked' : ''}><span>Messages (tout le club, mes catégories, privés, signalements)</span></label>
+      <label class="switch small"><input type="checkbox" data-notifpref="messages" ${p.messages ? 'checked' : ''}><span>Messages (tout le club, mes catégories, privés)</span></label>
+      ${Auth.isAdmin() ? `<label class="switch small"><input type="checkbox" data-notifpref="reports" ${p.reports ? 'checked' : ''}><span>Signalements et idées des éducateurs</span></label>` : ''}
       <label class="switch small"><input type="checkbox" data-notifpref="planning" ${p.planning ? 'checked' : ''}><span>Planning de mes catégories (créneaux, matchs et séances ajoutés, déplacés, supprimés)</span></label>
       <p class="muted small">Quand quelqu'un écrit <b>@</b> suivi de ton prénom dans un message, tu es prévenu dans tous les cas.</p></div>`;
   }
@@ -13095,8 +13130,8 @@ var President = (() => {
         </section>
         <section class="card"><h2>${I.check}À surveiller</h2>${alerts.length ? `<ul class="alerts">${alerts.join('')}</ul>` : '<p class="muted">Rien à signaler 👍</p>'}</section>
         ${(() => { const reps = S().reports.filter(x => !x.life && x.type !== 'avis' && x.status !== 'done').sort((a, b) => b.at - a.at);
-          return `<section class="card"><h2>🐞 Signalements${reps.length ? ` <span class="pct pct-low">${reps.length} à traiter</span>` : ''}</h2>${reps.length ? `<ul class="alerts">${reps.slice(0, 5).map(x => `<li>${(Help.TYPES[x.type] || ['🐞'])[0]} <b>${esc(x.text.slice(0, 60))}${x.text.length > 60 ? '…' : ''}</b><br><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}${x.page ? ' · page « ' + esc(x.page) + ' »' : ''}${x.shot ? ' · 📎 capture' : ''}</span></li>`).join('')}</ul>` : '<p class="muted">Aucun signalement en attente 👍</p>'}
-            <a class="btn soft" href="#/reglages">${I.help}<span>Voir et traiter (Réglages)</span></a></section>`; })()}
+          return `<section class="card"><h2>🐞 Signalements et idées${reps.length ? ` <span class="pct pct-low">${reps.length} à traiter</span>` : ''}</h2>${reps.length ? `<ul class="alerts">${reps.slice(0, 5).map(x => `<li>${(Help.TYPES[x.type] || ['🐞'])[0]} <b>${esc(x.text.slice(0, 60))}${x.text.length > 60 ? '…' : ''}</b><br><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}${x.page ? ' · page « ' + esc(x.page) + ' »' : ''}${x.shot ? ' · 📎 capture' : ''}</span></li>`).join('')}</ul>` : '<p class="muted">Aucun signalement en attente 👍</p>'}
+            <a class="btn soft" href="#/signalements">${I.help}<span>Voir et traiter</span></a></section>`; })()}
         <section class="card" id="bkCard"><h2>${I.shield}Sauvegarde du club</h2><p class="muted">Chargement…</p></section>
       </div>
       <h2 class="section">Par catégorie</h2>
@@ -13529,6 +13564,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 70, date: '2026-10-08', title: 'Les signalements à part des messages', items: [
+      ['🐞', 'Nouveau : « Signalements et idées » (menu Plus). Les problèmes, idées et questions des éducateurs y arrivent ensemble, à traiter ou traités, avec la capture et la page. Les responsables reçoivent une notification.'],
+      ['💬', 'La messagerie ne garde que les messages : les signalements n\'y arrivent plus (les anciens y sont retirés, ils sont dans « Signalements et idées »).'],
+      ['🧑', 'Corrigé : un message envoyé depuis l\'espace joueur (blessure, « Écrire au coach ») s\'affichait « Coach Prénom ». Il s\'affiche maintenant « Prénom N. · joueur » ou « Parent de Prénom N. ».'],
+      ['📱', 'Corrigé sur téléphone : la page ne zoome et ne dézoome plus toute seule (des boutons d\'en-tête dépassaient de l\'écran), l\'iPhone ne zoome plus quand on touche un champ, et le menu « ⋯ » (Séances, Matchs…) s\'ouvre en entier dans l\'écran.'],
+    ] },
     { n: 69, date: '2026-10-08', title: 'Le temps additionnel compte', items: [
       ['⏱️', '« Corriger le match » : le temps additionnel de chaque mi-temps, pris du match suivi en direct ou de la feuille FFF, à corriger si besoin. « Tout » donne la durée réelle (90 + temps additionnel).'],
       ['🔎', 'La vérification des temps de jeu en tient compte : 95 minutes ne sont plus « trop » quand il y a eu 5 minutes de temps additionnel, et un écart avec la feuille FFF dû au temps additionnel n\'est plus signalé.'],
@@ -15975,6 +16016,13 @@ var Views = (() => {
   }
   const header = (title, sub, actions = '') => `<header class="page-head"><div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div><div class="head-actions">${compactActions(actions)}</div></header>`;
   // the menu closes after a choice, or a touch elsewhere
+  // (2.14) « ⋯ » at the left of the screen (phone): its menu opened to the left, out of the screen; now it is moved back inside
+  document.addEventListener('toggle', e => {
+    const d = e.target; if (!d.matches || !d.matches('details.more-acts') || !d.open) return;
+    const pop = d.querySelector('.more-pop'); if (!pop) return; pop.style.transform = '';
+    const r = pop.getBoundingClientRect(), W = document.documentElement.clientWidth, m = 8;
+    const dx = r.left < m ? m - r.left : r.right > W - m ? (W - m) - r.right : 0; if (dx) pop.style.transform = `translateX(${Math.round(dx)}px)`;
+  }, true);
   document.addEventListener('click', e => { document.querySelectorAll('details.more-acts[open]').forEach(d => { if (!d.contains(e.target) || e.target.closest('.more-pop')) setTimeout(() => d.removeAttribute('open'), 0); }); });
 
   /* ================= Accueil ================= */
@@ -17081,11 +17129,11 @@ var App = (() => {
   // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
     ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
-    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['reglages', 'Réglages', 'settings'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['signalements', 'Signalements et idées', 'help', 'Signalements'], ['reglages', 'Réglages', 'settings'],
   ];
   const PHONE_MAIN = 5;
   // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
-  const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque']], ['Réglages et aide', ['reglages']]];
+  const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque']], ['Réglages et aide', ['signalements', 'reglages']]];
   const view = () => document.getElementById('view');
 
   function refreshChrome() {
@@ -17148,7 +17196,7 @@ var App = (() => {
         onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; const nw = r.querySelector('[data-morenews]'); if (nw) nw.onclick = () => { close(); setTimeout(() => News.all(), 60); };
           const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; } }); // (1.67) the latest version in one tap
     };
-    Messages.badge();
+    Messages.badge(); Help.inboxBadge();
   }
   // keep = true: same page redrawn with new data from the server, stay where the user was in the page
   function route(keep) {
@@ -17178,7 +17226,7 @@ var App = (() => {
     }
     const fn = { '': Views.home, equipes: Views.teams, equipe: Views.team, schemas: Views.schemas, entrainements: Views.trainings, entrainement: Views.training,
       matchs: Views.matches, match: Views.match, stats: Views.stats, reglages: Views.settings,
-      planning: r => Planning.page(r), jeu: r => Views.game(r), chat: (r, x) => Views.chat(r, x), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x),
+      planning: r => Planning.page(r), jeu: r => Views.game(r), chat: (r, x) => Views.chat(r, x), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x), signalements: r => Help.inbox(r),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
       tests: (r, x) => Tests.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
@@ -17218,7 +17266,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 114, UPD = AppCfg.key('update-tried');
+  const BUILD = 115, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 70, date: '2026-10-08', title: 'Les signalements à part des messages', items: [
+      ['🐞', 'Nouveau : « Signalements et idées » (menu Plus). Les problèmes, idées et questions des éducateurs y arrivent ensemble, à traiter ou traités, avec la capture et la page. Les responsables reçoivent une notification.'],
+      ['💬', 'La messagerie ne garde que les messages : les signalements n\'y arrivent plus (les anciens y sont retirés, ils sont dans « Signalements et idées »).'],
+      ['🧑', 'Corrigé : un message envoyé depuis l\'espace joueur (blessure, « Écrire au coach ») s\'affichait « Coach Prénom ». Il s\'affiche maintenant « Prénom N. · joueur » ou « Parent de Prénom N. ».'],
+      ['📱', 'Corrigé sur téléphone : la page ne zoome et ne dézoome plus toute seule (des boutons d\'en-tête dépassaient de l\'écran), l\'iPhone ne zoome plus quand on touche un champ, et le menu « ⋯ » (Séances, Matchs…) s\'ouvre en entier dans l\'écran.'],
+    ] },
     { n: 69, date: '2026-10-08', title: 'Le temps additionnel compte', items: [
       ['⏱️', '« Corriger le match » : le temps additionnel de chaque mi-temps, pris du match suivi en direct ou de la feuille FFF, à corriger si besoin. « Tout » donne la durée réelle (90 + temps additionnel).'],
       ['🔎', 'La vérification des temps de jeu en tient compte : 95 minutes ne sont plus « trop » quand il y a eu 5 minutes de temps additionnel, et un écart avec la feuille FFF dû au temps additionnel n\'est plus signalé.'],

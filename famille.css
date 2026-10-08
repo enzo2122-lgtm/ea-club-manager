@@ -55,3 +55,9 @@ button, select { font: inherit; }
 .tr { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .tr:last-child { border-bottom: 0; }
 .tr .d { font-weight: 700; min-width: 110px; text-transform: capitalize; }
+
+/* (2.14) téléphone : pas de débordement sur le côté, pas de zoom de l'iPhone quand on touche un champ (16 px au moins) */
+@media (max-width: 760px) {
+  html, body { overflow-x: hidden; }
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size: 16px !important; }
+}
