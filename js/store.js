@@ -123,7 +123,12 @@ const Store = (() => {
   // Save without telling the listeners (used by the sync, which is itself a listener)
   function persistNow() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 50); }
   const get = (col, id) => state[col].find(x => x.id === id);
+  // (2.61) a staff with « Observation (lecture seule) »: he sees everything he may see, he changes nothing
+  let roT = 0;
+  const ro = () => typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly();
+  const roSay = () => { if (Date.now() - roT > 4000 && typeof UI !== 'undefined') { roT = Date.now(); UI.toast('👀 Accès en lecture seule : rien n\'est enregistré', 'err'); } };
   function upsert(col, item) {
+    if (ro()) { roSay(); return item; }
     item.updatedAt = Date.now();
     // who changed a match or a session: he is not notified of his own change (club server)
     if ((col === 'matches' || col === 'trainings') && typeof Auth !== 'undefined' && Auth.current()) item.editedBy = Auth.current().id;
@@ -132,7 +137,7 @@ const Store = (() => {
     if (col === 'teams') sortTeams();
     save(); return item;
   }
-  function remove(col, id) { state[col] = state[col].filter(x => x.id !== id); save(); }
+  function remove(col, id) { if (ro()) return roSay(); state[col] = state[col].filter(x => x.id !== id); save(); }
 
   /* ---------- sharing ---------- */
   function pack(data) { return JSON.stringify({ app: 'raincy-coach', version: 1, exportedAt: new Date().toISOString(), data }, null, 1); }

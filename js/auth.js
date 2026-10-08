@@ -41,6 +41,8 @@ const Auth = (() => {
   const PREVIEW = AppCfg.key('preview');
   const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
+  // (2.61) « Observation » set by a responsable on a staff: he reads, he does not change anything (the server refuses too)
+  const readOnly = () => !!user && !realAdmin() && (user.access === 'read' || (Store.get('staff', user.id) || {}).access === 'read');
   // a responsable looking at the app as a volunteer: only the volunteers' tasks and the club's events
   const volView = () => { const p = preview(); return !!p && p.role === 'benevole'; };
   // A category and its teams A / B go together: a coach of « U15 » also sees « U15 A » and « U15 B », and the other way round
@@ -606,5 +608,5 @@ const Auth = (() => {
     if (serverMode() && isAdmin()) Cloud.accountSet({ staff_id: staffId, delete: true }).catch(() => {});
   }
 
-  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
+  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, readOnly, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
 })();

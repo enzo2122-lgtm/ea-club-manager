@@ -2252,3 +2252,4 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .inj-bars b { text-align: right; }
 .td-list { display: flex; flex-direction: column; gap: 12px; }
 .td-box { padding: 12px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 8px; }
+.ro-note { padding: 12px 14px; border-radius: 14px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; margin-bottom: 12px; font-size: 14px; }

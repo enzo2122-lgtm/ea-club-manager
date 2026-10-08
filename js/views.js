@@ -236,7 +236,7 @@ const Views = (() => {
     const nextTr = trainings.filter(t => t.date >= now).sort((a, b) => a.date.localeCompare(b.date))[0];
     const last = matches.filter(m => m.played).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
     const schemas = S().schemas.filter(s => Auth.sees(s.teamId)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 4);
-    root.innerHTML = `${hero(now)}
+    root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${hero(now)}
       ${serverBanner()}
       ${teamSwitch()}
       ${setupCard()}

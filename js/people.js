@@ -212,6 +212,7 @@ const People = (() => {
         <label class="fld"><span>Prénom</span><input id="sFirst" value="${esc(p.firstName)}"></label></div>
         <div class="row2"><label class="fld"><span>Rôle</span><select id="sRole">${opt(ROLES, p.role)}</select></label>
         <label class="fld"><span>Club de cœur (son blason s'affiche dans les messages)</span><select id="sClub">${Clubs.options(p.club)}</select></label></div>
+        ${Auth.isAdmin() ? `<label class="fld"><span>Accès à l'appli</span><select id="sAccess"><option value="">Complet (il modifie ses catégories)</option><option value="read" ${p.access === 'read' ? 'selected' : ''}>👀 Observation : lecture seule (président, superviseur, parent bénévole…)</option></select></label>` : ''}
         <label class="fld"><span>Petite phrase (drôle ou philosophique, à côté de son nom)</span><input id="sMotto" value="${esc(p.motto || '')}" maxlength="${UI.MOTTO_MAX}"></label>
         <div class="lbl">Catégories (plusieurs possibles)</div>${Auth.isAdmin() || isNew ? teamChips(p.teamIds) : `<p class="tip">🔒 ${esc(teamNames(p.teamIds) || 'Aucune catégorie')} · seul un responsable peut changer les catégories d'un dirigeant.</p>`}
         ${canPhone(p, isNew) ? `<div class="row2"><label class="fld"><span>Téléphone</span><input id="sTel" type="tel" inputmode="tel" value="${esc(p.phone || '')}"></label>
@@ -232,6 +233,7 @@ const People = (() => {
           if (!v('sLast') && !v('sFirst')) { toast('Écris au moins le nom ou le prénom', 'err'); return false; }
           Object.assign(p, { lastName: v('sLast').toUpperCase(), firstName: v('sFirst'), role: v('sRole'), club: v('sClub'), motto: v('sMotto').replace(/\s+/g, ' '), email: v('sMail'), notes: $('#sNotes', r).value });
           if ($('#sTel', r)) { p.phone = v('sTel'); p.phoneShow = v('sShow') || 'club'; }
+          if ($('#sAccess', r)) { if (v('sAccess')) p.access = v('sAccess'); else delete p.access; }
           if (Auth.isAdmin() || isNew) p.teamIds = pickedTeams(r, p.teamIds || []);
           const sp = $('#sPlayer', r); if (sp) { if (sp.value) p.playerId = sp.value; else delete p.playerId; }
           Store.upsert('staff', p); toast('Enregistré'); opts.onSave && opts.onSave(p);

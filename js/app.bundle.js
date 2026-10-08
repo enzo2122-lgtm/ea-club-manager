@@ -886,7 +886,12 @@ var Store = (() => {
   // Save without telling the listeners (used by the sync, which is itself a listener)
   function persistNow() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 50); }
   const get = (col, id) => state[col].find(x => x.id === id);
+  // (2.61) a staff with « Observation (lecture seule) »: he sees everything he may see, he changes nothing
+  let roT = 0;
+  const ro = () => typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly();
+  const roSay = () => { if (Date.now() - roT > 4000 && typeof UI !== 'undefined') { roT = Date.now(); UI.toast('👀 Accès en lecture seule : rien n\'est enregistré', 'err'); } };
   function upsert(col, item) {
+    if (ro()) { roSay(); return item; }
     item.updatedAt = Date.now();
     // who changed a match or a session: he is not notified of his own change (club server)
     if ((col === 'matches' || col === 'trainings') && typeof Auth !== 'undefined' && Auth.current()) item.editedBy = Auth.current().id;
@@ -895,7 +900,7 @@ var Store = (() => {
     if (col === 'teams') sortTeams();
     save(); return item;
   }
-  function remove(col, id) { state[col] = state[col].filter(x => x.id !== id); save(); }
+  function remove(col, id) { if (ro()) return roSay(); state[col] = state[col].filter(x => x.id !== id); save(); }
 
   /* ---------- sharing ---------- */
   function pack(data) { return JSON.stringify({ app: 'raincy-coach', version: 1, exportedAt: new Date().toISOString(), data }, null, 1); }
@@ -1898,6 +1903,8 @@ var Auth = (() => {
   const PREVIEW = AppCfg.key('preview');
   const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
+  // (2.61) « Observation » set by a responsable on a staff: he reads, he does not change anything (the server refuses too)
+  const readOnly = () => !!user && !realAdmin() && (user.access === 'read' || (Store.get('staff', user.id) || {}).access === 'read');
   // a responsable looking at the app as a volunteer: only the volunteers' tasks and the club's events
   const volView = () => { const p = preview(); return !!p && p.role === 'benevole'; };
   // A category and its teams A / B go together: a coach of « U15 » also sees « U15 A » and « U15 B », and the other way round
@@ -2463,7 +2470,7 @@ var Auth = (() => {
     if (serverMode() && isAdmin()) Cloud.accountSet({ staff_id: staffId, delete: true }).catch(() => {});
   }
 
-  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
+  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, readOnly, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
 })();
 
 ;
@@ -3643,7 +3650,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.60';
+  const VERSION = '2.61';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4239,6 +4246,7 @@ var Sync = (() => {
 
   /* ---------- send ---------- */
   async function push() {
+    if (typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly()) return; // (2.61) observation: nothing goes to the server
     const H = meta().h, cur = current(), out = [], now = Date.now();
     for (const [k, [col, x]] of Object.entries(cur)) {
       if (fp(x) === H[k]) continue;
@@ -5329,6 +5337,7 @@ var People = (() => {
         <label class="fld"><span>Prénom</span><input id="sFirst" value="${esc(p.firstName)}"></label></div>
         <div class="row2"><label class="fld"><span>Rôle</span><select id="sRole">${opt(ROLES, p.role)}</select></label>
         <label class="fld"><span>Club de cœur (son blason s'affiche dans les messages)</span><select id="sClub">${Clubs.options(p.club)}</select></label></div>
+        ${Auth.isAdmin() ? `<label class="fld"><span>Accès à l'appli</span><select id="sAccess"><option value="">Complet (il modifie ses catégories)</option><option value="read" ${p.access === 'read' ? 'selected' : ''}>👀 Observation : lecture seule (président, superviseur, parent bénévole…)</option></select></label>` : ''}
         <label class="fld"><span>Petite phrase (drôle ou philosophique, à côté de son nom)</span><input id="sMotto" value="${esc(p.motto || '')}" maxlength="${UI.MOTTO_MAX}"></label>
         <div class="lbl">Catégories (plusieurs possibles)</div>${Auth.isAdmin() || isNew ? teamChips(p.teamIds) : `<p class="tip">🔒 ${esc(teamNames(p.teamIds) || 'Aucune catégorie')} · seul un responsable peut changer les catégories d'un dirigeant.</p>`}
         ${canPhone(p, isNew) ? `<div class="row2"><label class="fld"><span>Téléphone</span><input id="sTel" type="tel" inputmode="tel" value="${esc(p.phone || '')}"></label>
@@ -5349,6 +5358,7 @@ var People = (() => {
           if (!v('sLast') && !v('sFirst')) { toast('Écris au moins le nom ou le prénom', 'err'); return false; }
           Object.assign(p, { lastName: v('sLast').toUpperCase(), firstName: v('sFirst'), role: v('sRole'), club: v('sClub'), motto: v('sMotto').replace(/\s+/g, ' '), email: v('sMail'), notes: $('#sNotes', r).value });
           if ($('#sTel', r)) { p.phone = v('sTel'); p.phoneShow = v('sShow') || 'club'; }
+          if ($('#sAccess', r)) { if (v('sAccess')) p.access = v('sAccess'); else delete p.access; }
           if (Auth.isAdmin() || isNew) p.teamIds = pickedTeams(r, p.teamIds || []);
           const sp = $('#sPlayer', r); if (sp) { if (sp.value) p.playerId = sp.value; else delete p.playerId; }
           Store.upsert('staff', p); toast('Enregistré'); opts.onSave && opts.onSave(p);
@@ -16121,6 +16131,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 117, date: '2026-10-09', title: 'Accès en observation (lecture seule) 👀', items: [
+      ['👀', 'Sur la fiche d\'un dirigeant, le responsable choisit « Accès : Observation » : il voit les catégories qui lui sont ouvertes (toutes pour un président ou un superviseur) sans rien pouvoir modifier. Le serveur refuse aussi ses changements.'],
+    ] },
     { n: 116, date: '2026-10-09', title: 'Documents PDF de l\'équipe 📄', items: [
       ['🧾', 'Sur la page d\'une catégorie, « Documents PDF » : les fiches de tout l\'effectif en un PDF (postes, contacts, fiche urgence, saison, tests, niveau).'],
       ['📅', 'Le bilan des entraînements de date à date : la présence de chaque joueur (%, retards, motifs d\'absence) et la liste des séances.'],
@@ -19042,7 +19055,7 @@ var Views = (() => {
     const nextTr = trainings.filter(t => t.date >= now).sort((a, b) => a.date.localeCompare(b.date))[0];
     const last = matches.filter(m => m.played).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
     const schemas = S().schemas.filter(s => Auth.sees(s.teamId)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 4);
-    root.innerHTML = `${hero(now)}
+    root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${hero(now)}
       ${serverBanner()}
       ${teamSwitch()}
       ${setupCard()}
@@ -20323,7 +20336,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 161, UPD = AppCfg.key('update-tried');
+  const BUILD = 162, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
