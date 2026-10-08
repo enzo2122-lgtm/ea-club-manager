@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 68, date: '2026-10-08', title: 'Les temps de jeu vérifiés', items: [
+      ['🔎', 'Chaque match joué est vérifié : total des minutes (joueurs sur le terrain × durée), un joueur au-delà de la durée, trop de joueurs du début à la fin, un buteur sans temps de jeu, un temps non saisi.'],
+      ['🔁', 'Les temps sont comparés aux remplacements (match suivi en direct, feuille FFF, AssistCoachAI) : « Appliquer ces temps » corrige en un toucher.'],
+      ['⚠️', 'Matchs → Résultats : un ⚠️ à la place du ✏️ sur un match à vérifier, et « Corriger un match » → « À vérifier » pour les voir tous.'],
+    ] },
     { n: 67, date: '2026-10-08', title: 'Corriger un match en un seul écran ✏️', items: [
       ['✏️', 'Matchs → Résultats : un ✏️ à côté de chaque match joué, et « Corriger un match » pour retrouver un match (par catégorie, par adversaire).'],
       ['⚽', 'Un seul écran : le score, chaque but (minute, buteur, passeur), le temps de jeu et les cartons de chaque joueur, un joueur oublié à ajouter ou à retirer.'],

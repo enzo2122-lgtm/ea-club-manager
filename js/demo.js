@@ -31,10 +31,13 @@ const Demo = (() => {
     teams.forEach((t, ti) => {
       const roster = players.filter(p => p.teamIds.includes(t.id)), ids = roster.map(p => p.id);
       [-20, -13, -6].forEach((d, k) => {
-        const [gf, ga] = sc(), conv = ids.slice(0, 10 + (k % 3)), stats = {};
+        // (2.12) coherent playing time: the starters, then each substitute replacing one of them (total = players on the pitch × duration)
+        const N = Sport.players(t.format || Sport.defFormat()), dur = N >= 11 ? 90 : N >= 8 ? 60 : 40;
+        const [gf, ga] = sc(), conv = ids.slice(0, Math.min(ids.length, N + 2 + (k % 3))), stats = {};
         if (sport === 'foot' || sport === 'hand') for (let g = 0; g < gf; g++) { const p = pick(conv.slice(1)); (stats[p] = stats[p] || {}).g = ((stats[p] || {}).g || 0) + 1; }
-        const minutes = sport === 'foot' ? Object.fromEntries(conv.map((id, i) => [id, i < 8 ? 60 : int(15, 45)])) : undefined;
-        matches.push({ id: `demo-m${ti}-${k}`, teamId: t.id, date: day(d - ti), time: '15:00', home: k % 2 === 0, opponent: OPP[(ti * 3 + k) % OPP.length], competition: 'Championnat', place: '', rdv: '14:15', played: true, gf, ga, convoked: conv, stats, minutes, notes: '', updatedAt: now });
+        let minutes; if (sport === 'foot') { minutes = Object.fromEntries(conv.slice(0, N).map(id => [id, dur]));
+          conv.slice(N).forEach((id, j) => { const out = conv[Math.max(0, N - 1 - j)], at = int(Math.round(dur * .4), Math.round(dur * .8)); minutes[out] = at; minutes[id] = dur - at; }); }
+        matches.push({ id: `demo-m${ti}-${k}`, teamId: t.id, date: day(d - ti), time: '15:00', home: k % 2 === 0, opponent: OPP[(ti * 3 + k) % OPP.length], competition: 'Championnat', place: '', rdv: '14:15', played: true, gf, ga, convoked: conv, stats, duration: sport === 'foot' ? dur : undefined, minutes, notes: '', updatedAt: now });
       });
       matches.push({ id: `demo-m${ti}-next`, teamId: t.id, date: day(ti ? 5 + ti : 1), time: ti ? '10:30' : '15:00', home: ti % 2 === 0, opponent: OPP[(ti * 3 + 5) % OPP.length], competition: 'Championnat', place: '', rdv: '', played: false, gf: 0, ga: 0, convoked: ti ? [] : ids.slice(0, 11), stats: {}, notes: '', updatedAt: now });
       [-9, -2, 1].forEach((d, k) => {

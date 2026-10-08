@@ -150,6 +150,7 @@ const ACImport = (() => {
         m.convoked = [...new Set([...(m.convoked || []), ...starters, ...m.acLineup.bench])];
       }
       const pt = e.pt;
+      if (pt && (pt.subs || []).length) { m.acSubs = pt.subs.map(s => ({ out: pid(s.out) || null, in: pid(s.in) || null, min: +s.min || 0 })); m.acDur = +pt.dur || 90; } // (2.12)
       if (pt && pt.plan && Object.values(pt.plan).some(Boolean)) { m.prep = m.prep || {}; m.prep.plan = Object.assign({}, m.prep.plan || {}, { imported: Object.entries(pt.plan).filter(([, v]) => v).map(([k, v]) => `${k === 'jeu' ? '' : k + ' : '}${v}`).join('\n\n') }); }
       // (1.45) a past match with goals, substitutions or stats counts as played even when the coach did not press « terminé » on AssistCoachAI
       // (2.11) a match corrected by hand (« Corriger le match ») keeps its scorers, minutes and cards

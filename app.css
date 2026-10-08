@@ -2021,3 +2021,4 @@ button.sending { opacity: .55; pointer-events: none; }
 .fx-pen { flex: 0 0 48px; border: 1px solid var(--line, #d0d4dc); background: var(--surface, #fff); border-radius: 14px; font-size: 20px; cursor: pointer; color: inherit; }
 .fx-pen:hover { border-color: var(--accent, #c9a45c); }
 .fix-card { border-left: 4px solid var(--accent, #c9a45c); }
+.fx-warn-pen { border-color: #b7791f; background: color-mix(in srgb, #b7791f 14%, var(--surface, #fff)); }
