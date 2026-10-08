@@ -90,6 +90,7 @@ const Auth = (() => {
     if (!Cloud.ready()) return toast('Il faut être connecté au serveur du club', 'err');
     let url; const b = UI.busy('Ouverture de la page…');
     const t = Store.get('teams', teamId), ids = Store.teamGroups([t]).flat().map(x => x.id);
+    if (role === 'parent' && t && !AppCfg.family(t.category || t.name)) { b.done(); return toast('Pas d\'espace parents au-dessus des U15 : les joueurs ont leur espace joueur', 'err'); } // (2.07)
     const pl = (playerId && Store.get('players', playerId)) || Store.state.players.filter(p => (p.teamIds || []).some(id => id === teamId || ids.includes(id))).sort((a, c) => String(a.lastName || '').localeCompare(String(c.lastName || ''), 'fr'))[0];
     if (!pl) { b.done(); return toast('Aucun joueur dans cette catégorie', 'err'); }
     try { const map = await Cloud.memberCodes([pl.id]) || {}, c = (map[pl.id] || {}).code; if (!c) throw new Error('Code indisponible');

@@ -135,7 +135,7 @@
           ${Member.privacy()}` },
       ])}
       <div id="phView" class="ph-view" hidden></div>`;
-    if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', note: `👪 Parents : entre parents et coachs. ⚽ Joueurs : les messages partent au nom de ${kid()}.`, toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0, p_room: 'all' }).catch(e => { if (/pas encore prêt/.test(e.message)) return rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }); throw e; }),
+    if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', note: `👪 Le chat des parents de la catégorie, avec les coachs. Les coachs peuvent mettre les parents en sourdine.`, toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0, p_room: 'all' }).catch(e => { if (/pas encore prêt/.test(e.message)) return rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }); throw e; }),
       post: (c, b, r) => rpc('member_chat_post', Object.assign({ p_code: code, p_cat: c, p_body: b }, r ? { p_reply: r } : {})), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
       poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),
@@ -151,6 +151,7 @@
     if (c !== code) { code = c; data = null; tips = []; lead = null; Object.keys(photoData).forEach(k => delete photoData[k]); Object.keys(photoAsk).forEach(k => delete photoAsk[k]); }
     try {
       const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
+      if (!Member.family(d)) { Member.remember(code, d); location.replace('joueurs.html' + location.hash); return; } // (2.07) no families' space above U15
       data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos();
       const [, t, ld] = await Promise.all([Member.replies(code, data), Member.tips(code), Injury.load(code).catch(() => null).then(() => rpc('member_leaders', { p_code: code })).catch(() => null)]);
       if (tok !== loadTok) return;

@@ -16,6 +16,8 @@ var AppCfg = (() => {
     crest: c.crest || 'icons/ea-logo.png',
     defaults: c.defaults || {},
     demo: c.club ? '' : (c.demo || ''), // (1.46) a demo page of one sport (demo/<sport>/, made by build.js): opens straight on its demo club
+    // (2.07) the families' space (parents' page, parents' chat): U15 and younger only. Not for U16 and over, Seniors, Vétérans, Loisirs.
+    family: cat => !/(s[eé]nior|v[eé]t[eé]ran|cadet|junior|loisir|(?<![a-z])u[ -]?(1[6-9]|[2-9]\d)(?!\d))/i.test(String(cat || '')),
   };
 })();
 
@@ -1855,6 +1857,7 @@ var Auth = (() => {
     if (!Cloud.ready()) return toast('Il faut être connecté au serveur du club', 'err');
     let url; const b = UI.busy('Ouverture de la page…');
     const t = Store.get('teams', teamId), ids = Store.teamGroups([t]).flat().map(x => x.id);
+    if (role === 'parent' && t && !AppCfg.family(t.category || t.name)) { b.done(); return toast('Pas d\'espace parents au-dessus des U15 : les joueurs ont leur espace joueur', 'err'); } // (2.07)
     const pl = (playerId && Store.get('players', playerId)) || Store.state.players.filter(p => (p.teamIds || []).some(id => id === teamId || ids.includes(id))).sort((a, c) => String(a.lastName || '').localeCompare(String(c.lastName || ''), 'fr'))[0];
     if (!pl) { b.done(); return toast('Aucun joueur dans cette catégorie', 'err'); }
     try { const map = await Cloud.memberCodes([pl.id]) || {}, c = (map[pl.id] || {}).code; if (!c) throw new Error('Code indisponible');
@@ -3534,7 +3537,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.06';
+  const VERSION = '2.07';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10144,9 +10147,10 @@ var Roles = (() => {
   const firstPlayer = teamId => Store.playersOf(teamId).sort(Store.byName)[0];
   function defaults() {
     const u = Auth.current() || {}, t0 = (u.teamIds || []).filter(id => Store.get('teams', id))[0] || (S().teams[0] || {}).id || '';
-    const p0 = t0 && firstPlayer(t0);
+    const p0 = t0 && firstPlayer(t0), fam = id => { const t = Store.get('teams', id); return t && AppCfg.family(t.category || t.name); };
+    const tf = [...(u.teamIds || []), ...S().teams.map(t => t.id)].find(fam) || '', pf = tf && firstPlayer(tf); // (2.07) the parents' view: a U15-or-younger category
     return [{ id: 'coach', kind: 'coach', teamIds: t0 ? [t0] : [] }, { id: 'benevole', kind: 'benevole' }, { id: 'arbitre', kind: 'arbitre' },
-      { id: 'joueur', kind: 'joueur', teamId: t0, playerId: p0 ? p0.id : '' }, { id: 'parent', kind: 'parent', teamId: t0, playerId: p0 ? p0.id : '' }];
+      { id: 'joueur', kind: 'joueur', teamId: t0, playerId: p0 ? p0.id : '' }, ...(tf ? [{ id: 'parent', kind: 'parent', teamId: tf, playerId: pf ? pf.id : '' }] : [])];
   }
   function list() { try { const l = JSON.parse(localStorage.getItem(KEY())); if (Array.isArray(l) && l.length) return l; } catch (e) {} return defaults(); }
   const save = l => { try { localStorage.setItem(KEY(), JSON.stringify(l)); } catch (e) {} };
@@ -10191,14 +10195,16 @@ var Roles = (() => {
     const body = () => `<div class="chips">${Object.entries(KINDS).map(([k, [ic, l]]) => `<button type="button" class="chip ${k === kind ? 'on' : ''}" data-k="${k}">${ic} ${l}</button>`).join('')}</div>
       <p class="muted small">${KINDS[kind][2]}</p>
       ${kind === 'coach' ? `<div class="lbl">Ses catégories</div><div class="chips">${teams.map(t => `<button type="button" class="chip ${teamIds.includes(t.id) ? 'on' : ''}" data-t="${t.id}">${esc(t.name)}</button>`).join('')}</div>` : ''}
-      ${kind === 'joueur' || kind === 'parent' ? `<label class="fld"><span>Catégorie</span><select id="rlTeam">${teams.map(t => `<option value="${t.id}" ${t.id === teamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+      ${kind === 'joueur' || kind === 'parent' ? `<label class="fld"><span>Catégorie</span><select id="rlTeam">${(kind === 'parent' ? teams.filter(t => AppCfg.family(t.category || t.name)) : teams).map(t => `<option value="${t.id}" ${t.id === teamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         <label class="fld"><span>${kind === 'parent' ? 'L\'enfant' : 'Le joueur'}</span><select id="rlPl">${Store.playersOf(teamId).sort(Store.byName).map(p => `<option value="${p.id}" ${p.id === playerId ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('') || '<option value="">Aucun joueur</option>'}</select></label>` : ''}`;
     const close = modal({ title: r.isNew ? 'Ajouter un rôle' : 'Modifier le rôle', noFocus: true, body: `<div id="rlBody">${body()}</div>`,
       onOpen: m => {
         const box = $('#rlBody', m), redraw = () => { box.innerHTML = body(); bind(); };
         const bind = () => { const ts = $('#rlTeam', m); if (ts) ts.onchange = e => { teamId = e.target.value; playerId = (firstPlayer(teamId) || {}).id || ''; redraw(); };
           const ps = $('#rlPl', m); if (ps) ps.onchange = e => { playerId = e.target.value; }; };
-        box.onclick = e => { const k = e.target.closest('[data-k]'); if (k) { kind = k.dataset.k; if (!playerId) playerId = (firstPlayer(teamId) || {}).id || ''; return redraw(); }
+        box.onclick = e => { const k = e.target.closest('[data-k]'); if (k) { kind = k.dataset.k;
+            if (kind === 'parent') { const tt = Store.get('teams', teamId); if (!tt || !AppCfg.family(tt.category || tt.name)) { const f = teams.find(x => AppCfg.family(x.category || x.name)); teamId = f ? f.id : ''; playerId = f ? (firstPlayer(teamId) || {}).id || '' : ''; } } // (2.07) U15 and younger
+            if (!playerId) playerId = (firstPlayer(teamId) || {}).id || ''; return redraw(); }
           const t = e.target.closest('[data-t]'); if (t) { teamIds = teamIds.includes(t.dataset.t) ? teamIds.filter(x => x !== t.dataset.t) : [...teamIds, t.dataset.t]; t.classList.toggle('on'); } };
         bind();
       },
@@ -13414,6 +13420,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 63, date: '2026-10-08', title: 'Espace famille jusqu\'aux U15, et sourdine des parents', items: [
+      ['👪', 'L\'espace parents est réservé aux U15 et plus jeunes. À partir des U16 (et Seniors, Vétérans), le code ouvre directement l\'espace joueur.'],
+      ['💬', 'Un seul chat par catégorie : jusqu\'aux U15, le chat des parents (espace parents, avec les coachs), plus de chat dans l\'espace joueur ; à partir des U16, le chat des joueurs.'],
+      ['🔇', 'Coachs et responsables : « Sourdine parents » en haut du chat. Les parents lisent sans pouvoir écrire (ils peuvent encore réagir et voter aux sondages). « Parole aux parents » pour rouvrir.'],
+      ['🔒', 'Corrigé : le bouton « Fermer » du chat ne fermait pas vraiment le chat.'],
+    ] },
     { n: 62, date: '2026-10-08', title: 'Partage les résultats 📣', items: [
       ['📣', 'Coachs : sur un match joué, onglet « Après » → « Partager le résultat ». Une belle image (score, catégorie, blason) à envoyer sur WhatsApp, Facebook, Instagram, X, Telegram, SMS ou e-mail.'],
       ['🗓️', 'Résultats du club : un bouton 📣 par week-end crée l\'image de tous les scores du week-end.'],
@@ -14266,7 +14278,7 @@ var Game = (() => {
 var Chat = (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ERR = [[/MOT_INTERDIT/, 'Pas envoyé : un mot grossier ou insultant n\'est pas accepté ici. Reformule gentiment 🙂'],
-    [/TROP_VITE/, 'Doucement : attends une seconde entre deux messages.'], [/CHAT_FERME/, 'Le chat est fermé pour l\'instant par les coachs.'],
+    [/TROP_VITE/, 'Doucement : attends une seconde entre deux messages.'], [/CHAT_FERME/, 'Les coachs ont mis le chat en lecture seule pour l\'instant.'],
     [/LIMITE_CHAT/, 'Beaucoup de messages aujourd\'hui : réessaie demain.'], [/PHOTOS_COACHS/, 'Dans ce chat, seuls les coachs envoient des photos pour l\'instant.'], [/\bPHOTO\b/, 'Cette photo ne passe pas : essaie avec une autre.'], [/SONDAGE_FINI/, 'Ce sondage est terminé.']];
   const nice = e => { const m = String((e && ((e.code || '') + ' ' + (e.message || ''))) || ''); const x = ERR.find(([r]) => r.test(m)); return x ? x[1] : (e && e.message) || 'Le serveur ne répond pas.'; };
   const EMOJI = ['👍', '⚽', '🔥', '💪', '😂', '👏', '🙏', '❤️', '😅', '🏆', '🥅', '✅'];
@@ -14467,6 +14479,7 @@ var Chat = (() => {
     ms.forEach(m => drawn.add(m.id)); return h;
   }
   const canWrite = () => view && view.cat && (!view.off || view.mod);
+  const parRoom = () => !!(view && / · Parents$/.test(view.cat || '')); // (2.07) the parents' room: « off » = all the parents muted
   function shell() {
     if (!view) return '<div class="cx"><div class="cx-list"><div class="cx-empty"><div class="e">💬</div>Chargement du chat…</div></div></div>';
     if (!view.cat) return '<div class="cx"><div class="cx-list"><div class="cx-empty"><div class="e">💬</div>Pas de chat pour l\'instant : tu n\'es dans aucune équipe.</div></div></div>';
@@ -14477,9 +14490,9 @@ var Chat = (() => {
         ${cats.length > 1 ? `<span class="cx-cats">${cats.map(c => `<button class="${c === view.cat ? 'on' : ''}" data-cxcat="${esc(c)}">${esc(roomLabel(c, cats))}</button>`).join('')}</span>` : ''}
         ${o.mute && typeof view.muted === 'boolean' ? `<button class="cx-mute" data-cxmute="${view.muted ? 0 : 1}" title="${view.muted ? 'Notifications du chat coupées : toucher pour les remettre' : 'Couper les notifications du chat'}" aria-label="${view.muted ? 'Remettre les notifications' : 'Couper les notifications'}">${view.muted ? '🔕' : '🔔'}</button>` : ''}
         ${view.mod && o.photosOk && view.filtered ? `<button class="cx-mute cx-ph ${view.photos ? '' : 'off'}" data-cxphotos="${view.photos ? 0 : 1}" title="${view.photos ? 'Les joueurs peuvent envoyer des photos : toucher pour réserver les photos aux coachs' : 'Photos réservées aux coachs : toucher pour les ouvrir aux joueurs'}" aria-label="Photos des joueurs">📷</button>` : ''}
-        ${view.mod && o.off ? `<button class="cx-mod" data-cxoff="""${view.off ? 0 : 1}">${view.off ? '🔓 Rouvrir' : '🔒 Fermer'}</button>` : ''}</div>
+        ${view.mod && o.off ? `<button class="cx-mod" data-cxoff="${view.off ? 0 : 1}" title="${parRoom() ? (view.off ? 'Les parents lisent sans pouvoir écrire : toucher pour leur rendre la parole' : 'Mettre tous les parents en sourdine : ils lisent, seuls les coachs écrivent') : (view.off ? 'Rouvrir le chat aux joueurs' : 'Fermer le chat : les joueurs lisent, seuls les coachs écrivent')}">${parRoom() ? (view.off ? '🔊 Parole aux parents' : '🔇 Sourdine parents') : (view.off ? '🔓 Rouvrir' : '🔒 Fermer')}</button>` : ''}</div>
       ${view.pin && mode === 'chat' ? `<div class="cx-pin" data-cxgoto="${view.pin.id}">📌<span><b>${esc(String(view.pin.name || '').replace(/^Coach\s+/, ''))}</b> : ${esc(view.pin.body || (view.pin.img ? '📷 Photo' : ''))}</span></div>` : ''}
-      ${view.off ? `<div class="cx-off">🔒 Chat fermé par les coachs${view.mod ? ' (toi, tu peux écrire)' : ''}</div>` : ''}
+      ${view.off ? `<div class="cx-off">${parRoom() ? '🔇 Parents en sourdine : seuls les coachs écrivent' : '🔒 Chat fermé par les coachs'}${view.mod ? ' (toi, tu peux écrire)' : ''}</div>` : ''}
       <div class="cx-list" id="cxList">${listHtml()}</div>
       <button class="cx-new" id="cxNew" hidden>⬇ Nouveaux messages</button>
       ${canWrite() && mode === 'polls' && o.poll ? '<div class="cx-bar"><button class="cx-newpoll" data-cxnewpoll>＋ Nouveau sondage</button></div>' : ''}
@@ -14673,7 +14686,7 @@ var Chat = (() => {
       const rt = q('[data-cxretry]'); if (rt) { const m = view.msgs.find(x => String(x.id) === rt.dataset.cxretry); if (m) { m.fail = false; m.pend = true; drawList(true); queue = queue.then(() => post(m)); } return; }
       const c = q('[data-cxcat]'); if (c) { cat = c.dataset.cxcat; view = null; drawAll(); for (let i = 0; i < 20 && busy; i++) await new Promise(r => setTimeout(r, 100)); return load(true); }
       const f = q('[data-cxoff]');
-      if (f && o.off) { const off = f.dataset.cxoff === '1'; try { await o.off(off); view.off = off; drawAll(); (o.toast || (() => {}))(off ? '🔒 Chat fermé : les joueurs peuvent lire, plus écrire.' : '🔓 Chat rouvert.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
+      if (f && o.off) { const off = f.dataset.cxoff === '1'; try { await o.off(off); view.off = off; drawAll(); (o.toast || (() => {}))(parRoom() ? (off ? '🔇 Parents en sourdine : ils lisent, seuls les coachs écrivent.' : '🔊 Les parents peuvent de nouveau écrire.') : off ? '🔒 Chat fermé : les joueurs peuvent lire, plus écrire.' : '🔓 Chat rouvert.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       // (2.03) a reaction (in the menu or a chip under a bubble): shown at once
       if (q('[data-cxphoto]')) { const f = $('#cxFile'); if (f) f.click(); return; }
       const im = q('[data-cximg]'); if (im && !q('.cx-menu')) { const i = im.querySelector('img'); if (i) { const m = view.msgs.find(x => String(x.id) === im.dataset.cximg); viewPhoto(i.src, m && m.body); } return; }
@@ -16592,12 +16605,11 @@ var Views = (() => {
     if (!t) { root.innerHTML = header('Chat des joueurs') + empty('Crée une équipe pour ouvrir le chat de la catégorie.'); return; }
     S().ui.teamId = tid;
     // (2.04) two rooms: the players' chat, the parents' chat (parents and coaches)
-    const room = S().ui.chatRoom === 'parents' ? 'parents' : 'joueurs', tk = t.id + (room === 'parents' ? '|parents' : '');
-    root.innerHTML = `${header('Chat', 'Joueurs ou parents de la catégorie, et leurs coachs')}${teamSwitch()}
-      <div class="chips chat-rooms"><button class="chip ${room === 'joueurs' ? 'on' : ''}" data-room="joueurs">⚽ Joueurs</button><button class="chip ${room === 'parents' ? 'on' : ''}" data-room="parents">👪 Parents</button></div>
+    // (2.07) one chat per category: U15 and younger, the parents' chat (parents and coaches); U16 and over, the players' chat
+    const fam = AppCfg.family(t.category || t.name), room = fam ? 'parents' : 'joueurs', tk = t.id + (room === 'parents' ? '|parents' : '');
+    root.innerHTML = `${header(fam ? 'Chat des parents' : 'Chat des joueurs', fam ? 'Les parents de la catégorie et leurs coachs (U15 et moins) · 🔇 pour mettre les parents en sourdine' : 'Les joueurs de la catégorie et leurs coachs')}${teamSwitch()}
       ${Cloud.ready() ? '<div id="chatBox"></div>' : '<p class="tip">Le chat passe par le serveur du club : connecte-toi pour discuter avec tes joueurs.</p>'}`;
     bindTeamSwitch(root, () => chat(root));
-    root.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { S().ui.chatRoom = b.dataset.room; Store.persistNow(); chat(root); });
     const box = $('#chatBox', root); if (!box) return;
     Chat.mount(box, { key: 't:' + tk, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(tk, after),
       post: (c, b, r) => Cloud.chatPost(tk, b, r), del: (c, id) => Cloud.chatDel(tk, id), off: off => Cloud.chatOff(tk, off),
@@ -16752,7 +16764,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 107, UPD = AppCfg.key('update-tried');
+  const BUILD = 108, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

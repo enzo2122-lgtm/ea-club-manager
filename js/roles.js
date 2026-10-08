@@ -14,9 +14,10 @@ const Roles = (() => {
   const firstPlayer = teamId => Store.playersOf(teamId).sort(Store.byName)[0];
   function defaults() {
     const u = Auth.current() || {}, t0 = (u.teamIds || []).filter(id => Store.get('teams', id))[0] || (S().teams[0] || {}).id || '';
-    const p0 = t0 && firstPlayer(t0);
+    const p0 = t0 && firstPlayer(t0), fam = id => { const t = Store.get('teams', id); return t && AppCfg.family(t.category || t.name); };
+    const tf = [...(u.teamIds || []), ...S().teams.map(t => t.id)].find(fam) || '', pf = tf && firstPlayer(tf); // (2.07) the parents' view: a U15-or-younger category
     return [{ id: 'coach', kind: 'coach', teamIds: t0 ? [t0] : [] }, { id: 'benevole', kind: 'benevole' }, { id: 'arbitre', kind: 'arbitre' },
-      { id: 'joueur', kind: 'joueur', teamId: t0, playerId: p0 ? p0.id : '' }, { id: 'parent', kind: 'parent', teamId: t0, playerId: p0 ? p0.id : '' }];
+      { id: 'joueur', kind: 'joueur', teamId: t0, playerId: p0 ? p0.id : '' }, ...(tf ? [{ id: 'parent', kind: 'parent', teamId: tf, playerId: pf ? pf.id : '' }] : [])];
   }
   function list() { try { const l = JSON.parse(localStorage.getItem(KEY())); if (Array.isArray(l) && l.length) return l; } catch (e) {} return defaults(); }
   const save = l => { try { localStorage.setItem(KEY(), JSON.stringify(l)); } catch (e) {} };
@@ -61,14 +62,16 @@ const Roles = (() => {
     const body = () => `<div class="chips">${Object.entries(KINDS).map(([k, [ic, l]]) => `<button type="button" class="chip ${k === kind ? 'on' : ''}" data-k="${k}">${ic} ${l}</button>`).join('')}</div>
       <p class="muted small">${KINDS[kind][2]}</p>
       ${kind === 'coach' ? `<div class="lbl">Ses catégories</div><div class="chips">${teams.map(t => `<button type="button" class="chip ${teamIds.includes(t.id) ? 'on' : ''}" data-t="${t.id}">${esc(t.name)}</button>`).join('')}</div>` : ''}
-      ${kind === 'joueur' || kind === 'parent' ? `<label class="fld"><span>Catégorie</span><select id="rlTeam">${teams.map(t => `<option value="${t.id}" ${t.id === teamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+      ${kind === 'joueur' || kind === 'parent' ? `<label class="fld"><span>Catégorie</span><select id="rlTeam">${(kind === 'parent' ? teams.filter(t => AppCfg.family(t.category || t.name)) : teams).map(t => `<option value="${t.id}" ${t.id === teamId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         <label class="fld"><span>${kind === 'parent' ? 'L\'enfant' : 'Le joueur'}</span><select id="rlPl">${Store.playersOf(teamId).sort(Store.byName).map(p => `<option value="${p.id}" ${p.id === playerId ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('') || '<option value="">Aucun joueur</option>'}</select></label>` : ''}`;
     const close = modal({ title: r.isNew ? 'Ajouter un rôle' : 'Modifier le rôle', noFocus: true, body: `<div id="rlBody">${body()}</div>`,
       onOpen: m => {
         const box = $('#rlBody', m), redraw = () => { box.innerHTML = body(); bind(); };
         const bind = () => { const ts = $('#rlTeam', m); if (ts) ts.onchange = e => { teamId = e.target.value; playerId = (firstPlayer(teamId) || {}).id || ''; redraw(); };
           const ps = $('#rlPl', m); if (ps) ps.onchange = e => { playerId = e.target.value; }; };
-        box.onclick = e => { const k = e.target.closest('[data-k]'); if (k) { kind = k.dataset.k; if (!playerId) playerId = (firstPlayer(teamId) || {}).id || ''; return redraw(); }
+        box.onclick = e => { const k = e.target.closest('[data-k]'); if (k) { kind = k.dataset.k;
+            if (kind === 'parent') { const tt = Store.get('teams', teamId); if (!tt || !AppCfg.family(tt.category || tt.name)) { const f = teams.find(x => AppCfg.family(x.category || x.name)); teamId = f ? f.id : ''; playerId = f ? (firstPlayer(teamId) || {}).id || '' : ''; } } // (2.07) U15 and younger
+            if (!playerId) playerId = (firstPlayer(teamId) || {}).id || ''; return redraw(); }
           const t = e.target.closest('[data-t]'); if (t) { teamIds = teamIds.includes(t.dataset.t) ? teamIds.filter(x => x !== t.dataset.t) : [...teamIds, t.dataset.t]; t.classList.toggle('on'); } };
         bind();
       },
