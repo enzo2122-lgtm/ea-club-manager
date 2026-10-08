@@ -85,8 +85,10 @@ const Health = (() => {
   /* ---------- training load (RPE × minutes) ---------- */
   const trMinutes = t => (t.exercises || []).reduce((a, e) => a + (+e.duration || 0), 0) || 90;
   function loadOf(pid, from, to) {
-    return S().trainings.filter(t => !t.model && t.date >= from && t.date <= to && t.rpe && t.rpe[pid]).reduce((a, t) => a + t.rpe[pid] * trMinutes(t), 0)
-      + S().matches.filter(m => m.played && m.date >= from && m.date <= to && m.rpe && m.rpe[pid]).reduce((a, m) => a + m.rpe[pid] * ((m.minutes || {})[pid] || m.duration || 90), 0);
+    // (2.51) the coach's mark, otherwise the one the player gave himself
+    const rv = e => (e.rpe || {})[pid] || (e.rpeSelf || {})[pid] || 0;
+    return S().trainings.filter(t => !t.model && t.date >= from && t.date <= to && rv(t)).reduce((a, t) => a + rv(t) * trMinutes(t), 0)
+      + S().matches.filter(m => m.played && m.date >= from && m.date <= to && rv(m)).reduce((a, m) => a + rv(m) * ((m.minutes || {})[pid] || m.duration || 90), 0);
   }
   // last 7 days compared with the average week of the 4 weeks before
   function risk(pid) {
@@ -95,12 +97,14 @@ const Health = (() => {
   }
   // the effort of a session or a match, for each player present
   function rpeBox(ev, ids, kind) {
-    const r = ev.rpe || {}, vals = ids.map(id => r[id]).filter(Boolean), avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const own = ev.rpeSelf || {}, fun = ev.fun || {}, r = Object.assign({}, own, ev.rpe || {}), vals = ids.map(id => r[id]).filter(Boolean), avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const nOwn = ids.filter(id => own[id]).length, funs = ids.map(id => fun[id]).filter(Boolean);
     const mins = kind === 'match' ? (ev.duration || 90) : trMinutes(ev);
     return `<section class="card hl-rpe"><div class="row-head"><h2>💪 Effort ressenti (RPE)</h2>${avg ? `<b class="hl-avg">${avg.toFixed(1).replace('.', ',')} / 10</b>` : ''}</div>
-      <p class="muted small">Après ${kind === 'match' ? 'le match' : 'la séance'}, chaque joueur dit de 1 (très facile) à 10 (maximal) si c'était dur. Charge = effort × ${mins} min. Ça sert à repérer ceux qui en font trop.</p>
-      ${ids.length ? `<div class="hl-rpe-list">${ids.map(id => { const p = Store.get('players', id); if (!p) return ''; const v = r[id] || 0;
-        return `<div class="hl-rpe-row"><span>${esc(Store.shortName(p))}</span><span class="hl-scale">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button class="${n === v ? 'on' : ''} r${n}" data-rpe="${id}" data-v="${n}" title="${RPE[n]}">${n}</button>`).join('')}</span></div>`; }).join('')}</div>
+      <p class="muted small">Après ${kind === 'match' ? 'le match' : 'la séance'}, chaque joueur dit de 1 (très facile) à 10 (maximal) si c'était dur. Charge = effort × ${mins} min. Ça sert à repérer ceux qui en font trop.${nOwn ? ` <b>📱 ${nOwn} joueur${nOwn > 1 ? 's ont' : ' a'} répondu ${nOwn > 1 ? 'eux-mêmes' : 'lui-même'}</b> (le 📱 : sa réponse ; touche une note pour la remplacer).` : ' Les joueurs peuvent aussi répondre eux-mêmes dans leur espace.'}</p>
+      ${funs.length ? `<p class="small">Ont-ils aimé ? ${['😃', '🙂', '😕'].map((e, i) => { const n = funs.filter(x => x === 3 - i).length; return n ? `${e} ${n}` : ''; }).filter(Boolean).join(' · ')}</p>` : ''}
+      ${ids.length ? `<div class="hl-rpe-list">${ids.map(id => { const p = Store.get('players', id); if (!p) return ''; const v = r[id] || 0, mine = !(ev.rpe || {})[id] && own[id];
+        return `<div class="hl-rpe-row"><span>${mine ? '📱 ' : ''}${esc(Store.shortName(p))}${fun[id] ? ' ' + ['', '😕', '🙂', '😃'][fun[id]] : ''}</span><span class="hl-scale">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button class="${n === v ? 'on' : ''} r${n}" data-rpe="${id}" data-v="${n}" title="${RPE[n]}">${n}</button>`).join('')}</span></div>`; }).join('')}</div>
         <div class="chips"><button class="btn soft" data-rpeall="5">Tous à 5</button><button class="btn soft" data-rpeall="7">Tous à 7</button><button class="btn soft" data-rpeall="0">Effacer</button></div>`
         : `<p class="muted">${kind === 'match' ? 'Coche les convoqués' : 'Fais l\'appel'} pour noter l'effort.</p>`}</section>`;
   }

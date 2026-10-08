@@ -220,7 +220,7 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${wbCard(now)}${Injury.card('', Injury.events(data))}<div id="abBox"></div>${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${wbCard(now)}<div id="afBox"></div>${Injury.card('', Injury.events(data))}<div id="abBox"></div>${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
@@ -236,6 +236,9 @@
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
           ${Member.privacy()}` },
       ])}`;
+    // (2.51) after a session or a match: his effort, did he like it, his own mark and his star of the match
+    if (typeof After !== 'undefined' && $('#afBox')) After.mount($('#afBox'), { key: code, toast, who: 'toi',
+      load: () => rpc('member_after', { p_code: code }), save: d => rpc('member_after', { p_code: code, p_action: 'save', p_data: d }) });
     // (2.50) « Prévenir le coach »: an absence of several days, a problem for the next session or match
     if (typeof Absence !== 'undefined' && $('#abBox')) Absence.mount($('#abBox'), { key: code, toast,
       events: [...(data.matches || []).filter(m => !m.played).map(m => ({ id: m.id, date: m.date, time: m.time, label: 'Match ' + (m.home ? 'contre ' : 'chez ') + (m.opponent || '?') })),

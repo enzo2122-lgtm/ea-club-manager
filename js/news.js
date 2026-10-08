@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 107, date: '2026-10-09', title: 'Après l\'effort, le joueur répond 💪', items: [
+      ['💪', 'Après une séance ou un match, le joueur (ou ses parents) dit sur son accueil si c\'était dur (1 à 10) et s\'il a aimé. Ça compte dans la charge quand le coach n\'a rien noté (📱 sur la séance).'],
+      ['🙋', 'Après un match, 3 h après le coup d\'envoi : il se note de 0 à 10, dit son match et l\'équipe en un mot, et vote pour l\'étoile du match.'],
+      ['⭐', 'Sur le match, onglet Après : les auto-évaluations à côté de la note du coach (« se surestime » / « se sous-estime ») et l\'étoile élue par l\'équipe.'],
+    ] },
     { n: 106, date: '2026-10-09', title: 'Prévenir le coach 📣', items: [
       ['📣', 'Joueurs et parents, sur l\'accueil : « En retard », « Souci de transport », « Une douleur », « Empêché » pour la prochaine séance ou le prochain match. Le coach reçoit le message tout de suite.'],
       ['✈️', '« Absent plusieurs jours » : vacances, examens, malade… Le coach voit le joueur indisponible ces jours-là (✈️ dans les convocations et l\'appel). « Finalement je serai là » l\'annule.'],

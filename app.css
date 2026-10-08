@@ -2152,3 +2152,10 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .abs-row { display: flex; align-items: center; gap: 8px; }
 .abs-row span { flex: 0 0 96px; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .abs-row input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 15px; }
+/* (2.51) self-evaluations of a match */
+.self-star { padding: 8px 12px; border-radius: 12px; background: #fef9c3; border: 1px solid #fde047; }
+.self-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.self-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; }
+.self-row .self-v { font-size: 20px; font-weight: 800; text-align: right; }
+.self-row .self-v small { font-size: 12px; font-weight: 600; color: var(--muted); }
+.self-row > .small, .self-row > .muted { grid-column: 1 / -1; }

@@ -749,6 +749,19 @@ const Views = (() => {
       <p class="muted small">« Match complet pour les autres » met ${full} min à ceux qui n'ont pas encore de temps. ${total ? `Total saisi : ${total} min.` : ''}</p></section>`;
   }
   // (1.41) « Qui joue où ? » : each position of the lineup gets a player called up (his name goes on the drawing and the match sheet)
+  // (2.51) what the players said of their match (their mark, in words) and the star the team elected
+  function selfEvalCard(m, conv) {
+    const se = m.selfEval || {}, ids = conv.map(p => p.id).filter(id => se[id]);
+    if (!ids.length) return `<section class="card self-card"><h2>🙋 Auto-évaluations</h2><p class="muted small">3 h après le coup d'envoi, chaque joueur peut se noter de 0 à 10, dire son match et l'équipe en un mot, et voter pour l'étoile du match (dans son espace). Personne n'a encore répondu.</p></section>`;
+    const votes = {}; ids.forEach(id => { const s = se[id].star; if (s) votes[s] = (votes[s] || 0) + 1; });
+    const top = Object.entries(votes).sort((a, b) => b[1] - a[1]), best = top.length && top[0][1] > (top[1] ? top[1][1] : 0) ? top[0] : null;
+    const fr = v => String(v).replace('.', ',');
+    return `<section class="card self-card"><h2>🙋 Auto-évaluations (${ids.length}/${conv.length})</h2>
+      ${best ? `<p class="self-star">⭐ Étoile élue par l'équipe : <b>${esc(Store.shortName(Store.get('players', best[0]) || {}))}</b> (${best[1]} vote${best[1] > 1 ? 's' : ''})</p>` : top.length ? `<p class="self-star">⭐ Égalité pour l'étoile : ${top.filter(x => x[1] === top[0][1]).map(x => esc(Store.shortName(Store.get('players', x[0]) || {}))).join(', ')}</p>` : ''}
+      <div class="self-list">${ids.map(id => { const p = Store.get('players', id), x = se[id], c = Ratings.avg ? Ratings.avg(m, id) : null, cv = c && c.v != null ? c.v : null, gap = cv != null ? x.v - cv : null;
+        return `<div class="self-row"><b>${esc(Store.shortName(p))}</b><span class="self-v">${fr(x.v)}<small>/10</small></span><span class="muted small">${cv != null ? `coach ${Ratings.fr ? Ratings.fr(cv) : fr(cv)}${Math.abs(gap) >= 2 ? (gap > 0 ? ' · se surestime' : ' · se sous-estime') : ''}` : 'pas de note coach'}</span>
+          ${x.word || x.team ? `<span class="small">${x.word ? `Son match : « ${esc(x.word)} »` : ''}${x.word && x.team ? ' · ' : ''}${x.team ? `L'équipe : « ${esc(x.team)} »` : ''}</span>` : ''}</div>`; }).join('')}</div></section>`;
+  }
   // (2.43) the shirt numbers of the match: his usual one by default, another one for this match only (a shirt missing, a renfort…)
   function numbersCard(m, conv) {
     const nums = conv.map(p => String(Store.numOf(p, m) || '')), dup = new Set(nums.filter((n, i) => n && nums.indexOf(n) !== i));
@@ -884,6 +897,7 @@ const Views = (() => {
         </section>
         ${m.played && conv.length ? minutesCard(m, conv) + Season.detailCard(m) + Health.rpeBox(m, conv.map(p => p.id), 'match') : ''}
         <div id="rateBox"></div>
+        ${m.played && conv.length ? selfEvalCard(m, conv) : ''}
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('match:' + m.id, 'Photos et vidéos du match')}
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
