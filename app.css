@@ -2118,3 +2118,6 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .bal-t { border-top: 8px solid var(--c); } .bal-t ul { list-style: none; margin: 8px 0 0; padding: 0; } .bal-t li { padding: 6px 8px; border-radius: 8px; background: var(--surface2); margin: 4px 0; display: flex; justify-content: space-between; } .bal-t li i { font-style: normal; opacity: .6; font-size: 13px; }
 .bal-avg { font-weight: 800; color: var(--c); }
 @media print { .bal-teams { grid-template-columns: repeat(2, 1fr); } }
+
+/* (2.26) qui a vu */
+details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-size: 14px; } details.seen p { margin: 6px 0 0; line-height: 1.6; }

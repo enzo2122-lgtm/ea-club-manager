@@ -54,11 +54,12 @@ const Codes = (() => {
     const ps = playersOf(t), given = ps.filter(p => (map[p.id] || {}).given), todo = ps.filter(p => map[p.id] && !(map[p.id] || {}).given);
     // handed out but never opened: the ones to remind (the coach sees their names, not their codes)
     const wait = given.filter(p => !(map[p.id] || {}).first), on = ps.filter(p => (map[p.id] || {}).first);
+    const silent = on.filter(p => Date.now() - new Date((map[p.id] || {}).used || 0) > 30 * 864e5); // (2.26) the app not opened for a month
     const rows = admin ? (ui.show === 'todo' ? todo : ui.show === 'wait' ? wait : ui.show === 'given' ? given : ps) : todo;
     const d = x => x ? new Date(x).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
     root.innerHTML = head + `
       <section class="card codes-card">
-        <p class="muted small">${admin ? `${ps.length} licencié${ps.length > 1 ? 's' : ''} · ${todo.length} code${todo.length > 1 ? 's' : ''} à remettre · ${given.length} remis.`
+        <p class="muted small">${admin ? `${ps.length} licencié${ps.length > 1 ? 's' : ''} · ${todo.length} code${todo.length > 1 ? 's' : ''} à remettre · ${given.length} remis.${silent.length ? ` · 📶 ${silent.length} silencieux (pas ouvert l'appli depuis 30 jours : ${silent.map(p => esc(Store.shortName(p))).join(', ')})` : ''}`
           : `${todo.length} code${todo.length > 1 ? 's' : ''} à remettre${given.length ? ` · ${given.length} déjà remis (le responsable du club les garde)` : ''}.`}
           Remets à chacun son code (en main propre ou sur sa carte), puis coche « Remis ».</p>
         <p class="codes-stat"><b class="ok">✓ ${on.length} activé${on.length > 1 ? 's' : ''}</b> · <b class="wait">⏳ ${wait.length} remis, pas encore activé${wait.length > 1 ? 's' : ''}</b> · ${todo.length} à remettre</p>

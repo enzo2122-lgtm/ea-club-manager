@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 82, date: '2026-10-08', title: "Vu, pas vu, pas lu 👁️", items: [
+      ['👁️', "Sur chaque séance et chaque match : « Qui a vu » — ont répondu, vu sans répondre, pas ouvert l'appli, jamais utilisé leur code. Avec les prénoms pour relancer les bons."],
+      ['📶', "Page Codes : les joueurs silencieux (appli pas ouverte depuis 30 jours)."],
+    ] },
     { n: 81, date: '2026-10-08', title: "Alors, cette cheville ? 🩹", items: [
       ['🩹', "Suivi après blessure : après chaque séance ou match où le blessé était présent, l'appli lui demande « comment ça s'est passé ? » (plus rien / à surveiller / toujours blessé). « Plus rien » termine la blessure, « toujours blessé » te prévient tout de suite."],
       ['✅', "Infirmerie et accueil : les blessures signalées depuis l'appli par un joueur ou ses parents attendent ta validation (« Signalements à valider »)."],

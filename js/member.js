@@ -418,11 +418,18 @@ const Member = (() => {
   const opened = {};
   document.addEventListener('toggle', e => { const d = e.target; if (d && d.dataset && d.dataset.grp) opened[d.dataset.grp] = d.open; }, true);
   const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // (2.26) the events shown are told to the club server (« vu »), once per opening; the coach sees who saw the convocation
+  const pinged = new Set();
+  function seenPing(ids) {
+    const n = ids.filter(i => i && !pinged.has(i)); if (!n.length || PREVIEW) return;
+    n.forEach(i => pinged.add(i)); rpc('member_seen', { p_code: current(), p_ids: n }).catch(() => {});
+  }
   function programme(trainings, matches, trRow) {
     const now = new Date(), today = iso(now);
     const ms = (matches || []).filter(m => !m.played && !m.exempt && m.date >= today).map(m => ({ date: m.date, time: m.time, _m: m }));
     const all = [...(trainings || []), ...ms].filter(x => x.date >= today).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
     if (!all.length) return '';
+    const lim14 = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14)); seenPing(all.filter(x => x.date <= lim14).map(x => x._m ? x._m.id : x.id));
     const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7)), week = k => iso(new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 7 * k));
     const groups = [];
     all.forEach(x => {
