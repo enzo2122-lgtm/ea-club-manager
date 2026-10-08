@@ -25,9 +25,11 @@ const Member = (() => {
   }
   function forget(c) { write(LIST, list().filter(x => x.c !== c)); if (read(CUR, '') === c) write(CUR, (list()[0] || {}).c || ''); }
   const use = c => write(CUR, c);
-  // 16 and over: the players' page; younger: the parents' page (both are reachable from each other)
+  // (2.07) the families' space only for U15 and younger: a player of U16 and over (Seniors, Vétérans…) has only the players' page.
+  // U15 and younger: under 16, the parents' page; the two pages are reachable from each other.
   const age = b => { if (!b) return 99; const d = new Date(b + 'T12:00'), n = new Date(); let a = n.getFullYear() - d.getFullYear(); if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--; return a; };
-  const pageFor = d => age(d && d.me && d.me.birth) >= 16 ? 'joueurs.html' : 'parents.html';
+  const family = d => { const t = String((d && d.team) || '').split(' · ').filter(Boolean); return t.length ? t.some(AppCfg.family) : age(d && d.me && d.me.birth) < 16; };
+  const pageFor = d => family(d) && age(d && d.me && d.me.birth) < 16 ? 'parents.html' : 'joueurs.html';
 
   async function rpc(name, args) {
     const c = typeof CLUB_SERVER !== 'undefined' ? CLUB_SERVER : null;
@@ -86,10 +88,10 @@ const Member = (() => {
   }
   // top of the page: who is shown, the other children of this phone, add a code, the other space
   function bar(d, kind) {
-    const l = list(), c = read(CUR, ''), other = kind === 'parents' ? ['joueurs.html', '⚽ Espace joueur'] : ['parents.html', '👪 Espace parents'];
+    const l = list(), c = read(CUR, ''), other = kind === 'parents' ? ['joueurs.html', '⚽ Espace joueur'] : family(d) ? ['parents.html', '👪 Espace parents'] : null;
     return `<div class="card who"><span>${kind === 'parents' ? '👪' : '⚽'} <b>${esc((d.me || {}).name || '')}</b>${d.team ? ` · ${esc(d.team)}` : ''}</span>
       <span class="btns">${l.filter(x => x.c !== c).map(x => `<button class="b small" data-usecode="${esc(x.c)}">${esc(x.first || x.name || pretty(x.c))}</button>`).join('')}
-      ${PREVIEW ? `<a class="b small lnk" href="${other[0]}#c=${esc(c)}&preview=1">${other[1]}</a>` : `<a class="b small lnk" href="moi.html#add=1">＋ ${kind === 'parents' ? 'Un autre enfant' : 'Un autre code'}</a><a class="b small lnk" href="${other[0]}">${other[1]}</a><button class="b small" data-forget="${esc(c)}">Se déconnecter</button>`}</span></div>`;
+      ${PREVIEW ? (other ? `<a class="b small lnk" href="${other[0]}#c=${esc(c)}&preview=1">${other[1]}</a>` : '') : `<a class="b small lnk" href="moi.html#add=1">＋ ${kind === 'parents' ? 'Un autre enfant' : 'Un autre code'}</a>${other ? `<a class="b small lnk" href="${other[0]}">${other[1]}</a>` : ''}<button class="b small" data-forget="${esc(c)}">Se déconnecter</button>`}</span></div>`;
   }
   function privacy() {
     return `<div class="card privacy"><p class="info">🔒 <a href="confidentialite.html">Confidentialité</a> : ta fiche, ta santé et tes contacts ne sont vus que par les coachs de ta catégorie et les responsables du club. Ce que tu écris ou envoies dans le chat est vu par ta catégorie (photos effacées après 90 jours, messages après 1 an).</p>
@@ -543,5 +545,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest };
+  return { badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest, family };
 })();

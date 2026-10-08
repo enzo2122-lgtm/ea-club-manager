@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 63, date: '2026-10-08', title: 'Espace famille jusqu\'aux U15, et sourdine des parents', items: [
+      ['👪', 'L\'espace parents est réservé aux U15 et plus jeunes. À partir des U16 (et Seniors, Vétérans), le code ouvre directement l\'espace joueur.'],
+      ['💬', 'Un seul chat par catégorie : jusqu\'aux U15, le chat des parents (espace parents, avec les coachs), plus de chat dans l\'espace joueur ; à partir des U16, le chat des joueurs.'],
+      ['🔇', 'Coachs et responsables : « Sourdine parents » en haut du chat. Les parents lisent sans pouvoir écrire (ils peuvent encore réagir et voter aux sondages). « Parole aux parents » pour rouvrir.'],
+      ['🔒', 'Corrigé : le bouton « Fermer » du chat ne fermait pas vraiment le chat.'],
+    ] },
     { n: 62, date: '2026-10-08', title: 'Partage les résultats 📣', items: [
       ['📣', 'Coachs : sur un match joué, onglet « Après » → « Partager le résultat ». Une belle image (score, catégorie, blason) à envoyer sur WhatsApp, Facebook, Instagram, X, Telegram, SMS ou e-mail.'],
       ['🗓️', 'Résultats du club : un bouton 📣 par week-end crée l\'image de tous les scores du week-end.'],

@@ -208,6 +208,8 @@
     if (!/^pf/.test(e.target.id || '')) return;
     const p = readProf(), v = bmi(p.weight, p.height); $('#pfBmi').textContent = v || '–'; $('#pfBmiL').textContent = v ? 'IMC · ' + bmiLabel(v) : 'IMC (auto)';
   });
+  // (2.07) U15 and younger: the chat of the category is the parents' one (parents' page); the players' chat from U16
+  const chatOk = () => String((data && data.team) || '').split(' · ').filter(Boolean).some(t => !AppCfg.family(t));
   function render() {
     if ($('#pfW')) readProf();
     const now = today();
@@ -222,7 +224,7 @@
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
-        { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.96) the chat of his category (players and coaches)
+        ...(chatOk() ? [{ id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }] : []), // (1.96) the chat of his category (players and coaches); (2.07) U16 and over only
         { id: 'saison', icon: '📊', label: 'Saison', html: `${my.conv || my.f.mp ? `<div class="row-h"><h2>Ma saison</h2>${typeof Share !== 'undefined' ? '<button class="b small" data-shs>📣 Partager ma saison</button>' : ''}</div><div class="tiles"><div><b>${my.mp}</b><span>matchs joués</span></div><div><b>${my.min}'</b><span>temps de jeu</span></div><div><b>${my.mp ? Math.round(my.min / my.mp) : 0}'</b><span>par match</span></div><div><b>${my.g}</b><span>buts</span></div><div><b>${my.a}</b><span>passes déc.</span></div>${my.yc || my.rc ? `<div><b>${my.yc ? '🟨' + my.yc : ''}${my.rc ? ' 🟥' + my.rc : ''}</b><span>cartons</span></div>` : ''}${my.sessions && my.sessions.total ? `<div><b>${Math.round(my.sessions.present / my.sessions.total * 100)} %</b><span>présence aux séances (${my.sessions.present}/${my.sessions.total})</span></div>` : ''}</div>${my.teams && Object.keys(my.teams).length > 1 ? `<p class="info">Joué avec : ${Object.entries(my.teams).map(([t, n]) => `<b>${esc(t)}</b> (${n})`).join(' · ')}</p>` : ''}<p class="info">Matchs officiels (championnat, coupe).${my.f.mp ? ` Matchs amicaux : <b>${my.f.mp}</b> joué${my.f.mp > 1 ? 's' : ''}, <b>${my.f.min}'</b>${my.f.g ? `, ⚽ ${my.f.g}` : ''}${my.f.a ? `, 🅿️ ${my.f.a}` : ''}.` : ''}</p>` : ''}
           ${past.length ? `<h2>Résultats</h2>${past.slice(0, 12).map(pastCard).join('')}` : ''}
           ${Member.leaders(lead, 'toi')}${standings()}`, empty: 'Ta saison s\'affichera ici après tes premiers matchs.' }, // (2.04) badges and rankings
@@ -234,7 +236,7 @@
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
           ${Member.privacy()}` },
       ])}`;
-    if (typeof Chat !== 'undefined') Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
+    if (typeof Chat !== 'undefined' && $('#chatBox')) Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
       post: (c, b, r) => rpc('member_chat_post', Object.assign({ p_code: code, p_cat: c, p_body: b }, r ? { p_reply: r } : {})), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
       poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),

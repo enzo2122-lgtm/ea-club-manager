@@ -1162,12 +1162,11 @@ const Views = (() => {
     if (!t) { root.innerHTML = header('Chat des joueurs') + empty('Crée une équipe pour ouvrir le chat de la catégorie.'); return; }
     S().ui.teamId = tid;
     // (2.04) two rooms: the players' chat, the parents' chat (parents and coaches)
-    const room = S().ui.chatRoom === 'parents' ? 'parents' : 'joueurs', tk = t.id + (room === 'parents' ? '|parents' : '');
-    root.innerHTML = `${header('Chat', 'Joueurs ou parents de la catégorie, et leurs coachs')}${teamSwitch()}
-      <div class="chips chat-rooms"><button class="chip ${room === 'joueurs' ? 'on' : ''}" data-room="joueurs">⚽ Joueurs</button><button class="chip ${room === 'parents' ? 'on' : ''}" data-room="parents">👪 Parents</button></div>
+    // (2.07) one chat per category: U15 and younger, the parents' chat (parents and coaches); U16 and over, the players' chat
+    const fam = AppCfg.family(t.category || t.name), room = fam ? 'parents' : 'joueurs', tk = t.id + (room === 'parents' ? '|parents' : '');
+    root.innerHTML = `${header(fam ? 'Chat des parents' : 'Chat des joueurs', fam ? 'Les parents de la catégorie et leurs coachs (U15 et moins) · 🔇 pour mettre les parents en sourdine' : 'Les joueurs de la catégorie et leurs coachs')}${teamSwitch()}
       ${Cloud.ready() ? '<div id="chatBox"></div>' : '<p class="tip">Le chat passe par le serveur du club : connecte-toi pour discuter avec tes joueurs.</p>'}`;
     bindTeamSwitch(root, () => chat(root));
-    root.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { S().ui.chatRoom = b.dataset.room; Store.persistNow(); chat(root); });
     const box = $('#chatBox', root); if (!box) return;
     Chat.mount(box, { key: 't:' + tk, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(tk, after),
       post: (c, b, r) => Cloud.chatPost(tk, b, r), del: (c, id) => Cloud.chatDel(tk, id), off: off => Cloud.chatOff(tk, off),
