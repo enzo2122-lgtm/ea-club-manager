@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 76, date: '2026-10-08', title: 'Le niveau des joueurs', items: [
+      ['📊', 'Nouveau : le niveau de chaque joueur sur 5 critères notés de 1 à 5 : technique, intelligence de jeu, physique, attitude et mental. Sur la fiche du joueur (touche les étoiles) et dans Équipes → Niveau des joueurs.'],
+      ['⭐', '« Noter l\'équipe » : tous les joueurs à la suite, ceux qui n\'ont pas de note d\'abord. Le tableau se trie par critère, avec la moyenne de l\'équipe, ses points forts et ses points à travailler.'],
+      ['🔒', 'Réservé aux coachs de la catégorie et aux responsables : jamais montré aux joueurs ni aux parents. La fiche montre ce qui a bougé depuis la dernière fois (▲ ▼).'],
+    ] },
     { n: 75, date: '2026-10-08', title: 'Joyeux anniversaire ! 👑', items: [
       ['🎂', 'Le jour de son anniversaire, la page du joueur se met en fête : en-tête doré, couronne, confettis et une carte « King of the day ». Côté parents aussi pour les U15 et en dessous.'],
       ['👑', 'Dans le chat de sa catégorie, un message « King of the day » invite tout le groupe à lui souhaiter son anniversaire (bouton « 🎂 Lui souhaiter » en un geste), et une couronne s\'affiche devant son nom toute la journée.'],

@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.19';
+  const VERSION = '2.20';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -5654,6 +5654,7 @@ var People = (() => {
       <div class="cards2">
         ${Health.playerCard(p)}
         ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
+        ${Level.card(p)}
         ${Progress.card(p)}
         ${Tips.card(p)}
         ${Tests.card(p)}
@@ -5678,6 +5679,7 @@ var People = (() => {
     Progress.mount(root, p);
     root.onclick = e => {
       if (Health.click(e, p, () => playerPage(root, id))) return;
+      if (Level.click(e, p, () => playerPage(root, id))) return;
       if (Progress.click(e, p, () => playerPage(root, id))) return;
       if (Tips.click(e, p, () => playerPage(root, id))) return;
       const b = e.target.closest('button'); if (!b) return;
@@ -10705,6 +10707,102 @@ var Tests = (() => {
 })();
 
 ;
+/* ===== level.js ===== */
+/* Level (2.20): the level of each player, for the coaches only — 5 criteria from 1 to 5 (technique, game intelligence, physique, attitude, mental).
+   One current level per player (shared by the coaches of his categories and the responsables, never shown to the player or his parents),
+   with a short history (one per day) to see what moved. On the player's page (stars to touch) and on a team page (#/niveau): table, sorting,
+   and « Noter l'équipe » to rate everyone one after the other. */
+var Level = (() => {
+  const { esc, $, $$, toast, modal } = UI;
+  const S = () => Store.state;
+  const CRIT = [['tech', '⚽', 'Technique', '#2563eb'], ['iq', '🧠', 'Intelligence de jeu', '#9333ea'], ['phys', '🏃', 'Physique', '#16a34a'],
+    ['att', '🤝', 'Attitude', '#ea580c'], ['ment', '🦁', 'Mental', '#db2777']];
+  const WORD = ['', 'Faible', 'Moyen', 'Correct', 'Bon', 'Très bon'];
+  const fr = n => n == null ? '–' : (Math.round(n * 10) / 10).toFixed(1).replace('.', ',');
+  const cur = p => (p && p.level) || {};
+  const avg = s => { const v = CRIT.map(([k]) => +(s || {})[k]).filter(Boolean); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  // the level before the current one (the last day of the history that differs)
+  const prev = p => { const h = (p.levelHist || []).filter(x => x.date !== cur(p).date); return h.length ? h[h.length - 1].s : null; };
+  const who = id => { const s = id && Store.get('staff', id); return s ? Store.shortName(s) : ''; };
+
+  function set(p, k, v) {
+    const s = Object.assign({}, cur(p)); delete s.date; delete s.by;
+    if (v) s[k] = v; else delete s[k];
+    const date = UI.today(), by = (Auth.current() || {}).id || null;
+    p.level = Object.assign({}, s, { date, by });
+    const scores = Object.fromEntries(CRIT.map(([c]) => [c, s[c]]).filter(x => x[1]));
+    p.levelHist = [...(p.levelHist || []).filter(x => x.date !== date), { date, s: scores }].slice(-12);
+    Store.upsert('players', p);
+  }
+  const stars = (p, k, small) => { const v = +cur(p)[k] || 0;
+    return `<span class="lv-stars ${small ? 'sm' : ''}">${[1, 2, 3, 4, 5].map(n => `<button class="${v >= n ? 'on' : ''}" data-lv="${k}:${n}" aria-label="${n} sur 5 : ${WORD[n]}" title="${WORD[n]}">★</button>`).join('')}</span>`; };
+  const chip = (v, col) => v ? `<b class="lv-chip" style="--c:${col};--a:${(0.12 + v * 0.14).toFixed(2)}">${v}</b>` : '<b class="lv-chip none">–</b>';
+
+  /* ---------- the card on the player's page ---------- */
+  function card(p) {
+    const s = cur(p), a = avg(s), pv = prev(p);
+    return `<section class="card lv-card"><h2>📊 Niveau <span class="lv-avg">${a == null ? '' : `${fr(a)} / 5`}</span></h2>
+      <p class="muted small">🔒 Seulement pour les coachs et les responsables. Touche les étoiles (touche à nouveau la même pour l'enlever).</p>
+      ${CRIT.map(([k, ic, l, col]) => { const v = +s[k] || 0, d = pv && pv[k] && v ? v - pv[k] : 0;
+        return `<div class="lv-row" style="--c:${col}"><span class="lv-l">${ic} ${esc(l)}</span>${stars(p, k)}<span class="lv-w">${v ? esc(WORD[v]) : ''}${d ? ` <i class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</i>` : ''}</span></div>`; }).join('')}
+      <p class="muted small">${s.date ? `Mis à jour le ${esc(UI.fmtDate(s.date, { day: 'numeric', month: 'long', year: 'numeric' }))}${who(s.by) ? ' par ' + esc(who(s.by)) : ''}` : 'Pas encore noté.'}
+        ${(p.teamIds || [])[0] ? ` · <a class="linkish" href="#/niveau/${p.teamIds[0]}">Niveau de l'équipe</a>` : ''}</p></section>`;
+  }
+  // a star touched on the player's page (true: handled)
+  function click(e, p, redraw) {
+    const b = e.target.closest('[data-lv]'); if (!b || !b.closest('.lv-card')) return false;
+    const [k, n] = b.dataset.lv.split(':'), v = +n === +cur(p)[k] ? 0 : +n; set(p, k, v);
+    const y = window.scrollY; redraw(); window.scrollTo(0, y); return true;
+  }
+
+  /* ---------- rating one player after the other ---------- */
+  function rate(list, i, done) {
+    const p = list[i]; if (!p) { done(); return; }
+    const body = () => `<p class="muted small">${i + 1} / ${list.length} · 1 = faible · 3 = correct · 5 = très bon</p>
+      ${CRIT.map(([k, ic, l, col]) => `<div class="lv-row" style="--c:${col}"><span class="lv-l">${ic} ${esc(l)}</span>${stars(p, k)}</div>`).join('')}
+      <p class="lv-tot">Moyenne : <b>${fr(avg(cur(p)))}</b> / 5</p>`;
+    modal({ title: `${p.number ? '#' + p.number + ' ' : ''}${Store.fullName(p)}`, noFocus: true, body: `<div id="lvBody" class="lv-card">${body()}</div>`,
+      onOpen: r => { r.querySelector('#lvBody').onclick = x => { const b = x.target.closest('[data-lv]'); if (!b) return; const [k, n] = b.dataset.lv.split(':');
+        set(p, k, +n === +cur(p)[k] ? 0 : +n); r.querySelector('#lvBody').innerHTML = body(); }; },
+      actions: [{ label: 'Terminer', onClick: () => { setTimeout(done, 60); } },
+        ...(i + 1 < list.length ? [{ label: 'Joueur suivant →', kind: 'primary', onClick: () => { setTimeout(() => rate(list, i + 1, done), 60); } }] : [{ label: 'C\'est fini ✓', kind: 'primary', onClick: () => { setTimeout(done, 60); } }])] });
+  }
+
+  /* ---------- the team page ---------- */
+  function page(root, teamId) {
+    const teams = Auth.teams(), t = Store.get('teams', teamId) || Store.get('teams', S().ui.teamId) || teams[0];
+    if (!t) { root.innerHTML = '<div class="empty"><p>Crée d\'abord une équipe.</p></div>'; return; }
+    const ui = S().ui.level = S().ui.level || { sort: 'avg' };
+    const ps = (Store.playersOf(t.id).length ? Store.playersOf(t.id) : Store.rosterOf(t.id)).slice().sort(Store.byName);
+    const val = (p, k) => k === 'avg' ? avg(cur(p)) : +cur(p)[k] || null;
+    const rows = ui.sort === 'name' ? ps : ps.slice().sort((a, b) => (val(b, ui.sort) || 0) - (val(a, ui.sort) || 0) || Store.byName(a, b));
+    const rated = ps.filter(p => avg(cur(p)) != null);
+    const teamAvg = k => { const v = rated.map(p => val(p, k)).filter(Boolean); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    const th = (k, label, title) => `<th><button class="lv-sort ${ui.sort === k ? 'on' : ''}" data-lvs="${k}" title="${esc(title || label)}">${label}</button></th>`;
+    root.innerHTML = `<header class="page-head"><div><h1>📊 Niveau des joueurs</h1><p class="sub">${esc(t.name)} · ${rated.length}/${ps.length} noté${rated.length > 1 ? 's' : ''}${teamAvg('avg') != null ? ` · moyenne ${fr(teamAvg('avg'))} / 5` : ''}</p></div>
+      <div class="head-actions"><a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a>${ps.length ? `<button class="btn primary" data-lva="all">⭐<span>Noter l'équipe</span></button>` : ''}</div></header>
+      <div class="row2"><label class="fld"><span>Équipe</span><select id="lvTeam">${teams.map(x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label></div>
+      <p class="muted small">🔒 Seulement pour les coachs et les responsables : jamais montré aux joueurs ni aux parents. Touche un joueur pour le noter, un titre de colonne pour trier.</p>
+      ${ps.length ? `<section class="card"><div class="ss-table lv-table"><table><thead><tr>${th('name', 'Joueur', 'Trier par nom')}${CRIT.map(([k, ic, l]) => th(k, ic, l)).join('')}${th('avg', 'Moy.', 'Moyenne des 5')}</tr></thead>
+        <tbody>${rows.map(p => `<tr data-lvp="${p.id}"><td><b>${p.number ? `<span class="pnum">${esc(p.number)}</span> ` : ''}${esc(Store.fullName(p))}</b></td>${CRIT.map(([k, , , col]) => `<td>${chip(+cur(p)[k] || 0, col)}</td>`).join('')}<td><b class="lv-m">${fr(avg(cur(p)))}</b></td></tr>`).join('')}</tbody>
+        ${rated.length ? `<tfoot><tr><td>Moyenne de l'équipe</td>${CRIT.map(([k]) => `<td>${fr(teamAvg(k))}</td>`).join('')}<td><b>${fr(teamAvg('avg'))}</b></td></tr></tfoot>` : ''}</table></div>
+        <p class="lv-key">${CRIT.map(([, ic, l]) => `<span>${ic} ${esc(l)}</span>`).join('')}</p></section>`
+        : '<p class="muted">Pas encore de joueur dans cette équipe.</p>'}
+      ${rated.length ? `<section class="card"><h2>💪 Points forts et points à travailler de l'équipe</h2>${(() => { const l = CRIT.map(c => [c, teamAvg(c[0])]).filter(x => x[1] != null).sort((a, b) => b[1] - a[1]);
+        return l.map(([[, ic, n, col], v]) => `<div class="lv-bar" style="--c:${col}"><span>${ic} ${esc(n)}</span><i style="width:${(v / 5 * 100).toFixed(0)}%"></i><b>${fr(v)}</b></div>`).join(''); })()}</section>` : ''}`;
+    const redraw = () => { const y = window.scrollY; page(root, t.id); window.scrollTo(0, y); };
+    $('#lvTeam', root).onchange = e => { location.hash = '#/niveau/' + e.target.value; };
+    root.onclick = e => {
+      const s = e.target.closest('[data-lvs]'); if (s) { ui.sort = s.dataset.lvs; Store.persistNow(); return redraw(); }
+      if (e.target.closest('[data-lva="all"]')) { const todo = rows.filter(p => avg(cur(p)) == null), list = todo.length ? [...todo, ...rows.filter(p => !todo.includes(p))] : rows; return rate(list, 0, redraw); }
+      const r = e.target.closest('[data-lvp]'); if (r) { const i = rows.findIndex(p => p.id === r.dataset.lvp); if (i >= 0) rate(rows, i, redraw); }
+    };
+  }
+
+  return { card, click, page, avg, cur, CRIT };
+})();
+
+;
 /* ===== acimport.js ===== */
 /* ACImport: brings a team exported from AssistCoachAI (the .json file of its data) into the app, without duplicates.
    Players: found again by licence, or by name and birth date (else created in the category). Matches: those already imported
@@ -13635,6 +13733,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 76, date: '2026-10-08', title: 'Le niveau des joueurs', items: [
+      ['📊', 'Nouveau : le niveau de chaque joueur sur 5 critères notés de 1 à 5 : technique, intelligence de jeu, physique, attitude et mental. Sur la fiche du joueur (touche les étoiles) et dans Équipes → Niveau des joueurs.'],
+      ['⭐', '« Noter l\'équipe » : tous les joueurs à la suite, ceux qui n\'ont pas de note d\'abord. Le tableau se trie par critère, avec la moyenne de l\'équipe, ses points forts et ses points à travailler.'],
+      ['🔒', 'Réservé aux coachs de la catégorie et aux responsables : jamais montré aux joueurs ni aux parents. La fiche montre ce qui a bougé depuis la dernière fois (▲ ▼).'],
+    ] },
     { n: 75, date: '2026-10-08', title: 'Joyeux anniversaire ! 👑', items: [
       ['🎂', 'Le jour de son anniversaire, la page du joueur se met en fête : en-tête doré, couronne, confettis et une carte « King of the day ». Côté parents aussi pour les U15 et en dessous.'],
       ['👑', 'Dans le chat de sa catégorie, un message « King of the day » invite tout le groupe à lui souhaiter son anniversaire (bouton « 🎂 Lui souhaiter » en un geste), et une couronne s\'affiche devant son nom toute la journée.'],
@@ -16300,6 +16403,7 @@ var Views = (() => {
       `<a class="btn" href="#/joueurs">${I.team}<span>${Auth.isAdmin() ? 'Tous les joueurs' : 'Mes joueurs'} (${S().players.filter(Auth.seesPerson).length})</span></a>
        <a class="btn" href="#/dirigeants">${I.whistle}<span>Dirigeants (${S().staff.filter(Auth.seesPerson).length})</span></a>
        <a class="btn" href="#/progression">📈<span>Progression</span></a>
+       <a class="btn" href="#/niveau">📊<span>Niveau des joueurs</span></a>
        <a class="btn" href="#/tests">🏃<span>Tests physiques</span></a>
        <a class="btn" href="#/infirmerie">🚑<span>Infirmerie${Health.count() ? ' (' + Health.count() + ')' : ''}</span></a>
        ${Auth.isAdmin() ? `<button class="btn" data-act="bybirth">${I.calendar}<span>Ranger par année de naissance</span></button>` : ''}
@@ -17344,7 +17448,7 @@ var App = (() => {
     document.body.dataset.page = name;
     const full = name === 'schema' || name === 'tableau';
     document.body.classList.toggle('editing', full);
-    const navKey = { equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
+    const navKey = { niveau: 'equipes', equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
     renderNav(navKey);
     Quick.fab();
     // Whiteboard: a blank board, never saved (id = format of the pitch)
@@ -17359,7 +17463,7 @@ var App = (() => {
       planning: r => Planning.page(r), jeu: r => Views.game(r), chat: (r, x) => Views.chat(r, x), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x), signalements: r => Help.inbox(r),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
-      tests: (r, x) => Tests.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
+      tests: (r, x) => Tests.page(r, x), niveau: (r, x) => Level.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
     if (!keep) Help.visit();
     fn(root, id);
     Help.guideInto(root);
@@ -17396,7 +17500,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 120, UPD = AppCfg.key('update-tried');
+  const BUILD = 121, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
