@@ -117,6 +117,28 @@ const Health = (() => {
   }
 
   /* ---------- the injury room page ---------- */
+  // (2.59) the injuries of the season: how many, days lost, where, when, again the same place, during a session or a match
+  function injStats(ps) {
+    const y = new Date(), start = `${y.getMonth() >= 7 ? y.getFullYear() : y.getFullYear() - 1}-08-01`, t = today();
+    const all = ps.flatMap(p => (p.unavail || []).filter(u => u.kind === 'injury' && u.from >= start).map(u => ({ p, u })));
+    if (all.length < 2) return '';
+    const lost = x => Math.max(0, days(x.u.from, x.u.to && x.u.to < t ? x.u.to : t));
+    const by = f => { const c = {}; all.forEach(x => { const k = f(x); if (k) c[k] = (c[k] || 0) + 1; }); return Object.entries(c).sort((a, b) => b[1] - a[1]); };
+    const parts = by(x => x.u.part), types = by(x => x.u.type), months = by(x => x.u.from.slice(0, 7)).sort((a, b) => a[0].localeCompare(b[0]));
+    const again = {}; all.forEach(x => { const k = x.p.id + '|' + (x.u.part || ''); again[k] = (again[k] || 0) + 1; });
+    const rec = Object.entries(again).filter(([, n]) => n > 1).map(([k, n]) => { const [pid, part] = k.split('|'); return `${Store.shortName(Store.get('players', pid) || {})} (${part || '?'}, ${n} fois)`; });
+    // during a session or a match: the event of that day where he was
+    const ctx = { tr: 0, m: 0 }; all.forEach(x => { if (S().matches.some(m => m.date === x.u.from && (m.convoked || []).includes(x.p.id))) ctx.m++; else if (S().trainings.some(tr => tr.date === x.u.from && (tr.presents || []).includes(x.p.id))) ctx.tr++; });
+    const nm = S().matches.filter(m => m.played && m.date >= start).length, nt = S().trainings.filter(tr => !tr.model && tr.date >= start && tr.date <= t && (tr.presents || []).length).length;
+    const max = Math.max(...parts.map(x => x[1]), 1), mo = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    return `<section class="card inj-stats"><h2>📊 Les blessures de la saison</h2>
+      <div class="tiles"><div class="tile"><b>${all.length}</b><span>blessures</span></div><div class="tile"><b>${all.reduce((a, x) => a + lost(x), 0)}</b><span>jours d'absence</span></div><div class="tile"><b>${all.filter(x => x.u.self).length}</b><span>signalées par les familles</span></div>
+        ${nm && ctx.m ? `<div class="tile"><b>${(ctx.m / nm * 10).toFixed(1).replace('.', ',')}</b><span>pour 10 matchs</span></div>` : ''}${nt && ctx.tr ? `<div class="tile"><b>${(ctx.tr / nt * 10).toFixed(1).replace('.', ',')}</b><span>pour 10 séances</span></div>` : ''}</div>
+      <h3 class="sub-h">Où</h3><div class="inj-bars">${parts.map(([k, n]) => `<div><span>${esc(k)}</span><i style="width:${Math.round(n / max * 100)}%"></i><b>${n}</b></div>`).join('')}</div>
+      ${types.length ? `<p class="small"><b>Type :</b> ${types.map(([k, n]) => `${esc(k)} ${n}`).join(' · ')}</p>` : ''}
+      <p class="small"><b>Par mois :</b> ${months.map(([k, n]) => `${mo[+k.slice(5) - 1]} ${n}`).join(' · ')}${ctx.m + ctx.tr ? ` · <b>${ctx.m}</b> en match, <b>${ctx.tr}</b> à l'entraînement` : ''}</p>
+      ${rec.length ? `<p class="small">🔁 <b>Récidives :</b> ${rec.map(esc).join(', ')}</p>` : ''}</section>`;
+  }
   function page(root) {
     const t = today(), ps = S().players.filter(Auth.seesPerson);
     const now = ps.map(p => [p, on(p, t)]).filter(([, u]) => u).sort((a, b) => (a[1].to || '9999').localeCompare(b[1].to || '9999'));
@@ -131,6 +153,7 @@ const Health = (() => {
         <button class="btn soft" data-hlback="${p.id}|${u.id}">💪 De retour</button></div>`).join('') || '<p class="muted">Personne : tout le monde est disponible. 💪</p>'}</div>
       ${soon.length ? `<h2 class="section">Absences à venir</h2><div class="list">${soon.map(([p, u]) => `<a class="list-item" href="#/joueur/${p.id}"><span class="li-main"><b>${KINDS[u.kind][0]} ${esc(Store.fullName(p))}</b><span class="muted">dès le ${esc(fmt(u.from))} · ${esc(label(u).replace(/^\S+ /, ''))}</span></span></a>`).join('')}</div>` : ''}
       ${wellnessSection()}
+      ${injStats(ps)}
       <h2 class="section">Charge d'entraînement (7 derniers jours)</h2>
       <p class="muted small">Charge = effort ressenti (RPE) × minutes, noté après les séances et les matchs. ⚠️ = 7 derniers jours bien plus lourds que ses semaines habituelles : à surveiller, risque de blessure.</p>
       ${load.length ? `<div class="hl-load">${load.map(([p, r]) => `<a href="#/joueur/${p.id}" class="${r.high ? 'high' : ''}"><span>${r.high ? '⚠️ ' : ''}${esc(Store.fullName(p))}</span><b>${r.acute}</b><i>habituel ${r.chronic || '–'}</i></a>`).join('')}</div>`

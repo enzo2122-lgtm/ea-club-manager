@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 115, date: '2026-10-09', title: 'Anciens joueurs, RGPD et stats des blessures 📦', items: [
+      ['📦', 'Un joueur quitte le club ? Sur sa page, « Archiver » : il sort des listes, ses matchs et stats restent. Joueurs → « Anciens joueurs » pour le retrouver ou le réintégrer.'],
+      ['🕶️', '« Anonymiser (RGPD) » efface pour de bon son nom, ses contacts, sa date de naissance, sa fiche urgence et ses notes ; ses stats restent sans son nom.'],
+      ['📊', 'Infirmerie : les blessures de la saison — combien, jours d\'absence, où (cheville, genou…), par mois, en match ou à l\'entraînement (pour 10 matchs / 10 séances), récidives.'],
+    ] },
     { n: 114, date: '2026-10-09', title: 'Carte des buts, tirs au but, carton blanc 🗺️', items: [
       ['🗺️', 'Sur un but (pour ou contre), touche le terrain pour dire d\'où il a été marqué. L\'analyse du match montre la carte de nos buts et des buts encaissés.'],
       ['🎯', 'Tirs au but : après la fin du match (ou à la pause), choisis le tireur et touche ✅ / ❌ pour nous et pour eux. Le score s\'enregistre sur le match.'],

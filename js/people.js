@@ -72,7 +72,7 @@ const People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
         <span class="pnum">${esc(p.number || '')}</span>
-        <span class="pmain"><b>${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
+        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
       </button>${ab}
@@ -320,7 +320,8 @@ const People = (() => {
     const isP = kind === 'player', ui = S().ui, key = isP ? 'plFilter' : 'stFilter';
     const filt = ui[key] || '', q = (ui[key + 'Q'] || '').toLowerCase(), pf = isP ? ui.plPost || '' : '', sort = isP ? ui.peopleSort : 'name';
     const all = (isP ? S().players : S().staff).filter(Auth.seesPerson).sort(Store.byName);
-    const match = (p, f, qq) => (!f || (f === '-' ? !(p.teamIds || []).length : (p.teamIds || []).includes(f))) && (!qq || name(p).toLowerCase().includes(qq)) && (!pf || (pf === '-' ? !postsOf(p).length : hasPost(p, pf)));
+    // (2.59) the former players (archived) only in « Anciens joueurs »
+    const match = (p, f, qq) => (f === 'arch' ? !!p.archived : !p.archived) && (!f || f === 'arch' || (f === '-' ? !(p.teamIds || []).length : (p.teamIds || []).includes(f))) && (!qq || name(p).toLowerCase().includes(qq)) && (!pf || (pf === '-' ? !postsOf(p).length : hasPost(p, pf)));
     const list = all.filter(p => match(p, filt, q));
     const draw = l => (isP ? rowsOf(l, sort, p => playerRow(p)) : l.map(p => staffRow(p)).join('')) || '<p class="muted">Personne ici.</p>';
     root.innerHTML = `<header class="page-head"><div><h1>${isP ? 'Joueurs' : 'Dirigeants'}</h1><p class="sub">${list.length} sur ${all.length} · ${Auth.isAdmin() ? 'tout le club' : 'mes catégories'}</p></div>
@@ -330,7 +331,7 @@ const People = (() => {
       <div class="filters">
         <label class="search">${I.search}<input id="q" type="search" placeholder="Chercher un nom" value="${esc(ui[key + 'Q'] || '')}"></label>
         ${isP ? `<select id="post" aria-label="Poste"><option value="">Tous les postes</option>${TYPES.map(([t]) => `<optgroup label="${esc(LINES.find(x => x[0] === t)[1])}"><option value="${t}" ${pf === t ? 'selected' : ''}>${esc(LINES.find(x => x[0] === t)[1])} (tous)</option>${subsOf(t).map(x => `<option value="${x[0]}" ${pf === x[0] ? 'selected' : ''}>${esc(x[2] + ' · ' + x[1])}</option>`).join('')}</optgroup>`).join('')}<option value="-" ${pf === '-' ? 'selected' : ''}>Poste non renseigné</option></select>` : ''}
-        <select id="cat" aria-label="Catégorie"><option value="">${Auth.isAdmin() ? 'Toutes les catégories' : 'Mes catégories'}</option>${Auth.teams().map(t => `<option value="${t.id}" ${t.id === filt ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}<option value="-" ${filt === '-' ? 'selected' : ''}>Sans catégorie</option></select>
+        <select id="cat" aria-label="Catégorie"><option value="">${Auth.isAdmin() ? 'Toutes les catégories' : 'Mes catégories'}</option>${Auth.teams().map(t => `<option value="${t.id}" ${t.id === filt ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}<option value="-" ${filt === '-' ? 'selected' : ''}>Sans catégorie</option>${isP && all.some(p => p.archived) ? `<option value="arch" ${filt === 'arch' ? 'selected' : ''}>📦 Anciens joueurs (${all.filter(p => p.archived).length})</option>` : ''}</select>
       </div>
       ${isP ? sortBar(sort, 'psort') : ''}
       <div class="people big" id="plist">${draw(list)}</div>`;
@@ -667,6 +668,11 @@ const People = (() => {
           ${recentTr.length ? `<div class="att-strip">${recentTr.map(t => `<a class="att ${t.presents.includes(p.id) ? 'in' : 'out'}" href="#/entrainement/${t.id}" title="${esc(t.title || 'Entraînement')}"><b>${t.presents.includes(p.id) ? '✓' : '✗'}</b><span>${esc(UI.fmtDate(t.date, { day: 'numeric', month: 'short' }))}</span></a>`).join('')}</div>` : '<p class="muted">Aucun appel fait pour l\'instant.</p>'}
         </section>
         <section class="card">${notesHistory(p) || `<h2>⭐ Notes des dirigeants</h2><p class="muted">Pas encore de note.</p>`}</section>
+        <section class="card arch-card"><h2>📦 Départ du club</h2>${p.archived
+          ? `<p>Ancien joueur depuis le ${esc(UI.fmtDate(p.archived.at, { day: 'numeric', month: 'long', year: 'numeric' }))}${p.archived.why ? ' · ' + esc(p.archived.why) : ''}. Ses matchs et ses stats restent dans l'historique.</p>
+            <div class="chips"><button class="btn soft" data-act="unarch">↩️ Le réintégrer</button>${p.anon ? '' : '<button class="btn danger" data-act="anon">🕶️ Anonymiser (RGPD)</button>'}</div>
+            ${p.anon ? '<p class="muted small">Fiche anonymisée : nom, contacts, date de naissance et infos personnelles effacés.</p>' : '<p class="muted small">Anonymiser efface pour de bon son nom, ses contacts, sa date de naissance, sa fiche urgence et ses notes ; ses stats restent sans son nom. À faire quand la famille le demande, ou après quelques saisons.</p>'}`
+          : `<p class="muted small">Il quitte le club ? Archive-le : il sort de ses catégories et des listes, ses matchs et ses stats restent. Tu le retrouves dans Joueurs → « Anciens joueurs ».</p><button class="btn soft" data-act="arch">📦 Archiver (départ du club)</button>`}</section>
       </div>`;
     Progress.mount(root, p);
     root.onclick = e => {
@@ -677,6 +683,13 @@ const People = (() => {
       if (Tips.click(e, p, () => playerPage(root, id))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.act === 'back') return history.length > 1 ? history.back() : (location.hash = '#/joueurs');
+      if (b.dataset.act === 'arch') return modal({ title: `📦 Archiver ${name(p)}`, body: `<label class="fld"><span>Raison (facultatif)</span><select id="archWhy"><option value="">—</option>${['Départ dans un autre club', 'Arrêt du foot', 'Déménagement', 'Fin de l\'essai', 'Autre'].map(x => `<option>${x}</option>`).join('')}</select></label><p class="muted small">Ses matchs, présences et stats restent dans l'historique.</p>`,
+        actions: [{ label: 'Annuler' }, { label: 'Archiver', kind: 'primary', onClick: (c, r) => { p.archived = { at: UI.today(), why: $('#archWhy', r).value, teams: (p.teamIds || []).slice() }; p.teamIds = []; delete p.trial; Store.upsert('players', p); toast('📦 Archivé'); setTimeout(() => playerPage(root, id), 0); } }] });
+      if (b.dataset.act === 'unarch') { p.teamIds = [...new Set([...(p.teamIds || []), ...((p.archived || {}).teams || [])])]; delete p.archived; Store.upsert('players', p); toast('↩️ Réintégré dans ses catégories'); return playerPage(root, id); }
+      if (b.dataset.act === 'anon') return confirmBox(`Anonymiser ${name(p)} ? Son nom, ses contacts, sa date de naissance, sa fiche urgence et ses notes sont effacés pour de bon. Impossible de revenir en arrière.`, 'Anonymiser').then(ok => {
+        if (!ok) return; const tag = String(p.id).replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
+        ['birth', 'phone', 'email', 'parents', 'notes', 'urgent', 'photo', 'licence', 'strengths', 'weaknesses', 'weight', 'height', 'subcat', 'mute', 'unavail', 'notesHist'].forEach(k => delete p[k]);
+        p.firstName = 'Ancien joueur ' + tag; p.lastName = ''; p.anon = UI.today(); Store.upsert('players', p); toast('🕶️ Fiche anonymisée'); playerPage(root, id); });
       if (b.dataset.act === 'trialkeep') { delete p.trial; Store.upsert('players', p); toast(`${Store.shortName(p)} fait partie de l'effectif 🎉`); return playerPage(root, id); }
       if (b.dataset.act === 'trialend') return confirmBox(`Fin de l'essai pour ${name(p)} ? Il sort de ses catégories et reste dans la base du club (« Tous les joueurs »), avec ses séances et matchs.`, 'Fin de l\'essai').then(ok => {
         if (!ok) return; delete p.trial; p.teamIds = []; Store.upsert('players', p); toast('Essai terminé'); location.hash = '#/joueurs'; });

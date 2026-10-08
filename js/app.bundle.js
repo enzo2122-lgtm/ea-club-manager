@@ -1913,7 +1913,7 @@ var Auth = (() => {
   const allTeams = () => !user || isAdmin();
   const teams = () => allTeams() ? Store.state.teams : Store.state.teams.filter(t => myIds().includes(t.id));
   const sees = teamId => allTeams() || !teamId || myIds().includes(teamId);
-  const seesPerson = p => allTeams() || (p.teamIds || []).some(id => myIds().includes(id)) || (user && p.id === user.id);
+  const seesPerson = p => allTeams() || [...(p.teamIds || []), ...((p.archived || {}).teams || [])].some(id => myIds().includes(id)) || (user && p.id === user.id); // (2.59) his former players too
   function startPreview(teamIds, role, extra = {}) { try { localStorage.setItem(PREVIEW, JSON.stringify(Object.assign({ teamIds, role: role || 'coach' }, extra))); } catch (e) {} Store.state.ui.teamId = ''; App.refreshChrome(); location.hash = role === 'arbitre' ? '#/arbitres' : '#/'; App.route(); toast('Tu es maintenant : ' + (extra.label || role)); }
   function stopPreview() { try { localStorage.removeItem(PREVIEW); sessionStorage.removeItem(PREVIEW); } catch (e) {} App.refreshChrome(); App.route(); toast('Retour en responsable'); }
   // « Voir l'appli comme… » : un coach (ses catégories), un parent ou un joueur (leur vraie page), un bénévole (l'appli réduite)
@@ -3643,7 +3643,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.58';
+  const VERSION = '2.59';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -5189,7 +5189,7 @@ var People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
         <span class="pnum">${esc(p.number || '')}</span>
-        <span class="pmain"><b>${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
+        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
       </button>${ab}
@@ -5437,7 +5437,8 @@ var People = (() => {
     const isP = kind === 'player', ui = S().ui, key = isP ? 'plFilter' : 'stFilter';
     const filt = ui[key] || '', q = (ui[key + 'Q'] || '').toLowerCase(), pf = isP ? ui.plPost || '' : '', sort = isP ? ui.peopleSort : 'name';
     const all = (isP ? S().players : S().staff).filter(Auth.seesPerson).sort(Store.byName);
-    const match = (p, f, qq) => (!f || (f === '-' ? !(p.teamIds || []).length : (p.teamIds || []).includes(f))) && (!qq || name(p).toLowerCase().includes(qq)) && (!pf || (pf === '-' ? !postsOf(p).length : hasPost(p, pf)));
+    // (2.59) the former players (archived) only in « Anciens joueurs »
+    const match = (p, f, qq) => (f === 'arch' ? !!p.archived : !p.archived) && (!f || f === 'arch' || (f === '-' ? !(p.teamIds || []).length : (p.teamIds || []).includes(f))) && (!qq || name(p).toLowerCase().includes(qq)) && (!pf || (pf === '-' ? !postsOf(p).length : hasPost(p, pf)));
     const list = all.filter(p => match(p, filt, q));
     const draw = l => (isP ? rowsOf(l, sort, p => playerRow(p)) : l.map(p => staffRow(p)).join('')) || '<p class="muted">Personne ici.</p>';
     root.innerHTML = `<header class="page-head"><div><h1>${isP ? 'Joueurs' : 'Dirigeants'}</h1><p class="sub">${list.length} sur ${all.length} · ${Auth.isAdmin() ? 'tout le club' : 'mes catégories'}</p></div>
@@ -5447,7 +5448,7 @@ var People = (() => {
       <div class="filters">
         <label class="search">${I.search}<input id="q" type="search" placeholder="Chercher un nom" value="${esc(ui[key + 'Q'] || '')}"></label>
         ${isP ? `<select id="post" aria-label="Poste"><option value="">Tous les postes</option>${TYPES.map(([t]) => `<optgroup label="${esc(LINES.find(x => x[0] === t)[1])}"><option value="${t}" ${pf === t ? 'selected' : ''}>${esc(LINES.find(x => x[0] === t)[1])} (tous)</option>${subsOf(t).map(x => `<option value="${x[0]}" ${pf === x[0] ? 'selected' : ''}>${esc(x[2] + ' · ' + x[1])}</option>`).join('')}</optgroup>`).join('')}<option value="-" ${pf === '-' ? 'selected' : ''}>Poste non renseigné</option></select>` : ''}
-        <select id="cat" aria-label="Catégorie"><option value="">${Auth.isAdmin() ? 'Toutes les catégories' : 'Mes catégories'}</option>${Auth.teams().map(t => `<option value="${t.id}" ${t.id === filt ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}<option value="-" ${filt === '-' ? 'selected' : ''}>Sans catégorie</option></select>
+        <select id="cat" aria-label="Catégorie"><option value="">${Auth.isAdmin() ? 'Toutes les catégories' : 'Mes catégories'}</option>${Auth.teams().map(t => `<option value="${t.id}" ${t.id === filt ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}<option value="-" ${filt === '-' ? 'selected' : ''}>Sans catégorie</option>${isP && all.some(p => p.archived) ? `<option value="arch" ${filt === 'arch' ? 'selected' : ''}>📦 Anciens joueurs (${all.filter(p => p.archived).length})</option>` : ''}</select>
       </div>
       ${isP ? sortBar(sort, 'psort') : ''}
       <div class="people big" id="plist">${draw(list)}</div>`;
@@ -5784,6 +5785,11 @@ var People = (() => {
           ${recentTr.length ? `<div class="att-strip">${recentTr.map(t => `<a class="att ${t.presents.includes(p.id) ? 'in' : 'out'}" href="#/entrainement/${t.id}" title="${esc(t.title || 'Entraînement')}"><b>${t.presents.includes(p.id) ? '✓' : '✗'}</b><span>${esc(UI.fmtDate(t.date, { day: 'numeric', month: 'short' }))}</span></a>`).join('')}</div>` : '<p class="muted">Aucun appel fait pour l\'instant.</p>'}
         </section>
         <section class="card">${notesHistory(p) || `<h2>⭐ Notes des dirigeants</h2><p class="muted">Pas encore de note.</p>`}</section>
+        <section class="card arch-card"><h2>📦 Départ du club</h2>${p.archived
+          ? `<p>Ancien joueur depuis le ${esc(UI.fmtDate(p.archived.at, { day: 'numeric', month: 'long', year: 'numeric' }))}${p.archived.why ? ' · ' + esc(p.archived.why) : ''}. Ses matchs et ses stats restent dans l'historique.</p>
+            <div class="chips"><button class="btn soft" data-act="unarch">↩️ Le réintégrer</button>${p.anon ? '' : '<button class="btn danger" data-act="anon">🕶️ Anonymiser (RGPD)</button>'}</div>
+            ${p.anon ? '<p class="muted small">Fiche anonymisée : nom, contacts, date de naissance et infos personnelles effacés.</p>' : '<p class="muted small">Anonymiser efface pour de bon son nom, ses contacts, sa date de naissance, sa fiche urgence et ses notes ; ses stats restent sans son nom. À faire quand la famille le demande, ou après quelques saisons.</p>'}`
+          : `<p class="muted small">Il quitte le club ? Archive-le : il sort de ses catégories et des listes, ses matchs et ses stats restent. Tu le retrouves dans Joueurs → « Anciens joueurs ».</p><button class="btn soft" data-act="arch">📦 Archiver (départ du club)</button>`}</section>
       </div>`;
     Progress.mount(root, p);
     root.onclick = e => {
@@ -5794,6 +5800,13 @@ var People = (() => {
       if (Tips.click(e, p, () => playerPage(root, id))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.act === 'back') return history.length > 1 ? history.back() : (location.hash = '#/joueurs');
+      if (b.dataset.act === 'arch') return modal({ title: `📦 Archiver ${name(p)}`, body: `<label class="fld"><span>Raison (facultatif)</span><select id="archWhy"><option value="">—</option>${['Départ dans un autre club', 'Arrêt du foot', 'Déménagement', 'Fin de l\'essai', 'Autre'].map(x => `<option>${x}</option>`).join('')}</select></label><p class="muted small">Ses matchs, présences et stats restent dans l'historique.</p>`,
+        actions: [{ label: 'Annuler' }, { label: 'Archiver', kind: 'primary', onClick: (c, r) => { p.archived = { at: UI.today(), why: $('#archWhy', r).value, teams: (p.teamIds || []).slice() }; p.teamIds = []; delete p.trial; Store.upsert('players', p); toast('📦 Archivé'); setTimeout(() => playerPage(root, id), 0); } }] });
+      if (b.dataset.act === 'unarch') { p.teamIds = [...new Set([...(p.teamIds || []), ...((p.archived || {}).teams || [])])]; delete p.archived; Store.upsert('players', p); toast('↩️ Réintégré dans ses catégories'); return playerPage(root, id); }
+      if (b.dataset.act === 'anon') return confirmBox(`Anonymiser ${name(p)} ? Son nom, ses contacts, sa date de naissance, sa fiche urgence et ses notes sont effacés pour de bon. Impossible de revenir en arrière.`, 'Anonymiser').then(ok => {
+        if (!ok) return; const tag = String(p.id).replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
+        ['birth', 'phone', 'email', 'parents', 'notes', 'urgent', 'photo', 'licence', 'strengths', 'weaknesses', 'weight', 'height', 'subcat', 'mute', 'unavail', 'notesHist'].forEach(k => delete p[k]);
+        p.firstName = 'Ancien joueur ' + tag; p.lastName = ''; p.anon = UI.today(); Store.upsert('players', p); toast('🕶️ Fiche anonymisée'); playerPage(root, id); });
       if (b.dataset.act === 'trialkeep') { delete p.trial; Store.upsert('players', p); toast(`${Store.shortName(p)} fait partie de l'effectif 🎉`); return playerPage(root, id); }
       if (b.dataset.act === 'trialend') return confirmBox(`Fin de l'essai pour ${name(p)} ? Il sort de ses catégories et reste dans la base du club (« Tous les joueurs »), avec ses séances et matchs.`, 'Fin de l\'essai').then(ok => {
         if (!ok) return; delete p.trial; p.teamIds = []; Store.upsert('players', p); toast('Essai terminé'); location.hash = '#/joueurs'; });
@@ -8738,6 +8751,28 @@ var Health = (() => {
   }
 
   /* ---------- the injury room page ---------- */
+  // (2.59) the injuries of the season: how many, days lost, where, when, again the same place, during a session or a match
+  function injStats(ps) {
+    const y = new Date(), start = `${y.getMonth() >= 7 ? y.getFullYear() : y.getFullYear() - 1}-08-01`, t = today();
+    const all = ps.flatMap(p => (p.unavail || []).filter(u => u.kind === 'injury' && u.from >= start).map(u => ({ p, u })));
+    if (all.length < 2) return '';
+    const lost = x => Math.max(0, days(x.u.from, x.u.to && x.u.to < t ? x.u.to : t));
+    const by = f => { const c = {}; all.forEach(x => { const k = f(x); if (k) c[k] = (c[k] || 0) + 1; }); return Object.entries(c).sort((a, b) => b[1] - a[1]); };
+    const parts = by(x => x.u.part), types = by(x => x.u.type), months = by(x => x.u.from.slice(0, 7)).sort((a, b) => a[0].localeCompare(b[0]));
+    const again = {}; all.forEach(x => { const k = x.p.id + '|' + (x.u.part || ''); again[k] = (again[k] || 0) + 1; });
+    const rec = Object.entries(again).filter(([, n]) => n > 1).map(([k, n]) => { const [pid, part] = k.split('|'); return `${Store.shortName(Store.get('players', pid) || {})} (${part || '?'}, ${n} fois)`; });
+    // during a session or a match: the event of that day where he was
+    const ctx = { tr: 0, m: 0 }; all.forEach(x => { if (S().matches.some(m => m.date === x.u.from && (m.convoked || []).includes(x.p.id))) ctx.m++; else if (S().trainings.some(tr => tr.date === x.u.from && (tr.presents || []).includes(x.p.id))) ctx.tr++; });
+    const nm = S().matches.filter(m => m.played && m.date >= start).length, nt = S().trainings.filter(tr => !tr.model && tr.date >= start && tr.date <= t && (tr.presents || []).length).length;
+    const max = Math.max(...parts.map(x => x[1]), 1), mo = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    return `<section class="card inj-stats"><h2>📊 Les blessures de la saison</h2>
+      <div class="tiles"><div class="tile"><b>${all.length}</b><span>blessures</span></div><div class="tile"><b>${all.reduce((a, x) => a + lost(x), 0)}</b><span>jours d'absence</span></div><div class="tile"><b>${all.filter(x => x.u.self).length}</b><span>signalées par les familles</span></div>
+        ${nm && ctx.m ? `<div class="tile"><b>${(ctx.m / nm * 10).toFixed(1).replace('.', ',')}</b><span>pour 10 matchs</span></div>` : ''}${nt && ctx.tr ? `<div class="tile"><b>${(ctx.tr / nt * 10).toFixed(1).replace('.', ',')}</b><span>pour 10 séances</span></div>` : ''}</div>
+      <h3 class="sub-h">Où</h3><div class="inj-bars">${parts.map(([k, n]) => `<div><span>${esc(k)}</span><i style="width:${Math.round(n / max * 100)}%"></i><b>${n}</b></div>`).join('')}</div>
+      ${types.length ? `<p class="small"><b>Type :</b> ${types.map(([k, n]) => `${esc(k)} ${n}`).join(' · ')}</p>` : ''}
+      <p class="small"><b>Par mois :</b> ${months.map(([k, n]) => `${mo[+k.slice(5) - 1]} ${n}`).join(' · ')}${ctx.m + ctx.tr ? ` · <b>${ctx.m}</b> en match, <b>${ctx.tr}</b> à l'entraînement` : ''}</p>
+      ${rec.length ? `<p class="small">🔁 <b>Récidives :</b> ${rec.map(esc).join(', ')}</p>` : ''}</section>`;
+  }
   function page(root) {
     const t = today(), ps = S().players.filter(Auth.seesPerson);
     const now = ps.map(p => [p, on(p, t)]).filter(([, u]) => u).sort((a, b) => (a[1].to || '9999').localeCompare(b[1].to || '9999'));
@@ -8752,6 +8787,7 @@ var Health = (() => {
         <button class="btn soft" data-hlback="${p.id}|${u.id}">💪 De retour</button></div>`).join('') || '<p class="muted">Personne : tout le monde est disponible. 💪</p>'}</div>
       ${soon.length ? `<h2 class="section">Absences à venir</h2><div class="list">${soon.map(([p, u]) => `<a class="list-item" href="#/joueur/${p.id}"><span class="li-main"><b>${KINDS[u.kind][0]} ${esc(Store.fullName(p))}</b><span class="muted">dès le ${esc(fmt(u.from))} · ${esc(label(u).replace(/^\S+ /, ''))}</span></span></a>`).join('')}</div>` : ''}
       ${wellnessSection()}
+      ${injStats(ps)}
       <h2 class="section">Charge d'entraînement (7 derniers jours)</h2>
       <p class="muted small">Charge = effort ressenti (RPE) × minutes, noté après les séances et les matchs. ⚠️ = 7 derniers jours bien plus lourds que ses semaines habituelles : à surveiller, risque de blessure.</p>
       ${load.length ? `<div class="hl-load">${load.map(([p, r]) => `<a href="#/joueur/${p.id}" class="${r.high ? 'high' : ''}"><span>${r.high ? '⚠️ ' : ''}${esc(Store.fullName(p))}</span><b>${r.acute}</b><i>habituel ${r.chronic || '–'}</i></a>`).join('')}</div>`
@@ -15998,6 +16034,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 115, date: '2026-10-09', title: 'Anciens joueurs, RGPD et stats des blessures 📦', items: [
+      ['📦', 'Un joueur quitte le club ? Sur sa page, « Archiver » : il sort des listes, ses matchs et stats restent. Joueurs → « Anciens joueurs » pour le retrouver ou le réintégrer.'],
+      ['🕶️', '« Anonymiser (RGPD) » efface pour de bon son nom, ses contacts, sa date de naissance, sa fiche urgence et ses notes ; ses stats restent sans son nom.'],
+      ['📊', 'Infirmerie : les blessures de la saison — combien, jours d\'absence, où (cheville, genou…), par mois, en match ou à l\'entraînement (pour 10 matchs / 10 séances), récidives.'],
+    ] },
     { n: 114, date: '2026-10-09', title: 'Carte des buts, tirs au but, carton blanc 🗺️', items: [
       ['🗺️', 'Sur un but (pour ou contre), touche le terrain pour dire d\'où il a été marqué. L\'analyse du match montre la carte de nos buts et des buts encaissés.'],
       ['🎯', 'Tirs au but : après la fin du match (ou à la pause), choisis le tireur et touche ✅ / ❌ pour nous et pour eux. Le score s\'enregistre sur le match.'],
@@ -20188,7 +20229,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 159, UPD = AppCfg.key('update-tried');
+  const BUILD = 160, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

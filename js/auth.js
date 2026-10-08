@@ -56,7 +56,7 @@ const Auth = (() => {
   const allTeams = () => !user || isAdmin();
   const teams = () => allTeams() ? Store.state.teams : Store.state.teams.filter(t => myIds().includes(t.id));
   const sees = teamId => allTeams() || !teamId || myIds().includes(teamId);
-  const seesPerson = p => allTeams() || (p.teamIds || []).some(id => myIds().includes(id)) || (user && p.id === user.id);
+  const seesPerson = p => allTeams() || [...(p.teamIds || []), ...((p.archived || {}).teams || [])].some(id => myIds().includes(id)) || (user && p.id === user.id); // (2.59) his former players too
   function startPreview(teamIds, role, extra = {}) { try { localStorage.setItem(PREVIEW, JSON.stringify(Object.assign({ teamIds, role: role || 'coach' }, extra))); } catch (e) {} Store.state.ui.teamId = ''; App.refreshChrome(); location.hash = role === 'arbitre' ? '#/arbitres' : '#/'; App.route(); toast('Tu es maintenant : ' + (extra.label || role)); }
   function stopPreview() { try { localStorage.removeItem(PREVIEW); sessionStorage.removeItem(PREVIEW); } catch (e) {} App.refreshChrome(); App.route(); toast('Retour en responsable'); }
   // « Voir l'appli comme… » : un coach (ses catégories), un parent ou un joueur (leur vraie page), un bénévole (l'appli réduite)
