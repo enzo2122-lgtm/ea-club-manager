@@ -34,7 +34,7 @@ const Chat = (() => {
       'body.chat-kb .rail,body.chat-kb .tabbar,body.chat-kb #nav{display:none!important}',
       'body.chat-on main{padding-top:calc(env(safe-area-inset-top) + 8px)!important;padding-bottom:0!important}',
       // (2.00) the chat is fixed on the screen, the page behind does not move (not even with the keyboard)
-      'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
+      'html:has(body.chat-on){overflow:hidden;overscroll-behavior:none}body.chat-on{overflow:clip;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
       'body.chat-on main#view .page-head{display:none}body.chat-on main#view{padding-top:calc(env(safe-area-inset-top) + 8px)}',
       '.cx{display:flex;flex-direction:column;min-height:320px;box-sizing:border-box;border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ea);overflow:hidden;position:relative}',
       // (2.37) phone: the chat is part of the screen (no rounded card, no margins); the top of the chat sits under the status bar
