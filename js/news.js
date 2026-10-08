@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 99, date: '2026-10-09', title: 'Joueur à l\'essai, renforts et numéros du match 👕', items: [
+      ['🧪', 'Joueur à l\'essai : coche « À l\'essai » sur sa fiche. Il porte 🧪 partout ; sur sa page, « Le garder dans l\'effectif » ou « Fin de l\'essai » (il reste dans la base du club).'],
+      ['🤝', 'Renfort : dans un match, « Ajouter un renfort d\'une autre catégorie ». Il est convoqué et reste dans sa catégorie ; « gérer » pour le retirer.'],
+      ['👕', 'Numéros : sur la fiche, les numéros déjà pris dans ses catégories (en rouge si le sien l\'est). Dans un match, onglet Compo, « Numéros du match » pour changer un numéro ce jour-là seulement (doublons en rouge, feuille de match et direct à jour).'],
+    ] },
     { n: 98, date: '2026-10-08', title: 'La fiche urgence 🚑', items: [
       ['🚑', 'Chaque joueur a sa fiche urgence : allergies, traitements et où ils sont, conduite à tenir (PAI), choses à savoir, appareillages, et jusqu\'à 3 personnes à appeler.'],
       ['👪', 'Les familles la remplissent dans leur espace, onglet « Moi ». Seuls les coachs la voient.'],

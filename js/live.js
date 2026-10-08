@@ -25,7 +25,7 @@ const Live = (() => {
   const fmtOf = m => ((Store.get('teams', m.teamId) || {}).format) || Sport.defFormat();
   const halfDefault = m => { const n = SP().periods; return m.duration && !SP().sets ? Math.round(m.duration / n) : SP().periodLen(fmtOf(m)); };
   const L = m => (m.live = m.live || { status: 'pre', periods: [], events: [], starters: [], halfLen: halfDefault(m) });
-  const players = m => (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (a.number || 99) - (b.number || 99) || Store.byName(a, b));
+  const players = m => (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (+Store.numOf(a, m) || 99) - (+Store.numOf(b, m) || 99) || Store.byName(a, b));
   const pname = id => { const p = Store.get('players', id); return p ? `${p.number ? p.number + '. ' : ''}${Store.shortName(p)}` : '?'; };
   const size = m => Sport.players(fmtOf(m));
   // statuses: pre, p (a period is played), brk (between two periods), end — h1 / ht / h2 are the old football ones
