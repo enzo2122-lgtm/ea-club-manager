@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 105, date: '2026-10-09', title: 'Le chat jusqu\'au bord aussi 📱', items: [
+      ['📱', 'Sur iPhone, dans le chat, la barre du bas descend elle aussi jusqu\'au bord de l\'écran (la bande claire restait sur cette page).'],
+    ] },
     { n: 104, date: '2026-10-09', title: 'Plus de saut d\'écran 📱', items: [
       ['📱', 'Corrigé sur iPhone : l\'écran ne clignote plus en ouvrant « Plus » (ni en fermant le clavier), et les onglets du bas ne sont plus rognés.'],
     ] },

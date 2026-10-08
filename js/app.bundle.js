@@ -82,6 +82,13 @@ window.ScreenDiag = function () {
       const g = window.__iosFillTest || Math.round(probe('height:100lvh') - innerHeight), v = g > 0 && g <= 120 ? g : 0;
       if (v !== last) { last = v; document.documentElement.style.setProperty('--iosgap', v + 'px'); document.documentElement.classList.toggle('ios-gap', v > 0); }
     }
+    // (2.49) a short page (the chat: everything is fixed): the strip would sit right after the content, high on the screen — it is pushed
+    // down to the bottom of the screen (« sticky » only pulls up, never down)
+    if (last > 0) {
+      const ps = fill.style.position; fill.style.position = 'static'; fill.style.marginTop = '0px';
+      const end = fill.getBoundingClientRect().top + scrollY; fill.style.position = ps;
+      fill.style.marginTop = Math.max(-last, Math.round(innerHeight - end)) + 'px';
+    } else fill.style.marginTop = '';
     color();
   };
   let t = 0; const soon = d => { clearTimeout(t); t = setTimeout(measure, d == null ? 200 : d); };
@@ -89,7 +96,8 @@ window.ScreenDiag = function () {
   ['resize', 'orientationchange', 'pageshow', 'hashchange', 'focusout'].forEach(e => window.addEventListener(e, () => soon()));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) soon(); });
   // the bar can go (editing a schema, typing in the chat) or change: the strip follows its colour; something added after it: it goes back last
-  const watch = () => { if (!document.body) return setTimeout(watch, 50); new MutationObserver(() => soon(60)).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true }); };
+  const watch = () => { if (!document.body) return setTimeout(watch, 50); new MutationObserver(() => soon(60)).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true });
+    if (window.ResizeObserver) new ResizeObserver(() => soon(120)).observe(document.body); };
   watch();
 })();
 
@@ -3635,7 +3643,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.48';
+  const VERSION = '2.49';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15597,6 +15605,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 105, date: '2026-10-09', title: 'Le chat jusqu\'au bord aussi 📱', items: [
+      ['📱', 'Sur iPhone, dans le chat, la barre du bas descend elle aussi jusqu\'au bord de l\'écran (la bande claire restait sur cette page).'],
+    ] },
     { n: 104, date: '2026-10-09', title: 'Plus de saut d\'écran 📱', items: [
       ['📱', 'Corrigé sur iPhone : l\'écran ne clignote plus en ouvrant « Plus » (ni en fermant le clavier), et les onglets du bas ne sont plus rognés.'],
     ] },
@@ -16701,7 +16712,7 @@ var Chat = (() => {
       'body.chat-kb .rail,body.chat-kb .tabbar,body.chat-kb #nav{display:none!important}',
       'body.chat-on main{padding-top:calc(env(safe-area-inset-top) + 8px)!important;padding-bottom:0!important}',
       // (2.00) the chat is fixed on the screen, the page behind does not move (not even with the keyboard)
-      'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
+      'html:has(body.chat-on){overflow:hidden;overscroll-behavior:none}body.chat-on{overflow:clip;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
       'body.chat-on main#view .page-head{display:none}body.chat-on main#view{padding-top:calc(env(safe-area-inset-top) + 8px)}',
       '.cx{display:flex;flex-direction:column;min-height:320px;box-sizing:border-box;border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ea);overflow:hidden;position:relative}',
       // (2.37) phone: the chat is part of the screen (no rounded card, no margins); the top of the chat sits under the status bar
@@ -19691,7 +19702,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 149, UPD = AppCfg.key('update-tried');
+  const BUILD = 150, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

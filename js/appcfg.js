@@ -80,6 +80,13 @@ window.ScreenDiag = function () {
       const g = window.__iosFillTest || Math.round(probe('height:100lvh') - innerHeight), v = g > 0 && g <= 120 ? g : 0;
       if (v !== last) { last = v; document.documentElement.style.setProperty('--iosgap', v + 'px'); document.documentElement.classList.toggle('ios-gap', v > 0); }
     }
+    // (2.49) a short page (the chat: everything is fixed): the strip would sit right after the content, high on the screen — it is pushed
+    // down to the bottom of the screen (« sticky » only pulls up, never down)
+    if (last > 0) {
+      const ps = fill.style.position; fill.style.position = 'static'; fill.style.marginTop = '0px';
+      const end = fill.getBoundingClientRect().top + scrollY; fill.style.position = ps;
+      fill.style.marginTop = Math.max(-last, Math.round(innerHeight - end)) + 'px';
+    } else fill.style.marginTop = '';
     color();
   };
   let t = 0; const soon = d => { clearTimeout(t); t = setTimeout(measure, d == null ? 200 : d); };
@@ -87,6 +94,7 @@ window.ScreenDiag = function () {
   ['resize', 'orientationchange', 'pageshow', 'hashchange', 'focusout'].forEach(e => window.addEventListener(e, () => soon()));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) soon(); });
   // the bar can go (editing a schema, typing in the chat) or change: the strip follows its colour; something added after it: it goes back last
-  const watch = () => { if (!document.body) return setTimeout(watch, 50); new MutationObserver(() => soon(60)).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true }); };
+  const watch = () => { if (!document.body) return setTimeout(watch, 50); new MutationObserver(() => soon(60)).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true });
+    if (window.ResizeObserver) new ResizeObserver(() => soon(120)).observe(document.body); };
   watch();
 })();
