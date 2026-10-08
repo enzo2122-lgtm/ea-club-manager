@@ -176,8 +176,10 @@ const Auth = (() => {
     const el = lock(); el.hidden = false;
     el.innerHTML = `<div class="lock-card">${Supporters.coin('lock-crest')}<p class="eyebrow">${esc(AppCfg.name)}</p><h1>${esc(Store.state.club.name || 'Espace éducateurs')}</h1>${inner}
       <button class="btn wide link how-btn" id="howTo">${I.help}<span>Comment utiliser l'appli ?</span></button>
+      <a class="btn wide link" href="moi.html" id="famLink"><span>⚽ Joueur ou parent ? Ouvrir mon espace</span></a>
       <p class="lock-version">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" id="updApp">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p></div>`;
     el.querySelector('#howTo').onclick = () => Help.tour();
+    el.querySelector('#famLink').onclick = () => { try { localStorage.removeItem(AppCfg.key('home')); } catch (e) {} }; // (2.08) the app of the stores opens on the families' page
     el.querySelector('#updApp').onclick = () => App.checkUpdate(true);
     el.scrollTop = 0;
     return el;

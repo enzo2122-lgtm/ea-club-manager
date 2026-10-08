@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Clubbo">
 <link rel="icon" href="icons/ea-logo.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="famille.css?v=108">
+<link rel="stylesheet" href="famille.css?v=109">
 <style>
 .b.cal { min-height: 40px; font-size: 15px; }
 .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin: 10px 0 4px; }
@@ -67,6 +67,8 @@
 .who { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .b.lnk { display: inline-flex; align-items: center; text-decoration: none; }
 .me-line { margin: 4px 0; } .me-line b { color: var(--brand); }
+.coach-link { text-align: center; margin: 4px 16px 10px; font-size: 14px; }
+.coach-link a { color: inherit; opacity: .85; }
 .credit { text-align: center; font-size: 12px; color: var(--muted); margin: 0 0 calc(env(safe-area-inset-bottom) + 18px); }
 </style>
 <link rel="manifest" href="famille.webmanifest">
@@ -76,16 +78,21 @@
 <body>
 <header class="top"><div class="top-in"><img src="icons/ea-logo.png" alt="" id="clubCrest"><div><p id="club">Clubbo</p><h1 id="team">Mon espace joueur · parents</h1></div></div></header>
 <main id="page"></main>
+<p class="coach-link"><a href="index.html" id="coachLink">🧢 Coach ou dirigeant ? Ouvrir l'appli des coachs</a></p>
 <p class="credit">Clubbo · créée par <b>Coach Enzo</b></p>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script src="js/config.js?v=108"></script>
-<script src="js/appcfg.js?v=108"></script>
-<script src="js/sport.js?v=108"></script>
-<script src="js/member.js?v=108"></script>
+<script src="js/config.js?v=109"></script>
+<script src="js/appcfg.js?v=109"></script>
+<script src="js/sport.js?v=109"></script>
+<script src="js/member.js?v=109"></script>
 <script>
 (() => {
   // a code in the address (QR code of a card) opens the space at once; otherwise the form (with the category of its QR code)
   const add = /add=1/.test(location.hash), c = Member.current(), page = document.getElementById('page');
+  // (2.08) one app for everyone (the stores' app opens here): a coach who chose his app goes straight to it
+  const HOME = AppCfg.key('home'), rd = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  document.getElementById('coachLink').onclick = () => { try { localStorage.setItem(HOME, 'coach'); } catch (e) {} };
+  if (!c && !add && !/[#&](cat|c)=/.test(location.hash) && rd(HOME) === 'coach') { location.replace('index.html'); return; }
   if (c && !add) {
     page.innerHTML = '<p class="empty">Ouverture de ton espace…</p>';
     Member.rpc('member_view', { p_code: c }).then(d => { Member.remember(c, d); location.replace(Member.pageFor(d)); })
