@@ -717,7 +717,7 @@ fieldset.parent legend { font-weight: 800; padding: 0 6px; font-family: var(--ro
 .rep pre { white-space: pre-wrap; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; background: var(--surface); padding: 10px; border-radius: 8px; overflow-x: auto; }
 
 body:not(.editing) main#view { padding-bottom: 96px; }
-@media (max-width: 760px) { body:not(.editing) main#view { padding-bottom: calc(env(safe-area-inset-bottom) + 150px); } }
+@media (max-width: 760px) { body:not(.editing) main#view { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); } } /* (2.15) 150 → 100 : moins de vide au-dessus de la barre du bas */
 
 
 /* ---------- navigation: « Plus » on phones, badge ---------- */
@@ -2037,9 +2037,18 @@ button.sending { opacity: .55; pointer-events: none; }
 
 /* (2.14) téléphone : la page ne déborde jamais sur le côté (sinon il dézoome puis rezoome), et un champ touché ne fait plus zoomer l'iPhone (texte de 16 px au moins) */
 @media (max-width: 760px) {
-  html, body { overflow-x: hidden; }
+  html { overflow-x: clip; } /* (2.15) « clip » : ne crée pas de défilement, la barre du bas reste collée en bas sur iPhone */
   .page-head, .page-head > div { min-width: 0; max-width: 100%; }
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea { font-size: 16px !important; }
 }
 /* (2.14) le menu « ⋯ » : placé par le script pour rester dans l'écran (à gauche comme à droite) */
 .more-pop { max-height: calc(100vh - 120px); overflow-y: auto; }
+
+/* (2.15) pas de zoom au double toucher (le zoom à deux doigts est coupé par la page) */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* (2.15) iPhone : la barre du bas va jusqu'au bord de l'écran (sous la barre d'accueil, dans les coins arrondis) ; au-delà de la page, la couleur du club, jamais un rectangle blanc */
+@media (max-width: 760px) {
+  .rail::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: var(--navy); pointer-events: none; }
+  .rail { border-radius: 18px 18px 0 0; }
+}
