@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 93, date: '2026-10-08', title: 'Le chat prend tout l\'écran 💬', items: [
+      ['💬', 'Sur téléphone, le chat n\'est plus une carte posée au milieu : il va d\'un bord à l\'autre de l\'écran et descend jusqu\'à la barre des onglets. Il fait vraiment partie de l\'appli.'],
+    ] },
     { n: 92, date: '2026-10-08', title: 'La barre du bas colle au bord de l\'écran 📱', items: [
       ['📱', 'Sur iPhone (appli installée), iOS laissait une bande blanche sous les onglets. Pas de cache-misère : la barre descend maintenant jusqu\'au bord de l\'écran, la bande n\'existe plus.'],
     ] },
