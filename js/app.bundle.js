@@ -3555,7 +3555,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.32';
+  const VERSION = '2.33';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15362,6 +15362,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 89, date: '2026-10-08', title: 'Le bouton Envoyer du chat est libre 💬', items: [
+      ['💬', 'Dans le chat, le bouton rond ＋ ne cache plus le bouton Envoyer : il disparaît tant que le chat est ouvert.'],
+    ] },
     { n: 88, date: '2026-10-08', title: 'Plus de « Enregistrement… » à chaque lettre 🤫', items: [
       ['🤫', 'L\'appli enregistre en silence : les messages « Enregistrement… » et « Enregistré » ne s\'affichent plus quand tu écris. Un message n\'apparaît que s\'il y a un souci (pas de réseau, envoi au club en attente).'],
     ] },
@@ -16402,7 +16405,7 @@ var Chat = (() => {
     const st = document.createElement('style'); st.id = 'chatCss';
     st.textContent = [
       // the whole screen for the chat: the page header and the player card go away while the chat is open
-      'body.chat-on header.top,body.chat-on .card.who,body.chat-on .credit,body.chat-on .toast-bar{display:none!important}',
+      'body.chat-on header.top,body.chat-on .card.who,body.chat-on .credit,body.chat-on .toast-bar,body.chat-on .quick-fab,body.chat-on .help-fab{display:none!important}',
       'body.chat-on main{padding-top:calc(env(safe-area-inset-top) + 8px)!important;padding-bottom:0!important}',
       // (2.00) the chat is fixed on the screen, the page behind does not move (not even with the keyboard)
       'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
@@ -19203,7 +19206,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 133, UPD = AppCfg.key('update-tried');
+  const BUILD = 134, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

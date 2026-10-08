@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 89, date: '2026-10-08', title: 'Le bouton Envoyer du chat est libre 💬', items: [
+      ['💬', 'Dans le chat, le bouton rond ＋ ne cache plus le bouton Envoyer : il disparaît tant que le chat est ouvert.'],
+    ] },
     { n: 88, date: '2026-10-08', title: 'Plus de « Enregistrement… » à chaque lettre 🤫', items: [
       ['🤫', 'L\'appli enregistre en silence : les messages « Enregistrement… » et « Enregistré » ne s\'affichent plus quand tu écris. Un message n\'apparaît que s\'il y a un souci (pas de réseau, envoi au club en attente).'],
     ] },
