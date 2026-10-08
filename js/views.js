@@ -331,7 +331,7 @@ const Views = (() => {
     const save = () => Store.upsert('teams', t);
     const render = () => {
       root.innerHTML = `${header(`<input class="h1-input" id="tName" value="${esc(t.name)}" aria-label="Nom de la catégorie">`, `${fmtLabel(t.format)} · ${Store.playersOf(t.id).length} joueurs`,
-        `<a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a>`)}
+        `<a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a><button class="btn" data-act="docs">📄<span>Documents PDF</span></button>`)}
         <section class="card">
           <div class="row-head"><label class="fld inline"><span>Catégorie</span><input id="tCat" value="${esc(t.category || '')}" maxlength="20"></label>
           <div class="chips">${formats().map(([v, l]) => `<button class="chip ${t.format === v ? 'on' : ''}" data-fmt="${v}">${l}</button>`).join('')}</div></div>
@@ -363,6 +363,7 @@ const Views = (() => {
       if (b.dataset.parents) return Parents.shareDialog(b.dataset.parents);
       if (b.dataset.players) return Parents.sharePlayers(b.dataset.players);
       if (b.dataset.fmt) { t.format = b.dataset.fmt; save(); return render(); }
+      if (b.dataset.act === 'docs') return TeamDocs.open(t);
       if (b.dataset.act === 'delete' && await confirmBox(`Supprimer la catégorie ${t.name} ? Les joueurs et dirigeants restent dans le club.`)) {
         [...S().players, ...S().staff].forEach(p => p.teamIds = (p.teamIds || []).filter(x => x !== t.id));
         Store.remove('teams', t.id); location.hash = '#/equipes';
@@ -868,7 +869,7 @@ const Views = (() => {
       const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
       const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
-        `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button>`)}
+        `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button>`)}
         <div class="m-sum ${side(m)}"><span>${sum}</span><button class="btn soft" data-editm>${I.edit}<span>${editOpen ? 'Fermer' : 'Modifier'}</span></button></div>
         <section class="card ${side(m)} m-edit" ${editOpen ? '' : 'hidden'}>
           <div class="row3">
@@ -1009,6 +1010,7 @@ const Views = (() => {
         const v = b.parentElement.querySelector('b'); if (v) v.textContent = st[b.dataset.k]; return later(); }
       switch (b.dataset.act) {
         case 'pdf': return runExport('Création de la feuille de match…', () => Exporter.pdfMatch(m, teamOf(m.teamId), S().club, { homeBib: S().club.homeBib }));
+        case 'sheet': return runExport('Création de la compo papier…', () => TeamDocs.sheet(m));
         case 'shareres': return shareResult(m); // (2.06)
         case 'fix': return FixMatch.open(m, () => render()); // (2.11)
         case 'report': return runExport('Création du compte-rendu…', () => Exporter.pdfReport(m, teamOf(m.teamId), S().club));
