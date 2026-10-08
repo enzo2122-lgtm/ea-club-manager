@@ -59,8 +59,8 @@ const President = (() => {
         </section>
         <section class="card"><h2>${I.check}À surveiller</h2>${alerts.length ? `<ul class="alerts">${alerts.join('')}</ul>` : '<p class="muted">Rien à signaler 👍</p>'}</section>
         ${(() => { const reps = S().reports.filter(x => !x.life && x.type !== 'avis' && x.status !== 'done').sort((a, b) => b.at - a.at);
-          return `<section class="card"><h2>🐞 Signalements${reps.length ? ` <span class="pct pct-low">${reps.length} à traiter</span>` : ''}</h2>${reps.length ? `<ul class="alerts">${reps.slice(0, 5).map(x => `<li>${(Help.TYPES[x.type] || ['🐞'])[0]} <b>${esc(x.text.slice(0, 60))}${x.text.length > 60 ? '…' : ''}</b><br><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}${x.page ? ' · page « ' + esc(x.page) + ' »' : ''}${x.shot ? ' · 📎 capture' : ''}</span></li>`).join('')}</ul>` : '<p class="muted">Aucun signalement en attente 👍</p>'}
-            <a class="btn soft" href="#/reglages">${I.help}<span>Voir et traiter (Réglages)</span></a></section>`; })()}
+          return `<section class="card"><h2>🐞 Signalements et idées${reps.length ? ` <span class="pct pct-low">${reps.length} à traiter</span>` : ''}</h2>${reps.length ? `<ul class="alerts">${reps.slice(0, 5).map(x => `<li>${(Help.TYPES[x.type] || ['🐞'])[0]} <b>${esc(x.text.slice(0, 60))}${x.text.length > 60 ? '…' : ''}</b><br><span class="muted small">${esc(x.byName || '?')} · ${new Date(x.at).toLocaleDateString('fr-FR')}${x.page ? ' · page « ' + esc(x.page) + ' »' : ''}${x.shot ? ' · 📎 capture' : ''}</span></li>`).join('')}</ul>` : '<p class="muted">Aucun signalement en attente 👍</p>'}
+            <a class="btn soft" href="#/signalements">${I.help}<span>Voir et traiter</span></a></section>`; })()}
         <section class="card" id="bkCard"><h2>${I.shield}Sauvegarde du club</h2><p class="muted">Chargement…</p></section>
       </div>
       <h2 class="section">Par catégorie</h2>

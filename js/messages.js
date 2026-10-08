@@ -5,8 +5,10 @@ const Messages = (() => {
   const S = () => Store.state;
   const CACHE = AppCfg.key('msgs'), READ = AppCfg.key('msg-read');
   let msgs = [], last = '1970-01-01T00:00:00Z', timer = null, fast = false, busy = false;
+  // (2.14) a report sent before as a private message: shown in « Signalements et idées », not here
+  const isReport = m => /\[\[signalement:[\w-]+\]\]/.test(String(m.body || '')) || /^(🐞|💡|❓) (Problème|Idée|Question) signalé depuis la page/.test(String(m.body || ''));
 
-  try { msgs = JSON.parse(localStorage.getItem(CACHE)) || []; if (!Array.isArray(msgs)) msgs = []; if (msgs.length) last = msgs[msgs.length - 1].created_at; } catch (e) { msgs = []; } // a damaged copy: read again from the server
+  try { msgs = JSON.parse(localStorage.getItem(CACHE)) || []; if (!Array.isArray(msgs)) msgs = []; msgs = msgs.filter(m => !isReport(m)); if (msgs.length) last = msgs[msgs.length - 1].created_at; } catch (e) { msgs = []; } // a damaged copy: read again from the server
   const reads = () => { try { return JSON.parse(localStorage.getItem(READ)) || {}; } catch (e) { return {}; } };
   // categories whose teams A / B are shown in the list of conversations (this device)
   const FAMS = AppCfg.key('msg-fams');
@@ -54,7 +56,11 @@ const Messages = (() => {
   function authorName(m) {
     const s = m.author_id && Store.get('staff', m.author_id);
     if (s) return coachName(s);
-    const n = String(m.author_name || '').trim(), first = n.split(/\s+/).find(w => w !== w.toUpperCase());
+    const n = String(m.author_name || '').trim();
+    // (2.14) a message from the players' or parents' space (« Écrire au coach », an injury): a player or a parent, never « Coach »
+    if (/^member:/.test(m.author_id || '')) { const p = Store.get('players', m.author_id.slice(7)), parent = /\(parent\)\s*$/i.test(n), nm = p ? Store.shortName(p) : n.replace(/\s*\((joueur|parent)\)\s*$/i, '') || 'un joueur';
+      return parent ? `Parent de ${nm}` : `${nm} · joueur`; }
+    const first = n.split(/\s+/).find(w => w !== w.toUpperCase());
     return first ? 'Coach ' + first : n || '?';
   }
   // Documents sent from the library: [[fichier:id,id]] = pictures travelling as schemas (with their image) to every device
@@ -86,7 +92,7 @@ const Messages = (() => {
       for (let more = fresh, n = 0; more && more.length >= 500 && n < 20; n++) { more = await Cloud.messages(more[more.length - 1].created_at); if (more && more.length) fresh = fresh.concat(more); }
       if (fresh && fresh.length) {
         const ids = new Set(msgs.map(m => m.id));
-        fresh.forEach(m => { if (!ids.has(m.id)) msgs.push(m); });
+        fresh.forEach(m => { if (!ids.has(m.id) && !isReport(m)) msgs.push(m); });
         msgs.sort((a, b) => a.created_at.localeCompare(b.created_at)); msgs = msgs.slice(-800);
         last = msgs[msgs.length - 1].created_at;
         try { localStorage.setItem(CACHE, JSON.stringify(msgs)); } catch (e) {}
