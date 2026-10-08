@@ -21,6 +21,31 @@ var AppCfg = (() => {
   };
 })();
 
+/* (2.36) iPhone, app installed on the home screen: iOS can make the page shorter than the screen by the height of the status bar
+   (the page covers the whole screen, but « the bottom » of the page stops above the real edge). A bar fixed at the bottom then floats
+   above a light band. The gap is measured on the phone and the bottom bars are moved down by it (--iosgap), to rest on the edge. */
+(function iosGap() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const ios = /iP(hone|od|ad)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (!ios || !standalone) return;
+  const topInset = () => { const d = document.createElement('div'); d.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:0;padding-top:env(safe-area-inset-top);visibility:hidden;pointer-events:none'; document.body.appendChild(d); const t = d.offsetHeight; d.remove(); return t; };
+  const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+  let last = -1;
+  const measure = () => {
+    if (!document.body || typing()) return;
+    const portrait = window.innerHeight > window.innerWidth, screenH = Math.max(screen.height, screen.width), top = topInset();
+    const gap = portrait ? Math.round(screenH - window.innerHeight) : 0;
+    // only the case of the bug: a gap no bigger than the status bar (never a page that really starts under the status bar)
+    const v = top > 0 && gap > 0 && gap <= top + 6 ? gap : 0;
+    if (v !== last) { last = v; document.documentElement.style.setProperty('--iosgap', v + 'px'); document.documentElement.classList.toggle('ios-gap', v > 0); }
+  };
+  const soon = () => setTimeout(measure, 350);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', measure); else measure();
+  ['resize', 'orientationchange', 'pageshow', 'focusout'].forEach(e => window.addEventListener(e, soon));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) soon(); });
+})();
+
 ;
 /* ===== sport.js ===== */
 /* Sport: what changes from one sport to another. The club chooses its sport when it is created (club.sport);
@@ -3555,7 +3580,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.35';
+  const VERSION = '2.36';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15362,6 +15387,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 92, date: '2026-10-08', title: 'La barre du bas colle au bord de l\'écran 📱', items: [
+      ['📱', 'Sur iPhone (appli installée), iOS laissait une bande blanche sous les onglets. Pas de cache-misère : la barre descend maintenant jusqu\'au bord de l\'écran, la bande n\'existe plus.'],
+    ] },
     { n: 91, date: '2026-10-08', title: 'Plus de bande claire sous la barre du bas 📱', items: [
       ['📱', 'Sur iPhone, après avoir écrit un message, la barre du bas pouvait rester remontée avec une bande claire en dessous. L\'appli remet l\'écran en place dès que le clavier se ferme.'],
     ] },
@@ -19232,7 +19260,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 136, UPD = AppCfg.key('update-tried');
+  const BUILD = 137, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
