@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 72, date: '2026-10-08', title: 'Petites corrections sur téléphone', items: [
+      ['🟦', 'Corrigé : avec le menu discret en haut, un carré bleu apparaissait sous le menu.'],
+      ['🎯', 'Corrigé : la page « Pronos » des joueurs dépassait de l\'écran (le téléphone dézoomait).'],
+      ['🏷️', 'Corrigé : avec le menu discret en haut, le menu cachait une partie du nom du club dans l\'espace joueurs et parents.'],
+      ['📋', 'Les boutons des favoris (AssistCoachAI, Footclubs, FFF) ne sont plus coupés sur un petit écran.'],
+    ] },
     { n: 71, date: '2026-10-08', title: 'Sur téléphone : plus de zoom, et jusqu\'aux bords', items: [
       ['📱', 'Les pages ne zooment et ne dézooment plus (ni à deux doigts, ni au double toucher, ni en touchant un champ).'],
       ['📐', 'La barre du bas va jusqu\'au bord de l\'écran et suit ses coins arrondis : plus de rectangle blanc sous la barre sur iPhone. Les espaces joueurs et parents passent aussi sous la barre d\'état, comme l\'appli des coachs.'],

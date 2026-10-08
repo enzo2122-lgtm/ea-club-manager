@@ -244,7 +244,7 @@ const Member = (() => {
       + '.tabbar[data-n="7"] .tab,.tabbar[data-n="8"] .tab{padding:6px 0 5px;gap:2px}.tabbar[data-n="7"] .tab .ti,.tabbar[data-n="8"] .tab .ti{font-size:19px}'
       + '.tabbar[data-n="7"] .tab span:not(.ti),.tabbar[data-n="8"] .tab span:not(.ti){font-size:10.5px;letter-spacing:-.2px}'
       // (1.94) the other view, chosen by the player: one small menu at the top right instead of the bar at the bottom
-      + '.tabmenu{display:none}body.tabs-top main{padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}body.tabs-top header.top .top-in{padding-right:96px}body.tabs-top .toast{bottom:calc(env(safe-area-inset-bottom) + 16px)}'
+      + '.tabmenu{display:none}body.tabs-top main{padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}body.tabs-top header.top .top-in{padding-right:140px}body.tabs-top .toast{bottom:calc(env(safe-area-inset-bottom) + 16px)}'
       + 'body.tabs-top .tabbar{top:calc(env(safe-area-inset-top) + 10px);bottom:auto;left:auto;right:10px;flex-direction:column;align-items:stretch;gap:2px;padding:4px;border:1px solid rgba(201,164,92,.55);border-radius:18px;background:rgba(14,29,69,.94);box-shadow:0 6px 18px rgba(0,0,0,.25)}'
       + 'body.tabs-top .tabmenu{display:flex;align-items:center;justify-content:flex-end;gap:6px;border:0;border-radius:14px;padding:6px 10px;background:transparent;color:#e2c27d;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}'
       + 'body.tabs-top .tabbar .tab{display:none}body.tabs-top .tabbar.open{min-width:190px}body.tabs-top .tabbar.open .tab{display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:10px;max-width:none;padding:9px 12px;font-size:14px}'

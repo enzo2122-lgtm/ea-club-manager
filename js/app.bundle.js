@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.15';
+  const VERSION = '2.16';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13564,6 +13564,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 72, date: '2026-10-08', title: 'Petites corrections sur téléphone', items: [
+      ['🟦', 'Corrigé : avec le menu discret en haut, un carré bleu apparaissait sous le menu.'],
+      ['🎯', 'Corrigé : la page « Pronos » des joueurs dépassait de l\'écran (le téléphone dézoomait).'],
+      ['🏷️', 'Corrigé : avec le menu discret en haut, le menu cachait une partie du nom du club dans l\'espace joueurs et parents.'],
+      ['📋', 'Les boutons des favoris (AssistCoachAI, Footclubs, FFF) ne sont plus coupés sur un petit écran.'],
+    ] },
     { n: 71, date: '2026-10-08', title: 'Sur téléphone : plus de zoom, et jusqu\'aux bords', items: [
       ['📱', 'Les pages ne zooment et ne dézooment plus (ni à deux doigts, ni au double toucher, ni en touchant un champ).'],
       ['📐', 'La barre du bas va jusqu\'au bord de l\'écran et suit ses coins arrondis : plus de rectangle blanc sous la barre sur iPhone. Les espaces joueurs et parents passent aussi sous la barre d\'état, comme l\'appli des coachs.'],
@@ -17271,7 +17277,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 116, UPD = AppCfg.key('update-tried');
+  const BUILD = 117, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
