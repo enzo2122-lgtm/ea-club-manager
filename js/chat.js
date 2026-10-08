@@ -37,6 +37,8 @@ const Chat = (() => {
       'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
       'body.chat-on main#view .page-head{display:none}body.chat-on main#view{padding-top:calc(env(safe-area-inset-top) + 8px)}',
       '.cx{display:flex;flex-direction:column;min-height:320px;box-sizing:border-box;border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ea);overflow:hidden;position:relative}',
+      // (2.37) phone: the chat is part of the screen (no rounded card, no margins); the top of the chat sits under the status bar
+      'body.chat-full .cx{border-radius:0;border:0;box-shadow:none}body.chat-full .cx-top{padding-top:calc(env(safe-area-inset-top) + 8px)}body.chat-full.tabs-top:not(.chat-kb) .cx-bar,body.chat-full.nav-top:not(.chat-kb) .cx-bar{padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}',
       '.cx-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line,#e3e5ea);min-height:46px}',
       'body.tabs-top .cx-top,body.nav-top .cx-top{padding-right:118px}',
       '@media (max-width:430px){.cx-w{display:none}}', // (2.08) a narrow phone: the icons only, so the name of the room stays readable
@@ -273,16 +275,20 @@ const Chat = (() => {
     if (!document.body.classList.contains('chat-on')) { if (cx.dataset.fit) { cx.style.cssText = ''; cx.dataset.fit = ''; } return; }
     const vv = window.visualViewport, vh = window.innerHeight, vvH = vv ? vv.height : vh, vvTop = vv ? vv.offsetTop : 0;
     const keyboard = vh - vvH - vvTop > 80 || document.body.classList.contains('chat-kb');
-    let bottom = 8;
-    if (keyboard) bottom = Math.max(4, vh - (vvH + vvTop) + 4);
-    else document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2) bottom = Math.max(bottom, vh - r.top + 6); });
-    const r = box.getBoundingClientRect(), top = Math.max(8, r.top) + vvTop;
-    const css = `left:${Math.round(r.left)}px;width:${Math.round(r.width)}px;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`;
+    // (2.37) on a phone the chat takes the whole screen, edge to edge, down to the tab bar (no floating card)
+    const full = window.innerWidth <= 760, pad = full ? 0 : 6;
+    document.body.classList.toggle('chat-full', full);
+    let bottom = full ? 0 : 8;
+    if (keyboard) bottom = Math.max(full ? 0 : 4, vh - (vvH + vvTop) + (full ? 0 : 4));
+    else document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2) bottom = Math.max(bottom, vh - r.top + pad); });
+    const r = box.getBoundingClientRect(), top = (full ? 0 : Math.max(8, r.top)) + vvTop;
+    const css = full ? `left:0;width:100%;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`
+      : `left:${Math.round(r.left)}px;width:${Math.round(r.width)}px;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`;
     if (cx.dataset.fit !== css) { cx.style.cssText = css; cx.dataset.fit = css; }
   }
   function setOn(on) {
     if (on === document.body.classList.contains('chat-on')) return;
-    document.body.classList.toggle('chat-on', on); if (!on) document.body.classList.remove('chat-kb');
+    document.body.classList.toggle('chat-on', on); if (!on) document.body.classList.remove('chat-kb', 'chat-full');
     if (on) { window.scrollTo(0, 0); requestAnimationFrame(() => { fit(); toBottom(); }); }
     else { const cx = box && box.firstElementChild; if (cx) { cx.style.cssText = ''; cx.dataset.fit = ''; } }
   }

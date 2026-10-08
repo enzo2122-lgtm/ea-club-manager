@@ -3580,7 +3580,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.36';
+  const VERSION = '2.37';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15387,6 +15387,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 93, date: '2026-10-08', title: 'Le chat prend tout l\'écran 💬', items: [
+      ['💬', 'Sur téléphone, le chat n\'est plus une carte posée au milieu : il va d\'un bord à l\'autre de l\'écran et descend jusqu\'à la barre des onglets. Il fait vraiment partie de l\'appli.'],
+    ] },
     { n: 92, date: '2026-10-08', title: 'La barre du bas colle au bord de l\'écran 📱', items: [
       ['📱', 'Sur iPhone (appli installée), iOS laissait une bande blanche sous les onglets. Pas de cache-misère : la barre descend maintenant jusqu\'au bord de l\'écran, la bande n\'existe plus.'],
     ] },
@@ -16447,6 +16450,8 @@ var Chat = (() => {
       'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
       'body.chat-on main#view .page-head{display:none}body.chat-on main#view{padding-top:calc(env(safe-area-inset-top) + 8px)}',
       '.cx{display:flex;flex-direction:column;min-height:320px;box-sizing:border-box;border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ea);overflow:hidden;position:relative}',
+      // (2.37) phone: the chat is part of the screen (no rounded card, no margins); the top of the chat sits under the status bar
+      'body.chat-full .cx{border-radius:0;border:0;box-shadow:none}body.chat-full .cx-top{padding-top:calc(env(safe-area-inset-top) + 8px)}body.chat-full.tabs-top:not(.chat-kb) .cx-bar,body.chat-full.nav-top:not(.chat-kb) .cx-bar{padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}',
       '.cx-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line,#e3e5ea);min-height:46px}',
       'body.tabs-top .cx-top,body.nav-top .cx-top{padding-right:118px}',
       '@media (max-width:430px){.cx-w{display:none}}', // (2.08) a narrow phone: the icons only, so the name of the room stays readable
@@ -16683,16 +16688,20 @@ var Chat = (() => {
     if (!document.body.classList.contains('chat-on')) { if (cx.dataset.fit) { cx.style.cssText = ''; cx.dataset.fit = ''; } return; }
     const vv = window.visualViewport, vh = window.innerHeight, vvH = vv ? vv.height : vh, vvTop = vv ? vv.offsetTop : 0;
     const keyboard = vh - vvH - vvTop > 80 || document.body.classList.contains('chat-kb');
-    let bottom = 8;
-    if (keyboard) bottom = Math.max(4, vh - (vvH + vvTop) + 4);
-    else document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2) bottom = Math.max(bottom, vh - r.top + 6); });
-    const r = box.getBoundingClientRect(), top = Math.max(8, r.top) + vvTop;
-    const css = `left:${Math.round(r.left)}px;width:${Math.round(r.width)}px;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`;
+    // (2.37) on a phone the chat takes the whole screen, edge to edge, down to the tab bar (no floating card)
+    const full = window.innerWidth <= 760, pad = full ? 0 : 6;
+    document.body.classList.toggle('chat-full', full);
+    let bottom = full ? 0 : 8;
+    if (keyboard) bottom = Math.max(full ? 0 : 4, vh - (vvH + vvTop) + (full ? 0 : 4));
+    else document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2) bottom = Math.max(bottom, vh - r.top + pad); });
+    const r = box.getBoundingClientRect(), top = (full ? 0 : Math.max(8, r.top)) + vvTop;
+    const css = full ? `left:0;width:100%;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`
+      : `left:${Math.round(r.left)}px;width:${Math.round(r.width)}px;top:${Math.round(top)}px;bottom:${Math.round(bottom)}px;height:auto`;
     if (cx.dataset.fit !== css) { cx.style.cssText = css; cx.dataset.fit = css; }
   }
   function setOn(on) {
     if (on === document.body.classList.contains('chat-on')) return;
-    document.body.classList.toggle('chat-on', on); if (!on) document.body.classList.remove('chat-kb');
+    document.body.classList.toggle('chat-on', on); if (!on) document.body.classList.remove('chat-kb', 'chat-full');
     if (on) { window.scrollTo(0, 0); requestAnimationFrame(() => { fit(); toBottom(); }); }
     else { const cx = box && box.firstElementChild; if (cx) { cx.style.cssText = ''; cx.dataset.fit = ''; } }
   }
@@ -19260,7 +19269,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 137, UPD = AppCfg.key('update-tried');
+  const BUILD = 138, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
