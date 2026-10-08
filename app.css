@@ -2271,3 +2271,4 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .pc-talk summary { cursor: pointer; }
 .pc-sh { color: #2563eb; font-weight: 700; }
 .pc-reply { padding: 8px 10px; border-radius: 10px; background: #eff6ff; }
+.lv-share { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; }

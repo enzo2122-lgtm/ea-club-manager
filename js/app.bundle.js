@@ -3650,7 +3650,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.62';
+  const VERSION = '2.63';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4087,6 +4087,8 @@ var Cloud = (() => {
     chatPin: (team, id) => rpc('club_chat_pin', { p_team: team, p_id: id }),
     chatPhotos: (team, on) => rpc('club_chat_photos', { p_team: team, p_on: on }),
     chatDel: (team, id) => rpc('club_chat_del', { p_team: team, p_id: id }),
+    liveShare: match => rpc('club_live_share', { p_match: match }),
+    liveInbox: (match, after) => rpc('club_live_inbox', { p_match: match, p_after: after || 0 }),
     chatEdit: (team, id, body) => rpc('club_chat_edit', { p_team: team, p_id: id, p_body: body }),
     chatOff: (team, off) => rpc('club_chat_off', { p_team: team, p_off: off }),
     chatPoll: (team, q, opts, multi) => rpc('club_chat_poll', { p_team: team, p_q: q, p_opts: opts, p_multi: multi }),
@@ -8469,23 +8471,31 @@ var Live = (() => {
         ${SP().sets ? '' : `<label class="fld inline"><span>Durée d'une ${SP().periodWord === 'quart-temps' ? 'période (quart-temps)' : 'période'}</span><select id="lvHalf">${[5, 7, 8, 10, 12, 15, 20, 25, 30, 35, 40, 45].map(n => `<option ${n === l.halfLen ? 'selected' : ''}>${n}</option>`).join('')}</select><span class="muted small">min</span></label>`}
         <p class="muted small">Garde l'appli ouverte pendant le match : l'écran reste allumé. Si tu la fermes, le chrono continue quand même.</p></section>` : ''}
       ${l.status !== 'pre' ? `<section class="lv-actions">${Object.entries(evs).map(([k, [ic, lab, c]]) => `<button class="lv-act" data-ev="${k}" style="--c:${c}" ${l.status === 'end' ? 'disabled' : ''}><b>${ic}</b><span>${lab}</span></button>`).join('')}</section>` : ''}
+      ${Cloud.ready() && l.status !== 'end' ? `<div class="lv-share"><button class="btn soft" data-lvshare>📲 Saisie partagée${l.share ? ' · ' + esc(l.share) : ''}</button><span class="muted small">${l.share ? 'Les actions de l\'aide arrivent toutes seules ici' : 'Un adjoint ou un parent note le match depuis son téléphone'}</span></div>` : ''}
       ${Sport.isFoot() && l.status !== 'pre' ? possHtml(l) : ''}
       ${Sport.isFoot() && (l.status === 'end' || pause(l.status)) ? tabHtml(m, l) : ''}
       ${l.status !== 'pre' ? `<div class="lv-field"><div><h3>Sur le terrain (${on.size})</h3><p>${[...on].map(id => `<span>${esc(pname(id))}</span>`).join('') || '<span class="muted">—</span>'}</p></div>
         <div><h3>Remplaçants (${bench.length})</h3><p>${bench.map(p => `<span>${esc(pname(p.id))}</span>`).join('') || '<span class="muted">—</span>'}</p></div></div>` : ''}
       <h2 class="section">Le fil du match</h2>
-      <div class="lv-feed">${l.events.slice().sort((x, y) => y.wall - x.wall).map(e => `<div class="lv-ev" style="--c:${EV[e.type][2]}"><b>${e.min}</b><span>${EV[e.type][0]} ${esc(desc(e))}</span>
+      <div class="lv-feed">${l.events.slice().sort((x, y) => y.wall - x.wall).map(e => `<div class="lv-ev" style="--c:${EV[e.type][2]}"><b>${e.min}</b><span>${EV[e.type][0]} ${esc(desc(e))}${e.by ? ` <i class="muted small">📲 ${esc(e.by)}</i>` : ''}</span>
         <button class="icon-btn" data-edit="${e.id}" aria-label="Modifier">${I.edit}</button><button class="icon-btn danger" data-del="${e.id}" aria-label="Supprimer">${I.trash}</button></div>`).join('') || '<p class="muted">Rien pour l\'instant.</p>'}</div>
       ${l.status !== 'pre' ? `<details class="card lv-mins"><summary>⏱️ Temps de jeu en direct</summary>${(() => { const mins = minutes(l); return `<div class="lv-mintable">${all.map(p => `<span>${esc(pname(p.id))}</span><b>${mins[p.id] || 0}'</b>`).join('')}</div>`; })()}</details>` : ''}`;
     // the clock turns every second (only on this page)
     clearInterval(tick); tick = setInterval(() => { const x = $('#lvTime'), y = $('#lvLabel'); if (!x || !document.body.contains(x)) { clearInterval(tick); keepAwake(false); return; } const [p, q] = clock(L(Store.get('matches', id) || m)); y.textContent = p; x.textContent = q; }, 1000);
     keepAwake(live);
     const redraw = () => page(root, id);
+    // (2.63) what the helpers send (shared input): taken every 5 seconds while this page is open
+    clearInterval(inboxT); if (l.share && Cloud.ready() && l.status !== 'end') inboxT = setInterval(async () => {
+      if (!document.body.contains(root.querySelector('.lv-board'))) { clearInterval(inboxT); return; }
+      if (document.querySelector('#modal:not([hidden])')) return;
+      try { const got = await Cloud.liveInbox(m.id, l.inboxAt || 0); if (got && got.length && takeInbox(m, got)) { save(); redraw(); } } catch (e) {}
+    }, 5000);
     const hs = $('#lvHalf', root); if (hs) hs.onchange = () => { l.halfLen = +hs.value; save(); };
     root.onclick = async e => {
       const btn = e.target.closest('button'); if (!btn) return;
       if (btn.dataset.start) { const x = btn.dataset.start; l.starters = l.starters.includes(x) ? l.starters.filter(y => y !== x) : [...l.starters, x]; save(); return redraw(); }
       if (btn.dataset.poss) { possSet(l, btn.dataset.poss); save(); return redraw(); }
+      if (btn.hasAttribute('data-lvshare')) return shareDialog(m, save, redraw);
       if (btn.dataset.tab) { const [side, ok] = btn.dataset.tab.split(':'), t = l.tab = l.tab || { list: [] }; t.list.push({ us: side === 'us', ok: ok === '1', p: side === 'us' ? (t.next || null) : null }); t.next = null;
         const a = t.list.filter(x => x.us && x.ok).length, b = t.list.filter(x => !x.us && x.ok).length; m.pens = [a, b]; save(); return redraw(); }
       if (btn.dataset.tabwho) { const t = l.tab = l.tab || { list: [] }; t.next = t.next === btn.dataset.tabwho ? null : btn.dataset.tabwho; save(); return redraw(); }
@@ -8569,6 +8579,38 @@ var Live = (() => {
     obs.observe(document.getElementById('modal'), { attributes: true });
   }
 
+  /* ---------- (2.63) shared input: a code for the helpers, and their actions added to the match ---------- */
+  let inboxT = 0;
+  async function shareDialog(m, save, redraw) {
+    const l = L(m); let code;
+    try { code = await Cloud.liveShare(m.id); } catch (e) { return toast(e.message, 'err'); }
+    if (l.share !== code) { l.share = code; save(); }
+    const url = Codes.base() + 'aide.html#c=' + code; let qr = '';
+    try { qr = await Codes.qrSvg(url, 5); } catch (e) {}
+    modal({ title: '📲 Saisie partagée', noFocus: true,
+      body: `<p>Un adjoint ou un parent ouvre ce lien (ou scanne le QR code) et note le match depuis son téléphone : buts, occasions, arrêts, cartons, possession. Ses actions arrivent ici toutes seules, avec la minute.</p>
+        ${qr ? `<div class="qr-big">${qr}</div>` : ''}<p class="qr-url"><b>Code : ${esc(code)}</b><br><span class="muted small">${esc(url)}</span></p><p class="muted small">Le code ne vaut que pour ce match, pendant 2 jours.</p>`,
+      actions: [{ label: 'Copier le lien', icon: I.copy, onClick: () => { navigator.clipboard.writeText(url).then(() => toast('Lien copié')).catch(() => toast('Copie impossible', 'err')); return false; } },
+        { label: 'WhatsApp', icon: I.share, kind: 'primary', onClick: () => { window.open('https://wa.me/?text=' + encodeURIComponent(`📲 Aide au match ${m.home ? 'contre' : 'chez'} ${m.opponent || ''} : ouvre ce lien et note le match pour le coach\n${url}`), '_blank'); return false; } }],
+      onOpen: () => {} });
+    setTimeout(redraw, 300);
+  }
+  function takeInbox(m, got) {
+    const l = L(m), from = l.inboxAt || 0; let n = 0;
+    got.forEach(x => {
+      if (x.id <= from) return; // already taken (possession included)
+      l.inboxAt = Math.max(l.inboxAt || 0, x.id); const e = x.ev || {};
+      if (l.events.some(y => y.id === 'h' + x.id)) return;
+      if (e.type === 'poss') { const p = l.poss || {}; if (e.who === 'stop' ? p.cur : p.cur !== e.who) possSet(l, e.who === 'stop' ? p.cur : e.who); n++; return; }
+      const wall = Math.min(Date.now(), x.at || Date.now());
+      l.events.push({ id: 'h' + x.id, type: e.type, wall, min: minuteOf(l, wall), period: periodAt(l, wall) || 1, player: e.player || null, assist: e.assist || null, text: e.text || '', by: x.who || 'aide' });
+      n++;
+      if (isUs(e) || isThem(e)) toast(`📲 ${x.who || 'L\'aide'} : ${EV[e.type][1]}`);
+    });
+    if (n) write(m);
+    return n > 0 || got.length > 0;
+  }
+
   /* ---------- (2.58) the penalty shoot-out: our shooter, ✓ / ✗ for each side; the score goes on the match (m.pens) ---------- */
   function tabHtml(m, l) {
     const t = l.tab || { list: [] }, a = t.list.filter(x => x.us && x.ok).length, b = t.list.filter(x => !x.us && x.ok).length, done = new Set(t.list.filter(x => x.us).map(x => x.p));
@@ -8641,7 +8683,7 @@ var Live = (() => {
     }).filter(c => !(rec.clips || []).some(x => x.liveId === c.liveId));
   }
 
-  return { page, card, minutes, minuteOf, videoClips, EV, desc, write, analysis, ORIG, ERRS, ZONES };
+  return { page, card, minutes, minuteOf, videoClips, EV, desc, write, analysis, takeInbox, ORIG, ERRS, ZONES };
 })();
 
 ;
@@ -15158,7 +15200,8 @@ var Codes = (() => {
       <tbody>${rows.map(p => `<tr><td>${esc(full(p))}</td><td>${esc((p.birth || '').slice(0, 4))}</td><td class="pl-code">${esc(pretty((map[p.id] || {}).code || ''))}</td><td></td></tr>`).join('')}</tbody></table>
       <p class="pl-note">Document confidentiel : chaque code ouvre les informations d'un licencié.</p></div>`, 'pa-list');
   }
-  return { page, qrDialog, catUrl };
+  const qrSvg = async (text, cell = 5) => { await loadQr(); return svg(text, cell); }; // (2.63)
+  return { page, qrDialog, catUrl, qrSvg, base };
 })();
 
 ;
@@ -16273,6 +16316,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 119, date: '2026-10-09', title: 'Saisie partagée du match 📲', items: [
+      ['📲', 'Match en direct → « Saisie partagée » : un lien et un QR code pour un adjoint ou un parent. Depuis son téléphone, il note les buts (buteur, passeur), les occasions, les arrêts, les cartons et la possession.'],
+      ['⏱️', 'Ses actions arrivent toutes seules dans ton fil du match, avec la minute et son prénom (📲). Le code ne vaut que pour ce match, 2 jours.'],
+    ] },
     { n: 118, date: '2026-10-09', title: 'La fiche joueur s\'étoffe 📷', items: [
       ['📷', 'Photo du joueur (prise avec le téléphone ou choisie), sur sa page et dans les listes. Vue par les coachs seulement.'],
       ['📏', 'Croissance : taille et poids datés, les courbes, et ⚠️ « pic de croissance » quand il grandit vite (vigilance sur les charges).'],
@@ -20484,7 +20531,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 163, UPD = AppCfg.key('update-tried');
+  const BUILD = 164, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

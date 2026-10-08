@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 119, date: '2026-10-09', title: 'Saisie partagée du match 📲', items: [
+      ['📲', 'Match en direct → « Saisie partagée » : un lien et un QR code pour un adjoint ou un parent. Depuis son téléphone, il note les buts (buteur, passeur), les occasions, les arrêts, les cartons et la possession.'],
+      ['⏱️', 'Ses actions arrivent toutes seules dans ton fil du match, avec la minute et son prénom (📲). Le code ne vaut que pour ce match, 2 jours.'],
+    ] },
     { n: 118, date: '2026-10-09', title: 'La fiche joueur s\'étoffe 📷', items: [
       ['📷', 'Photo du joueur (prise avec le téléphone ou choisie), sur sa page et dans les listes. Vue par les coachs seulement.'],
       ['📏', 'Croissance : taille et poids datés, les courbes, et ⚠️ « pic de croissance » quand il grandit vite (vigilance sur les charges).'],
