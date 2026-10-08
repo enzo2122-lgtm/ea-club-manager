@@ -2112,3 +2112,9 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .ath-names { display: flex; flex-wrap: wrap; gap: 6px; } .ath-names span { padding: 5px 10px; border-radius: 999px; background: var(--surface2); font-size: 14px; } .ath-names i { font-style: normal; opacity: .6; margin-left: 5px; font-size: 12px; }
 .ath-set .chips select.chip { font: inherit; }
 @media print { .ath-set, .head-actions, .page-head .sub { display: none; } }
+
+/* (2.24) former des équipes */
+.bal-teams { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.bal-t { border-top: 8px solid var(--c); } .bal-t ul { list-style: none; margin: 8px 0 0; padding: 0; } .bal-t li { padding: 6px 8px; border-radius: 8px; background: var(--surface2); margin: 4px 0; display: flex; justify-content: space-between; } .bal-t li i { font-style: normal; opacity: .6; font-size: 13px; }
+.bal-avg { font-weight: 800; color: var(--c); }
+@media print { .bal-teams { grid-template-columns: repeat(2, 1fr); } }

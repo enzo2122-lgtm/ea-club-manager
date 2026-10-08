@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 80, date: '2026-10-08', title: "Fini les chamailleries pour faire les équipes 👥", items: [
+      ['👥', "Former des équipes (Joueurs → « Former des équipes ») : 2 à 5 équipes équilibrées d'après le niveau (global, technique, physique, vitesse des sprints…), un gardien par équipe, les postes répartis. Présents seulement, « Remélanger », image WhatsApp, impression."],
+    ] },
     { n: 79, date: '2026-10-08', title: "Les plots se placent tout seuls ⚡", items: [
       ['⚡', "Travail athlétique (Joueurs → « Travail athlétique », ou depuis les tests physiques) : d'après les VMA, l'appli fait 1 à 5 groupes de course et donne à chacun sa vitesse et sa distance (% de VMA, effort, récup, séries). Présents seulement, gardiens ou non, image à partager sur WhatsApp."],
     ] },
