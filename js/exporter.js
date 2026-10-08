@@ -355,7 +355,7 @@ const Exporter = (() => {
     if (players.length) {
       P.label(`Convoqués (${players.length})`);
       P.table(['N°', 'Joueur', 'Poste', 'Buts', 'Passes'], players.sort((a, b) => (+Store.numOf(a, m) || 0) - (+Store.numOf(b, m) || 0)).map(p => {
-        const st = (m.stats || {})[p.id] || {}; return [String(Store.numOf(p, m) || ''), Store.fullName(p), People.postsLabel(p, true) || '', st.g ? String(st.g) : '', st.a ? String(st.a) : ''];
+        const st = (m.stats || {})[p.id] || {}; return [String(Store.numOf(p, m) || ''), Store.fullName(p) + (m.captain === p.id ? ' (C)' : m.captain2 === p.id ? ' (VC)' : ''), People.postsLabel(p, true) || '', st.g ? String(st.g) : '', st.a ? String(st.a) : ''];
       }), [.1, .5, .14, .13, .13]);
     }
     const sc = m.lineupId && S.schemas.find(s => s.id === m.lineupId);
@@ -396,7 +396,7 @@ const Exporter = (() => {
     if (ids.length) {
       const card = (id, k) => Math.max(+((st[id] || {})[k]) || 0, +((det[id] || {})[k]) || 0);
       const rows = ids.map(id => { const p = Store.get('players', id), r = Ratings.avg(m, id), y = card(id, 'yc'), rc = card(id, 'rc'), mn = (m.minutes || {})[id];
-        return { p, row: [String(Store.numOf(p, m) || ''), Store.fullName(p), mn != null && mn !== '' ? mn + "'" : '-', (st[id] || {}).g ? String(st[id].g) : '', (st[id] || {}).a ? String(st[id].a) : '',
+        return { p, row: [String(Store.numOf(p, m) || ''), Store.fullName(p) + (m.captain === p.id ? ' (C)' : ''), mn != null && mn !== '' ? mn + "'" : '-', (st[id] || {}).g ? String(st[id].g) : '', (st[id] || {}).a ? String(st[id].a) : '',
           [y ? y + ' J' : '', rc ? rc + ' R' : ''].filter(Boolean).join(' '), r ? Ratings.fr(r.v) + '/10' : ''], mn: +mn || 0 }; })
         .sort((a, b) => b.mn - a.mn || (+Store.numOf(a.p, m) || 99) - (+Store.numOf(b.p, m) || 99));
       P.label(`Les joueurs (${rows.length})`);

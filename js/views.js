@@ -26,6 +26,28 @@ const Views = (() => {
       (guests.length ? `<div class="lbl">🤝 Renforts d'autres catégories (${guests.length}) <button type="button" class="linkish" data-guestman="${esc(teamId)}">gérer</button></div>${block(guests)}` : '') +
       (!all.length ? '<p class="muted">Aucun joueur dans cette catégorie : ajoute-les dans Équipes.</p>' : '');
   }
+  // (2.44) suspended after a red card: his last red card (any team of the club) not followed by a match he played, and not lifted by a coach
+  function suspOf(p, date) {
+    if (!p) return null;
+    const card = (m, k) => Math.max(+(((m.stats || {})[p.id] || {})[k]) || 0, +(((m.detail || {})[p.id] || {})[k]) || 0);
+    const ms = S().matches.filter(m => m.played && m.date < date && ((m.convoked || []).includes(p.id) || (m.stats || {})[p.id] || (m.detail || {})[p.id])).sort((a, b) => b.date.localeCompare(a.date));
+    for (const m of ms) {
+      if (card(m, 'rc')) return (p.suspDone || []).includes(m.id) ? null : m;
+      if (+((m.minutes || {})[p.id]) > 0) return null; // he has played since: served
+    }
+    return null;
+  }
+  const suspFlag = (p, date) => suspOf(p, date) ? '<span title="Suspendu ? carton rouge au dernier match">🟥</span>' : '';
+  // (2.44) the transferred players (« mutés »): the FFF limits how many can be on the match sheet
+  const MUT = { mute: 'Muté', mute_hp: 'Muté hors période', contrat: 'Sous contrat' };
+  const mutKind = p => { const v = String((p && p.mute) || '').toLowerCase(); return !v || /non/.test(v) ? '' : /hors|hp/.test(v) ? 'mute_hp' : /contrat/.test(v) ? 'contrat' : /mut/.test(v) ? 'mute' : ''; };
+  function mutCount(conv) {
+    const mu = conv.filter(p => ['mute', 'mute_hp'].includes(mutKind(p))), hp = mu.filter(p => mutKind(p) === 'mute_hp');
+    if (!mu.length) return '';
+    const over = mu.length > 6 || hp.length > 2;
+    return `<p class="small mut-count ${over ? 'over' : ''}">🔁 <b>${mu.length} muté${mu.length > 1 ? 's' : ''}</b>${hp.length ? ` dont ${hp.length} hors période` : ''} parmi les convoqués (${mu.map(p => esc(Store.shortName(p))).join(', ')})
+      ${over ? '<b>⚠️ Au-dessus de la limite habituelle (6 mutés dont 2 hors période) : vérifie le règlement de ta compétition.</b>' : '<span class="muted">Limite habituelle : 6 dont 2 hors période (selon le règlement de la compétition).</span>'}</p>`;
+  }
   // (2.43) « renfort »: a player of another category called up to help this team (he stays in his category)
   function guestSelect(teamId) {
     const inR = new Set(Store.rosterOf(teamId).map(p => p.id)), list = S().players.filter(p => !inR.has(p.id) && Auth.seesPerson(p)).sort(Store.byName);
@@ -505,10 +527,11 @@ const Views = (() => {
         <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
         <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(tr.teamId, tr.staffIds)}</div>
-        ${tm ? `<div class="row-head"><h2 class="section" id="presH">Présents (${(tr.presents || []).length}/${squad(tm.id).length})</h2>
+        ${tm ? `<div class="row-head"><h2 class="section" id="presH">Présents (${(tr.presents || []).length}/${squad(tm.id).length})${(tr.late || []).length ? ` · ⏰ ${tr.late.length} en retard` : ''}</h2>
           <div class="chips"><button class="btn soft" data-allpres="1">${I.check}<span>Tous présents</span></button><button class="btn soft" data-allpres="0">${I.x}<span>Personne</span></button></div></div>
-          <p class="muted small">Un toucher par joueur. Le % est sa présence sur la saison (séances où l'appel a été fait).</p>
-          ${pickList(tm.id, Parents.trainingDispo(tr), tr.presents || [], p => `<button class="chip ${(tr.presents || []).includes(p.id) ? 'on' : ''}" data-present="${p.id}">${presChip(p, tm.id)}</button>`, render, 'data-addpres', 'présents')}` : ''}
+          <p class="muted small">1 toucher : présent · 2 : présent en retard ⏰ · 3 : absent. Le % est sa présence sur la saison (séances où l'appel a été fait).</p>
+          ${pickList(tm.id, Parents.trainingDispo(tr), tr.presents || [], p => `<button class="chip ${(tr.presents || []).includes(p.id) ? 'on' : ''} ${(tr.late || []).includes(p.id) ? 'late' : ''}" data-present="${p.id}">${presChip(p, tm.id)}</button>`, render, 'data-addpres', 'présents')}
+          ${absBox(tm.id)}` : ''}
         <div id="trAnsBox"></div>
         <div id="evFeed"></div>
         <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">notes des joueurs, effort, documents, photos et vidéos</span></summary>
@@ -536,7 +559,11 @@ const Views = (() => {
         <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer la séance type</span></button></div>`;
       Library.mountDocs($('#docsBox', root), tr, save);
     };
-    const presChip = (p, teamId) => `${Health.flag(p, tr.date)}<span>${chipLabel(p)}</span>${People.pctBadge(People.attendance(p, teamId))}`;
+    // (2.44) the absent ones, with a private reason for the coaches (never shown to the player or his family)
+    const absBox = teamId => { const ab = squad(teamId).filter(p => !(tr.presents || []).includes(p.id)); if (!(tr.presents || []).length || !ab.length) return '';
+      const why = tr.absWhy || {}; return `<details class="fold abs-fold" ${Object.keys(why).length ? 'open' : ''}><summary>📝 Absents (${ab.length}) <span class="muted small">motif privé, pour les coachs</span></summary>
+        <div class="abs-list">${ab.map(p => `<label class="abs-row"><span>${esc(Store.shortName(p))}</span><input data-abswhy="${p.id}" value="${esc(why[p.id] || '')}" placeholder="Motif (privé)" maxlength="80"></label>`).join('')}</div></details>`; };
+    const presChip = (p, teamId) => `${(tr.late || []).includes(p.id) ? '<span title="En retard">⏰</span>' : ''}${Health.flag(p, tr.date)}<span>${chipLabel(p)}</span>${People.pctBadge(People.attendance(p, teamId))}`;
     const rateTr = () => { const box = $('#rateBox', root); if (box) box.innerHTML = Ratings.section(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)), 'training'); rpeTr(); };
     // the effort of the players present (RPE), for the training load
     const rpeTr = () => { const box = $('#rpeBox', root); if (box) box.innerHTML = Health.rpeBox(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)).map(p => p.id), 'training'); };
@@ -570,6 +597,7 @@ const Views = (() => {
     };
     root.onchange = e => {
       if (e.target.id === 'trTeam') { tr.teamId = e.target.value || null; save(); render(); }
+      if (e.target.dataset.abswhy) { const v = e.target.value.trim(); tr.absWhy = Object.assign({}, tr.absWhy); if (v) tr.absWhy[e.target.dataset.abswhy] = v.slice(0, 80); else delete tr.absWhy[e.target.dataset.abswhy]; if (!Object.keys(tr.absWhy).length) delete tr.absWhy; save(); return; }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { tr.staffIds = [...new Set([...(tr.staffIds || []), e.target.value])]; save(); render(); }
       if (e.target.hasAttribute('data-addpres') && e.target.value) { tr.presents = [...new Set([...(tr.presents || []), e.target.value])]; save(); render(); }
     };
@@ -577,17 +605,26 @@ const Views = (() => {
       const b = e.target.closest('button'); if (!b) return;
       if (Health.rpeClick(e, tr, tr.presents || [], () => { save(); rpeTr(); })) return;
       if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
+      if (b.dataset.unsusp) { const [pid, mid] = b.dataset.unsusp.split(':'), pl = Store.get('players', pid); if (pl) { pl.suspDone = [...new Set([...(pl.suspDone || []), mid])].slice(-10); Store.upsert('players', pl); toast(`${Store.shortName(pl)} n'est plus marqué suspendu`); } return render(); }
+      if (b.dataset.act === 'lineupcopy') return copyLineup(m);
       const card = b.closest('[data-ex]'), ex = card && tr.exercises.find(x => x.id === card.dataset.ex);
       if (b.dataset.present) {
-        const p = tr.presents = tr.presents || [], i = p.indexOf(b.dataset.present); i < 0 ? p.push(b.dataset.present) : p.splice(i, 1); save();
+        // (2.44) absent → present → present but late → absent
+        const id = b.dataset.present, p = tr.presents = tr.presents || [], late = tr.late = (tr.late || []).filter(x => p.includes(x)), i = p.indexOf(id), wasAbs = i < 0;
+        if (wasAbs) p.push(id); else if (!late.includes(id)) late.push(id); else { p.splice(i, 1); late.splice(late.indexOf(id), 1); }
+        if (!tr.late.length) delete tr.late; save();
+        if (wasAbs && tr.absWhy && tr.absWhy[id]) { delete tr.absWhy[id]; save(); }
+        if (p.length === 1 && wasAbs) return render(); // the list of the absent ones appears
         // the season % of every chip moves too (this session now counts, or no longer counts)
-        $$('[data-present]', root).forEach(c => { const pl = Store.get('players', c.dataset.present); c.classList.toggle('on', p.includes(c.dataset.present)); if (pl) c.innerHTML = presChip(pl, tr.teamId); });
-        $('#presH', root).textContent = `Présents (${p.length}/${squad(tr.teamId).length})`; rateTr(); return;
+        $$('[data-present]', root).forEach(c => { const pl = Store.get('players', c.dataset.present); c.classList.toggle('on', p.includes(c.dataset.present)); c.classList.toggle('late', (tr.late || []).includes(c.dataset.present)); if (pl) c.innerHTML = presChip(pl, tr.teamId); });
+        const lt = (tr.late || []).length; $('#presH', root).textContent = `Présents (${p.length}/${squad(tr.teamId).length})${lt ? ` · ⏰ ${lt} en retard` : ''}`;
+        const ab = $('.abs-fold', root); if (ab) { const open = ab.open; const tmp = document.createElement('div'); tmp.innerHTML = absBox(tr.teamId); const nb = tmp.firstElementChild; if (nb) { nb.open = open; ab.replaceWith(nb); } else ab.remove(); }
+        rateTr(); return;
       }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.allpres) {
         if (b.dataset.allpres === '0' && (tr.presents || []).length && !(await confirmBox('Décocher tous les présents de cette séance ?', 'Décocher'))) return;
-        tr.presents =b.dataset.allpres === '1' ? squad(tr.teamId).map(p => p.id) : []; save(); return render(); }
+        tr.presents =b.dataset.allpres === '1' ? squad(tr.teamId).map(p => p.id) : []; delete tr.late; save(); return render(); }
       if (b.dataset.unstaff) { tr.staffIds = (tr.staffIds || []).filter(x => x !== b.dataset.unstaff); save(); return render(); }
       if (b.hasAttribute('data-togex')) { openEx.has(ex.id) ? openEx.delete(ex.id) : openEx.add(ex.id); return render(); }
       if (b.dataset.mv) { const i = tr.exercises.indexOf(ex), j = i + +b.dataset.mv; [tr.exercises[i], tr.exercises[j]] = [tr.exercises[j], tr.exercises[i]]; save(); return render(); }
@@ -802,8 +839,10 @@ const Views = (() => {
           <div class="form-dots">${f.map(({ r, x }) => `<span class="fd ${r}" title="${esc(`${x.home} ${x.hs} - ${x.as} ${x.away}`)}">${r}</span>`).join('')}</div>
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
-        ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
+        ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) || suspOf(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${suspFlag(p, m.date)}${mutKind(p) && mutKind(p) !== 'contrat' ? '<i class="mut-tag">M</i>' : ''}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
         ${t ? guestSelect(t.id) : ''}
+        ${!m.played && t ? (() => { const su = Store.rosterOf(t.id).filter(p => suspOf(p, m.date)); return su.length ? `<p class="small susp-line">🟥 <b>Suspendu${su.length > 1 ? 's' : ''} ?</b> Carton rouge à son dernier match : ${su.map(p => { const x = suspOf(p, m.date); return `<b>${esc(Store.shortName(p))}</b> (${esc(fmtDate(x.date, { day: 'numeric', month: 'short' }))}) <button class="linkish" data-unsusp="${p.id}:${x.id}">lever</button>`; }).join(' · ')}. Vérifie la sanction (nombre de matchs) sur Footclubs.</p>` : ''; })() : ''}
+        ${mutCount(conv)}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
         <div id="answersBox"></div>
         <div id="evFeed"></div>
@@ -815,7 +854,9 @@ const Views = (() => {
         <div ${panel('compo')}>
         <h2 class="section">Composition</h2>
         <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>`
-          : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
+          : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><div class="chips"><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>${lastLineup(m) ? `<button class="btn" data-act="lineupcopy">♻️<span>Reprendre la compo du ${esc(fmtDate(lastLineup(m).m.date, { day: 'numeric', month: 'short' }))}</span></button>` : ''}</div>`}</section>
+        ${conv.length && !m.exempt ? `<section class="card capt-card"><label class="fld"><span>©️ Capitaine</span><select data-capt><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label>
+          <label class="fld"><span>Vice-capitaine</span><select data-capt2><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain2 === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label></section>` : ''}
         ${lineup ? slotsCard(lineup, conv) : ''}
         ${conv.length && !m.exempt ? numbersCard(m, conv) : ''}
         </div>
@@ -870,6 +911,8 @@ const Views = (() => {
       if (e.target.hasAttribute('data-addconv') && e.target.value) { m.convoked = [...new Set([...(m.convoked || []), e.target.value])]; save(); return render(); }
       if (e.target.dataset.mnum) { const p = Store.get('players', e.target.dataset.mnum), v = e.target.value.trim(); m.numbers = Object.assign({}, m.numbers);
         if (v === '' || (p && String(p.number ?? '') === v)) delete m.numbers[e.target.dataset.mnum]; else m.numbers[e.target.dataset.mnum] = Math.max(0, Math.min(99, Math.round(+v))) ; if (!Object.keys(m.numbers).length) delete m.numbers; save(); return render(); }
+      if (e.target.hasAttribute('data-capt') || e.target.hasAttribute('data-capt2')) { const k = e.target.hasAttribute('data-capt') ? 'captain' : 'captain2'; if (e.target.value) m[k] = e.target.value; else delete m[k];
+        if (m.captain && m.captain === m.captain2) delete m[k === 'captain' ? 'captain2' : 'captain']; save(); toast(k === 'captain' ? '©️ Capitaine choisi' : 'Vice-capitaine choisi'); return render(); }
       if (e.target.dataset.addguest && e.target.value) { const p = Store.get('players', e.target.value); if (p) { p.helps = [...new Set([...(p.helps || []), e.target.dataset.addguest])]; Store.upsert('players', p); m.convoked = [...new Set([...(m.convoked || []), p.id])]; save(); toast(`🤝 ${Store.shortName(p)} en renfort, convoqué`); } return render(); }
       root.oninput(e);
     };
@@ -879,6 +922,8 @@ const Views = (() => {
       if (b.hasAttribute('data-editm')) { mEdit[m.id] = !(mEdit[m.id] != null ? mEdit[m.id] : !m.opponent); return render(); }
       if (b.dataset.act === 'numreset') { delete m.numbers; save(); toast('Numéros habituels remis'); return render(); }
       if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
+      if (b.dataset.unsusp) { const [pid, mid] = b.dataset.unsusp.split(':'), pl = Store.get('players', pid); if (pl) { pl.suspDone = [...new Set([...(pl.suspDone || []), mid])].slice(-10); Store.upsert('players', pl); toast(`${Store.shortName(pl)} n'est plus marqué suspendu`); } return render(); }
+      if (b.dataset.act === 'lineupcopy') return copyLineup(m);
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
@@ -896,6 +941,7 @@ const Views = (() => {
       if (b.dataset.unstaff) { m.staffIds = (m.staffIds || []).filter(x => x !== b.dataset.unstaff); save(); return render(); }
       if (b.dataset.conv) { const c = m.convoked = m.convoked || [], i = c.indexOf(b.dataset.conv); i < 0 ? c.push(b.dataset.conv) : c.splice(i, 1);
         const pl = Store.get('players', b.dataset.conv), u = i < 0 && Health.on(pl, m.date); if (u) toast(`Attention : ${Store.shortName(pl)} est indisponible ce jour-là (${Health.label(u)})`, 'err');
+        else if (i < 0 && suspOf(pl, m.date)) toast(`🟥 Attention : ${Store.shortName(pl)} a pris un carton rouge à son dernier match (suspendu ?)`, 'err');
         save();
         const t = teamOf(m.teamId), n = t ? Store.rosterOf(t.id).filter(p => c.includes(p.id)).length : c.length, h = $('[data-panel="avant"] .row-head h2', root);
         const before = i < 0 ? n - 1 : n + 1;
@@ -934,6 +980,25 @@ const Views = (() => {
     draw();
     root.oninput = root.onchange = null;
     root.onclick = e => { const b = e.target.closest('[data-cheer]'); if (b) { ClubLife.cheer(b.dataset.cheer); draw(); } };
+  }
+  // (2.44) the lineup of the last match of the team (to take it again): the last one played or set before this match
+  function lastLineup(m) {
+    const x = S().matches.filter(o => o.id !== m.id && o.teamId === m.teamId && o.lineupId && Store.get('schemas', o.lineupId) && o.date <= m.date).sort((a, b) => b.date.localeCompare(a.date))[0];
+    return x ? { m: x, sc: Store.get('schemas', x.lineupId) } : null;
+  }
+  // the same lineup, without the players who cannot play (injured, suspended, not convoked when the convocation is done)
+  function copyLineup(m) {
+    const L = lastLineup(m); if (!L) return;
+    const conv = new Set(m.convoked || []), had = !!conv.size;
+    const ok = id => { const p = Store.get('players', id); return !!p && !Health.on(p, m.date) && !suspOf(p, m.date) && (!had || conv.has(id)); };
+    const sc = JSON.parse(JSON.stringify(L.sc)); sc.id = Store.uid(); sc.name = `Compo contre ${m.opponent || '?'}`; delete sc.created; delete sc.updatedAt;
+    let out = 0; const placed = [];
+    sc.objects.forEach(o => { if (o.type !== 'player' || !o.playerId) return; if (ok(o.playerId)) { placed.push(o.playerId); const p = Store.get('players', o.playerId); const n = Store.numOf(p, m); if (n !== '' && n != null) o.label = String(n); } else { out++; o.playerId = null; o.name = ''; } });
+    if (!had) m.convoked = [...new Set([...placed, ...(L.m.convoked || []).filter(ok)])];
+    if (L.m.captain && ok(L.m.captain) && !m.captain) m.captain = L.m.captain;
+    Store.upsert('schemas', sc); m.lineupId = sc.id; Store.upsert('matches', m);
+    toast(out ? `♻️ Compo reprise : ${out} poste${out > 1 ? 's' : ''} à remplir (blessé, suspendu ou pas convoqué)` : '♻️ Compo du dernier match reprise');
+    location.hash = '#/schema/' + sc.id;
   }
   function makeLineup(m) {
     const t = teamOf(m.teamId); if (!t) return toast('Choisis une équipe', 'err');
