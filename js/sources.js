@@ -391,6 +391,8 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
   }
   function applySheet(x) {
     const { s, m, starters, subs, ours, who } = x, len = People.matchLength(m), start = {}, end = {};
+    // (2.11) a match corrected by hand: the sheet is kept to read, the corrections stay
+    if (m.handFix) { m.played = true; m.fffSheet = { url: 'https://epreuves.fff.fr' + s.url, moments: s.moments, teams: s.teams, minutes: {}, at: Date.now() }; Store.upsert('matches', m); return; }
     starters.forEach(p => { if (p) { start[p.id] = 0; end[p.id] = len; } });
     const stats = m.stats = m.stats || {}, cards = {};
     ours.forEach(e => {

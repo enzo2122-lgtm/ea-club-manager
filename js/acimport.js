@@ -152,7 +152,8 @@ const ACImport = (() => {
       const pt = e.pt;
       if (pt && pt.plan && Object.values(pt.plan).some(Boolean)) { m.prep = m.prep || {}; m.prep.plan = Object.assign({}, m.prep.plan || {}, { imported: Object.entries(pt.plan).filter(([, v]) => v).map(([k, v]) => `${k === 'jeu' ? '' : k + ' : '}${v}`).join('\n\n') }); }
       // (1.45) a past match with goals, substitutions or stats counts as played even when the coach did not press « terminé » on AssistCoachAI
-      if (pt && (pt.done || (date < UI.today() && ((pt.goalsFor || []).length || (pt.goalsAgainst || []).length || (pt.subs || []).length || Object.keys(pt.stats || {}).length)))) {
+      // (2.11) a match corrected by hand (« Corriger le match ») keeps its scorers, minutes and cards
+      if (pt && !m.handFix && (pt.done || (date < UI.today() && ((pt.goalsFor || []).length || (pt.goalsAgainst || []).length || (pt.subs || []).length || Object.keys(pt.stats || {}).length)))) {
         const dur = +pt.dur || 90, half = dur / 2, gFor = pt.goalsFor || [], gAg = pt.goalsAgainst && pt.goalsAgainst.length ? pt.goalsAgainst : ((pt.opp || {}).gmins || []).map(min => ({ min }));
         // (1.47) AssistCoachAI completes the match: the official FFF score, the live match followed in the app and the cards stay
         const official = m.played && (m.fffSheet || m.imported), followed = !!(m.live && !m.live.imported && (m.live.events || []).length);
