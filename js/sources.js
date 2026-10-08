@@ -20,7 +20,7 @@ const j=async u=>{const r=await fetch(u,{credentials:'include'});if(!r.ok)throw 
 try{const eff=await j('/api/effectif/sync');const t=(eff.teams||[]).find(x=>x.is_active)||(eff.teams||[])[0];if(!t)throw new Error('aucune équipe');const T=t.id;
 const d=new Date(),y=d.getMonth()>=6?d.getFullYear():d.getFullYear()-1,f=y+'-07-01',to=d.toISOString().slice(0,10),q='?teamId='+T;
 const [planning,seances,medical,wellness,rpe,ch]=await Promise.all([j('/api/planning'+q),j('/api/seances'),j('/api/medical/cases'+q),j('/api/wellness/logs'+q+'&kind=wellness&from='+f+'&to='+to),j('/api/wellness/logs'+q+'&kind=rpe&from='+f+'&to='+to),j('/api/championship'+q)]);
-delete planning.acks;const champDetail={};for(const c of (ch.championships||[])){try{champDetail[c.id]=await j('/api/championship/'+c.id);}catch(e){}}
+const champDetail={};for(const c of (ch.championships||[])){try{champDetail[c.id]=await j('/api/championship/'+c.id);}catch(e){}}
 const D={source:'assistcoachai',effectif:{players:(eff.players||[]).filter(p=>!p.team_id||p.team_id===T),teams:[t]},planning,seances,medical,wellness,rpe,champDetail};
 let n=0;const send=()=>{try{w.postMessage({type:'club-import',source:'assistcoachai',payload:D},new URL(A).origin);}catch(e){}};
 addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'&&!n++)send();});}catch(e){alert('Lecture impossible : '+e.message);}})()`;
@@ -201,7 +201,7 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
           t.fffTables = Object.assign({}, t.fffTables || (t.fffTable ? { [pkey(t.fffTable.url)]: t.fffTable } : {}), { [pkey(p.url)]: T }); t.fffTable = T; Store.upsert('teams', t); });
         pouleWeeks(P.poules);
         Store.save(); App.route();
-        toast(`FFF : ${res.scores} score${res.scores > 1 ? 's' : ''} mis à jour, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${tables.length} classement${tables.length > 1 ? 's' : ''}`);
+        toast(`FFF : ${res.scores} score${res.scores > 1 ? 's' : ''} mis à jour, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${tables.length} classement${tables.length > 1 ? 's' : ''}${res.merged ? `, ${res.merged} doublon${res.merged > 1 ? 's' : ''} fusionné${res.merged > 1 ? 's' : ''}` : ''}`);
       } }] });
   }
   // one key per poule, whatever brought it (the FFF's API or the bookmark): « 457623/1/1 » (competition / phase / group)
@@ -311,12 +311,12 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
           } catch (e) {}
           Store.upsert('teams', t);
         }
-        const r = Importer.applyFound(found.filter(f => !f.exempt || f.date >= UI.today())); res.scores = r.scores; res.added = r.added;
+        const r = Importer.applyFound(found.filter(f => !f.exempt || f.date >= UI.today())); res.scores = r.scores; res.added = r.added; res.merged = r.merged || 0;
         Clubs.setOppLogos(logos);
         c.fffAutoAt = Date.now(); c.fffClub = aff; Store.save();
         if (o.verbose) modal({ title: '🏆 Mise à jour FFF', body: `<ul class="src-sum"><li>Club n° <b>${esc(aff)}</b> trouvé à la FFF</li><li>📅 <b>${res.poules}</b> poule${res.poules > 1 ? 's' : ''} lue${res.poules > 1 ? 's' : ''} (${res.results} résultat${res.results > 1 ? 's' : ''} nouveaux ou changés, adversaires compris)</li><li>🏆 <b>${res.tables}</b> classement${res.tables > 1 ? 's' : ''}</li><li>⚽ <b>${res.scores}</b> score${res.scores > 1 ? 's' : ''} de nos matchs, <b>${res.added}</b> match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''} au calendrier</li>${res.skipped ? `<li class="muted">${res.skipped} engagement${res.skipped > 1 ? 's' : ''} sans équipe correspondante dans l'appli : ${esc(res.skippedNames.slice(0, 8).join(', '))}</li>` : ''}</ul>`, actions: [{ label: 'OK', kind: 'primary' }] });
-        else if (res.scores || res.added) toast(`FFF à jour : ${res.scores} score${res.scores > 1 ? 's' : ''}, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${res.tables} classement${res.tables > 1 ? 's' : ''}`);
-        if (res.scores || res.added || res.results || res.tables) App.route();
+        else if (res.scores || res.added || res.merged) toast(`FFF à jour : ${res.scores} score${res.scores > 1 ? 's' : ''}, ${res.added} match${res.added > 1 ? 's' : ''} ajouté${res.added > 1 ? 's' : ''}, ${res.tables} classement${res.tables > 1 ? 's' : ''}${res.merged ? `, ${res.merged} doublon${res.merged > 1 ? 's' : ''} fusionné${res.merged > 1 ? 's' : ''}` : ''}`);
+        if (res.scores || res.added || res.results || res.tables || res.merged) App.route();
         return res;
       } catch (e) { c.fffAutoErr = String(e && e.message || e); if (o.verbose) modal({ title: '⚠️ Mise à jour FFF impossible', body: `<p>${esc(c.fffAutoErr)}</p><p class="muted small">Vérifie la connexion internet, puis réessaie. Si ça continue, envoie une capture de ce message.</p>`, actions: [{ label: 'OK', kind: 'primary' }] }); return null; }
       finally { running = null; }

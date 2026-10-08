@@ -110,6 +110,8 @@ const Cloud = (() => {
     memberGiven: (id, given) => rpc('club_member_given', { admin_k: adminKey() || null, p_player: id, p_given: !!given }),
     answers: matchIds => rpc('club_answers', { p_matches: matchIds }),
     setAnswer: (matchId, playerId, status) => rpc('club_set_answer', { p_match: matchId, p_player: playerId, p_status: status || '' }),
+    // (2.09) the answers of AssistCoachAI ({ m, p, s, note, at }) and the answers of merged matches ({ from, to })
+    importAnswers: (rows, moves) => rpc('club_import_answers', { p_rows: rows || [], p_moves: moves || [] }),
     // notifications and read receipts
     pushKey: () => rpc('club_push_key'),
     pushSub: (endpoint, prefs) => rpc('club_push_sub', { k: token(), p_endpoint: endpoint, p_prefs: prefs }),

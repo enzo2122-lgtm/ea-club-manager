@@ -29,15 +29,60 @@ const ACImport = (() => {
     if ((cb.length === 1 && cb[0].length <= 4 && ia.includes(cb[0])) || (ca.length === 1 && ca[0].length <= 4 && ib.includes(ca[0]))) return 1;
     return 0;
   }
+  // (2.09) one of the two names without its team number (« Villemomble » / « VILLEMOMBLE SPORTS 2 »): the same opponent if the rest matches.
+  // Only to find the same match again (same day, same category, same time), never to merge two teams of a table.
+  function sameOppLoose(a, b) {
+    const s = sameOpp(a, b); if (s) return s;
+    const nums = x => words(x).some(w => /^\d+$/.test(w)), strip = x => words(x).filter(w => !/^\d+$/.test(w)).join(' ');
+    return nums(a) !== nums(b) && sameOpp(strip(a), strip(b)) === 2 ? 1 : 0;
+  }
+  const timeOk = (x, t) => !x.time || !t || x.time === t;
+  // the category of a team as the server reads it (« Seniors B » → « Seniors »): its A, B… teams share their matches' search
+  const catOf = t => norm((t && String(t.category || '').trim()) || String((t && t.name) || '').trim().replace(/\s+[A-Za-z0-9]$/, ''));
+  const famIds = t => { const k = catOf(t); return k ? S().teams.filter(x => catOf(x) === k).map(x => x.id) : t ? [t.id] : []; };
+  /* (2.09) a match created by AssistCoachAI and the same one imported from the FFF (often in another team of the category: the cup
+     match in « Seniors », the FFF one in « Seniors B »): one match only. The FFF one stays (official team and score) and takes what
+     AssistCoachAI knew (convocations, lineup, scorers, minutes, notes); the other is removed. Returns the moves [old id, kept id]. */
+  function dedupe() {
+    const moves = [];
+    S().matches.filter(m => m.acId && !m.imported).forEach(m => {
+      const fam = famIds(Store.get('teams', m.teamId));
+      const twin = S().matches.filter(x => x !== m && x.imported && !x.acId && !x.exempt && x.date === m.date && fam.includes(x.teamId) && timeOk(x, m.time))
+        .map(x => [x, sameOppLoose(x.opponent, m.opponent)]).filter(x => x[1]).sort((a, b) => b[1] - a[1]).map(x => x[0])[0];
+      if (!twin) return;
+      twin.acId = m.acId;
+      ['acLineup', 'prep', 'rdv', 'place', 'convocMsg', 'duration', 'detail'].forEach(k => { if (m[k] && !twin[k]) twin[k] = m[k]; });
+      twin.convoked = [...new Set([...(twin.convoked || []), ...(m.convoked || [])])];
+      if (m.competition === 'Coupe') twin.competition = 'Coupe';
+      if (m.notes && !(twin.notes || '').includes(m.notes)) twin.notes = [twin.notes, m.notes].filter(Boolean).join('\n\n');
+      // the game itself (scorers, minutes, live) when only AssistCoachAI had it; the official score of the FFF stays
+      if (m.played && !(twin.live && (twin.live.events || []).length)) { ['stats', 'minutes', 'live'].forEach(k => { if (m[k] && !(twin[k] && Object.keys(twin[k]).length)) twin[k] = m[k]; }); if (!twin.played) Object.assign(twin, { played: true, gf: m.gf, ga: m.ga }); }
+      Store.upsert('matches', twin); Store.remove('matches', m.id);
+      moves.push([m.id, twin.id]);
+    });
+    return moves;
+  }
+  /* (2.09) the players' answers on AssistCoachAI (« acks »: present / absent on a match or a training, with the reason) → the answers
+     of the app (the same as a « dispo / pas dispo » given in the players' space). The names of the fields are read loosely. */
+  const YES = /^(oui|yes|y|ok|present|pr[ée]sent|dispo|disponible|available|accept|confirm|going|coming|vient|viendra|in|true|1)/i;
+  const NO = /^(non|no|n|absent|indispo|unavailable|not|declin|refus|out|false|0|bless|malade|excus)/i;
+  const pick = (o, ks) => { for (const k of ks) if (o[k] != null && o[k] !== '') return o[k]; return null; };
+  function answerOf(a) {
+    let v = pick(a, ['response', 'reponse', 'réponse', 'answer', 'ack', 'ack_status', 'reply', 'choice', 'value', 'vote', 'status', 'state', 'presence']);
+    if (v == null) { const b = pick(a, ['present', 'available', 'dispo', 'coming', 'is_present', 'is_available', 'going']); if (b != null) v = b ? 'oui' : 'non'; }
+    if (typeof v === 'boolean') v = v ? 'oui' : 'non';
+    const s = norm(v); if (!s || /peut|maybe|incert|doute|unknown|pending|attente|convoqu|non repondu/.test(s)) return null;
+    return NO.test(s) ? 'non' : YES.test(s) ? 'oui' : null;
+  }
 
   /* ---------- the import ---------- */
   function run(D) {
-    const st = { players: [0, 0], matches: [0, 0], trainings: [0, 0], injuries: 0, absences: 0, wellness: 0, rpe: 0, sessions: 0, champ: 0 };
+    const st = { players: [0, 0], matches: [0, 0], trainings: [0, 0], injuries: 0, absences: 0, wellness: 0, rpe: 0, sessions: 0, champ: 0, merged: 0, moves: [], answers: [] };
     const teams = S().teams, fam = k => teams.filter(t => norm(t.category || t.name).replace(/ /g, '') === k);
     // the category: Seniors (the file is a Seniors team: « FCLR – Senior D3/D4 »)
     const acTeam = (D.effectif.teams || [])[0] || {}, catName = /senior/i.test(`${acTeam.category} ${acTeam.name}`) ? 'seniors' : norm(acTeam.category).replace(/ /g, '');
     const group = fam(catName), main = group.find(t => Store.isMain(t)) || group[0] || teams[0];
-    const groupIds = group.map(t => t.id);
+    const groupIds = [...new Set([...group.map(t => t.id), ...famIds(main)])];
     const now = Date.now();
     /* players */
     const ours = S().players, byAc = {}, byCid = {};
@@ -66,6 +111,7 @@ const ACImport = (() => {
     Object.values(champs).forEach(c => (c.fixtures || []).forEach(f => { if (f.event_id) champOfEvent[f.event_id] = c.championship.id; }));
     /* matches */
     const evs = (D.planning.events || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+    const evMap = {}; // AssistCoachAI event → our match or training (its id read after the merges)
     const convBy = {}, attBy = {};
     (D.planning.convocations || []).forEach(c => { (convBy[c.event_id] = convBy[c.event_id] || []).push(c); });
     (D.planning.attendances || []).forEach(a => { (attBy[a.event_id] = attBy[a.event_id] || []).push(a); });
@@ -80,12 +126,15 @@ const ACImport = (() => {
     evs.filter(e => e.type === 'match').forEach(e => {
       const g = msgOf(e), date = day(e.date), opp = e.adversaire || g.opp || '';
       if (/^exempt$/i.test(opp.trim())) return;
-      const cands = S().matches.filter(m => m.date === date && groupIds.includes(m.teamId) && !m.acId);
-      let m = S().matches.find(x => x.acId === e.id) || cands.map(x => [x, sameOpp(x.opponent, opp)]).filter(x => x[1]).sort((a, b) => b[1] - a[1]).map(x => x[0])[0];
+      const cands = S().matches.filter(m => m.date === date && groupIds.includes(m.teamId) && !m.acId && timeOk(m, g.time));
+      const best = f => cands.map(x => [x, f(x.opponent, opp)]).filter(x => x[1]).sort((a, b) => b[1] - a[1]).map(x => x[0])[0];
+      let m = S().matches.find(x => x.acId === e.id) || best(sameOpp) || best(sameOppLoose); // (2.09) then without the team number
+      evMap[e.id] = () => m.id;
       const cid = champOfEvent[e.id];
       // a match AssistCoachAI created before in the wrong team (A instead of B) goes to the team of its level
       if (m) { st.matches[1]++; if (cid) { if (byLevel[cid] && m.acId === e.id && !m.imported && !m.teamManual && !m.fffSheet) m.teamId = byLevel[cid]; teamOfChamp[cid] = m.teamId; } }
       else { m = { id: Store.uid(), teamId: (cid && teamOfChamp[cid]) || main.id, date, opponent: opp, home: !!g.home, competition: g.type === 'amical' ? 'Amical' : g.type === 'coupe' ? 'Coupe' : 'Championnat', convoked: [], played: false, gf: 0, ga: 0 }; st.matches[0]++; }
+      if (g.type === 'coupe' && m.competition !== 'Coupe') m.competition = 'Coupe'; // (2.09) a cup match stays a cup match
       m.acId = e.id; m.time = m.time || g.time || ''; m.home = typeof m.home === 'boolean' ? m.home : !!g.home;
       const convMsg = e.convocation_msg || g.convocMsg || '';
       if (convMsg && !m.rdv) m.rdv = hhmm((/(rdv|rendez[- ]vous)[^0-9]*(\d{1,2}\s*[h:]\s*\d{0,2})/i.exec(convMsg) || [])[2] || '');
@@ -148,7 +197,7 @@ const ACImport = (() => {
       const g = msgOf(e), date = day(e.date);
       let tr = S().trainings.find(x => x.acId === e.id) || S().trainings.find(x => !x.model && x.date === date && groupIds.includes(x.teamId) && (x.time || '') === (g.time || '') && !x.acId);
       if (tr) st.trainings[1]++; else { tr = { id: Store.uid(), title: 'Entraînement', date, time: g.time || '', teamId: main.id, goal: '', exercises: [], presents: [] }; st.trainings[0]++; }
-      tr.acId = e.id; if (g.place && !tr.place) tr.place = g.place;
+      tr.acId = e.id; if (g.place && !tr.place) tr.place = g.place; evMap[e.id] = () => tr.id;
       if (e.note && !(tr.goal || '').includes(e.note)) tr.goal = [tr.goal, e.note].filter(Boolean).join('\n');
       const att = attBy[e.id] || [];
       if (att.length) { tr.presents = [...new Set([...(tr.presents || []), ...att.filter(a => a.status === 'present').map(a => pid(a.player_id)).filter(Boolean)])]; tr.absents = att.filter(a => a.status === 'absent').map(a => pid(a.player_id)).filter(Boolean); }
@@ -157,6 +206,28 @@ const ACImport = (() => {
       if (ses && !(tr.exercises || []).length) { tr.exercises = parseSession(ses.s.text); tr.title = ses.s.title || tr.title; if (ses.s.theme) tr.goal = [tr.goal, 'Thème : ' + ses.s.theme].filter(Boolean).join('\n'); if (ses.s.cWorked || ses.s.cAdjust) tr.review = [ses.s.cWorked && 'Ce qui a marché : ' + ses.s.cWorked, ses.s.cAdjust && 'À ajuster : ' + ses.s.cAdjust].filter(Boolean).join('\n'); st.sessions++; }
       Store.upsert('trainings', tr);
     });
+    /* (2.09) one match only when AssistCoachAI and the FFF both had it */
+    st.moves = dedupe(); st.merged = st.moves.length; const moved = Object.fromEntries(st.moves);
+    /* (2.09) the players' answers (present / absent) to the matches and trainings */
+    const today = UI.today(), ans = {}, seen = { n: 0, keys: new Set(), vals: new Set() };
+    const evDate = {}; evs.forEach(e => { evDate[e.id] = day(e.date); });
+    const addAns = (a, fromAttendance) => {
+      const ev = pick(a, ['event_id', 'eventId', 'event', 'planning_event_id', 'match_id', 'seance_id']), who = pid(pick(a, ['player_id', 'playerId', 'client_id', 'player', 'member_id', 'user_id']));
+      let id = ev && evMap[ev] && evMap[ev](); id = moved[id] || id; if (!id || !who) return false;
+      const s = answerOf(a); if (!s) return false;
+      if (fromAttendance && evDate[ev] < today) return false; // a past training: its attendance (above), not an answer
+      const note = s === 'non' ? String(pick(a, ['reason', 'motif', 'comment', 'commentaire', 'note', 'message']) || '').slice(0, 120) : '';
+      const at = pick(a, ['updated_at', 'answered_at', 'responded_at', 'created_at', 'at']);
+      const k = id + '|' + who; if (!ans[k] || String(at || '') >= String(ans[k].at || '')) ans[k] = { m: id, p: who, s, note, at: at || null };
+      return true;
+    };
+    const acks = D.planning.acks || D.planning.responses || D.planning.answers || D.planning.votes || [];
+    (Array.isArray(acks) ? acks : Object.values(acks).flat()).forEach(a => { if (!a || typeof a !== 'object') return; seen.n++; Object.keys(a).forEach(k => seen.keys.add(k));
+      const v = pick(a, ['response', 'reponse', 'answer', 'ack', 'status', 'value', 'vote']); if (v != null) seen.vals.add(String(v)); addAns(a); });
+    // a convocation can carry the answer too; the attendance said before a training is an answer
+    (D.planning.convocations || []).forEach(c => { const r = pick(c, ['response', 'reponse', 'answer', 'ack', 'ack_status', 'reply']); if (r != null) addAns(Object.assign({}, c, { response: r })); });
+    (D.planning.attendances || []).forEach(a => addAns(a, true));
+    st.answers = Object.values(ans); st.acksSeen = seen;
     /* injuries, absences */
     ((D.medical || {}).cases || []).forEach(c => {
       const p = byAc[c.player_id]; if (!p) return;
@@ -198,14 +269,28 @@ const ACImport = (() => {
     let D; try { D = JSON.parse(txt); } catch (e) { return false; }
     if (!isExport(D)) return false;
     const r = run(D); App.route();
+    const sent = await sendAnswers(r.answers, r.moves);
     modal({ title: 'Import AssistCoachAI', noFocus: true, body: `<p class="lead">Importé sans doublon :</p><ul>
       <li>👥 Joueurs : ${r.players[0]} ajouté${r.players[0] > 1 ? 's' : ''}, ${r.players[1]} complété${r.players[1] > 1 ? 's' : ''}</li>
       <li>⚽ Matchs : ${r.matches[0]} ajouté${r.matches[0] > 1 ? 's' : ''}, ${r.matches[1]} complété${r.matches[1] > 1 ? 's' : ''} (convocations, compos, scores, stats)</li>
       <li>🏃 Entraînements : ${r.trainings[0]} ajouté${r.trainings[0] > 1 ? 's' : ''}, ${r.trainings[1]} complété${r.trainings[1] > 1 ? 's' : ''} · ${r.sessions} séance${r.sessions > 1 ? 's' : ''} détaillée${r.sessions > 1 ? 's' : ''} · ${r.rpe} efforts (RPE)</li>
       <li>🚑 ${r.injuries} blessure${r.injuries > 1 ? 's' : ''} · ✈️ ${r.absences} absence${r.absences > 1 ? 's' : ''} · 💚 ${r.wellness} questionnaires de bien-être</li>
-      <li>🏆 ${r.champ} championnat${r.champ > 1 ? 's' : ''} (classement)</li></ul>
+      <li>🏆 ${r.champ} championnat${r.champ > 1 ? 's' : ''} (classement)</li>
+      ${r.merged ? `<li>🤝 ${r.merged} match${r.merged > 1 ? 's' : ''} en double fusionné${r.merged > 1 ? 's' : ''} avec celui de la FFF</li>` : ''}
+      <li>🗳️ ${sent.text}</li></ul>
+      ${!r.answers.length && r.acksSeen.n ? `<p class="muted small">AssistCoachAI a envoyé ${r.acksSeen.n} réponse${r.acksSeen.n > 1 ? 's' : ''} que l'appli ne sait pas encore lire (champs : ${esc([...r.acksSeen.keys].slice(0, 12).join(', '))} · valeurs : ${esc([...r.acksSeen.vals].slice(0, 8).join(', ') || 'aucune')}). Envoie une capture de ce message pour qu'on les ajoute.</p>` : ''}
       <p class="muted small">Tu peux réimporter un fichier plus récent : ce qui existe déjà est mis à jour, rien n'est ajouté deux fois.</p>`, actions: [{ label: 'OK', kind: 'primary' }] });
     return true;
   }
-  return { run, fromText, isExport, parseSession, sameOpp };
+  // (2.09) the answers to the club server (a newer answer given in the app stays), and the answers of a merged match follow it
+  async function sendAnswers(rows, moves) {
+    rows = rows || []; moves = moves || [];
+    if (!rows.length && !moves.length) return { text: 'Aucune réponse présent / absent dans ce fichier' };
+    if (typeof Cloud === 'undefined' || !Cloud.ready()) return { text: `${rows.length} réponse${rows.length > 1 ? 's' : ''} présent / absent lue${rows.length > 1 ? 's' : ''} : connecte-toi au serveur du club et réimporte pour les enregistrer` };
+    try {
+      let n = 0; for (let i = 0; i < Math.max(rows.length, 1); i += 500) { const r = await Cloud.importAnswers(rows.slice(i, i + 500), i ? [] : moves.map(([from, to]) => ({ from, to }))); n += +((r && r.saved) || 0); }
+      return { text: `${rows.length} réponse${rows.length > 1 ? 's' : ''} présent / absent des joueurs (${n} nouvelle${n > 1 ? 's' : ''} ou mise${n > 1 ? 's' : ''} à jour)` };
+    } catch (e) { return { text: /function|introuvable|PGRST|404/i.test(String(e.message)) ? `${rows.length} réponses lues : le serveur doit d'abord être mis à jour (SQL « reponses-assistcoachai »)` : 'Réponses non enregistrées : ' + e.message }; }
+  }
+  return { run, fromText, isExport, parseSession, sameOpp, sameOppLoose, dedupe, famIds, sendAnswers };
 })();

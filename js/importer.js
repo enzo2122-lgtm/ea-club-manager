@@ -147,6 +147,14 @@ const Importer = (() => {
 
   /* ---------- import screen for matches ---------- */
   // (1.40) the matches found (FFF / District page, file): updated when already there (same team, day and opponent), else added
+  // (2.09) the same match created by AssistCoachAI in another team of the category (A / B), same day and time, the opponent named
+  // with or without its team number: « Villemomble » = « VILLEMOMBLE SPORTS 2 ». Never a match already imported from the FFF.
+  function sibling(t, m) {
+    const fam = ACImport.famIds(t), ok = x => !x.time || !m.time || x.time === m.time;
+    return S().matches.filter(x => x.teamId !== t.id && fam.includes(x.teamId) && x.date === m.date && !x.exempt && x.acId && !x.imported && ok(x))
+      .map(x => [x, ACImport.sameOppLoose(x.opponent, m.opponent)]).filter(x => x[1]).sort((a, b) => b[1] - a[1]).map(x => x[0])[0]
+      || S().matches.find(x => x.teamId === t.id && x.date === m.date && !x.exempt && x.acId && !x.imported && ok(x) && ACImport.sameOppLoose(x.opponent, m.opponent) > 0);
+  }
   function applyFound(found, sel = 'auto', each) {
     const res = { added: 0, updated: 0, noTeam: 0, scores: 0 };
     found.forEach(m => {
@@ -154,7 +162,11 @@ const Importer = (() => {
       if (!t) { res.noTeam++; return; }
       // (1.51) « F.C. Bourget 2 » (AssistCoachAI) = « BOURGET FC 2 » (FFF): the same match, never a second one
       const ex = S().matches.find(x => x.teamId === t.id && x.date === m.date && norm(x.opponent) === norm(m.opponent))
-        || S().matches.find(x => x.teamId === t.id && x.date === m.date && !x.exempt && ACImport.sameOpp(x.opponent, m.opponent) > 0);
+        || S().matches.find(x => x.teamId === t.id && x.date === m.date && !x.exempt && ACImport.sameOpp(x.opponent, m.opponent) > 0)
+        || sibling(t, m);
+      // (2.09) found in another team of the category (AssistCoachAI had put it there): the FFF knows the team
+      if (ex && ex.teamId !== t.id && !ex.teamManual) ex.teamId = t.id;
+      if (ex && ex.acId && !ex.imported) Object.assign(ex, { imported: true, opponent: m.opponent || ex.opponent }); // now the FFF's too: its official name and score win
       // (1.57) « DISTRICT CUP » is a cup (knock-out), never the championship
       const comp = /coupe|\bcup\b/i.test(m.competition) ? 'Coupe' : /brassage|plateau|challenge/i.test(m.competition) ? 'Plateau' : 'Championnat';
       if (ex && comp === 'Coupe' && ex.competition !== 'Coupe') ex.competition = 'Coupe'; // a cup match filed before as championship
@@ -162,6 +174,8 @@ const Importer = (() => {
       else { Store.upsert('matches', { id: Store.uid(), teamId: t.id, exempt: !!m.exempt, opponent: m.opponent || 'Adversaire', date: m.date, time: m.time || '', home: m.home, competition: comp, place: m.place || m.venue || '', rdv: '', played: m.played, gf: m.played ? m.gf : 0, ga: m.played ? m.ga : 0, convoked: [], lineupId: null, notes: '', imported: true }); res.added++; if (m.played) res.scores++; }
       each && each(m, t);
     });
+    // (2.09) the duplicates left by an earlier import (AssistCoachAI in one team, the FFF in another) become one match
+    res.moves = ACImport.dedupe(); res.merged = res.moves.length; if (res.merged) ACImport.sendAnswers([], res.moves);
     return res;
   }
   // (1.30) the official calendar of the club's federation (basket, hand, rugby, volley): opened on its site, then imported as a file
