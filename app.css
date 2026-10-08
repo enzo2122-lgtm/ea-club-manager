@@ -2250,3 +2250,5 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .inj-bars div { display: grid; grid-template-columns: 120px minmax(0, 1fr) 24px; gap: 8px; align-items: center; font-size: 14px; }
 .inj-bars i { display: block; height: 10px; border-radius: 99px; background: #dc2626; }
 .inj-bars b { text-align: right; }
+.td-list { display: flex; flex-direction: column; gap: 12px; }
+.td-box { padding: 12px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 8px; }

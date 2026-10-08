@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 116, date: '2026-10-09', title: 'Documents PDF de l\'équipe 📄', items: [
+      ['🧾', 'Sur la page d\'une catégorie, « Documents PDF » : les fiches de tout l\'effectif en un PDF (postes, contacts, fiche urgence, saison, tests, niveau).'],
+      ['📅', 'Le bilan des entraînements de date à date : la présence de chaque joueur (%, retards, motifs d\'absence) et la liste des séances.'],
+      ['📝', 'Sur un match, « Compo papier » : la feuille à remplir au stylo au bord du terrain (entrées, sorties, buts, passes, cartons, score par période).'],
+    ] },
     { n: 115, date: '2026-10-09', title: 'Anciens joueurs, RGPD et stats des blessures 📦', items: [
       ['📦', 'Un joueur quitte le club ? Sur sa page, « Archiver » : il sort des listes, ses matchs et stats restent. Joueurs → « Anciens joueurs » pour le retrouver ou le réintégrer.'],
       ['🕶️', '« Anonymiser (RGPD) » efface pour de bon son nom, ses contacts, sa date de naissance, sa fiche urgence et ses notes ; ses stats restent sans son nom.'],
