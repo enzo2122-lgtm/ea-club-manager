@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 90, date: '2026-10-08', title: 'Le chat tient en place quand tu écris ⌨️', items: [
+      ['⌨️', 'Quand tu écris dans le chat, la barre du bas s\'efface : le chat descend juste au-dessus du clavier et ne saute plus. Elle revient quand tu fermes le clavier.'],
+    ] },
     { n: 89, date: '2026-10-08', title: 'Le bouton Envoyer du chat est libre 💬', items: [
       ['💬', 'Dans le chat, le bouton rond ＋ ne cache plus le bouton Envoyer : il disparaît tant que le chat est ouvert.'],
     ] },

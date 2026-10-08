@@ -3555,7 +3555,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.33';
+  const VERSION = '2.34';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15362,6 +15362,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 90, date: '2026-10-08', title: 'Le chat tient en place quand tu écris ⌨️', items: [
+      ['⌨️', 'Quand tu écris dans le chat, la barre du bas s\'efface : le chat descend juste au-dessus du clavier et ne saute plus. Elle revient quand tu fermes le clavier.'],
+    ] },
     { n: 89, date: '2026-10-08', title: 'Le bouton Envoyer du chat est libre 💬', items: [
       ['💬', 'Dans le chat, le bouton rond ＋ ne cache plus le bouton Envoyer : il disparaît tant que le chat est ouvert.'],
     ] },
@@ -16406,6 +16409,8 @@ var Chat = (() => {
     st.textContent = [
       // the whole screen for the chat: the page header and the player card go away while the chat is open
       'body.chat-on header.top,body.chat-on .card.who,body.chat-on .credit,body.chat-on .toast-bar,body.chat-on .quick-fab,body.chat-on .help-fab{display:none!important}',
+      // (2.34) while typing, the tab bar goes away: on an iPhone it stayed above the keyboard and pushed the chat up
+      'body.chat-kb .rail,body.chat-kb .tabbar,body.chat-kb #nav{display:none!important}',
       'body.chat-on main{padding-top:calc(env(safe-area-inset-top) + 8px)!important;padding-bottom:0!important}',
       // (2.00) the chat is fixed on the screen, the page behind does not move (not even with the keyboard)
       'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
@@ -16646,7 +16651,7 @@ var Chat = (() => {
     const cx = $('#cx') || (box && box.firstElementChild); if (!cx || !shown()) return;
     if (!document.body.classList.contains('chat-on')) { if (cx.dataset.fit) { cx.style.cssText = ''; cx.dataset.fit = ''; } return; }
     const vv = window.visualViewport, vh = window.innerHeight, vvH = vv ? vv.height : vh, vvTop = vv ? vv.offsetTop : 0;
-    const keyboard = vh - vvH - vvTop > 80;
+    const keyboard = vh - vvH - vvTop > 80 || document.body.classList.contains('chat-kb');
     let bottom = 8;
     if (keyboard) bottom = Math.max(4, vh - (vvH + vvTop) + 4);
     else document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2) bottom = Math.max(bottom, vh - r.top + 6); });
@@ -16656,7 +16661,7 @@ var Chat = (() => {
   }
   function setOn(on) {
     if (on === document.body.classList.contains('chat-on')) return;
-    document.body.classList.toggle('chat-on', on);
+    document.body.classList.toggle('chat-on', on); if (!on) document.body.classList.remove('chat-kb');
     if (on) { window.scrollTo(0, 0); requestAnimationFrame(() => { fit(); toBottom(); }); }
     else { const cx = box && box.firstElementChild; if (cx) { cx.style.cssText = ''; cx.dataset.fit = ''; } }
   }
@@ -16778,7 +16783,11 @@ var Chat = (() => {
     });
     el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; if (e.target.id === 'cxFile' && e.target.files && e.target.files[0]) { sendPhoto(e.target.files[0]); e.target.value = ''; } });
     el.addEventListener('input', e => { if (e.target.id !== 'cxText') return; draft = e.target.value; grow(); const s = $('#cxSend'); if (s) s.disabled = !draft.trim(); });
-    el.addEventListener('focusin', e => { if (e.target.id === 'cxText') setTimeout(() => { fit(); toBottom(); }, 250); });
+    // (2.34) typing: no tab bar, the chat placed once the keyboard is up (not at each step of its animation)
+    let kbT = 0;
+    const kb = on => { clearTimeout(kbT); kbT = setTimeout(() => { document.body.classList.toggle('chat-kb', on); window.scrollTo(0, 0); fit(); toBottom(); }, on ? 0 : 120); };
+    el.addEventListener('focusin', e => { if (e.target.id === 'cxText') { kb(true); setTimeout(() => { fit(); toBottom(); }, 300); } });
+    el.addEventListener('focusout', e => { if (e.target.id === 'cxText') kb(false); });
     el.addEventListener('keydown', e => { if (e.target.id === 'cxText' && e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer:fine)').matches) { e.preventDefault(); send(e.target.value); } });
     el.addEventListener('scroll', e => { if (e.target.id === 'cxList' && nearBottom()) { const n = $('#cxNew'); if (n) n.hidden = true; markSeen(); } }, true);
     el.addEventListener('click', async e => {
@@ -19206,7 +19215,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 134, UPD = AppCfg.key('update-tried');
+  const BUILD = 135, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

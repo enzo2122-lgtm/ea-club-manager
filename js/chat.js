@@ -30,6 +30,8 @@ const Chat = (() => {
     st.textContent = [
       // the whole screen for the chat: the page header and the player card go away while the chat is open
       'body.chat-on header.top,body.chat-on .card.who,body.chat-on .credit,body.chat-on .toast-bar,body.chat-on .quick-fab,body.chat-on .help-fab{display:none!important}',
+      // (2.34) while typing, the tab bar goes away: on an iPhone it stayed above the keyboard and pushed the chat up
+      'body.chat-kb .rail,body.chat-kb .tabbar,body.chat-kb #nav{display:none!important}',
       'body.chat-on main{padding-top:calc(env(safe-area-inset-top) + 8px)!important;padding-bottom:0!important}',
       // (2.00) the chat is fixed on the screen, the page behind does not move (not even with the keyboard)
       'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
@@ -270,7 +272,7 @@ const Chat = (() => {
     const cx = $('#cx') || (box && box.firstElementChild); if (!cx || !shown()) return;
     if (!document.body.classList.contains('chat-on')) { if (cx.dataset.fit) { cx.style.cssText = ''; cx.dataset.fit = ''; } return; }
     const vv = window.visualViewport, vh = window.innerHeight, vvH = vv ? vv.height : vh, vvTop = vv ? vv.offsetTop : 0;
-    const keyboard = vh - vvH - vvTop > 80;
+    const keyboard = vh - vvH - vvTop > 80 || document.body.classList.contains('chat-kb');
     let bottom = 8;
     if (keyboard) bottom = Math.max(4, vh - (vvH + vvTop) + 4);
     else document.querySelectorAll('.tabbar, .rail').forEach(b => { const r = b.getBoundingClientRect(); if (r.height && r.top > vh / 2) bottom = Math.max(bottom, vh - r.top + 6); });
@@ -280,7 +282,7 @@ const Chat = (() => {
   }
   function setOn(on) {
     if (on === document.body.classList.contains('chat-on')) return;
-    document.body.classList.toggle('chat-on', on);
+    document.body.classList.toggle('chat-on', on); if (!on) document.body.classList.remove('chat-kb');
     if (on) { window.scrollTo(0, 0); requestAnimationFrame(() => { fit(); toBottom(); }); }
     else { const cx = box && box.firstElementChild; if (cx) { cx.style.cssText = ''; cx.dataset.fit = ''; } }
   }
@@ -402,7 +404,11 @@ const Chat = (() => {
     });
     el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; if (e.target.id === 'cxFile' && e.target.files && e.target.files[0]) { sendPhoto(e.target.files[0]); e.target.value = ''; } });
     el.addEventListener('input', e => { if (e.target.id !== 'cxText') return; draft = e.target.value; grow(); const s = $('#cxSend'); if (s) s.disabled = !draft.trim(); });
-    el.addEventListener('focusin', e => { if (e.target.id === 'cxText') setTimeout(() => { fit(); toBottom(); }, 250); });
+    // (2.34) typing: no tab bar, the chat placed once the keyboard is up (not at each step of its animation)
+    let kbT = 0;
+    const kb = on => { clearTimeout(kbT); kbT = setTimeout(() => { document.body.classList.toggle('chat-kb', on); window.scrollTo(0, 0); fit(); toBottom(); }, on ? 0 : 120); };
+    el.addEventListener('focusin', e => { if (e.target.id === 'cxText') { kb(true); setTimeout(() => { fit(); toBottom(); }, 300); } });
+    el.addEventListener('focusout', e => { if (e.target.id === 'cxText') kb(false); });
     el.addEventListener('keydown', e => { if (e.target.id === 'cxText' && e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer:fine)').matches) { e.preventDefault(); send(e.target.value); } });
     el.addEventListener('scroll', e => { if (e.target.id === 'cxList' && nearBottom()) { const n = $('#cxNew'); if (n) n.hidden = true; markSeen(); } }, true);
     el.addEventListener('click', async e => {
