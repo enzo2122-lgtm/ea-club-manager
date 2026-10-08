@@ -172,6 +172,27 @@ const Views = (() => {
     const hw = $('#heroWx', root);
     if (hw) Weather.todayShort($('.hero-me', root).dataset.wxTime).then(t => { if (t && hw.isConnected) hw.textContent = ' · ' + t; });
   }
+  /* (2.19) the birthdays: today (King of the day, with the chat of his category) and the next 7 days, for the coaches of his teams and the responsables */
+  function birthdayCard() {
+    const now = new Date(), day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const next = b => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(b || '')); if (!m) return null; let y = day0.getFullYear();
+      const at = yy => { const d = new Date(yy, +m[2] - 1, +m[3]); return d.getMonth() !== +m[2] - 1 ? new Date(yy, 1, 28) : d; }; // born on 29 Feb: the 28th
+      let d = at(y); if (d < day0) d = at(++y); return { in: Math.round((d - day0) / 864e5), age: y - +m[1] }; };
+    const teams = p => (p.teamIds || []).map(teamOf).filter(t => t && Auth.sees(t.id));
+    const list = S().players.filter(p => !p.left && teams(p).length).map(p => Object.assign({ p, t: teams(p)[0] }, next(p.birth))).filter(x => x.in != null && x.in <= 7)
+      .sort((a, b) => a.in - b.in || String(a.p.firstName).localeCompare(String(b.p.firstName)));
+    if (!list.length) return '';
+    const today = list.filter(x => !x.in), soon = list.filter(x => x.in);
+    const cat = t => t.category || t.name, room = t => `#/chat/${t.id}${AppCfg.family(cat(t)) ? '|parents' : ''}`;
+    const when = n => n === 1 ? 'demain' : new Date(day0.getTime() + n * 864e5).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' });
+    return `<section class="card bd-home ${today.length ? 'on' : ''}">
+      <h2>🎂 Anniversaires</h2>
+      ${today.map(x => `<div class="bd-today"><span class="bd-c">👑</span><div><b>${esc(Store.fullName(x.p))}</b><span>${esc(cat(x.t))} · ${x.age} ans aujourd'hui · King of the day</span></div>
+        <a class="btn small" href="${room(x.t)}">💬 Lui souhaiter</a></div>`).join('')}
+      ${today.length ? '<p class="muted small">Un message « King of the day » est posté dans le chat de sa catégorie, avec une couronne sur son nom toute la journée.</p>' : ''}
+      ${soon.length ? `<ul class="bd-soon">${soon.map(x => `<li><b>${esc(Store.fullName(x.p))}</b> <span class="muted">· ${esc(cat(x.t))} · ${x.age} ans ${esc(when(x.in))}</span></li>`).join('')}</ul>` : ''}
+    </section>`;
+  }
   function home(root) {
     const now = today();
     const matches = byTeam(S().matches), trainings = byTeam(S().trainings);
@@ -183,6 +204,7 @@ const Views = (() => {
       ${serverBanner()}
       ${teamSwitch()}
       ${setupCard()}
+      ${birthdayCard()}
       ${Onboard.planCard()}
       ${Quick.matchDayCard()}
       ${Quick.tomorrowCard()}
