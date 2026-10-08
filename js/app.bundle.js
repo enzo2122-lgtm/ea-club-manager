@@ -3643,7 +3643,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.56';
+  const VERSION = '2.57';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15972,6 +15972,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 113, date: '2026-10-09', title: 'Le brief d\'avant-match 📋', items: [
+      ['📋', 'Sur un match à venir (onglet Avant) : le brief calculé tout seul — effectif et indisponibles, suspendus, vigilance cartons, notre forme sur 5 matchs, les joueurs en forme, les gardiens, la forme de l\'adversaire, l\'effet du premier but.'],
+      ['📤', '« Copier » pour le coller dans le groupe des coachs.'],
+    ] },
     { n: 112, date: '2026-10-09', title: 'Le match en profondeur 📈', items: [
       ['🥅', 'Match en direct : sur un but encaissé, l\'origine (contre-attaque, corner, coup franc…), les joueurs impliqués, ce qui n\'a pas marché (placement, duel, marquage…) et leur part (décisive, importante, mitigée).'],
       ['⚽', 'Sur nos buts : leur origine. Nouveau bouton « 🧤 Arrêt du gardien » : le type d\'arrêt (sur sa ligne, dans les pieds, aérien, de loin, face à face, penalty) et ⭐ arrêt décisif.'],
@@ -19245,6 +19249,8 @@ var Views = (() => {
       if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       if (b.dataset.unsusp) { const [pid, mid] = b.dataset.unsusp.split(':'), pl = Store.get('players', pid); if (pl) { pl.suspDone = [...new Set([...(pl.suspDone || []), mid])].slice(-10); Store.upsert('players', pl); toast(`${Store.shortName(pl)} n'est plus marqué suspendu`); } return render(); }
       if (b.dataset.act === 'lineupcopy') return copyLineup(m);
+      if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
+        try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
       const card = b.closest('[data-ex]'), ex = card && tr.exercises.find(x => x.id === card.dataset.ex);
       if (b.dataset.present) {
         // (2.44) absent → present → present but late → absent
@@ -19387,6 +19393,40 @@ var Views = (() => {
       <p class="muted small">« Match complet pour les autres » met ${full} min à ceux qui n'ont pas encore de temps. ${total ? `Total saisi : ${total} min.` : ''}</p></section>`;
   }
   // (1.41) « Qui joue où ? » : each position of the lineup gets a player called up (his name goes on the drawing and the match sheet)
+  // (2.57) the pre-match brief, worked out from the season: squad available, cards, form, players in form, goalkeepers, the opponent, the first goal
+  function brief(m, t) {
+    if (!t || m.played || m.exempt) return null;
+    const card = (x, id, k) => Math.max(+(((x.stats || {})[id] || {})[k]) || 0, +(((x.detail || {})[id] || {})[k]) || 0);
+    const past = S().matches.filter(x => x.teamId === m.teamId && x.played && !x.exempt && x.date < m.date).sort((a, b) => b.date.localeCompare(a.date));
+    const last5 = past.slice(0, 5), conv = Store.rosterOf(t.id).filter(p => (m.convoked || []).includes(p.id)), squad = Store.playersOf(t.id).length ? Store.playersOf(t.id) : Store.rosterOf(t.id);
+    const D = Parents.matchDispo(m), yes = D && D.ready ? D.yes.size : null;
+    const hurt = squad.filter(p => Health.on(p, m.date)), susp = squad.filter(p => suspOf(p, m.date));
+    const yc = squad.map(p => ({ p, n: past.slice(0, 8).reduce((a, x) => a + card(x, p.id, 'yc'), 0) })).filter(x => x.n >= 2).sort((a, b) => b.n - a.n);
+    const res = x => x.gf > x.ga ? 'V' : x.gf < x.ga ? 'D' : 'N', form = last5.map(res).reverse();
+    const pts = last5.reduce((a, x) => a + (res(x) === 'V' ? 3 : res(x) === 'N' ? 1 : 0), 0), gf = last5.reduce((a, x) => a + (+x.gf || 0), 0), ga = last5.reduce((a, x) => a + (+x.ga || 0), 0);
+    const hot = squad.map(p => { const ms = past.slice(0, 3).filter(x => (x.convoked || []).includes(p.id)); const g = ms.reduce((a, x) => a + (((x.stats || {})[p.id] || {}).g || 0), 0), as = ms.reduce((a, x) => a + (((x.stats || {})[p.id] || {}).a || 0), 0);
+      const r = ms.map(x => Ratings.avg(x, p.id)).filter(Boolean).map(x => x.v), avg = r.length ? r.reduce((a, b) => a + b, 0) / r.length : 0; return { p, g, as, avg, score: g * 2 + as + avg / 3 }; }).filter(x => x.g || x.as || x.avg >= 7).sort((a, b) => b.score - a.score).slice(0, 4);
+    const gks = squad.filter(p => (p.pos === 'GB' || (p.posts || [])[0] === 'GB')).map(p => { const ms = past.filter(x => +((x.minutes || {})[p.id]) > 0).slice(0, 5); return { p, n: ms.length, ga: ms.reduce((a, x) => a + (+x.ga || 0), 0), cs: ms.filter(x => !+x.ga).length }; }).filter(x => x.n);
+    // the first goal: who scored it (live match or FFF minutes when known)
+    const first = past.map(x => { const ev = ((x.live || {}).events || []).filter(e => Live.EV && (Sport.scoreOf(e.type))).sort((a, b) => a.wall - b.wall)[0]; return ev ? { us: !!Sport.scoreOf(ev.type).us, r: res(x) } : null; }).filter(Boolean);
+    const fUs = first.filter(x => x.us), fThem = first.filter(x => !x.us);
+    const opp = Season.formOf(t, m.opponent) || [];
+    const lines = [];
+    lines.push(['👥 Effectif', `${conv.length ? conv.length + ' convoqués' : 'convocation à faire'}${yes != null ? ` · ${yes} disponibles` : ''}${hurt.length ? ` · ${hurt.length} indisponible${hurt.length > 1 ? 's' : ''} (${hurt.map(p => Store.shortName(p)).join(', ')})` : ''}${susp.length ? ` · 🟥 ${susp.map(p => Store.shortName(p)).join(', ')} suspendu${susp.length > 1 ? 's' : ''} ?` : ''}`]);
+    if (yc.length) lines.push(['🟨 Vigilance cartons', yc.map(x => `${Store.shortName(x.p)} (${x.n} jaunes)`).join(', ')]);
+    if (last5.length) lines.push(['📈 Notre forme', `${form.join(' ')} · ${pts} pts sur ${last5.length * 3} · ${gf} buts marqués, ${ga} encaissés`]);
+    if (hot.length) lines.push(['🔥 En forme', hot.map(x => `${Store.shortName(x.p)}${x.g ? ` ${x.g} but${x.g > 1 ? 's' : ''}` : ''}${x.as ? ` ${x.as} passe${x.as > 1 ? 's' : ''}` : ''}${x.avg ? ` (${Ratings.fr(x.avg)}/10)` : ''}`).join(' · ')]);
+    if (gks.length) lines.push(['🧤 Gardiens', gks.map(x => `${Store.shortName(x.p)} : ${x.n} match${x.n > 1 ? 's' : ''}, ${x.ga} encaissé${x.ga > 1 ? 's' : ''}, ${x.cs} sans encaisser`).join(' · ')]);
+    if (opp.length) lines.push(['🔎 ' + (m.opponent || 'Adversaire'), `${opp.map(o => o.r).join(' ')} sur ses ${opp.length} derniers matchs (${opp.filter(o => o.r === 'V').length} victoire${opp.filter(o => o.r === 'V').length > 1 ? 's' : ''})`]);
+    if (first.length >= 3) lines.push(['⏱️ Le premier but', `${fUs.length ? `quand on marque le premier : ${fUs.filter(x => x.r === 'V').length}/${fUs.length} gagnés` : ''}${fUs.length && fThem.length ? ' · ' : ''}${fThem.length ? `quand on l'encaisse : ${fThem.filter(x => x.r !== 'D').length}/${fThem.length} sans perdre` : ''}`]);
+    return lines;
+  }
+  function briefCard(m, t) {
+    const L = brief(m, t); if (!L || L.length < 2) return '';
+    return `<section class="card brief-card"><div class="row-head"><h2>📋 Brief d'avant-match</h2><button class="btn soft small" data-act="briefcopy">${I.copy}<span>Copier</span></button></div>
+      ${L.map(([k, v]) => `<div class="brief-row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}
+      <p class="muted small">Calculé avec les matchs de la saison (notes, buts, cartons, temps de jeu, live). « Copier » pour le coller dans le groupe des coachs.</p></section>`;
+  }
   // (2.51) what the players said of their match (their mark, in words) and the star the team elected
   function selfEvalCard(m, conv) {
     const se = m.selfEval || {}, ids = conv.map(p => p.id).filter(id => se[id]);
@@ -19489,6 +19529,7 @@ var Views = (() => {
         ${(() => { const f = !m.played && Season.formOf(t, m.opponent); return f && f.length ? `<section class="card opp-form"><h2>🔎 ${Clubs.oppLogo(m.opponent)}${esc(m.opponent)} : sa forme du moment</h2>
           <div class="form-dots">${f.map(({ r, x }) => `<span class="fd ${r}" title="${esc(`${x.home} ${x.hs} - ${x.as} ${x.away}`)}">${r}</span>`).join('')}</div>
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
+        ${briefCard(m, t)}
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) || suspOf(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${suspFlag(p, m.date)}${mutKind(p) && mutKind(p) !== 'contrat' ? '<i class="mut-tag">M</i>' : ''}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
         ${t ? guestSelect(t.id) : ''}
@@ -19577,6 +19618,8 @@ var Views = (() => {
       if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       if (b.dataset.unsusp) { const [pid, mid] = b.dataset.unsusp.split(':'), pl = Store.get('players', pid); if (pl) { pl.suspDone = [...new Set([...(pl.suspDone || []), mid])].slice(-10); Store.upsert('players', pl); toast(`${Store.shortName(pl)} n'est plus marqué suspendu`); } return render(); }
       if (b.dataset.act === 'lineupcopy') return copyLineup(m);
+      if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
+        try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
@@ -20114,7 +20157,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 157, UPD = AppCfg.key('update-tried');
+  const BUILD = 158, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
