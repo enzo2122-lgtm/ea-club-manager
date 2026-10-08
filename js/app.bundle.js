@@ -3555,7 +3555,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.31';
+  const VERSION = '2.32';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15238,22 +15238,24 @@ var Quick = (() => {
     pill.className = 'save-pill show ' + kind; pill.textContent = text;
     if (!stay) hideT = setTimeout(() => pill.classList.remove('show'), 2200);
   }
+  // (2.32) saving is silent: no « Enregistrement… » / « Enregistré » at each letter typed. Only a problem is shown, once:
+  // no network (it stays on the phone and leaves when the network is back) or a failed sending to the club
+  const showing = t => pill && pill.classList.contains('show') && pill.textContent === t;
+  const OFF = '📴 Pas de réseau : c\'est gardé sur le téléphone, envoi dès le retour du réseau', ERR = '⚠️ Pas encore envoyé au club : nouvel essai dans un instant';
   function onChange() {
     dirty = true;
-    if (!navigator.onLine) return light('off', '📴 Pas de réseau : c\'est enregistré sur le téléphone, envoi dès le retour du réseau', true);
-    if (!Cloud.ready()) return light('ok', '✓ Enregistré sur cet appareil');
-    light('wait', '⏳ Enregistrement…', true);
+    if (!navigator.onLine && !showing(OFF)) light('off', OFF, true);
   }
   function syncDone(err) {
     if (!dirty) return;
-    if (!navigator.onLine) return light('off', '📴 Pas de réseau : c\'est enregistré sur le téléphone, envoi dès le retour du réseau', true);
-    if (err) return light('err', '⚠️ Enregistré sur le téléphone, pas encore envoyé au club (nouvel essai dans un instant)', true);
-    dirty = false; light('ok', '✓ Tout est enregistré');
+    if (!navigator.onLine) { if (!showing(OFF)) light('off', OFF, true); return; }
+    if (err) { if (!showing(ERR)) light('err', ERR, true); return; }
+    dirty = false; if (pill) pill.classList.remove('show');
   }
   function start() {
     Store.on(onChange);
     window.addEventListener('offline', () => { if (dirty) onChange(); });
-    window.addEventListener('online', () => { if (dirty) light('wait', '📶 Réseau revenu : envoi…', true); });
+    window.addEventListener('online', () => { if (pill) pill.classList.remove('show'); });
   }
 
   return { fab, menu, search, matchDay, matchDayCard, tomorrowCard, backupCard, backupClick, summaryText, start, syncDone };
@@ -15360,6 +15362,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 88, date: '2026-10-08', title: 'Plus de « Enregistrement… » à chaque lettre 🤫', items: [
+      ['🤫', 'L\'appli enregistre en silence : les messages « Enregistrement… » et « Enregistré » ne s\'affichent plus quand tu écris. Un message n\'apparaît que s\'il y a un souci (pas de réseau, envoi au club en attente).'],
+    ] },
     { n: 87, date: '2026-10-08', title: 'La séance générée va dans ton entraînement 📅', items: [
       ['📅', 'Dans l\'aperçu de la séance générée, choisis « Mettre la séance dans » : un nouvel entraînement, ou un entraînement déjà prévu au planning (le prochain vide est proposé). Sa date, son heure, son lieu et l\'appel restent.'],
       ['✨', 'Sur la page d\'un entraînement, nouveau bouton « Générer la séance » : la séance générée arrive directement dedans. S\'il y a déjà des exercices, tu choisis de les garder ou de les remplacer.'],
@@ -19198,7 +19203,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 132, UPD = AppCfg.key('update-tried');
+  const BUILD = 133, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

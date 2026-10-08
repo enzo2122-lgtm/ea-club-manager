@@ -227,22 +227,24 @@ const Quick = (() => {
     pill.className = 'save-pill show ' + kind; pill.textContent = text;
     if (!stay) hideT = setTimeout(() => pill.classList.remove('show'), 2200);
   }
+  // (2.32) saving is silent: no « Enregistrement… » / « Enregistré » at each letter typed. Only a problem is shown, once:
+  // no network (it stays on the phone and leaves when the network is back) or a failed sending to the club
+  const showing = t => pill && pill.classList.contains('show') && pill.textContent === t;
+  const OFF = '📴 Pas de réseau : c\'est gardé sur le téléphone, envoi dès le retour du réseau', ERR = '⚠️ Pas encore envoyé au club : nouvel essai dans un instant';
   function onChange() {
     dirty = true;
-    if (!navigator.onLine) return light('off', '📴 Pas de réseau : c\'est enregistré sur le téléphone, envoi dès le retour du réseau', true);
-    if (!Cloud.ready()) return light('ok', '✓ Enregistré sur cet appareil');
-    light('wait', '⏳ Enregistrement…', true);
+    if (!navigator.onLine && !showing(OFF)) light('off', OFF, true);
   }
   function syncDone(err) {
     if (!dirty) return;
-    if (!navigator.onLine) return light('off', '📴 Pas de réseau : c\'est enregistré sur le téléphone, envoi dès le retour du réseau', true);
-    if (err) return light('err', '⚠️ Enregistré sur le téléphone, pas encore envoyé au club (nouvel essai dans un instant)', true);
-    dirty = false; light('ok', '✓ Tout est enregistré');
+    if (!navigator.onLine) { if (!showing(OFF)) light('off', OFF, true); return; }
+    if (err) { if (!showing(ERR)) light('err', ERR, true); return; }
+    dirty = false; if (pill) pill.classList.remove('show');
   }
   function start() {
     Store.on(onChange);
     window.addEventListener('offline', () => { if (dirty) onChange(); });
-    window.addEventListener('online', () => { if (dirty) light('wait', '📶 Réseau revenu : envoi…', true); });
+    window.addEventListener('online', () => { if (pill) pill.classList.remove('show'); });
   }
 
   return { fab, menu, search, matchDay, matchDayCard, tomorrowCard, backupCard, backupClick, summaryText, start, syncDone };
