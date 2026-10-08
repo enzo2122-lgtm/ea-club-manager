@@ -58,6 +58,13 @@ button, select { font: inherit; }
 
 /* (2.14) téléphone : pas de débordement sur le côté, pas de zoom de l'iPhone quand on touche un champ (16 px au moins) */
 @media (max-width: 760px) {
-  html, body { overflow-x: hidden; }
+  html { overflow-x: clip; } /* (2.15) « clip » : ne crée pas de défilement, la barre du bas reste collée en bas sur iPhone */
   input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size: 16px !important; }
 }
+
+/* (2.15) pas de zoom au double toucher (le zoom à deux doigts est coupé par la page) */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* (2.15) iPhone : la couleur du club jusqu'aux bords arrondis de l'écran (sous la barre d'état et sous la barre d'accueil), jamais un rectangle blanc */
+html { background: var(--navy, #0e1d45); }
+body { min-height: 100dvh; }

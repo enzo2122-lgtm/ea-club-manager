@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 71, date: '2026-10-08', title: 'Sur téléphone : plus de zoom, et jusqu\'aux bords', items: [
+      ['📱', 'Les pages ne zooment et ne dézooment plus (ni à deux doigts, ni au double toucher, ni en touchant un champ).'],
+      ['📐', 'La barre du bas va jusqu\'au bord de l\'écran et suit ses coins arrondis : plus de rectangle blanc sous la barre sur iPhone. Les espaces joueurs et parents passent aussi sous la barre d\'état, comme l\'appli des coachs.'],
+      ['↕️', 'Moins de vide au bas des pages.'],
+    ] },
     { n: 70, date: '2026-10-08', title: 'Les signalements à part des messages', items: [
       ['🐞', 'Nouveau : « Signalements et idées » (menu Plus). Les problèmes, idées et questions des éducateurs y arrivent ensemble, à traiter ou traités, avec la capture et la page. Les responsables reçoivent une notification.'],
       ['💬', 'La messagerie ne garde que les messages : les signalements n\'y arrivent plus (les anciens y sont retirés, ils sont dans « Signalements et idées »).'],

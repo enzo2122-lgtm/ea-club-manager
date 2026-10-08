@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.14';
+  const VERSION = '2.15';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13564,6 +13564,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 71, date: '2026-10-08', title: 'Sur téléphone : plus de zoom, et jusqu\'aux bords', items: [
+      ['📱', 'Les pages ne zooment et ne dézooment plus (ni à deux doigts, ni au double toucher, ni en touchant un champ).'],
+      ['📐', 'La barre du bas va jusqu\'au bord de l\'écran et suit ses coins arrondis : plus de rectangle blanc sous la barre sur iPhone. Les espaces joueurs et parents passent aussi sous la barre d\'état, comme l\'appli des coachs.'],
+      ['↕️', 'Moins de vide au bas des pages.'],
+    ] },
     { n: 70, date: '2026-10-08', title: 'Les signalements à part des messages', items: [
       ['🐞', 'Nouveau : « Signalements et idées » (menu Plus). Les problèmes, idées et questions des éducateurs y arrivent ensemble, à traiter ou traités, avec la capture et la page. Les responsables reçoivent une notification.'],
       ['💬', 'La messagerie ne garde que les messages : les signalements n\'y arrivent plus (les anciens y sont retirés, ils sont dans « Signalements et idées »).'],
@@ -17266,7 +17271,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 115, UPD = AppCfg.key('update-tried');
+  const BUILD = 116, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
