@@ -231,11 +231,14 @@
         { id: 'videos', icon: '🎬', label: 'Vidéos', html: videosTab() },
         { id: 'pronos', icon: '🎯', label: 'Pronos', html: '<div class="card" id="gameBox"></div>' },
         { id: 'coachs', icon: '💬', label: 'Coach', html: `${msgCard()}${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}`, empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
-        { id: 'moi', icon: '👤', label: 'Moi', html: `${profileCard()}<h2>Réglages</h2>${Member.notifyCard('joueurs')}${Member.tabPosCard()}${Member.optoutCard(lead)}
+        { id: 'moi', icon: '👤', label: 'Moi', html: `${profileCard()}<div id="urgBox"></div><h2>Réglages</h2>${Member.notifyCard('joueurs')}${Member.tabPosCard()}${Member.optoutCard(lead)}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
           ${Member.privacy()}` },
       ])}`;
+    // (2.42) the emergency sheet (a young player's parents fill it on their page; an adult player here)
+    if (typeof Urgent !== 'undefined' && $('#urgBox')) Urgent.mount($('#urgBox'), { key: code, toast,
+      load: () => rpc('member_urgent', { p_code: code }), save: d => rpc('member_urgent', { p_code: code, p_data: d }) });
     if (typeof Chat !== 'undefined' && $('#chatBox')) Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', king: Member.isBday((data.me || {}).birth), toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
       post: (c, b, r) => rpc('member_chat_post', Object.assign({ p_code: code, p_cat: c, p_body: b }, r ? { p_reply: r } : {})), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
       poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),

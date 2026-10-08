@@ -633,6 +633,7 @@ const People = (() => {
       <div class="cards2">
         ${Health.playerCard(p)}
         ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
+        ${Urgent.card(p)}
         ${Level.card(p)}
         ${Progress.card(p)}
         ${Tips.card(p)}
@@ -659,6 +660,7 @@ const People = (() => {
     root.onclick = e => {
       if (Health.click(e, p, () => playerPage(root, id))) return;
       if (Level.click(e, p, () => playerPage(root, id))) return;
+      if (Urgent.click(e, p, () => playerPage(root, id))) return;
       if (Progress.click(e, p, () => playerPage(root, id))) return;
       if (Tips.click(e, p, () => playerPage(root, id))) return;
       const b = e.target.closest('button'); if (!b) return;

@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 98, date: '2026-10-08', title: 'La fiche urgence 🚑', items: [
+      ['🚑', 'Chaque joueur a sa fiche urgence : allergies, traitements et où ils sont, conduite à tenir (PAI), choses à savoir, appareillages, et jusqu\'à 3 personnes à appeler.'],
+      ['👪', 'Les familles la remplissent dans leur espace, onglet « Moi ». Seuls les coachs la voient.'],
+      ['📋', 'Côté coach : la fiche sur la page du joueur, et « Fiches urgence » dans Équipes pour toute l\'équipe sur un écran (ce qu\'il faut savoir d\'abord, qui appeler en un geste).'],
+    ] },
     { n: 97, date: '2026-10-08', title: 'Mesurer l\'écran 📏', items: [
       ['📏', 'Dans « Plus », « Mesurer l\'écran » affiche les tailles que le téléphone donne à l\'appli, pour régler la bande sous la barre du bas sur iPhone.'],
     ] },

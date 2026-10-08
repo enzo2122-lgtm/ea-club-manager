@@ -261,6 +261,7 @@ const Views = (() => {
        <a class="btn" href="#/dirigeants">${I.whistle}<span>Dirigeants (${S().staff.filter(Auth.seesPerson).length})</span></a>
        <a class="btn" href="#/progression">📈<span>Progression</span></a>
        <a class="btn" href="#/niveau">📊<span>Niveau des joueurs</span></a>
+       <a class="btn" href="#/urgences">🚑<span>Fiches urgence</span></a>
        <a class="btn" href="#/tests">🏃<span>Tests physiques</span></a>
        <a class="btn" href="#/athle">⚡<span>Travail athlétique</span></a>
        <a class="btn" href="#/equilibre">👥<span>Former des équipes</span></a>
