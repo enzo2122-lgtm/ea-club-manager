@@ -3650,7 +3650,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.63';
+  const VERSION = '2.64';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4987,6 +4987,26 @@ var Messages = (() => {
   let onNew = null, onTick = null;
 
   /* ---------- page ---------- */
+  // (2.64) phone: the conversation goes down to the tab bar (or the keyboard), measured on the screen (no guessed height: no gap, no jump)
+  let fitOn = false;
+  function fitLayout(root) {
+    const go = () => {
+      const el = root.querySelector('.msg-layout'); if (!el || !el.isConnected) return;
+      if (window.innerWidth > 760) { el.style.height = ''; return; }
+      const vv = window.visualViewport, vb = vv ? vv.height + vv.offsetTop : window.innerHeight, rail = document.querySelector('.rail');
+      const rr = rail && getComputedStyle(rail).display !== 'none' ? rail.getBoundingClientRect() : null;
+      const bottom = Math.min(vb, rr && rr.height && rr.top > window.innerHeight / 2 ? rr.top : vb);
+      const h = Math.max(240, Math.round(bottom - el.getBoundingClientRect().top - 8));
+      if (el.style.height !== h + 'px') el.style.height = h + 'px';
+    };
+    go(); requestAnimationFrame(go); setTimeout(go, 350);
+    if (!fitOn) { fitOn = true; const later = () => { go(); setTimeout(go, 300); };
+      window.addEventListener('resize', later); if (window.visualViewport) window.visualViewport.addEventListener('resize', later);
+      document.addEventListener('focusin', later); document.addEventListener('focusout', later);
+      // something shown above (the help, a banner): measured again
+      if (window.ResizeObserver) new ResizeObserver(() => { const el = document.querySelector('.msg-layout'); if (el) requestAnimationFrame(() => root._fitMsg && root._fitMsg()); }).observe(root); }
+    root._fitMsg = go;
+  }
   function page(root, chParam) {
     if (!Cloud.ready()) {
       root.innerHTML = `<header class="page-head"><div><h1>Messages</h1><p class="sub">La messagerie des éducateurs du club</p></div></header>
@@ -5028,6 +5048,7 @@ var Messages = (() => {
         <form class="composer" id="composer"><textarea id="msgText" rows="1" maxlength="2000" placeholder="Écris ton message…" aria-label="Message"></textarea>
           <button class="btn primary" type="submit" aria-label="Envoyer">${I.upload}</button></form>`
         : '<div class="conv-empty"><p class="muted">Choisis une conversation.</p></div>'}</section></div>`;
+    fitLayout(root);
     $('#newDm', root).onclick = pickCoach;
     $$('[data-fam]', root).forEach(b => b.onclick = () => {
       const l = openFams(), id = b.dataset.fam, on = !l.includes(id);
@@ -16316,6 +16337,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 120, date: '2026-10-09', title: 'Messages : la conversation jusqu\'en bas 💬', items: [
+      ['💬', 'Sur téléphone, une conversation des Messages descend jusqu\'à la barre du bas (ou au clavier) : plus de vide en dessous, plus de saut.'],
+    ] },
     { n: 119, date: '2026-10-09', title: 'Saisie partagée du match 📲', items: [
       ['📲', 'Match en direct → « Saisie partagée » : un lien et un QR code pour un adjoint ou un parent. Depuis son téléphone, il note les buts (buteur, passeur), les occasions, les arrêts, les cartons et la possession.'],
       ['⏱️', 'Ses actions arrivent toutes seules dans ton fil du match, avec la minute et son prénom (📲). Le code ne vaut que pour ce match, 2 jours.'],
@@ -20531,7 +20555,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 164, UPD = AppCfg.key('update-tried');
+  const BUILD = 165, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

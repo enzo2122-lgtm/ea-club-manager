@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 120, date: '2026-10-09', title: 'Messages : la conversation jusqu\'en bas 💬', items: [
+      ['💬', 'Sur téléphone, une conversation des Messages descend jusqu\'à la barre du bas (ou au clavier) : plus de vide en dessous, plus de saut.'],
+    ] },
     { n: 119, date: '2026-10-09', title: 'Saisie partagée du match 📲', items: [
       ['📲', 'Match en direct → « Saisie partagée » : un lien et un QR code pour un adjoint ou un parent. Depuis son téléphone, il note les buts (buteur, passeur), les occasions, les arrêts, les cartons et la possession.'],
       ['⏱️', 'Ses actions arrivent toutes seules dans ton fil du match, avec la minute et son prénom (📲). Le code ne vaut que pour ce match, 2 jours.'],

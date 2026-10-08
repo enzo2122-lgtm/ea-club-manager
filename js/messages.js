@@ -158,6 +158,26 @@ const Messages = (() => {
   let onNew = null, onTick = null;
 
   /* ---------- page ---------- */
+  // (2.64) phone: the conversation goes down to the tab bar (or the keyboard), measured on the screen (no guessed height: no gap, no jump)
+  let fitOn = false;
+  function fitLayout(root) {
+    const go = () => {
+      const el = root.querySelector('.msg-layout'); if (!el || !el.isConnected) return;
+      if (window.innerWidth > 760) { el.style.height = ''; return; }
+      const vv = window.visualViewport, vb = vv ? vv.height + vv.offsetTop : window.innerHeight, rail = document.querySelector('.rail');
+      const rr = rail && getComputedStyle(rail).display !== 'none' ? rail.getBoundingClientRect() : null;
+      const bottom = Math.min(vb, rr && rr.height && rr.top > window.innerHeight / 2 ? rr.top : vb);
+      const h = Math.max(240, Math.round(bottom - el.getBoundingClientRect().top - 8));
+      if (el.style.height !== h + 'px') el.style.height = h + 'px';
+    };
+    go(); requestAnimationFrame(go); setTimeout(go, 350);
+    if (!fitOn) { fitOn = true; const later = () => { go(); setTimeout(go, 300); };
+      window.addEventListener('resize', later); if (window.visualViewport) window.visualViewport.addEventListener('resize', later);
+      document.addEventListener('focusin', later); document.addEventListener('focusout', later);
+      // something shown above (the help, a banner): measured again
+      if (window.ResizeObserver) new ResizeObserver(() => { const el = document.querySelector('.msg-layout'); if (el) requestAnimationFrame(() => root._fitMsg && root._fitMsg()); }).observe(root); }
+    root._fitMsg = go;
+  }
   function page(root, chParam) {
     if (!Cloud.ready()) {
       root.innerHTML = `<header class="page-head"><div><h1>Messages</h1><p class="sub">La messagerie des éducateurs du club</p></div></header>
@@ -199,6 +219,7 @@ const Messages = (() => {
         <form class="composer" id="composer"><textarea id="msgText" rows="1" maxlength="2000" placeholder="Écris ton message…" aria-label="Message"></textarea>
           <button class="btn primary" type="submit" aria-label="Envoyer">${I.upload}</button></form>`
         : '<div class="conv-empty"><p class="muted">Choisis une conversation.</p></div>'}</section></div>`;
+    fitLayout(root);
     $('#newDm', root).onclick = pickCoach;
     $$('[data-fam]', root).forEach(b => b.onclick = () => {
       const l = openFams(), id = b.dataset.fam, on = !l.includes(id);
