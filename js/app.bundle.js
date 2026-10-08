@@ -3643,7 +3643,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.49';
+  const VERSION = '2.50';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15605,6 +15605,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 106, date: '2026-10-09', title: 'Prévenir le coach 📣', items: [
+      ['📣', 'Joueurs et parents, sur l\'accueil : « En retard », « Souci de transport », « Une douleur », « Empêché » pour la prochaine séance ou le prochain match. Le coach reçoit le message tout de suite.'],
+      ['✈️', '« Absent plusieurs jours » : vacances, examens, malade… Le coach voit le joueur indisponible ces jours-là (✈️ dans les convocations et l\'appel). « Finalement je serai là » l\'annule.'],
+    ] },
     { n: 105, date: '2026-10-09', title: 'Le chat jusqu\'au bord aussi 📱', items: [
       ['📱', 'Sur iPhone, dans le chat, la barre du bas descend elle aussi jusqu\'au bord de l\'écran (la bande claire restait sur cette page).'],
     ] },
@@ -19702,7 +19706,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 150, UPD = AppCfg.key('update-tried');
+  const BUILD = 151, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -121,7 +121,7 @@
     // (1.64) in tabs: matches (présent / absent, covoiturage, coup de main), sessions, results, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'parents')}
       ${Member.tabs('parents', [
-        { id: 'matchs', icon: '⚽', label: 'Matchs', html: `${Member.bday(data, 'parents')}${Member.installCard('parents')}${Injury.card(kid(), Injury.events(data))}<h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}` },
+        { id: 'matchs', icon: '⚽', label: 'Matchs', html: `${Member.bday(data, 'parents')}${Member.installCard('parents')}${Injury.card(kid(), Injury.events(data))}<div id="abBox"></div><h2>Prochains matchs</h2>${up.length > 1 ? '<p><button class="b cal" data-calall>📅 Ajouter tous les matchs à mon agenda</button></p>' : ''}${up.length ? up.map(matchCard).join('') : '<p class="tip">Pas de match prévu pour l\'instant.</p>'}` },
         { id: 'benevoles', icon: '🙋', label: 'Bénévoles', html: (() => { const l = up.filter(m => volBox(m)); return l.length ? `<h2>Coup de main les jours de match</h2><p class="info">Buvette, arbitre de touche, délégué, lavage des maillots… Inscris-toi en un geste.</p>${l.map(m => `<article class="card ${m.home ? 'home' : 'away'} ${Member.kindCls(m)}" data-m="${esc(m.id)}">${Member.kindBadge(m)}<div class="m-date">${esc(fmt(m.date))}${m.time ? ' · ' + esc(String(m.time).replace(':', 'h')) : ''}</div><div class="m-title">${m.home ? '🏠 contre' : '🚌 chez'} ${esc(m.opponent || '?')}</div>${volBox(m)}</article>`).join('')}` : ''; })(), empty: 'Pas de besoin de bénévoles pour les prochains matchs.' },
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${Member.tipsHtml(tips, (data.me || {}).firstName || kid())}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
@@ -135,6 +135,13 @@
           ${Member.privacy()}` },
       ])}
       <div id="phView" class="ph-view" hidden></div>`;
+    // (2.50) « Prévenir le coach »: an absence of several days, a problem for the next session or match
+    if (typeof Absence !== 'undefined' && $('#abBox')) Absence.mount($('#abBox'), { key: code, toast,
+      events: [...(data.matches || []).filter(m => !m.played).map(m => ({ id: m.id, date: m.date, time: m.time, label: 'Match ' + (m.home ? 'contre ' : 'chez ') + (m.opponent || '?') })),
+        ...(data.trainings || []).map(t => ({ id: t.id, date: t.date, time: t.time, label: t.title || 'Entraînement' }))].filter(e => e.id && e.date).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))),
+      load: () => rpc('member_absence', { p_code: code, p_parent: true }), add: d => rpc('member_absence', { p_code: code, p_action: 'add', p_data: d, p_parent: true }),
+      del: id => rpc('member_absence', { p_code: code, p_action: 'del', p_data: { id }, p_parent: true }),
+      alert: (k, ev, note) => rpc('member_alert', { p_code: code, p_kind: k, p_event: ev, p_note: note, p_parent: true }) });
     // (2.42) the emergency sheet of the child, filled by the parents
     if (typeof Urgent !== 'undefined' && $('#urgBox')) Urgent.mount($('#urgBox'), { key: code, toast, intro: `Ce que les coachs doivent savoir sur ${kid()} et qui appeler s'il arrive quelque chose (allergies, traitements, conduite à tenir…). Seuls les coachs la voient.`,
       load: () => rpc('member_urgent', { p_code: code }), save: d => rpc('member_urgent', { p_code: code, p_data: d }) });
