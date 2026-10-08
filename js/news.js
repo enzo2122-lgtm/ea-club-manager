@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 84, date: '2026-10-08', title: "La commission de discipline passe à l'appli ⚖️", items: [
+      ['⚖️', "Favori Footclubs : après les licences, il lit aussi les sanctions officielles du club (Compétitions → Dossiers). Avertissements et suspensions arrivent sur la fiche du joueur (« Discipline officielle ») ; une suspension le rend indisponible aux bonnes dates (convocations, Infirmerie)."],
+    ] },
     { n: 83, date: '2026-10-08', title: "Ça chauffe sous les séances 🔥", items: [
       ['🔥', "Sous chaque séance et chaque match, joueurs et parents réagissent (🔥) et commentent (💬). Toi aussi, depuis la page de la séance ou du match : carte « Réactions et commentaires », tu supprimes ce qui dépasse, et tu es prévenu d'un commentaire. Mêmes règles que le chat (mots interdits, limites)."],
     ] },

@@ -63,8 +63,16 @@ if(i>0&&/[A-Z]/.test(c[i-1])&&c[i+1]){const k=c[i-1]+c[i]+c[i+1];if(!seen[k]){se
 const paged=typeof W.otherlist==='function';let r=range();if(paged&&r&&r[0]!==1){W.otherlist(W.firstlist,W.name,'F');await wait(1);}
 for(let p=0;p<80;p++){grab();r=range();if(r)box('📥 Lecture des licences… '+r[1]+' / '+r[2]+'<br><small>ne touche à rien</small>');if(!paged||!r||r[1]>=r[2])break;const nx=r[1]+1;W.otherlist(W.nextlist,W.name,'N');if(!await wait(nx))break;}
 if(!rows.length){alert('Aucune licence lue dans ce tableau. Envoie une capture de la liste au créateur de l\\'appli.');return;}
-const url=A+'#/recevoir-source/fc='+encodeURIComponent(JSON.stringify({rows,total:(range()||[0,0,rows.length])[2]}));
-const b=box('✅ '+rows.length+' licences lues<br><button id="clubImpGo" style="margin-top:10px;padding:12px 16px;font:bold 16px sans-serif;border:0;border-radius:10px;background:#c9a45c;color:#14172b;cursor:pointer">Envoyer à l\\'appli →</button>');
+let sanctions=[];try{box('📥 Lecture des sanctions (Dossiers → Discipline)…');const WK=()=>T.frames['work'];const waitTxt=async re=>{for(let k=0;k<40;k++){await new Promise(r=>setTimeout(r,300));try{if(re.test(txt(WK())))return true;}catch(e){}}return false;};
+const M2=T.frames['menu'],a2=[...M2.document.querySelectorAll('a')].find(x=>/'DOSSIERS;IUD'/.test(x.getAttribute('onclick')||''));M2.gestOpen(a2,'4',10,'DOSSIERS;IUD');await waitTxt(/Discipline officielle du club/);
+const r1=WK().document.querySelector('input[type=radio][name=CHOIX][value="1"]');if(r1){r1.click();r1.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,1500));}
+if(!/EX_SANCTIONS/.test(WK().location.pathname)){const af=[...WK().document.querySelectorAll('input[type=button],input[type=submit],button,a')].find(e=>/Afficher/.test(e.value||e.innerText||''));if(af){af.click();await waitTxt(/Décision/);}}
+const seenS={};const grabS=()=>{for(const tr of WK().document.querySelectorAll('tr')){const c=[...tr.cells].map(x=>x.innerText.trim());if(c.length<7||!/\\d{2}\\/\\d{2}\\/\\d{4}/.test(c[0]))continue;const o=c[2].split('\\n').map(s=>s.trim()).filter(Boolean);const k=c[0]+c[2]+c[3]+c[4];if(seenS[k])continue;seenS[k]=1;
+sanctions.push({dossier:c[0].replace(/\\s+/g,' '),commission:c[1].split('\\n')[0],who:(o[0]||'').replace(/\\s+(Libre|Foot|Futsal|Beach).*$/,''),cat:((o[0]||'').match(/(Libre|Foot|Futsal|Beach).*$/)||[''])[0],comp:o[1]||'',match:o[2]||'',decision:c[3],from:c[4],to:c[5],pub:c[6]});}};
+const rangeS=()=>{const m=RG.exec(txt(WK()));return m?[+m[1],+m[2],+m[3]]:null;};
+for(let p=0;p<40;p++){grabS();const r=rangeS();if(!r||r[1]>=r[2]||typeof WK().otherlist!=='function')break;WK().otherlist(WK().nextlist,WK().name,'N');let ok=false;for(let k=0;k<60;k++){await new Promise(z=>setTimeout(z,250));try{const q=rangeS();if(q&&q[0]===r[1]+1){ok=true;break;}}catch(e){}}if(!ok)break;}}catch(e){}
+const url=A+'#/recevoir-source/fc='+encodeURIComponent(JSON.stringify({rows,total:(range()||[0,0,rows.length])[2],sanctions}));
+const b=box('✅ '+rows.length+' licences lues'+(sanctions.length?' · '+sanctions.length+' sanction'+(sanctions.length>1?'s':''):'')+'<br><button id="clubImpGo" style="margin-top:10px;padding:12px 16px;font:bold 16px sans-serif;border:0;border-radius:10px;background:#c9a45c;color:#14172b;cursor:pointer">Envoyer à l\\'appli →</button>');
 const go=b&&b.querySelector('#clubImpGo');if(go)go.onclick=()=>{const w=W.open(url,'_blank');if(!w)location.href=url;box('✅ Envoyé : regarde l\\'appli (onglet ou fenêtre de l\\'appli).');};else if(confirm(rows.length+' licences lues. Ouvrir l\\'appli pour les importer ?'))W.open(url,'_blank');
 }catch(e){alert('Footclubs : lecture impossible ('+e.message+')');}})()`;
     const link = code => 'javascript:' + encodeURIComponent(code.replace(/\n/g, ''));
@@ -172,17 +180,29 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
     const upd = known.filter(r => (!r.p.birth && r.x.birth) || (r.x.licence && !r.p.licence) || (LIC(r.x.etat) && ((r.p.adm || {}).lic || '') !== LIC(r.x.etat)));
     const names = list => list.slice(0, 40).map(r => esc(`${r.x.firstName} ${r.x.lastName}`)).join(', ') + (list.length > 40 ? ` et ${list.length - 40} autres` : '');
     const all = (P.rows || []).length, miss = P.total && all < P.total;
+    // (2.28) the official sanctions (Dossiers → Discipline officielle du club): matched on « NOM Prénom »
+    const iso = d => { const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(d || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
+    const sanc = (P.sanctions || []).map(s => { const tk = String(s.who || '').trim().split(/\s+/), ln = tk.filter(w => w === w.toUpperCase() && /[A-Z]/.test(w)), fn = tk.filter(w => w !== w.toUpperCase() || !/[A-Z]/.test(w));
+      const p = ours.find(q => (q.lastName || '').toUpperCase() === ln.join(' ') && norm(q.firstName) === norm(fn.join(' '))) || ours.find(q => norm(q.firstName + ' ' + q.lastName) === norm(fn.join(' ') + ' ' + ln.join(' ')));
+      const susp = /suspen|ferme/i.test(s.decision || '') && !/avertissement/i.test(s.decision || '') && iso(s.from) && iso(s.to);
+      return { s, p, susp, id: 'fc-' + norm(s.dossier + s.who + s.decision + s.from).replace(/\s+/g, '') }; });
+    const sancNew = sanc.filter(r => r.p && !(r.p.sanctions || []).some(x => x.id === r.id)), sancLost = sanc.filter(r => !r.p);
+    const applySanc = () => sancNew.forEach(({ s, p, susp, id }) => { p.sanctions = [...(p.sanctions || []), { id, date: iso(s.from) || iso(s.dossier.slice(-10)), decision: s.decision, comp: s.comp, match: s.match, to: iso(s.to), src: 'footclubs' }].slice(-30);
+      if (susp && !(p.unavail || []).some(u => u.id === id)) { p.unavail = [...(p.unavail || []), { id, kind: 'susp', from: iso(s.from), to: iso(s.to), part: '', reason: '', note: (s.decision + ' · ' + s.comp).slice(0, 140), by: 'footclubs' }].sort((a, b) => b.from.localeCompare(a.from)); }
+      Store.upsert('players', p); });
     modal({ title: '📥 Footclubs : ce qui change', noFocus: true, body: `<p class="lead">${all} licence${all > 1 ? 's' : ''} lue${all > 1 ? 's' : ''} dans Footclubs${P.total ? ` sur ${P.total}` : ''}, dont ${rows.length} joueur${rows.length > 1 ? 's' : ''} (les dirigeants, éducateurs et arbitres sont laissés de côté).</p>
       ${miss ? '<p class="tip">⚠️ Toutes les pages de la liste n\'ont pas pu être lues : vérifie ta connexion à Footclubs et touche à nouveau le favori. Tu peux quand même importer ce qui a été lu.</p>' : ''}
       <ul class="src-sum"><li>🆕 <b>${fresh.length}</b> nouveau${fresh.length > 1 ? 'x' : ''} joueur${fresh.length > 1 ? 's' : ''}, rangé${fresh.length > 1 ? 's' : ''} dans ${fresh.length > 1 ? 'leur' : 'sa'} catégorie${fresh.length ? ` : <span class="muted small">${names(fresh)}</span>` : ''}</li>
       <li>✏️ <b>${upd.length}</b> joueur${upd.length > 1 ? 's' : ''} complété${upd.length > 1 ? 's' : ''} (numéro de licence, date de naissance, état de la licence)</li>
       <li>✅ <b>${known.length - upd.length}</b> déjà à jour, sans doublon</li>
+      ${P.sanctions ? `<li>⚖️ <b>${P.sanctions.length}</b> sanction${P.sanctions.length > 1 ? 's' : ''} officielle${P.sanctions.length > 1 ? 's' : ''} lue${P.sanctions.length > 1 ? 's' : ''}${sancNew.length ? ` : <b>${sancNew.length}</b> nouvelle${sancNew.length > 1 ? 's' : ''} (${sancNew.filter(r => r.susp).length} suspension${sancNew.filter(r => r.susp).length > 1 ? 's' : ''}) : <span class="muted small">${sancNew.map(r => esc(Store.shortName(r.p) + ' · ' + r.s.decision)).join(', ')}</span>` : ', rien de nouveau'}${sancLost.length ? ` · <span class="muted small">${sancLost.length} sans joueur correspondant</span>` : ''}</li>` : ''}
       ${gone.length ? `<li>👋 <b>${gone.length}</b> marqué${gone.length > 1 ? 's' : ''} « Départ » dans Footclubs (gardé${gone.length > 1 ? 's' : ''} dans l'appli, à retirer à la main si besoin) : <span class="muted small">${names(gone)}</span></li>` : ''}</ul>
       <p class="muted small">Les joueurs déjà dans l'appli ne changent pas de catégorie (un joueur surclassé reste où tu l'as mis).</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: () => {
         fresh.forEach(({ x }) => { const cat = People.catOf(x), t = cat ? People.ageTeam(cat) : null;
           Store.upsert('players', { id: Store.uid(), firstName: x.firstName, lastName: x.lastName, birth: x.birth, subcat: x.subcat, licence: x.licence || '', number: '', pos: '', phone: '', email: '', parents: [], notes: '', teamIds: t ? [t.id] : [], adm: LIC(x.etat) ? { lic: LIC(x.etat) } : {} }); });
         upd.forEach(({ x, p }) => { if (!p.birth && x.birth) p.birth = x.birth; if (x.licence && !p.licence) p.licence = x.licence; if (LIC(x.etat)) p.adm = Object.assign({}, p.adm, { lic: LIC(x.etat) }); if (x.subcat && !p.subcat) p.subcat = x.subcat; Store.upsert('players', p); });
+        applySanc();
         Store.sortTeams(); Store.save(); App.route();
         toast(`Footclubs : ${fresh.length} ajouté${fresh.length > 1 ? 's' : ''}, ${upd.length} complété${upd.length > 1 ? 's' : ''}`);
       } }] });
