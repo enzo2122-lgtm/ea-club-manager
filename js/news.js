@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 111, date: '2026-10-09', title: 'Générateur de tournoi 🏆', items: [
+      ['🏆', 'Chrono et score → « Tournoi » : écris les équipes, choisis la formule (tous contre tous, 2 poules + finales, élimination directe) et le nombre de terrains. Les matchs sont rangés par créneau et par terrain.'],
+      ['📊', 'Tu tapes les scores : le classement se calcule tout seul, les finales et les tours suivants se créent dès que c\'est fini (tirs au but en cas d\'égalité), et le vainqueur s\'affiche.'],
+    ] },
     { n: 110, date: '2026-10-09', title: 'Tests VMA avec les bips 🏃', items: [
       ['🏃', 'Chrono et score → « Test VMA » : VAMEVAL, 45-15 ou 30-15 IFT avec leurs bips, la vitesse de départ au choix. Touche le nom d\'un joueur quand il s\'arrête : sa vitesse est notée.'],
       ['💾', 'À la fin, « Enregistrer » met la VMA (ou la VIFT du 30-15) dans la fiche de chaque joueur, avec les autres tests physiques.'],

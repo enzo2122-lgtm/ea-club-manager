@@ -2198,3 +2198,17 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .vt-res { display: flex; flex-direction: column; gap: 4px; }
 .vt-r { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .vt-r span { margin-left: auto; font-weight: 800; }
+/* (2.55) tournament */
+.tn-slot { padding: 8px 0; border-top: 1px solid var(--line); }
+.tn-sl { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+.tn-m { display: grid; grid-template-columns: minmax(0, 1fr) 52px 10px 52px minmax(0, 1fr); align-items: center; gap: 6px; padding: 4px 0; }
+.tn-m .tn-f { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-weight: 700; }
+.tn-m .tn-a { text-align: right; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.tn-m .tn-b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.tn-m input { width: 52px; text-align: center; font-weight: 800; font-size: 18px; padding: 6px 2px; border-radius: 10px; border: 1px solid var(--line); }
+.tn-m.done input { background: #ecfdf5; border-color: #86efac; }
+.tn-m .tn-tab { grid-column: 1 / -1; font-size: 13px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tn-table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; }
+.tn-table th, .tn-table td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: center; }
+.tn-table td:nth-child(2), .tn-table th:nth-child(2) { text-align: left; }
+.tn-champ { padding: 16px; border-radius: 18px; background: linear-gradient(135deg, #fde68a, #f59e0b); color: #422006; font-size: 20px; text-align: center; margin: 12px 0; }
