@@ -4,6 +4,7 @@
    - Score by bibs: 2 to 4 teams by the colour of their bibs, + / − in big buttons, kept on the phone. */
 const Terrain = (() => {
   const { esc, toast } = UI;
+  const confirmBoxT = t => UI.confirmBox(t, 'Effacer');
   const S = () => Store.state;
   const SOUNDS = [['doux', '🔔 Doux'], ['fort', '📣 Fort'], ['terrain', '🏟️ Terrain'], ['bip', '📟 Bip'], ['klaxon', '🚨 Klaxon']];
   const PRESETS = [['30-30', 30, 30, 10, 1, 0], ['15-15', 15, 15, 16, 1, 0], ['45-15', 45, 15, 8, 2, 120], ['Jeu 4\' / 1\'', 240, 60, 4, 1, 0], ['Gainage 40-20', 40, 20, 6, 3, 90]];
@@ -132,14 +133,91 @@ const Terrain = (() => {
       ${out.length ? `<section class="card"><h2>Arrêtés (${out.length})</h2><div class="vt-res">${out.map(p => `<div class="vt-r"><b>${esc(Store.shortName(p))}</b><span>${vt.out[p.id] ? String(vt.out[p.id]).replace('.', ',') + ' km/h' : 'avant le 1er palier'}</span>${vt.done ? '' : `<button class="linkish" data-vtback="${p.id}">annuler</button>`}</div>`).join('')}</div></section>` : ''}`;
   }
 
+  /* ---------- (2.55) a small tournament on the pitch: all against all, 2 pools + finals, knock-out; fields; ranking by itself ---------- */
+  const TF = { rr: 'Tous contre tous', pools: '2 poules + finales', ko: 'Élimination directe' };
+  const tz = () => S().ui.tourney || null;
+  const tSave = t => { S().ui.tourney = t; Store.persistNow(); };
+  // all against all (circle method): rounds of pairs
+  function rounds(ids) {
+    const a = ids.slice(); if (a.length % 2) a.push(null); const n = a.length, out = [];
+    for (let r = 0; r < n - 1; r++) { const pr = []; for (let i = 0; i < n / 2; i++) { const x = a[i], y = a[n - 1 - i]; if (x != null && y != null) pr.push(r % 2 ? [y, x] : [x, y]); } out.push(pr); a.splice(1, 0, a.pop()); }
+    return out;
+  }
+  // matches of a list of rounds put on the fields, slot after slot
+  function slots(rs, fields, stage, start = 0) {
+    const out = []; let slot = start;
+    rs.forEach(pr => { for (let i = 0; i < pr.length; i += fields) { pr.slice(i, i + fields).forEach(([a, b], j) => out.push({ id: Store.uid(), slot, field: j + 1, a, b, sa: null, sb: null, stage })); slot++; } });
+    return out;
+  }
+  function table(t, ids, stage) {
+    const row = id => ({ id, pl: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }), R = Object.fromEntries(ids.map(id => [id, row(id)]));
+    t.matches.filter(m => m.stage === stage && m.sa != null && m.sb != null && R[m.a] && R[m.b]).forEach(m => {
+      const A = R[m.a], B = R[m.b]; A.pl++; B.pl++; A.gf += m.sa; A.ga += m.sb; B.gf += m.sb; B.ga += m.sa;
+      if (m.sa > m.sb) { A.w++; B.l++; A.pts += 3; } else if (m.sa < m.sb) { B.w++; A.l++; B.pts += 3; } else { A.d++; B.d++; A.pts++; B.pts++; } });
+    return Object.values(R).sort((x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf);
+  }
+  const winner = m => m.sa == null || m.sb == null ? null : m.sa > m.sb ? m.a : m.sb > m.sa ? m.b : (m.tab === 'a' ? m.a : m.tab === 'b' ? m.b : null);
+  function next(t) { // the next stage, when the one before is finished
+    const done = st => t.matches.filter(m => m.stage === st).every(m => m.sa != null && m.sb != null && (!/^ko|final/.test(st) || winner(m)));
+    const lastSlot = () => Math.max(-1, ...t.matches.map(m => m.slot)) + 1;
+    if (t.format === 'pools' && !t.matches.some(m => m.stage === 'final') && done('A') && done('B')) {
+      const A = table(t, t.pools[0], 'A'), B = table(t, t.pools[1], 'B');
+      if (A[0] && B[0]) t.matches.push({ id: Store.uid(), slot: lastSlot(), field: 1, a: A[0].id, b: B[0].id, sa: null, sb: null, stage: 'final' });
+      if (A[1] && B[1]) t.matches.push({ id: Store.uid(), slot: lastSlot() - 1, field: Math.min(2, t.fields) === 2 ? 2 : 1, a: A[1].id, b: B[1].id, sa: null, sb: null, stage: 'third' });
+      if (t.fields < 2) { const th = t.matches.find(m => m.stage === 'third'); if (th) th.slot = lastSlot(); }
+    }
+    if (t.format === 'ko') {
+      const st = t.round || 'ko1', ms = t.matches.filter(m => m.stage === st);
+      if (ms.length && done(st)) {
+        const w = [...ms.map(winner), ...(t.byes || [])]; t.byes = [];
+        if (w.length > 1) { const k = +st.slice(2) + 1; t.round = 'ko' + k; const pr = []; for (let i = 0; i + 1 < w.length; i += 2) pr.push([w[i], w[i + 1]]); if (w.length % 2) t.byes = [w[w.length - 1]];
+          t.matches.push(...slots([pr], t.fields, t.round, lastSlot())); }
+        else t.champion = w[0];
+      }
+    }
+  }
+  function create(format, names, fields) {
+    const teams = names.map((n, i) => ({ id: 't' + i, n })), ids = teams.map(x => x.id), t = { format, teams, fields, matches: [], at: Date.now() };
+    if (format === 'rr') t.matches = slots(rounds(ids), fields, 'rr');
+    if (format === 'pools') { t.pools = [[], []]; ids.forEach((id, i) => t.pools[Math.floor(i / 2) % 2 === 0 ? i % 2 : 1 - i % 2].push(id));
+      const ra = rounds(t.pools[0]), rb = rounds(t.pools[1]), mix = []; for (let i = 0; i < Math.max(ra.length, rb.length); i++) mix.push([...(ra[i] || []).map(x => [...x, 'A']), ...(rb[i] || []).map(x => [...x, 'B'])]);
+      let slot = 0; mix.forEach(pr => { for (let i = 0; i < pr.length; i += fields) { pr.slice(i, i + fields).forEach(([a, b, p], j) => t.matches.push({ id: Store.uid(), slot, field: j + 1, a, b, sa: null, sb: null, stage: p })); slot++; } }); }
+    if (format === 'ko') { const sh = ids.slice().sort(() => Math.random() - .5), pr = []; for (let i = 0; i + 1 < sh.length; i += 2) pr.push([sh[i], sh[i + 1]]); t.byes = sh.length % 2 ? [sh[sh.length - 1]] : []; t.round = 'ko1'; t.matches = slots([pr], fields, 'ko1'); }
+    return t;
+  }
+  function tourneyTab() {
+    const t = tz();
+    if (!t) { const d = Object.assign({ format: 'rr', names: 'Jaunes\nBleus\nRouges\nVerts', fields: 2 }, S().ui.tourneyDraft || {});
+      return `<section class="card"><h2>🏆 Nouveau tournoi</h2>
+        <label class="fld"><span>Équipes (une par ligne)</span><textarea data-td="names" rows="6">${esc(d.names)}</textarea></label>
+        <div class="ch-grid2"><label class="fld"><span>Formule</span><select data-td="format">${Object.entries(TF).map(([k, l]) => `<option value="${k}" ${d.format === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label class="fld"><span>Terrains</span><select data-td="fields">${[1, 2, 3, 4].map(n => `<option ${+d.fields === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
+        <p class="muted small">Tous contre tous : chacun joue contre chacun. 2 poules : les premiers de poule en finale, les deuxièmes pour la 3e place. Élimination directe : tirage au sort, le gagnant passe (un exempt si nombre impair). Victoire 3 pts, nul 1 pt.</p>
+        <div class="ch-ctl"><button class="btn primary big" data-tn-act="make">🏆 Créer le tournoi</button></div></section>`; }
+    const nm = id => esc((t.teams.find(x => x.id === id) || { n: '?' }).n);
+    const lab = { rr: '', A: 'Poule A', B: 'Poule B', final: '🏆 Finale', third: '🥉 3e place' };
+    const slotsN = [...new Set(t.matches.map(m => m.slot))].sort((a, b) => a - b);
+    const rows = r => `<table class="tn-table"><tr><th></th><th>Équipe</th><th>J</th><th>Pts</th><th>+/−</th></tr>${r.map((x, i) => `<tr><td>${i + 1}</td><td>${nm(x.id)}</td><td>${x.pl}</td><td><b>${x.pts}</b></td><td>${x.gf - x.ga > 0 ? '+' : ''}${x.gf - x.ga}</td></tr>`).join('')}</table>`;
+    const champ = t.format === 'ko' ? t.champion : (() => { const f = t.matches.find(m => m.stage === 'final'); return f ? winner(f) : t.format === 'rr' && t.matches.every(m => m.sa != null) ? table(t, t.teams.map(x => x.id), 'rr')[0].id : null; })();
+    return `${champ ? `<div class="tn-champ">🏆 Vainqueur : <b>${nm(champ)}</b></div>` : ''}
+      <section class="card"><h2>📋 Matchs · ${esc(TF[t.format])}</h2>${slotsN.map(sl => `<div class="tn-slot"><div class="tn-sl">Créneau ${sl + 1}</div>${t.matches.filter(m => m.slot === sl).map(m => `<div class="tn-m ${m.sa != null && m.sb != null ? 'done' : ''}">
+        <span class="tn-f">T${m.field}${lab[m.stage] || (/^ko/.test(m.stage) ? ` · tour ${m.stage.slice(2)}` : '') ? ' · ' + (lab[m.stage] || 'tour ' + m.stage.slice(2)) : ''}</span>
+        <span class="tn-a">${nm(m.a)}</span><input type="number" min="0" inputmode="numeric" data-tns="${m.id}:a" value="${m.sa ?? ''}"><span>–</span><input type="number" min="0" inputmode="numeric" data-tns="${m.id}:b" value="${m.sb ?? ''}"><span class="tn-b">${nm(m.b)}</span>
+        ${(/^ko|final|third/.test(m.stage)) && m.sa != null && m.sa === m.sb ? `<span class="tn-tab">Tirs au but : <button class="chip ${m.tab === 'a' ? 'on' : ''}" data-tntab="${m.id}:a">${nm(m.a)}</button><button class="chip ${m.tab === 'b' ? 'on' : ''}" data-tntab="${m.id}:b">${nm(m.b)}</button></span>` : ''}</div>`).join('')}</div>`).join('')}
+        ${t.format === 'ko' && (t.byes || []).length ? `<p class="muted small">Exempt ce tour : ${t.byes.map(nm).join(', ')}</p>` : ''}</section>
+      ${t.format === 'rr' ? `<section class="card"><h2>📊 Classement</h2>${rows(table(t, t.teams.map(x => x.id), 'rr'))}</section>` : ''}
+      ${t.format === 'pools' ? `<section class="card"><h2>📊 Poule A</h2>${rows(table(t, t.pools[0], 'A'))}<h2>📊 Poule B</h2>${rows(table(t, t.pools[1], 'B'))}</section>` : ''}
+      <div class="ch-ctl"><button class="btn danger big" data-tn-act="new">🗑️ Nouveau tournoi</button></div>`;
+  }
+
   /* ---------- the page ---------- */
   function page(root, sub) {
-    const tab = sub === 'score' ? 'score' : sub === 'vma' ? 'vma' : 'chrono';
+    const tab = ['score', 'vma', 'tournoi'].includes(sub) ? sub : 'chrono';
     const c = cfg(), sc = score();
     const num = (k, l, min, max, step = 5) => `<label class="fld ch-num"><span>${l}</span><span class="ch-step"><button type="button" data-chstep="${k}:-${step}">−</button><input type="number" inputmode="numeric" min="${min}" max="${max}" data-ch="${k}" value="${c[k]}"><button type="button" data-chstep="${k}:${step}">+</button></span></label>`;
     root.innerHTML = `<header class="page-head"><div><h1>⏱️ Chrono et score</h1><p class="sub">Les outils du terrain : chrono d'exercice sonore, score par chasubles</p></div></header>
-      <div class="m-tabs" role="tablist"><button class="m-tab ${tab === 'chrono' ? 'on' : ''}" data-trtab="chrono">⏱️ Chrono d'exercice</button><button class="m-tab ${tab === 'score' ? 'on' : ''}" data-trtab="score">🎽 Score</button><button class="m-tab ${tab === 'vma' ? 'on' : ''}" data-trtab="vma">🏃 Test VMA</button></div>
-      ${tab === 'vma' ? vmaTab(root) : tab === 'chrono' ? `
+      <div class="m-tabs" role="tablist"><button class="m-tab ${tab === 'chrono' ? 'on' : ''}" data-trtab="chrono">⏱️ Chrono d'exercice</button><button class="m-tab ${tab === 'score' ? 'on' : ''}" data-trtab="score">🎽 Score</button><button class="m-tab ${tab === 'vma' ? 'on' : ''}" data-trtab="vma">🏃 Test VMA</button><button class="m-tab ${tab === 'tournoi' ? 'on' : ''}" data-trtab="tournoi">🏆 Tournoi</button></div>
+      ${tab === 'tournoi' ? tourneyTab() : tab === 'vma' ? vmaTab(root) : tab === 'chrono' ? `
       <div class="ch-big idle" id="chBig"></div>
       <div class="ch-ctl">${run ? `<button class="btn primary big" data-ch-act="pause">${run.paused ? '▶️ Reprendre' : '⏸️ Pause'}</button><button class="btn big" data-ch-act="skip">⏭️ Suivant</button><button class="btn danger big" data-ch-act="stop">⏹️ Arrêter</button>`
         : `<button class="btn primary big" data-ch-act="start">▶️ Démarrer</button><button class="btn big" data-ch-act="test">🔊 Tester le son</button>`}</div>
@@ -164,6 +242,12 @@ const Terrain = (() => {
     root.onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.trtab) { location.hash = '#/terrain' + (b.dataset.trtab === 'chrono' ? '' : '/' + b.dataset.trtab); return; }
+      const tn = b.dataset.tnAct;
+      if (tn === 'make') { const d = Object.assign({ format: 'rr', names: 'Jaunes\nBleus\nRouges\nVerts', fields: 2 }, S().ui.tourneyDraft || {}), names = String(d.names).split('\n').map(x => x.trim()).filter(Boolean).slice(0, 16);
+        if (names.length < 2 || (d.format === 'pools' && names.length < 4)) { toast(d.format === 'pools' ? 'Il faut au moins 4 équipes pour 2 poules' : 'Il faut au moins 2 équipes', 'err'); return; }
+        tSave(create(d.format, names, +d.fields || 1)); return page(root, 'tournoi'); }
+      if (tn === 'new') { return confirmBoxT('Effacer ce tournoi et en créer un nouveau ?').then(ok => { if (ok) { tSave(null); page(root, 'tournoi'); } }); }
+      if (b.dataset.tntab) { const t = tz(), [id, w] = b.dataset.tntab.split(':'), m = t.matches.find(x => x.id === id); if (m) { m.tab = w; next(t); tSave(t); } return page(root, 'tournoi'); }
       const va = b.dataset.vtAct;
       if (va === 'start') { const c = vcfg(); audio(); vt = { proto: c.proto, v0: +c.from, stage: 0, t: 0, last: performance.now(), out: {}, done: false, wake: null }; play('go', 'terrain');
         try { if ('wakeLock' in navigator) navigator.wakeLock.request('screen').then(w => { if (vt) vt.wake = w; }).catch(() => {}); } catch (e) {} return page(root, 'vma'); }
@@ -189,7 +273,11 @@ const Terrain = (() => {
       if (b.hasAttribute('data-bibdel')) return setS(s => { s.teams.pop(); });
       if (b.dataset.bibcol) { const [i, k] = b.dataset.bibcol.split(':'); return setS(s => { s.teams[+i].c = k; }); }
     };
-    root.onchange = e => { if (e.target.dataset.vt) { S().ui.vmaTest = Object.assign(vcfg(), { [e.target.dataset.vt]: e.target.value }); Store.persistNow(); return page(root, 'vma'); }
+    root.onchange = e => {
+      if (e.target.dataset.td) { S().ui.tourneyDraft = Object.assign({ format: 'rr', names: 'Jaunes\nBleus\nRouges\nVerts', fields: 2 }, S().ui.tourneyDraft || {}, { [e.target.dataset.td]: e.target.value }); Store.persistNow(); return; }
+      if (e.target.dataset.tns) { const t = tz(), [id, k] = e.target.dataset.tns.split(':'), m = t && t.matches.find(x => x.id === id); if (!m) return;
+        const v = e.target.value === '' ? null : Math.max(0, Math.round(+e.target.value)); m['s' + k] = v; if (m.sa !== m.sb) delete m.tab; next(t); tSave(t); return page(root, 'tournoi'); }
+      if (e.target.dataset.vt) { S().ui.vmaTest = Object.assign(vcfg(), { [e.target.dataset.vt]: e.target.value }); Store.persistNow(); return page(root, 'vma'); }
       const k = e.target.dataset.ch; if (!k) return; const v = e.target.type === 'checkbox' ? e.target.checked : k === 'sound' ? e.target.value : Math.max(0, Math.round(+e.target.value || 0)); setC(k, v); if (k === 'sound') { audio(); play('go', v); } page(root); };
   }
   return { page, play };
