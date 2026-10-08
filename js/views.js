@@ -10,19 +10,33 @@ const Views = (() => {
   const pName = Store.fullName;
   const pLabel = p => `${p.number ? p.number + ' · ' : ''}${pName(p)}`;
   // name on a roster chip, with the positions in short (« DC/LD »)
-  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⚠️</span>` : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
+  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⚠️</span>` : ''}${p.trial ? '<span title="À l\'essai">🧪</span>' : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
   // The team's own players (all of its category when nobody is put in the team yet, e.g. « Seniors A »)
   const squad = teamId => { const own = Store.playersOf(teamId); return own.length ? own : Store.rosterOf(teamId); };
   // Chips of a team's players, then « Autres joueurs de la catégorie » (a team A / B can call up any player of its category)
   function rosterChips(teamId, chip, only) {
     const mode = S().ui.rosterSort || 'name', all = Store.rosterOf(teamId).filter(p => !only || only.has(p.id)), own = new Set(Store.playersOf(teamId).map(p => p.id));
-    const mine = all.filter(p => own.has(p.id)), others = all.filter(p => !own.has(p.id)), t = teamOf(teamId);
+    const mine = all.filter(p => own.has(p.id)), guests = all.filter(p => !own.has(p.id) && Store.helps(p, teamId) && !Store.sameCat(p, teamId)),
+      others = all.filter(p => !own.has(p.id) && !guests.includes(p)), t = teamOf(teamId);
     // sorted by position: one row of chips per line (goalkeepers, defenders, midfielders, forwards)
     const block = list => mode === 'post' ? People.byLine(list).map(([lab, ps]) => `<div class="lbl line-lbl">${esc(lab)} (${ps.length})</div><div class="chips roster">${ps.map(chip).join('')}</div>`).join('') : `<div class="chips roster">${People.sortPlayers(list, mode).map(chip).join('')}</div>`;
     const warn = all.filter(p => ClubAdmin.problem(p));
     return (all.length > 1 ? People.sortBar(mode, 'rsort') : '') + (warn.length ? `<p class="muted small">⚠️ = pas en règle (${warn.length}) : licence en attente ou certificat médical à fournir. Voir avec le responsable.</p>` : '') + (mine.length ? block(mine) : '') +
       (others.length ? `${mine.length ? `<div class="lbl">Autres joueurs de la catégorie ${esc((t && t.category) || '')} (${others.length})</div>` : ''}${block(others)}` : '') +
+      (guests.length ? `<div class="lbl">🤝 Renforts d'autres catégories (${guests.length}) <button type="button" class="linkish" data-guestman="${esc(teamId)}">gérer</button></div>${block(guests)}` : '') +
       (!all.length ? '<p class="muted">Aucun joueur dans cette catégorie : ajoute-les dans Équipes.</p>' : '');
+  }
+  // (2.43) « renfort »: a player of another category called up to help this team (he stays in his category)
+  function guestSelect(teamId) {
+    const inR = new Set(Store.rosterOf(teamId).map(p => p.id)), list = S().players.filter(p => !inR.has(p.id) && Auth.seesPerson(p)).sort(Store.byName);
+    return list.length ? `<label class="fld"><span>🤝 Ajouter un renfort d'une autre catégorie</span><select data-addguest="${esc(teamId)}"><option value="">Choisir un joueur…</option>${list.map(p => `<option value="${p.id}">${esc(Store.fullName(p))}${(p.teamIds || []).length ? ' · ' + esc((p.teamIds || []).map(id => (teamOf(id) || {}).name).filter(Boolean).join(', ')) : ''}</option>`).join('')}</select></label>` : '';
+  }
+  function guestManager(teamId, done) {
+    const t = teamOf(teamId), gs = S().players.filter(p => Store.helps(p, teamId) && !Store.sameCat(p, teamId)).sort(Store.byName);
+    modal({ title: `🤝 Renforts · ${t ? t.name : ''}`, noFocus: true,
+      body: gs.length ? `<p class="muted small">Ils restent dans leur catégorie. Retirer un renfort l'enlève des listes de cette équipe ; ses matchs déjà joués gardent ses stats.</p>${gs.map(p => `<div class="tr"><span class="d">${esc(Store.fullName(p))}</span><button class="btn small" data-guestout="${p.id}">Retirer</button></div>`).join('')}` : '<p class="muted">Aucun renfort.</p>',
+      onOpen: (r, close) => { r.addEventListener('click', e => { const b = e.target.closest('[data-guestout]'); if (!b) return; const p = Store.get('players', b.dataset.guestout); if (p) { p.helps = (p.helps || []).filter(x => x !== teamId); Store.upsert('players', p); } close(); toast('Renfort retiré'); done && done(); }); },
+      actions: [{ label: 'Fermer' }] });
   }
   const POS = [['GB', 'Gardien'], ['DEF', 'Défenseur'], ['MIL', 'Milieu'], ['ATT', 'Attaquant']];
   const COMPS = ['Championnat', 'Coupe', 'Amical', 'Plateau', 'Tournoi'];
@@ -562,6 +576,7 @@ const Views = (() => {
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       if (Health.rpeClick(e, tr, tr.presents || [], () => { save(); rpeTr(); })) return;
+      if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       const card = b.closest('[data-ex]'), ex = card && tr.exercises.find(x => x.id === card.dataset.ex);
       if (b.dataset.present) {
         const p = tr.presents = tr.presents || [], i = p.indexOf(b.dataset.present); i < 0 ? p.push(b.dataset.present) : p.splice(i, 1); save();
@@ -697,6 +712,16 @@ const Views = (() => {
       <p class="muted small">« Match complet pour les autres » met ${full} min à ceux qui n'ont pas encore de temps. ${total ? `Total saisi : ${total} min.` : ''}</p></section>`;
   }
   // (1.41) « Qui joue où ? » : each position of the lineup gets a player called up (his name goes on the drawing and the match sheet)
+  // (2.43) the shirt numbers of the match: his usual one by default, another one for this match only (a shirt missing, a renfort…)
+  function numbersCard(m, conv) {
+    const nums = conv.map(p => String(Store.numOf(p, m) || '')), dup = new Set(nums.filter((n, i) => n && nums.indexOf(n) !== i));
+    const own = Object.keys(m.numbers || {}).some(id => (m.numbers[id] ?? '') !== '' && conv.some(p => p.id === id));
+    return `<section class="card nums-card"><h2>👕 Numéros du match</h2>
+      <p class="muted small">Par défaut, le numéro habituel du joueur (sa fiche). Change-le pour ce match seulement : il sert pour le direct et la feuille de match.${dup.size ? ` <b class="ans-no">⚠️ Numéro en double : ${[...dup].map(esc).join(', ')}</b>` : ''}</p>
+      <div class="nums-grid">${conv.slice().sort((a, b) => (+Store.numOf(a, m) || 99) - (+Store.numOf(b, m) || 99) || Store.byName(a, b)).map(p => { const n = String(Store.numOf(p, m) || ''), mine = m.numbers && (m.numbers[p.id] ?? '') !== '';
+        return `<label class="num-cell ${dup.has(n) ? 'dup' : ''} ${mine ? 'own' : ''}"><input type="number" min="0" max="99" inputmode="numeric" data-mnum="${p.id}" value="${esc(n)}" placeholder="–" aria-label="Numéro de ${esc(Store.shortName(p))}"><span>${esc(Store.shortName(p))}${mine && p.number ? ` <i>(hab. ${esc(p.number)})</i>` : ''}</span></label>`; }).join('')}</div>
+      ${own ? '<button class="btn soft small" data-act="numreset">↩️ Remettre les numéros habituels</button>' : ''}</section>`;
+  }
   function slotsCard(sc, conv) {
     const st = (sc.steps || [])[0] || { pos: {} };
     const slots = sc.objects.filter(o => o.type === 'player' && st.pos[o.id])
@@ -778,6 +803,7 @@ const Views = (() => {
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
+        ${t ? guestSelect(t.id) : ''}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
         <div id="answersBox"></div>
         <div id="evFeed"></div>
@@ -791,6 +817,7 @@ const Views = (() => {
         <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
         ${lineup ? slotsCard(lineup, conv) : ''}
+        ${conv.length && !m.exempt ? numbersCard(m, conv) : ''}
         </div>
         <div ${panel('pendant')}>
         ${!m.exempt ? Live.card(m) : '<p class="muted">Pas de match cette semaine (exempt).</p>'}
@@ -841,12 +868,17 @@ const Views = (() => {
       if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; matchTabs[m.id] = 'apres'; save(); render(); return cheer(before); }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { m.staffIds = [...new Set([...(m.staffIds || []), e.target.value])]; save(); return render(); }
       if (e.target.hasAttribute('data-addconv') && e.target.value) { m.convoked = [...new Set([...(m.convoked || []), e.target.value])]; save(); return render(); }
+      if (e.target.dataset.mnum) { const p = Store.get('players', e.target.dataset.mnum), v = e.target.value.trim(); m.numbers = Object.assign({}, m.numbers);
+        if (v === '' || (p && String(p.number ?? '') === v)) delete m.numbers[e.target.dataset.mnum]; else m.numbers[e.target.dataset.mnum] = Math.max(0, Math.min(99, Math.round(+v))) ; if (!Object.keys(m.numbers).length) delete m.numbers; save(); return render(); }
+      if (e.target.dataset.addguest && e.target.value) { const p = Store.get('players', e.target.value); if (p) { p.helps = [...new Set([...(p.helps || []), e.target.dataset.addguest])]; Store.upsert('players', p); m.convoked = [...new Set([...(m.convoked || []), p.id])]; save(); toast(`🤝 ${Store.shortName(p)} en renfort, convoqué`); } return render(); }
       root.oninput(e);
     };
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.mtab) { matchTabs[m.id] = b.dataset.mtab; $$('.m-tab', root).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); $$('.m-panel', root).forEach(p => { p.hidden = p.dataset.panel !== b.dataset.mtab; }); return; }
       if (b.hasAttribute('data-editm')) { mEdit[m.id] = !(mEdit[m.id] != null ? mEdit[m.id] : !m.opponent); return render(); }
+      if (b.dataset.act === 'numreset') { delete m.numbers; save(); toast('Numéros habituels remis'); return render(); }
+      if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }

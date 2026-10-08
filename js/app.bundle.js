@@ -923,8 +923,16 @@ var Store = (() => {
     const own = playersOf(teamId), key = catKey(t.category || t.name);
     const fam = new Set(state.teams.filter(x => x.id !== teamId && catKey(x.category || x.name) === key).map(x => x.id));
     const ownIds = new Set(own.map(p => p.id));
-    return own.concat(state.players.filter(p => !ownIds.has(p.id) && (p.teamIds || []).some(id => fam.has(id))).sort(byName));
+    const fams = state.players.filter(p => !ownIds.has(p.id) && (p.teamIds || []).some(id => fam.has(id))).sort(byName);
+    // (2.43) the « renforts »: players of another category who help this team (they stay in their own category)
+    const had = new Set([...ownIds, ...fams.map(p => p.id)]);
+    return own.concat(fams, state.players.filter(p => !had.has(p.id) && (p.helps || []).includes(teamId)).sort(byName));
   }
+  // a player of the category of the team (its A / B teams included)
+  const sameCat = (p, teamId) => { const t = get('teams', teamId); if (!t || !p) return false; const k = catKey(t.category || t.name); return (p.teamIds || []).some(id => { const x = get('teams', id); return !!x && catKey(x.category || x.name) === k; }); };
+  const helps = (p, teamId) => !!p && (p.helps || []).includes(teamId) && !(p.teamIds || []).includes(teamId);
+  // (2.43) the number of a player for a match: the one given for this match, otherwise his usual one
+  const numOf = (p, m) => { const n = m && m.numbers && p ? m.numbers[p.id] : null; return n != null && n !== '' ? n : (p && p.number != null ? p.number : ''); };
   const staffOf = teamId => state.staff.filter(p => inTeam(p, teamId)).sort(byName);
   const fullName = p => p ? [String(p.lastName || '').toUpperCase(), p.firstName].filter(Boolean).join(' ') || 'Sans nom' : '';
   const shortName = p => p ? (p.firstName ? p.firstName + (p.lastName ? ' ' + p.lastName[0].toUpperCase() + '.' : '') : fullName(p)) : '';
@@ -952,7 +960,7 @@ var Store = (() => {
 
   return {
     load, closeDb, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
-    playersOf, rosterOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, matchKind, kindOk,
+    playersOf, rosterOf, helps, sameCat, numOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, matchKind, kindOk,
     get state() { return state; }, on: f => listeners.add(f), off: f => listeners.delete(f),
   };
 })();
@@ -1760,8 +1768,8 @@ var Exporter = (() => {
     if (staff.length) { P.label('Encadrants'); P.table(['Nom', 'Rôle', 'Téléphone'], staff.map(s => [Store.fullName(s), s.role || '', People.staffPhone(s) || '']), [.45, .3, .25]); }
     if (players.length) {
       P.label(`Convoqués (${players.length})`);
-      P.table(['N°', 'Joueur', 'Poste', 'Buts', 'Passes'], players.sort((a, b) => (a.number || 0) - (b.number || 0)).map(p => {
-        const st = (m.stats || {})[p.id] || {}; return [String(p.number || ''), Store.fullName(p), People.postsLabel(p, true) || '', st.g ? String(st.g) : '', st.a ? String(st.a) : ''];
+      P.table(['N°', 'Joueur', 'Poste', 'Buts', 'Passes'], players.sort((a, b) => (+Store.numOf(a, m) || 0) - (+Store.numOf(b, m) || 0)).map(p => {
+        const st = (m.stats || {})[p.id] || {}; return [String(Store.numOf(p, m) || ''), Store.fullName(p), People.postsLabel(p, true) || '', st.g ? String(st.g) : '', st.a ? String(st.a) : ''];
       }), [.1, .5, .14, .13, .13]);
     }
     const sc = m.lineupId && S.schemas.find(s => s.id === m.lineupId);
@@ -1802,9 +1810,9 @@ var Exporter = (() => {
     if (ids.length) {
       const card = (id, k) => Math.max(+((st[id] || {})[k]) || 0, +((det[id] || {})[k]) || 0);
       const rows = ids.map(id => { const p = Store.get('players', id), r = Ratings.avg(m, id), y = card(id, 'yc'), rc = card(id, 'rc'), mn = (m.minutes || {})[id];
-        return { p, row: [String(p.number || ''), Store.fullName(p), mn != null && mn !== '' ? mn + "'" : '-', (st[id] || {}).g ? String(st[id].g) : '', (st[id] || {}).a ? String(st[id].a) : '',
+        return { p, row: [String(Store.numOf(p, m) || ''), Store.fullName(p), mn != null && mn !== '' ? mn + "'" : '-', (st[id] || {}).g ? String(st[id].g) : '', (st[id] || {}).a ? String(st[id].a) : '',
           [y ? y + ' J' : '', rc ? rc + ' R' : ''].filter(Boolean).join(' '), r ? Ratings.fr(r.v) + '/10' : ''], mn: +mn || 0 }; })
-        .sort((a, b) => b.mn - a.mn || (+a.p.number || 99) - (+b.p.number || 99));
+        .sort((a, b) => b.mn - a.mn || (+Store.numOf(a.p, m) || 99) - (+Store.numOf(b.p, m) || 99));
       P.label(`Les joueurs (${rows.length})`);
       P.table(['N°', 'Joueur', 'Min.', Sport.W().Units, 'Passes', 'Cartons', 'Note'], rows.map(x => x.row), [.07, .37, .1, .1, .11, .12, .13]);
     }
@@ -3609,7 +3617,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.42';
+  const VERSION = '2.43';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -5154,7 +5162,7 @@ var People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
         <span class="pnum">${esc(p.number || '')}</span>
-        <span class="pmain"><b>${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
+        <span class="pmain"><b>${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
       </button>${ab}
@@ -5210,11 +5218,12 @@ var People = (() => {
         <label class="fld"><span>Prénom</span><input id="pFirst" value="${esc(p.firstName)}"></label></div>
         <div class="row3"><label class="fld"><span>Né(e) le</span><input id="pBirth" type="date" value="${esc(p.birth || '')}"></label>
         <label class="fld"><span>Sous-catégorie</span><select id="pSub"><option value="">–</option>${opt(SUBCATS, p.subcat)}</select></label>
-        <label class="fld"><span>Numéro</span><input id="pNum" type="number" min="0" max="99" value="${esc(p.number)}"></label>
+        <label class="fld"><span>Numéro</span><input id="pNum" type="number" min="0" max="99" value="${esc(p.number)}"><span class="num-taken" id="pNumTaken"></span></label>
         <input type="hidden" id="pPos" value="${esc(postsOf(p)[0] || '')}"></div>
         <div class="lbl">Poste principal</div><div id="pMain">${mainPicker(postsOf(p)[0] || '')}</div>
         <details class="posts-more" ${postsOf(p).length > 1 ? 'open' : ''}><summary>Autres postes possibles${postsOf(p).length > 1 ? ` (${postsOf(p).length - 1})` : ''}</summary><div id="pPosts">${TYPES.map(([t, l]) => `<div class="post-group"><span class="muted small">${esc(l)}</span><div class="chips">${POSTS.filter(x => x[3] === t).map(x => `<button type="button" class="chip ${postsOf(p).slice(1).includes(x[0]) ? 'on' : ''}" data-post="${x[0]}">${postChip(x)}</button>`).join('')}</div></div>`).join('')}</div></details>
         <div class="lbl">Catégories (plusieurs possibles)</div>${teamChips(p.teamIds)}
+        <label class="chk trial-chk"><input type="checkbox" id="pTrial" ${p.trial ? 'checked' : ''}> 🧪 <b>À l'essai</b> <span class="muted small">(il vient essayer : fiche légère, tu décides ensuite de le garder ou non)</span></label>
         <h3 class="sub-h">Contacts</h3>
         <div class="row2"><label class="fld"><span>Téléphone du joueur</span><input id="pTel" type="tel" inputmode="tel" value="${esc(p.phone || '')}"></label>
         <label class="fld"><span>E-mail</span><input id="pMail" type="email" inputmode="email" value="${esc(p.email || '')}"></label></div>
@@ -5224,6 +5233,13 @@ var People = (() => {
         ${isNew ? '' : notesHistory(p)}`,
       onOpen: r => {
         bindChips(r);
+        // (2.43) the numbers already taken in his categories (greyed in the hint, red if his one is taken)
+        const taken = () => { const box = $('#pNumTaken', r); if (!box) return; const ids = $$('#pTeams .chip.on', r).map(b => b.dataset.t), mine = String($('#pNum', r).value || '');
+          const others = S().players.filter(x => x.id !== p.id && x.number !== '' && x.number != null && (x.teamIds || []).some(id => ids.includes(id)));
+          const nums = [...new Set(others.map(x => String(x.number)))].sort((a, b) => a - b);
+          const twin = mine && others.find(x => String(x.number) === mine);
+          box.innerHTML = twin ? `<b class="dup">⚠️ Le ${esc(mine)} est déjà à ${esc(Store.shortName(twin))}</b>` : nums.length ? `Déjà pris : ${nums.map(esc).join(', ')}` : ''; };
+        taken(); $('#pNum', r).addEventListener('input', taken); r.addEventListener('click', e => { if (e.target.closest('#pTeams .chip')) setTimeout(taken, 0); });
         $$('#pPosts .chip', r).forEach(b => b.onclick = () => b.classList.toggle('on'));
         // main position: touch a type (Défenseur…), then if you want a precise position (DC, LD…)
         $('#pMain', r).onclick = e => { const b = e.target.closest('[data-main]'); if (!b) return; $('#pPos', r).value = b.dataset.main; $('#pMain', r).innerHTML = mainPicker(b.dataset.main); };
@@ -5240,7 +5256,7 @@ var People = (() => {
         { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           const v = id => $('#' + id, r).value.trim();
           if (!v('pLast') && !v('pFirst')) { toast('Écris au moins le nom ou le prénom', 'err'); return false; }
-          const data = { lastName: v('pLast').toUpperCase(), firstName: v('pFirst'), birth: v('pBirth'), subcat: v('pSub'), number: v('pNum') === '' ? '' : +v('pNum'), ...readPosts(r, v('pPos')), phone: v('pTel'), email: v('pMail'), notes: $('#pNotes', r).value, teamIds: pickedTeams(r, p.teamIds || []),
+          const data = { lastName: v('pLast').toUpperCase(), firstName: v('pFirst'), birth: v('pBirth'), subcat: v('pSub'), number: v('pNum') === '' ? '' : +v('pNum'), ...readPosts(r, v('pPos')), trial: $('#pTrial', r).checked ? (p.trial || { since: UI.today() }) : undefined, phone: v('pTel'), email: v('pMail'), notes: $('#pNotes', r).value, teamIds: pickedTeams(r, p.teamIds || []),
             parents: [0, 1].map(i => ({ name: v(`par${i}n`), rel: v(`par${i}r`), phone: v(`par${i}t`) })).filter(x => x.name || x.phone) };
           // a new player who is already in the club (same name, same date of birth): add him to this category instead of a 2nd card
           const twin = isNew && twinOf(data);
@@ -5705,6 +5721,9 @@ var People = (() => {
     root.innerHTML = `<header class="page-head"><div><h1>${p.number ? `<span class="pnum big">${esc(p.number)}</span> ` : ''}${esc(name(p))}${p.birth && String(p.birth).slice(5, 10) === (d => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date()) ? ' <span title="C\'est son anniversaire aujourd\'hui">👑🎂</span>' : ''}</h1>
         <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
+      ${p.trial ? `<div class="trial-banner">🧪 <b>À l'essai${p.trial.since ? ' depuis le ' + esc(UI.fmtDate(p.trial.since, { day: 'numeric', month: 'long' })) : ''}</b>
+        <span class="muted small">${s.att.total ? `${s.att.n} entraînement${s.att.n > 1 ? 's' : ''}` : 'Pas encore d\'entraînement'}${s.played.length ? ` · ${s.played.length} match${s.played.length > 1 ? 's' : ''}` : ''}</span>
+        <span class="acts"><button class="btn small primary" data-act="trialkeep">✅ Le garder dans l'effectif</button><button class="btn small" data-act="trialend">👋 Fin de l'essai</button></span></div>` : ''}
       ${UI.kindSeg()}
       <div class="tiles">
         ${tile(s.att.pct == null ? '–' : s.att.pct + ' %', `Présence à l'entraînement${s.att.total ? ` (${s.att.n}/${s.att.total})` : ''}`, s.att.pct == null ? '' : s.att.pct >= 75 ? 'v' : s.att.pct >= 50 ? 'n' : 'd')}
@@ -5747,6 +5766,9 @@ var People = (() => {
       if (Tips.click(e, p, () => playerPage(root, id))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.act === 'back') return history.length > 1 ? history.back() : (location.hash = '#/joueurs');
+      if (b.dataset.act === 'trialkeep') { delete p.trial; Store.upsert('players', p); toast(`${Store.shortName(p)} fait partie de l'effectif 🎉`); return playerPage(root, id); }
+      if (b.dataset.act === 'trialend') return confirmBox(`Fin de l'essai pour ${name(p)} ? Il sort de ses catégories et reste dans la base du club (« Tous les joueurs »), avec ses séances et matchs.`, 'Fin de l\'essai').then(ok => {
+        if (!ok) return; delete p.trial; p.teamIds = []; Store.upsert('players', p); toast('Essai terminé'); location.hash = '#/joueurs'; });
       if (b.dataset.act === 'edit') return editPlayer(p, { onSave: () => { if (Store.get('players', p.id)) playerPage(root, p.id); else location.hash = '#/joueurs'; } });
     };
   }
@@ -8242,7 +8264,7 @@ var Live = (() => {
   const fmtOf = m => ((Store.get('teams', m.teamId) || {}).format) || Sport.defFormat();
   const halfDefault = m => { const n = SP().periods; return m.duration && !SP().sets ? Math.round(m.duration / n) : SP().periodLen(fmtOf(m)); };
   const L = m => (m.live = m.live || { status: 'pre', periods: [], events: [], starters: [], halfLen: halfDefault(m) });
-  const players = m => (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (a.number || 99) - (b.number || 99) || Store.byName(a, b));
+  const players = m => (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (+Store.numOf(a, m) || 99) - (+Store.numOf(b, m) || 99) || Store.byName(a, b));
   const pname = id => { const p = Store.get('players', id); return p ? `${p.number ? p.number + '. ' : ''}${Store.shortName(p)}` : '?'; };
   const size = m => Sport.players(fmtOf(m));
   // statuses: pre, p (a period is played), brk (between two periods), end — h1 / ht / h2 are the old football ones
@@ -15555,6 +15577,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 99, date: '2026-10-09', title: 'Joueur à l\'essai, renforts et numéros du match 👕', items: [
+      ['🧪', 'Joueur à l\'essai : coche « À l\'essai » sur sa fiche. Il porte 🧪 partout ; sur sa page, « Le garder dans l\'effectif » ou « Fin de l\'essai » (il reste dans la base du club).'],
+      ['🤝', 'Renfort : dans un match, « Ajouter un renfort d\'une autre catégorie ». Il est convoqué et reste dans sa catégorie ; « gérer » pour le retirer.'],
+      ['👕', 'Numéros : sur la fiche, les numéros déjà pris dans ses catégories (en rouge si le sien l\'est). Dans un match, onglet Compo, « Numéros du match » pour changer un numéro ce jour-là seulement (doublons en rouge, feuille de match et direct à jour).'],
+    ] },
     { n: 98, date: '2026-10-08', title: 'La fiche urgence 🚑', items: [
       ['🚑', 'Chaque joueur a sa fiche urgence : allergies, traitements et où ils sont, conduite à tenir (PAI), choses à savoir, appareillages, et jusqu\'à 3 personnes à appeler.'],
       ['👪', 'Les familles la remplissent dans leur espace, onglet « Moi ». Seuls les coachs la voient.'],
@@ -18151,19 +18178,33 @@ var Views = (() => {
   const pName = Store.fullName;
   const pLabel = p => `${p.number ? p.number + ' · ' : ''}${pName(p)}`;
   // name on a roster chip, with the positions in short (« DC/LD »)
-  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⚠️</span>` : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
+  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⚠️</span>` : ''}${p.trial ? '<span title="À l\'essai">🧪</span>' : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
   // The team's own players (all of its category when nobody is put in the team yet, e.g. « Seniors A »)
   const squad = teamId => { const own = Store.playersOf(teamId); return own.length ? own : Store.rosterOf(teamId); };
   // Chips of a team's players, then « Autres joueurs de la catégorie » (a team A / B can call up any player of its category)
   function rosterChips(teamId, chip, only) {
     const mode = S().ui.rosterSort || 'name', all = Store.rosterOf(teamId).filter(p => !only || only.has(p.id)), own = new Set(Store.playersOf(teamId).map(p => p.id));
-    const mine = all.filter(p => own.has(p.id)), others = all.filter(p => !own.has(p.id)), t = teamOf(teamId);
+    const mine = all.filter(p => own.has(p.id)), guests = all.filter(p => !own.has(p.id) && Store.helps(p, teamId) && !Store.sameCat(p, teamId)),
+      others = all.filter(p => !own.has(p.id) && !guests.includes(p)), t = teamOf(teamId);
     // sorted by position: one row of chips per line (goalkeepers, defenders, midfielders, forwards)
     const block = list => mode === 'post' ? People.byLine(list).map(([lab, ps]) => `<div class="lbl line-lbl">${esc(lab)} (${ps.length})</div><div class="chips roster">${ps.map(chip).join('')}</div>`).join('') : `<div class="chips roster">${People.sortPlayers(list, mode).map(chip).join('')}</div>`;
     const warn = all.filter(p => ClubAdmin.problem(p));
     return (all.length > 1 ? People.sortBar(mode, 'rsort') : '') + (warn.length ? `<p class="muted small">⚠️ = pas en règle (${warn.length}) : licence en attente ou certificat médical à fournir. Voir avec le responsable.</p>` : '') + (mine.length ? block(mine) : '') +
       (others.length ? `${mine.length ? `<div class="lbl">Autres joueurs de la catégorie ${esc((t && t.category) || '')} (${others.length})</div>` : ''}${block(others)}` : '') +
+      (guests.length ? `<div class="lbl">🤝 Renforts d'autres catégories (${guests.length}) <button type="button" class="linkish" data-guestman="${esc(teamId)}">gérer</button></div>${block(guests)}` : '') +
       (!all.length ? '<p class="muted">Aucun joueur dans cette catégorie : ajoute-les dans Équipes.</p>' : '');
+  }
+  // (2.43) « renfort »: a player of another category called up to help this team (he stays in his category)
+  function guestSelect(teamId) {
+    const inR = new Set(Store.rosterOf(teamId).map(p => p.id)), list = S().players.filter(p => !inR.has(p.id) && Auth.seesPerson(p)).sort(Store.byName);
+    return list.length ? `<label class="fld"><span>🤝 Ajouter un renfort d'une autre catégorie</span><select data-addguest="${esc(teamId)}"><option value="">Choisir un joueur…</option>${list.map(p => `<option value="${p.id}">${esc(Store.fullName(p))}${(p.teamIds || []).length ? ' · ' + esc((p.teamIds || []).map(id => (teamOf(id) || {}).name).filter(Boolean).join(', ')) : ''}</option>`).join('')}</select></label>` : '';
+  }
+  function guestManager(teamId, done) {
+    const t = teamOf(teamId), gs = S().players.filter(p => Store.helps(p, teamId) && !Store.sameCat(p, teamId)).sort(Store.byName);
+    modal({ title: `🤝 Renforts · ${t ? t.name : ''}`, noFocus: true,
+      body: gs.length ? `<p class="muted small">Ils restent dans leur catégorie. Retirer un renfort l'enlève des listes de cette équipe ; ses matchs déjà joués gardent ses stats.</p>${gs.map(p => `<div class="tr"><span class="d">${esc(Store.fullName(p))}</span><button class="btn small" data-guestout="${p.id}">Retirer</button></div>`).join('')}` : '<p class="muted">Aucun renfort.</p>',
+      onOpen: (r, close) => { r.addEventListener('click', e => { const b = e.target.closest('[data-guestout]'); if (!b) return; const p = Store.get('players', b.dataset.guestout); if (p) { p.helps = (p.helps || []).filter(x => x !== teamId); Store.upsert('players', p); } close(); toast('Renfort retiré'); done && done(); }); },
+      actions: [{ label: 'Fermer' }] });
   }
   const POS = [['GB', 'Gardien'], ['DEF', 'Défenseur'], ['MIL', 'Milieu'], ['ATT', 'Attaquant']];
   const COMPS = ['Championnat', 'Coupe', 'Amical', 'Plateau', 'Tournoi'];
@@ -18703,6 +18744,7 @@ var Views = (() => {
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       if (Health.rpeClick(e, tr, tr.presents || [], () => { save(); rpeTr(); })) return;
+      if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       const card = b.closest('[data-ex]'), ex = card && tr.exercises.find(x => x.id === card.dataset.ex);
       if (b.dataset.present) {
         const p = tr.presents = tr.presents || [], i = p.indexOf(b.dataset.present); i < 0 ? p.push(b.dataset.present) : p.splice(i, 1); save();
@@ -18838,6 +18880,16 @@ var Views = (() => {
       <p class="muted small">« Match complet pour les autres » met ${full} min à ceux qui n'ont pas encore de temps. ${total ? `Total saisi : ${total} min.` : ''}</p></section>`;
   }
   // (1.41) « Qui joue où ? » : each position of the lineup gets a player called up (his name goes on the drawing and the match sheet)
+  // (2.43) the shirt numbers of the match: his usual one by default, another one for this match only (a shirt missing, a renfort…)
+  function numbersCard(m, conv) {
+    const nums = conv.map(p => String(Store.numOf(p, m) || '')), dup = new Set(nums.filter((n, i) => n && nums.indexOf(n) !== i));
+    const own = Object.keys(m.numbers || {}).some(id => (m.numbers[id] ?? '') !== '' && conv.some(p => p.id === id));
+    return `<section class="card nums-card"><h2>👕 Numéros du match</h2>
+      <p class="muted small">Par défaut, le numéro habituel du joueur (sa fiche). Change-le pour ce match seulement : il sert pour le direct et la feuille de match.${dup.size ? ` <b class="ans-no">⚠️ Numéro en double : ${[...dup].map(esc).join(', ')}</b>` : ''}</p>
+      <div class="nums-grid">${conv.slice().sort((a, b) => (+Store.numOf(a, m) || 99) - (+Store.numOf(b, m) || 99) || Store.byName(a, b)).map(p => { const n = String(Store.numOf(p, m) || ''), mine = m.numbers && (m.numbers[p.id] ?? '') !== '';
+        return `<label class="num-cell ${dup.has(n) ? 'dup' : ''} ${mine ? 'own' : ''}"><input type="number" min="0" max="99" inputmode="numeric" data-mnum="${p.id}" value="${esc(n)}" placeholder="–" aria-label="Numéro de ${esc(Store.shortName(p))}"><span>${esc(Store.shortName(p))}${mine && p.number ? ` <i>(hab. ${esc(p.number)})</i>` : ''}</span></label>`; }).join('')}</div>
+      ${own ? '<button class="btn soft small" data-act="numreset">↩️ Remettre les numéros habituels</button>' : ''}</section>`;
+  }
   function slotsCard(sc, conv) {
     const st = (sc.steps || [])[0] || { pos: {} };
     const slots = sc.objects.filter(o => o.type === 'player' && st.pos[o.id])
@@ -18919,6 +18971,7 @@ var Views = (() => {
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
+        ${t ? guestSelect(t.id) : ''}
         ${!m.played && t ? (() => { const low = People.lowPlaytime(t.id); return low.length ? `<p class="tip playtime-tip">⏱️ Peu de temps de jeu cette saison : ${low.slice(0, 8).map(x => `<b>${esc(Store.shortName(x.p))}</b> (${x.min}')`).join(', ')}${low.length > 8 ? '…' : ''} · moyenne de l'équipe ${low[0].avg}'.</p>` : ''; })() : ''}
         <div id="answersBox"></div>
         <div id="evFeed"></div>
@@ -18932,6 +18985,7 @@ var Views = (() => {
         <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
         ${lineup ? slotsCard(lineup, conv) : ''}
+        ${conv.length && !m.exempt ? numbersCard(m, conv) : ''}
         </div>
         <div ${panel('pendant')}>
         ${!m.exempt ? Live.card(m) : '<p class="muted">Pas de match cette semaine (exempt).</p>'}
@@ -18982,12 +19036,17 @@ var Views = (() => {
       if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; matchTabs[m.id] = 'apres'; save(); render(); return cheer(before); }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { m.staffIds = [...new Set([...(m.staffIds || []), e.target.value])]; save(); return render(); }
       if (e.target.hasAttribute('data-addconv') && e.target.value) { m.convoked = [...new Set([...(m.convoked || []), e.target.value])]; save(); return render(); }
+      if (e.target.dataset.mnum) { const p = Store.get('players', e.target.dataset.mnum), v = e.target.value.trim(); m.numbers = Object.assign({}, m.numbers);
+        if (v === '' || (p && String(p.number ?? '') === v)) delete m.numbers[e.target.dataset.mnum]; else m.numbers[e.target.dataset.mnum] = Math.max(0, Math.min(99, Math.round(+v))) ; if (!Object.keys(m.numbers).length) delete m.numbers; save(); return render(); }
+      if (e.target.dataset.addguest && e.target.value) { const p = Store.get('players', e.target.value); if (p) { p.helps = [...new Set([...(p.helps || []), e.target.dataset.addguest])]; Store.upsert('players', p); m.convoked = [...new Set([...(m.convoked || []), p.id])]; save(); toast(`🤝 ${Store.shortName(p)} en renfort, convoqué`); } return render(); }
       root.oninput(e);
     };
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.mtab) { matchTabs[m.id] = b.dataset.mtab; $$('.m-tab', root).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); $$('.m-panel', root).forEach(p => { p.hidden = p.dataset.panel !== b.dataset.mtab; }); return; }
       if (b.hasAttribute('data-editm')) { mEdit[m.id] = !(mEdit[m.id] != null ? mEdit[m.id] : !m.opponent); return render(); }
+      if (b.dataset.act === 'numreset') { delete m.numbers; save(); toast('Numéros habituels remis'); return render(); }
+      if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
@@ -19505,7 +19564,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 143, UPD = AppCfg.key('update-tried');
+  const BUILD = 144, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

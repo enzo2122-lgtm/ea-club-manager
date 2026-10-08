@@ -186,8 +186,16 @@ const Store = (() => {
     const own = playersOf(teamId), key = catKey(t.category || t.name);
     const fam = new Set(state.teams.filter(x => x.id !== teamId && catKey(x.category || x.name) === key).map(x => x.id));
     const ownIds = new Set(own.map(p => p.id));
-    return own.concat(state.players.filter(p => !ownIds.has(p.id) && (p.teamIds || []).some(id => fam.has(id))).sort(byName));
+    const fams = state.players.filter(p => !ownIds.has(p.id) && (p.teamIds || []).some(id => fam.has(id))).sort(byName);
+    // (2.43) the « renforts »: players of another category who help this team (they stay in their own category)
+    const had = new Set([...ownIds, ...fams.map(p => p.id)]);
+    return own.concat(fams, state.players.filter(p => !had.has(p.id) && (p.helps || []).includes(teamId)).sort(byName));
   }
+  // a player of the category of the team (its A / B teams included)
+  const sameCat = (p, teamId) => { const t = get('teams', teamId); if (!t || !p) return false; const k = catKey(t.category || t.name); return (p.teamIds || []).some(id => { const x = get('teams', id); return !!x && catKey(x.category || x.name) === k; }); };
+  const helps = (p, teamId) => !!p && (p.helps || []).includes(teamId) && !(p.teamIds || []).includes(teamId);
+  // (2.43) the number of a player for a match: the one given for this match, otherwise his usual one
+  const numOf = (p, m) => { const n = m && m.numbers && p ? m.numbers[p.id] : null; return n != null && n !== '' ? n : (p && p.number != null ? p.number : ''); };
   const staffOf = teamId => state.staff.filter(p => inTeam(p, teamId)).sort(byName);
   const fullName = p => p ? [String(p.lastName || '').toUpperCase(), p.firstName].filter(Boolean).join(' ') || 'Sans nom' : '';
   const shortName = p => p ? (p.firstName ? p.firstName + (p.lastName ? ' ' + p.lastName[0].toUpperCase() + '.' : '') : fullName(p)) : '';
@@ -215,7 +223,7 @@ const Store = (() => {
 
   return {
     load, closeDb, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
-    playersOf, rosterOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, matchKind, kindOk,
+    playersOf, rosterOf, helps, sameCat, numOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, matchKind, kindOk,
     get state() { return state; }, on: f => listeners.add(f), off: f => listeners.delete(f),
   };
 })();

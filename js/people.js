@@ -72,7 +72,7 @@ const People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
         <span class="pnum">${esc(p.number || '')}</span>
-        <span class="pmain"><b>${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
+        <span class="pmain"><b>${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
       </button>${ab}
@@ -128,11 +128,12 @@ const People = (() => {
         <label class="fld"><span>Prénom</span><input id="pFirst" value="${esc(p.firstName)}"></label></div>
         <div class="row3"><label class="fld"><span>Né(e) le</span><input id="pBirth" type="date" value="${esc(p.birth || '')}"></label>
         <label class="fld"><span>Sous-catégorie</span><select id="pSub"><option value="">–</option>${opt(SUBCATS, p.subcat)}</select></label>
-        <label class="fld"><span>Numéro</span><input id="pNum" type="number" min="0" max="99" value="${esc(p.number)}"></label>
+        <label class="fld"><span>Numéro</span><input id="pNum" type="number" min="0" max="99" value="${esc(p.number)}"><span class="num-taken" id="pNumTaken"></span></label>
         <input type="hidden" id="pPos" value="${esc(postsOf(p)[0] || '')}"></div>
         <div class="lbl">Poste principal</div><div id="pMain">${mainPicker(postsOf(p)[0] || '')}</div>
         <details class="posts-more" ${postsOf(p).length > 1 ? 'open' : ''}><summary>Autres postes possibles${postsOf(p).length > 1 ? ` (${postsOf(p).length - 1})` : ''}</summary><div id="pPosts">${TYPES.map(([t, l]) => `<div class="post-group"><span class="muted small">${esc(l)}</span><div class="chips">${POSTS.filter(x => x[3] === t).map(x => `<button type="button" class="chip ${postsOf(p).slice(1).includes(x[0]) ? 'on' : ''}" data-post="${x[0]}">${postChip(x)}</button>`).join('')}</div></div>`).join('')}</div></details>
         <div class="lbl">Catégories (plusieurs possibles)</div>${teamChips(p.teamIds)}
+        <label class="chk trial-chk"><input type="checkbox" id="pTrial" ${p.trial ? 'checked' : ''}> 🧪 <b>À l'essai</b> <span class="muted small">(il vient essayer : fiche légère, tu décides ensuite de le garder ou non)</span></label>
         <h3 class="sub-h">Contacts</h3>
         <div class="row2"><label class="fld"><span>Téléphone du joueur</span><input id="pTel" type="tel" inputmode="tel" value="${esc(p.phone || '')}"></label>
         <label class="fld"><span>E-mail</span><input id="pMail" type="email" inputmode="email" value="${esc(p.email || '')}"></label></div>
@@ -142,6 +143,13 @@ const People = (() => {
         ${isNew ? '' : notesHistory(p)}`,
       onOpen: r => {
         bindChips(r);
+        // (2.43) the numbers already taken in his categories (greyed in the hint, red if his one is taken)
+        const taken = () => { const box = $('#pNumTaken', r); if (!box) return; const ids = $$('#pTeams .chip.on', r).map(b => b.dataset.t), mine = String($('#pNum', r).value || '');
+          const others = S().players.filter(x => x.id !== p.id && x.number !== '' && x.number != null && (x.teamIds || []).some(id => ids.includes(id)));
+          const nums = [...new Set(others.map(x => String(x.number)))].sort((a, b) => a - b);
+          const twin = mine && others.find(x => String(x.number) === mine);
+          box.innerHTML = twin ? `<b class="dup">⚠️ Le ${esc(mine)} est déjà à ${esc(Store.shortName(twin))}</b>` : nums.length ? `Déjà pris : ${nums.map(esc).join(', ')}` : ''; };
+        taken(); $('#pNum', r).addEventListener('input', taken); r.addEventListener('click', e => { if (e.target.closest('#pTeams .chip')) setTimeout(taken, 0); });
         $$('#pPosts .chip', r).forEach(b => b.onclick = () => b.classList.toggle('on'));
         // main position: touch a type (Défenseur…), then if you want a precise position (DC, LD…)
         $('#pMain', r).onclick = e => { const b = e.target.closest('[data-main]'); if (!b) return; $('#pPos', r).value = b.dataset.main; $('#pMain', r).innerHTML = mainPicker(b.dataset.main); };
@@ -158,7 +166,7 @@ const People = (() => {
         { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           const v = id => $('#' + id, r).value.trim();
           if (!v('pLast') && !v('pFirst')) { toast('Écris au moins le nom ou le prénom', 'err'); return false; }
-          const data = { lastName: v('pLast').toUpperCase(), firstName: v('pFirst'), birth: v('pBirth'), subcat: v('pSub'), number: v('pNum') === '' ? '' : +v('pNum'), ...readPosts(r, v('pPos')), phone: v('pTel'), email: v('pMail'), notes: $('#pNotes', r).value, teamIds: pickedTeams(r, p.teamIds || []),
+          const data = { lastName: v('pLast').toUpperCase(), firstName: v('pFirst'), birth: v('pBirth'), subcat: v('pSub'), number: v('pNum') === '' ? '' : +v('pNum'), ...readPosts(r, v('pPos')), trial: $('#pTrial', r).checked ? (p.trial || { since: UI.today() }) : undefined, phone: v('pTel'), email: v('pMail'), notes: $('#pNotes', r).value, teamIds: pickedTeams(r, p.teamIds || []),
             parents: [0, 1].map(i => ({ name: v(`par${i}n`), rel: v(`par${i}r`), phone: v(`par${i}t`) })).filter(x => x.name || x.phone) };
           // a new player who is already in the club (same name, same date of birth): add him to this category instead of a 2nd card
           const twin = isNew && twinOf(data);
@@ -623,6 +631,9 @@ const People = (() => {
     root.innerHTML = `<header class="page-head"><div><h1>${p.number ? `<span class="pnum big">${esc(p.number)}</span> ` : ''}${esc(name(p))}${p.birth && String(p.birth).slice(5, 10) === (d => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date()) ? ' <span title="C\'est son anniversaire aujourd\'hui">👑🎂</span>' : ''}</h1>
         <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
+      ${p.trial ? `<div class="trial-banner">🧪 <b>À l'essai${p.trial.since ? ' depuis le ' + esc(UI.fmtDate(p.trial.since, { day: 'numeric', month: 'long' })) : ''}</b>
+        <span class="muted small">${s.att.total ? `${s.att.n} entraînement${s.att.n > 1 ? 's' : ''}` : 'Pas encore d\'entraînement'}${s.played.length ? ` · ${s.played.length} match${s.played.length > 1 ? 's' : ''}` : ''}</span>
+        <span class="acts"><button class="btn small primary" data-act="trialkeep">✅ Le garder dans l'effectif</button><button class="btn small" data-act="trialend">👋 Fin de l'essai</button></span></div>` : ''}
       ${UI.kindSeg()}
       <div class="tiles">
         ${tile(s.att.pct == null ? '–' : s.att.pct + ' %', `Présence à l'entraînement${s.att.total ? ` (${s.att.n}/${s.att.total})` : ''}`, s.att.pct == null ? '' : s.att.pct >= 75 ? 'v' : s.att.pct >= 50 ? 'n' : 'd')}
@@ -665,6 +676,9 @@ const People = (() => {
       if (Tips.click(e, p, () => playerPage(root, id))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.act === 'back') return history.length > 1 ? history.back() : (location.hash = '#/joueurs');
+      if (b.dataset.act === 'trialkeep') { delete p.trial; Store.upsert('players', p); toast(`${Store.shortName(p)} fait partie de l'effectif 🎉`); return playerPage(root, id); }
+      if (b.dataset.act === 'trialend') return confirmBox(`Fin de l'essai pour ${name(p)} ? Il sort de ses catégories et reste dans la base du club (« Tous les joueurs »), avec ses séances et matchs.`, 'Fin de l\'essai').then(ok => {
+        if (!ok) return; delete p.trial; p.teamIds = []; Store.upsert('players', p); toast('Essai terminé'); location.hash = '#/joueurs'; });
       if (b.dataset.act === 'edit') return editPlayer(p, { onSave: () => { if (Store.get('players', p.id)) playerPage(root, p.id); else location.hash = '#/joueurs'; } });
     };
   }

@@ -354,8 +354,8 @@ const Exporter = (() => {
     if (staff.length) { P.label('Encadrants'); P.table(['Nom', 'Rôle', 'Téléphone'], staff.map(s => [Store.fullName(s), s.role || '', People.staffPhone(s) || '']), [.45, .3, .25]); }
     if (players.length) {
       P.label(`Convoqués (${players.length})`);
-      P.table(['N°', 'Joueur', 'Poste', 'Buts', 'Passes'], players.sort((a, b) => (a.number || 0) - (b.number || 0)).map(p => {
-        const st = (m.stats || {})[p.id] || {}; return [String(p.number || ''), Store.fullName(p), People.postsLabel(p, true) || '', st.g ? String(st.g) : '', st.a ? String(st.a) : ''];
+      P.table(['N°', 'Joueur', 'Poste', 'Buts', 'Passes'], players.sort((a, b) => (+Store.numOf(a, m) || 0) - (+Store.numOf(b, m) || 0)).map(p => {
+        const st = (m.stats || {})[p.id] || {}; return [String(Store.numOf(p, m) || ''), Store.fullName(p), People.postsLabel(p, true) || '', st.g ? String(st.g) : '', st.a ? String(st.a) : ''];
       }), [.1, .5, .14, .13, .13]);
     }
     const sc = m.lineupId && S.schemas.find(s => s.id === m.lineupId);
@@ -396,9 +396,9 @@ const Exporter = (() => {
     if (ids.length) {
       const card = (id, k) => Math.max(+((st[id] || {})[k]) || 0, +((det[id] || {})[k]) || 0);
       const rows = ids.map(id => { const p = Store.get('players', id), r = Ratings.avg(m, id), y = card(id, 'yc'), rc = card(id, 'rc'), mn = (m.minutes || {})[id];
-        return { p, row: [String(p.number || ''), Store.fullName(p), mn != null && mn !== '' ? mn + "'" : '-', (st[id] || {}).g ? String(st[id].g) : '', (st[id] || {}).a ? String(st[id].a) : '',
+        return { p, row: [String(Store.numOf(p, m) || ''), Store.fullName(p), mn != null && mn !== '' ? mn + "'" : '-', (st[id] || {}).g ? String(st[id].g) : '', (st[id] || {}).a ? String(st[id].a) : '',
           [y ? y + ' J' : '', rc ? rc + ' R' : ''].filter(Boolean).join(' '), r ? Ratings.fr(r.v) + '/10' : ''], mn: +mn || 0 }; })
-        .sort((a, b) => b.mn - a.mn || (+a.p.number || 99) - (+b.p.number || 99));
+        .sort((a, b) => b.mn - a.mn || (+Store.numOf(a.p, m) || 99) - (+Store.numOf(b.p, m) || 99));
       P.label(`Les joueurs (${rows.length})`);
       P.table(['N°', 'Joueur', 'Min.', Sport.W().Units, 'Passes', 'Cartons', 'Note'], rows.map(x => x.row), [.07, .37, .1, .1, .11, .12, .13]);
     }
