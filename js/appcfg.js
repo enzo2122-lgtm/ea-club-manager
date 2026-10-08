@@ -72,3 +72,45 @@ window.ScreenDiag = function () {
   const blue = document.createElement('div'); blue.className = 'scr-mark'; blue.style.cssText = 'position:fixed;left:0;width:40%;top:0;height:100lvh;border-right:6px solid #3b82f6;z-index:99997;pointer-events:none';
   document.body.append(box, red, green, blue);
 };
+
+/* (2.45) iPhone, app installed (iOS 18): the page is given the screen minus the status bar (innerHeight 894 on a 956 screen) while it
+   is drawn from the top: the bars fixed at the bottom are cut at 894, and the last 62 px show the page under them (the « white band »).
+   What is in the page itself is drawn there (not what is fixed): a strip of the colour of the bottom bar, glued to the bottom of the
+   screen (« sticky », in the page), carries the bar down to the edge. Measured on the phone: nothing changes where there is no gap. */
+(function iosFill() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const ios = /iP(hone|od|ad)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (!(ios && standalone) && !window.__iosFillTest) return;
+  const st = document.createElement('style'); st.id = 'iosFillCss';
+  st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
+    + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:19;pointer-events:none;background:var(--iosfill,#0e1d45)}'
+    + '@media (max-width:760px){html.ios-gap body:not(.nav-top):not(.editing) .rail{padding-bottom:4px}}html.ios-gap body:not(.tabs-top) .tabbar{padding-bottom:6px}';
+  const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+  const probe = css => { const d = document.createElement('div'); d.style.cssText = 'position:absolute;left:0;top:0;width:1px;visibility:hidden;pointer-events:none;' + css; document.documentElement.appendChild(d); const h = d.offsetHeight; d.remove(); return h; };
+  let fill = null, last = -1;
+  const color = () => {
+    if (!fill) return;
+    const bar = [...document.querySelectorAll('.rail, .tabbar')].find(b => { const r = b.getBoundingClientRect(); return r.height && r.bottom >= innerHeight - 2 && getComputedStyle(b).display !== 'none'; });
+    const c = bar ? getComputedStyle(bar).backgroundColor : getComputedStyle(document.body).backgroundColor;
+    document.documentElement.style.setProperty('--iosfill', c && c !== 'rgba(0, 0, 0, 0)' ? c : '#0e1d45');
+  };
+  const measure = () => {
+    if (!document.body) return;
+    if (!document.head.contains(st)) document.head.appendChild(st);
+    if (!fill) { fill = document.createElement('div'); fill.id = 'iosFill'; fill.setAttribute('aria-hidden', 'true'); }
+    if (document.body.lastElementChild !== fill) document.body.appendChild(fill);
+    if (!typing() && innerHeight > innerWidth) {
+      const g = window.__iosFillTest || Math.round(probe('height:100lvh') - innerHeight), v = g > 0 && g <= 120 ? g : 0;
+      if (v !== last) { last = v; document.documentElement.style.setProperty('--iosgap', v + 'px'); document.documentElement.classList.toggle('ios-gap', v > 0); }
+    }
+    color();
+  };
+  let t = 0; const soon = d => { clearTimeout(t); t = setTimeout(measure, d == null ? 200 : d); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => soon(0)); else soon(0);
+  ['resize', 'orientationchange', 'pageshow', 'hashchange', 'focusout'].forEach(e => window.addEventListener(e, () => soon()));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) soon(); });
+  // the bar can go (editing a schema, typing in the chat) or change: the strip follows its colour; something added after it: it goes back last
+  const watch = () => { if (!document.body) return setTimeout(watch, 50); new MutationObserver(() => soon(60)).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true }); };
+  watch();
+})();

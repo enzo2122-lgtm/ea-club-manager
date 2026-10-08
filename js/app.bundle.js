@@ -75,6 +75,48 @@ window.ScreenDiag = function () {
   document.body.append(box, red, green, blue);
 };
 
+/* (2.45) iPhone, app installed (iOS 18): the page is given the screen minus the status bar (innerHeight 894 on a 956 screen) while it
+   is drawn from the top: the bars fixed at the bottom are cut at 894, and the last 62 px show the page under them (the « white band »).
+   What is in the page itself is drawn there (not what is fixed): a strip of the colour of the bottom bar, glued to the bottom of the
+   screen (« sticky », in the page), carries the bar down to the edge. Measured on the phone: nothing changes where there is no gap. */
+(function iosFill() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const ios = /iP(hone|od|ad)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (!(ios && standalone) && !window.__iosFillTest) return;
+  const st = document.createElement('style'); st.id = 'iosFillCss';
+  st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
+    + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:19;pointer-events:none;background:var(--iosfill,#0e1d45)}'
+    + '@media (max-width:760px){html.ios-gap body:not(.nav-top):not(.editing) .rail{padding-bottom:4px}}html.ios-gap body:not(.tabs-top) .tabbar{padding-bottom:6px}';
+  const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+  const probe = css => { const d = document.createElement('div'); d.style.cssText = 'position:absolute;left:0;top:0;width:1px;visibility:hidden;pointer-events:none;' + css; document.documentElement.appendChild(d); const h = d.offsetHeight; d.remove(); return h; };
+  let fill = null, last = -1;
+  const color = () => {
+    if (!fill) return;
+    const bar = [...document.querySelectorAll('.rail, .tabbar')].find(b => { const r = b.getBoundingClientRect(); return r.height && r.bottom >= innerHeight - 2 && getComputedStyle(b).display !== 'none'; });
+    const c = bar ? getComputedStyle(bar).backgroundColor : getComputedStyle(document.body).backgroundColor;
+    document.documentElement.style.setProperty('--iosfill', c && c !== 'rgba(0, 0, 0, 0)' ? c : '#0e1d45');
+  };
+  const measure = () => {
+    if (!document.body) return;
+    if (!document.head.contains(st)) document.head.appendChild(st);
+    if (!fill) { fill = document.createElement('div'); fill.id = 'iosFill'; fill.setAttribute('aria-hidden', 'true'); }
+    if (document.body.lastElementChild !== fill) document.body.appendChild(fill);
+    if (!typing() && innerHeight > innerWidth) {
+      const g = window.__iosFillTest || Math.round(probe('height:100lvh') - innerHeight), v = g > 0 && g <= 120 ? g : 0;
+      if (v !== last) { last = v; document.documentElement.style.setProperty('--iosgap', v + 'px'); document.documentElement.classList.toggle('ios-gap', v > 0); }
+    }
+    color();
+  };
+  let t = 0; const soon = d => { clearTimeout(t); t = setTimeout(measure, d == null ? 200 : d); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => soon(0)); else soon(0);
+  ['resize', 'orientationchange', 'pageshow', 'hashchange', 'focusout'].forEach(e => window.addEventListener(e, () => soon()));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) soon(); });
+  // the bar can go (editing a schema, typing in the chat) or change: the strip follows its colour; something added after it: it goes back last
+  const watch = () => { if (!document.body) return setTimeout(watch, 50); new MutationObserver(() => soon(60)).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true }); };
+  watch();
+})();
+
 ;
 /* ===== sport.js ===== */
 /* Sport: what changes from one sport to another. The club chooses its sport when it is created (club.sport);
@@ -3617,7 +3659,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.44';
+  const VERSION = '2.45';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15578,6 +15620,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 101, date: '2026-10-09', title: 'La barre du bas va jusqu\'au bord 📱', items: [
+      ['📱', 'Sur iPhone (appli installée), iOS coupait le bas de l\'écran à la hauteur de la barre d\'état : une bande claire restait sous les onglets. Mesuré sur un iPhone : la barre descend maintenant jusqu\'au bord.'],
+    ] },
     { n: 100, date: '2026-10-09', title: 'Compo, capitaine, suspensions, mutés et retards ©️', items: [
       ['♻️', 'Compo : « Reprendre la compo du … » refait celle du dernier match, sans les blessés, les suspendus et les non-convoqués (leurs postes restent à remplir).'],
       ['©️', 'Capitaine et vice-capitaine du match (onglet Compo). Le (C) s\'écrit sur la feuille de match.'],
@@ -19637,7 +19682,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 145, UPD = AppCfg.key('update-tried');
+  const BUILD = 146, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

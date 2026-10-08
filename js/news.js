@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 101, date: '2026-10-09', title: 'La barre du bas va jusqu\'au bord 📱', items: [
+      ['📱', 'Sur iPhone (appli installée), iOS coupait le bas de l\'écran à la hauteur de la barre d\'état : une bande claire restait sous les onglets. Mesuré sur un iPhone : la barre descend maintenant jusqu\'au bord.'],
+    ] },
     { n: 100, date: '2026-10-09', title: 'Compo, capitaine, suspensions, mutés et retards ©️', items: [
       ['♻️', 'Compo : « Reprendre la compo du … » refait celle du dernier match, sans les blessés, les suspendus et les non-convoqués (leurs postes restent à remplir).'],
       ['©️', 'Capitaine et vice-capitaine du match (onglet Compo). Le (C) s\'écrit sur la feuille de match.'],
