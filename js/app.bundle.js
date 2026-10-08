@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.21';
+  const VERSION = '2.22';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13796,6 +13796,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 78, date: '2026-10-08', title: 'La page confidentialité a rattrapé l\'appli 🔒', items: [
+      ['🔒', "Page confidentialité complétée : profil et blessures signalés par les joueurs, messages au coach, highlights et vidéos (YouTube sans cookie, option Gemini avec accord des familles), jeu des pronos, anniversaires, imports AssistCoachAI / Footclubs, durées de conservation."],
+    ] },
     { n: 77, date: '2026-10-08', title: 'Les notes des coachs d\'AssistCoachAI', items: [
       ['⭐', 'L\'import AssistCoachAI ramène les notes des coachs : le niveau de chaque joueur (technique, intelligence de jeu, physique, attitude, mental) va dans « Niveau des joueurs », ramené sur 5 quelle que soit l\'échelle d\'AssistCoachAI, avec le commentaire du coach.'],
       ['📝', 'Les notes d\'un joueur après un match ou un entraînement vont dans « Notes des dirigeants » sur sa fiche (sur 10), avec le commentaire. Elles sont marquées « AssistCoachAI ».'],
@@ -17570,7 +17573,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 122, UPD = AppCfg.key('update-tried');
+  const BUILD = 123, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

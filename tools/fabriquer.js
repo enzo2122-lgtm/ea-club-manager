@@ -24,7 +24,7 @@ if (!version || !build) fail('club/fabrication.json : « version » et « build 
 
 // 2. the code of Clubbo (the club keeps its config, icons, manifests, privacy page and notes)
 const read = p => fs.readFileSync(path.join(SRC, p), 'utf8').replace(/\r\n/g, '\n');
-const COPY = ['index.html', 'moi.html', 'joueurs.html', 'parents.html', 'app.css', 'famille.css', 'sw.js', 'build.js', 'tools/verifier.js', 'tools/serveur.js', 'tools/verif.html',
+const COPY = ['index.html', 'confidentialite.html', 'moi.html', 'joueurs.html', 'parents.html', 'app.css', 'famille.css', 'sw.js', 'build.js', 'tools/verifier.js', 'tools/serveur.js', 'tools/verif.html',
   ...fs.readdirSync(path.join(SRC, 'js')).filter(f => f.endsWith('.js') && f !== 'config.js' && f !== 'app.bundle.js').map(f => 'js/' + f)];
 const out = {};
 COPY.forEach(p => { out[p] = read(p); });

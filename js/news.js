@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 78, date: '2026-10-08', title: 'La page confidentialité a rattrapé l\'appli 🔒', items: [
+      ['🔒', "Page confidentialité complétée : profil et blessures signalés par les joueurs, messages au coach, highlights et vidéos (YouTube sans cookie, option Gemini avec accord des familles), jeu des pronos, anniversaires, imports AssistCoachAI / Footclubs, durées de conservation."],
+    ] },
     { n: 77, date: '2026-10-08', title: 'Les notes des coachs d\'AssistCoachAI', items: [
       ['⭐', 'L\'import AssistCoachAI ramène les notes des coachs : le niveau de chaque joueur (technique, intelligence de jeu, physique, attitude, mental) va dans « Niveau des joueurs », ramené sur 5 quelle que soit l\'échelle d\'AssistCoachAI, avec le commentaire du coach.'],
       ['📝', 'Les notes d\'un joueur après un match ou un entraînement vont dans « Notes des dirigeants » sur sa fiche (sur 10), avec le commentaire. Elles sont marquées « AssistCoachAI ».'],

@@ -51,9 +51,14 @@ small { color: var(--muted); }
 <tr><td><b>Éducateurs et dirigeants</b> : nom, prénom, rôle, catégories, téléphone et e-mail (s'ils les donnent), mot de passe (gardé seulement sous forme chiffrée).</td><td>Se connecter, organiser les équipes, joindre les coachs.</td></tr>
 <tr><td><b>Licenciés</b> : nom, prénom, date de naissance, numéro, poste, catégorie, contacts des parents.</td><td>Composer les équipes, convoquer, prévenir les familles.</td></tr>
 <tr><td><b>Vie sportive</b> : présences, convocations, réponses présent / absent et leur raison, temps de jeu, buts, évaluations, progression, tests physiques.</td><td>Préparer les séances et les matchs, équilibrer le temps de jeu, suivre la progression.</td></tr>
-<tr><td><b>Santé</b> (seulement si elle est renseignée) : blessures et indisponibilités, questionnaire de bien-être, effort ressenti.</td><td>Protéger la santé des joueurs (ne pas faire jouer un blessé, adapter l'entraînement). Le questionnaire est facultatif.</td></tr>
+<tr><td><b>Santé</b> (seulement si elle est renseignée) : blessures et indisponibilités (saisies par le coach, ou <b>signalées par le joueur ou ses parents</b> : zone du corps, type, durée estimée), questionnaire de bien-être, effort ressenti.</td><td>Protéger la santé des joueurs (ne pas faire jouer un blessé, adapter l'entraînement, prendre des nouvelles). Le questionnaire et le signalement sont facultatifs.</td></tr>
+<tr><td><b>Profil rempli par le joueur</b> (facultatif) : poids, taille, pied fort, points forts et points à travailler. L'indice de masse corporelle est calculé sur le téléphone, à titre indicatif.</td><td>Aider le coach à adapter l'entraînement. Le joueur peut l'effacer à tout moment depuis l'onglet « Moi ».</td></tr>
+<tr><td><b>Messages au coach</b> envoyés depuis l'espace joueur ou parents (question, idée pour l'appli, bug), et l'entraînement perso partagé.</td><td>Joindre ses coachs. Seuls les coachs de la catégorie les lisent.</td></tr>
 <tr><td><b>Administratif</b> (responsables seulement) : licence, certificat médical, cotisation, accord pour le droit à l'image.</td><td>Gérer les inscriptions du club.</td></tr>
-<tr><td><b>Photos et vidéos</b> de matchs et d'entraînements.</td><td>Analyse vidéo, souvenirs partagés avec les parents. Un joueur dont le droit à l'image est refusé est signalé au coach avant tout partage.</td></tr>
+<tr><td><b>Photos et vidéos</b> de matchs et d'entraînements, et les <b>highlights</b> (liens vers une vidéo mise en ligne par le coach sur YouTube, Google Drive, Dropbox, Vimeo…, avec un titre et la minute de l'action).</td><td>Analyse vidéo, souvenirs partagés avec les parents, revoir les temps forts dans l'appli. Un joueur dont le droit à l'image est refusé est signalé au coach avant tout partage. La vidéo elle-même est hébergée par le service choisi par le coach, avec ses propres règles.</td></tr>
+<tr><td><b>Jeu des pronostics</b> (facultatif) : club de cœur, pronostics sur des matchs professionnels, points et classement de la catégorie.</td><td>S'amuser entre joueurs et coachs. Les gages sont de petits défis d'entraînement, décidés par le coach.</td></tr>
+<tr><td><b>Anniversaire</b> : le jour même, la date de naissance est visible de la catégorie (page en fête, couronne dans le chat).</td><td>Fêter le joueur. Le responsable peut désactiver cette fête.</td></tr>
+<tr><td><b>Données importées</b> par le coach depuis AssistCoachAI ou Footclubs (le favori lit, avec la connexion du coach, les licences, matchs, réponses, tests physiques et notes).</td><td>Éviter la double saisie. Rien n'est renvoyé à ces services, et aucun mot de passe n'est gardé.</td></tr>
 <tr><td><b>Messages</b> de la messagerie des coachs.</td><td>Communiquer entre les éducateurs du club.</td></tr>
 <tr><td><b>Chat de la catégorie</b> : jusqu'aux U15, le <b>chat des parents</b> (parents et coachs) ; à partir des U16, le chat des joueurs (joueurs et coachs) : messages, photos, réactions, réponses aux sondages, signalements, avec le prénom et l'initiale de l'auteur.</td><td>Échanger au sein de la catégorie, s'organiser (covoiturage, horaires). Les signalements servent seulement à la modération par les coachs.</td></tr>
 <tr><td><b>Classements et badges</b> : nombre de buts, de passes, de matchs et de présences de la saison.</td><td>Motiver les joueurs. Pas de classement chez les U6 à U9. Chaque joueur peut choisir de ne pas apparaître dans les classements (onglet « Moi »).</td></tr>
@@ -91,6 +96,8 @@ small { color: var(--muted); }
 <li>Les <b>pages de l'appli</b> (le code, sans données personnelles) sont publiées par GitHub Pages.</li>
 <li>Les <b>notifications</b> passent par les services d'Apple ou de Google, mais ne contiennent aucune donnée : elles réveillent seulement le téléphone, qui va ensuite lire ses informations sur le serveur du club.</li>
 <li>La lecture d'une fiche d'exercice par intelligence artificielle (quand un coach importe une fiche) envoie seulement cette fiche à Anthropic pour la lire. Elle ne doit pas contenir de données personnelles.</li>
+<li>Les <b>highlights automatiques</b> se font sur l'appareil du coach : le son de la vidéo est analysé sur place, rien n'est envoyé. L'option <b>analyse par intelligence artificielle (Google Gemini)</b> est à part : le coach l'active lui-même, avec sa propre clé Google, et la vidéo du match est alors envoyée à Google pour être regardée. Avant de l'utiliser, le coach confirme que les familles des joueurs mineurs ont donné leur accord à la diffusion de leur image. Le club et l'appli ne voient ni la clé ni la vidéo.</li>
+<li>Les vidéos YouTube se lisent dans l'appli en mode « sans cookie » (youtube-nocookie.com) ; Google Drive, Dropbox, Vimeo et Dailymotion appliquent leurs propres règles quand une vidéo est lue.</li>
 </ul>
 
 <h2>Combien de temps</h2>
@@ -98,7 +105,8 @@ small { color: var(--muted); }
 <li>Les données d'un joueur ou d'un dirigeant sont gardées tant qu'il est au club. Elles sont supprimées au plus tard <b>un an après son départ</b>.</li>
 <li>Les photos partagées avec les parents et les <b>photos du chat</b> sont effacées après <b>90 jours</b>, les notifications après <b>30 jours</b>.</li>
 <li>Les <b>messages du chat</b> (avec leurs réactions, votes et signalements) sont effacés après <b>1 an</b>.</li>
-<li>Quand le club supprime un joueur ou un dirigeant, ses messages, photos, réactions et votes du chat sont effacés avec lui.</li>
+<li>Quand le club supprime un joueur ou un dirigeant, ses messages, photos, réactions et votes du chat sont effacés avec lui, ainsi que son profil, ses blessures, ses pronostics et ses messages au coach.</li>
+<li>Une blessure signalée reste visible du joueur <b>4 mois</b> après sa guérison, puis seulement dans l'historique de sa fiche côté coach.</li>
 <li>Les sauvegardes du serveur sont renouvelées régulièrement, et les plus anciennes sont effacées.</li>
 </ul>
 
@@ -113,6 +121,7 @@ small { color: var(--muted); }
 <li>Mots de passe jamais gardés en clair.</li>
 <li>Un compte par personne, et des droits selon le rôle (coach, responsable).</li>
 <li>Les codes personnels des joueurs ne montrent que leur propre espace.</li>
+<li>Ce qu'un joueur envoie est limité (10 messages et 5 blessures par jour) pour éviter les abus.</li>
 </ul>
 
 <h2>Mentions légales</h2>
