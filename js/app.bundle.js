@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.28';
+  const VERSION = '2.29';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -14053,6 +14053,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 85, date: '2026-10-08', title: "L'appli fait sa valise pour le Play Store 🧳", items: [
+      ['📲', "Espaces joueur et parents : la copie hors ligne se prépare dès l'ouverture de la page (plus seulement quand on active les notifications), ce que le Play Store vérifie."],
+    ] },
     { n: 84, date: '2026-10-08', title: "La commission de discipline passe à l'appli ⚖️", items: [
       ['⚖️', "Favori Footclubs : après les licences, il lit aussi les sanctions officielles du club (Compétitions → Dossiers). Avertissements et suspensions arrivent sur la fiche du joueur (« Discipline officielle ») ; une suspension le rend indisponible aux bonnes dates (convocations, Infirmerie)."],
     ] },
@@ -17875,7 +17878,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 129, UPD = AppCfg.key('update-tried');
+  const BUILD = 130, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

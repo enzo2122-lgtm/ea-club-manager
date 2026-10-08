@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 85, date: '2026-10-08', title: "L'appli fait sa valise pour le Play Store 🧳", items: [
+      ['📲', "Espaces joueur et parents : la copie hors ligne se prépare dès l'ouverture de la page (plus seulement quand on active les notifications), ce que le Play Store vérifie."],
+    ] },
     { n: 84, date: '2026-10-08', title: "La commission de discipline passe à l'appli ⚖️", items: [
       ['⚖️', "Favori Footclubs : après les licences, il lit aussi les sanctions officielles du club (Compétitions → Dossiers). Avertissements et suspensions arrivent sur la fiche du joueur (« Discipline officielle ») ; une suspension le rend indisponible aux bonnes dates (convocations, Infirmerie)."],
     ] },

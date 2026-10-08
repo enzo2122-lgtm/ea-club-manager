@@ -617,5 +617,7 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
+  // (2.29) the service worker is registered as soon as the page opens (offline copy, and what the stores check), not only with the notifications
+  if (location.protocol !== 'file:' && 'serviceWorker' in navigator && !PREVIEW) navigator.serviceWorker.register('sw.js').catch(() => {});
   return { bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest, family };
 })();
