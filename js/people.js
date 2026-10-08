@@ -71,7 +71,7 @@ const People = (() => {
     const ab = groups ? `<span class="ab" role="group" aria-label="Groupe de ${esc(name(p))}">${groups.subs.map(g => `<button type="button" class="ab-b ${(p.teamIds || []).includes(g.id) ? 'on' : ''}" data-ab="${g.id}" data-p="${p.id}" aria-label="Mettre ${esc(name(p))} en ${esc(g.name)}">${esc(g.name.trim().slice(-1))}</button>`).join('')}</span>` : '';
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
-        <span class="pnum">${esc(p.number || '')}</span>
+        ${p.photo ? PCard.photo(p, 'pc-row') : `<span class="pnum">${esc(p.number || '')}</span>`}
         <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
@@ -635,6 +635,7 @@ const People = (() => {
     root.innerHTML = `<header class="page-head"><div><h1>${p.number ? `<span class="pnum big">${esc(p.number)}</span> ` : ''}${esc(name(p))}${p.birth && String(p.birth).slice(5, 10) === (d => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date()) ? ' <span title="C\'est son anniversaire aujourd\'hui">👑🎂</span>' : ''}</h1>
         <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute && !/^non/.test(p.mute) ? ({ mute: 'muté', mute_hp: 'muté hors période', contrat: 'sous contrat' }[p.mute] || String(p.mute).replace(/_/g, ' ')) : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
+      ${PCard.photoHtml(p)}
       ${p.trial ? `<div class="trial-banner">🧪 <b>À l'essai${p.trial.since ? ' depuis le ' + esc(UI.fmtDate(p.trial.since, { day: 'numeric', month: 'long' })) : ''}</b>
         <span class="muted small">${s.att.total ? `${s.att.n} entraînement${s.att.n > 1 ? 's' : ''}` : 'Pas encore d\'entraînement'}${s.played.length ? ` · ${s.played.length} match${s.played.length > 1 ? 's' : ''}` : ''}</span>
         <span class="acts"><button class="btn small primary" data-act="trialkeep">✅ Le garder dans l'effectif</button><button class="btn small" data-act="trialend">👋 Fin de l'essai</button></span></div>` : ''}
@@ -650,6 +651,7 @@ const People = (() => {
         ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
         ${Urgent.card(p)}
         ${Level.card(p)}
+        ${PCard.cards(p)}
         ${Progress.card(p)}
         ${Tips.card(p)}
         ${Tests.card(p)}
@@ -677,10 +679,12 @@ const People = (() => {
           : `<p class="muted small">Il quitte le club ? Archive-le : il sort de ses catégories et des listes, ses matchs et ses stats restent. Tu le retrouves dans Joueurs → « Anciens joueurs ».</p><button class="btn soft" data-act="arch">📦 Archiver (départ du club)</button>`}</section>
       </div>`;
     Progress.mount(root, p);
+    PCard.bindPhoto(root, p, () => playerPage(root, id));
     root.onclick = e => {
       if (Health.click(e, p, () => playerPage(root, id))) return;
       if (Level.click(e, p, () => playerPage(root, id))) return;
       if (Urgent.click(e, p, () => playerPage(root, id))) return;
+      if (e.target.closest('[data-pcact], [data-pcaff], [data-pctalk]')) { PCard.click(e, p, () => playerPage(root, id)); return; }
       if (Progress.click(e, p, () => playerPage(root, id))) return;
       if (Tips.click(e, p, () => playerPage(root, id))) return;
       const b = e.target.closest('button'); if (!b) return;

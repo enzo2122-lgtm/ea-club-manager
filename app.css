@@ -2253,3 +2253,21 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .td-list { display: flex; flex-direction: column; gap: 12px; }
 .td-box { padding: 12px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 8px; }
 .ro-note { padding: 12px 14px; border-radius: 14px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; margin-bottom: 12px; font-size: 14px; }
+/* (2.62) player: photo, growth, affinities, talks */
+.pc-ph { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.pc-photo { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--line); }
+.pc-photo.pc-row { width: 34px; height: 34px; box-shadow: none; flex: none; }
+.pc-ph0 { width: 72px; height: 72px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--line); font-weight: 800; font-size: 22px; color: var(--muted); }
+.pc-warn { padding: 10px 12px; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 14px; }
+.pc-curves { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.pc-curves span { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+.pc-curve { width: 100% !important; height: auto !important; display: block; }
+.pc-aff { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 0; }
+.pc-aff > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pc-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 10px; border-radius: 99px; background: #dcfce7; color: #14532d; font-weight: 700; font-size: 14px; }
+.pc-tag.no { background: #fee2e2; color: #7f1d1d; }
+.pc-tag button { border: 0; background: rgba(0,0,0,.08); border-radius: 50%; width: 22px; height: 22px; color: inherit; }
+.pc-talk { border-top: 1px solid var(--line); padding: 8px 0; }
+.pc-talk summary { cursor: pointer; }
+.pc-sh { color: #2563eb; font-weight: 700; }
+.pc-reply { padding: 8px 10px; border-radius: 10px; background: #eff6ff; }

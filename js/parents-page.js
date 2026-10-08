@@ -128,13 +128,16 @@
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Pour ${esc(kid())} : physique, technique ou tactique, seul ou à plusieurs. Ses footings (temps, distance) et l'envoi au coach.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
         { id: 'resultats', icon: '🏆', label: 'Résultats', html: `${Member.leaders(lead, kid())}${past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : ''}`, empty: 'Pas encore de résultat.' }, // (2.04) badges and rankings
         { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.97) the chat of the category, here too (under 16 the family opens this page)
-        { id: 'coachs', icon: '📞', label: 'Coachs', html: (data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '', empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
+        { id: 'coachs', icon: '📞', label: 'Coachs', html: '<div id="tkBox"></div>' + ((data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '<p class="tip">Les coachs de la catégorie ne sont pas encore indiqués.</p>') },
         { id: 'moi', icon: '👤', label: 'Moi', html: `<div id="urgBox"></div><h2>Réglages</h2>${Member.notifyCard('parents')}${Member.tabPosCard()}${Member.optoutCard(lead)}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil ») pour la retrouver. Le code de ton enfant est personnel : ne le donne à personne. Une question ? Écris au coach.</p>
           ${Member.privacy()}` },
       ])}
       <div id="phView" class="ph-view" hidden></div>`;
+    // (2.62) the individual talks the coach shared, and the player's answers
+    if (typeof Talks !== 'undefined' && $('#tkBox')) Talks.mount($('#tkBox'), { key: code, toast, who: kid(),
+      load: () => rpc('member_talks', { p_code: code, p_parent: true }), reply: (id, text) => rpc('member_talks', { p_code: code, p_action: 'reply', p_data: { id, text }, p_parent: true }) });
     // (2.51) after a session or a match: his effort, did he like it, his own mark (answered with him)
     if (typeof After !== 'undefined' && $('#afBox')) After.mount($('#afBox'), { key: code, toast, who: kid(),
       load: () => rpc('member_after', { p_code: code }), save: d => rpc('member_after', { p_code: code, p_action: 'save', p_data: d }) });
