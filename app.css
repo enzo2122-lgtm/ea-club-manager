@@ -2141,3 +2141,14 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .trial-banner .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .num-taken { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .num-taken b.dup { color: #b91c1c; }
+/* (2.44) captain, mutés, suspensions, late / absent */
+.mut-tag { display: inline-block; font-style: normal; font-size: 10px; font-weight: 800; background: #7c3aed; color: #fff; border-radius: 5px; padding: 1px 4px; margin-right: 4px; vertical-align: 1px; }
+.mut-count { padding: 8px 10px; border-radius: 10px; background: #f5f3ff; border: 1px solid #ddd6fe; }
+.mut-count.over { background: #fef2f2; border-color: #fecaca; }
+.susp-line { padding: 8px 10px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; }
+.capt-card { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chip.late { background: #fef3c7 !important; border-color: #f59e0b !important; color: #78350f !important; }
+.abs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; margin-top: 8px; }
+.abs-row { display: flex; align-items: center; gap: 8px; }
+.abs-row span { flex: 0 0 96px; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.abs-row input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 15px; }

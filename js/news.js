@@ -5,6 +5,13 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 100, date: '2026-10-09', title: 'Compo, capitaine, suspensions, mutés et retards ©️', items: [
+      ['♻️', 'Compo : « Reprendre la compo du … » refait celle du dernier match, sans les blessés, les suspendus et les non-convoqués (leurs postes restent à remplir).'],
+      ['©️', 'Capitaine et vice-capitaine du match (onglet Compo). Le (C) s\'écrit sur la feuille de match.'],
+      ['🟥', 'Après un carton rouge, le joueur porte 🟥 « suspendu ? » dans les convocations de toutes ses équipes, jusqu\'à ce qu\'il rejoue ou qu\'un coach touche « lever ».'],
+      ['🔁', 'Mutés : statut sur la fiche (muté, hors période, sous contrat), un « M » sur les convoqués et le compte sous la convocation (limite habituelle : 6 dont 2 hors période).'],
+      ['⏰', 'Appel : 1 toucher présent, 2 en retard, 3 absent. Les absents ont un motif privé, pour les coachs seulement.'],
+    ] },
     { n: 99, date: '2026-10-09', title: 'Joueur à l\'essai, renforts et numéros du match 👕', items: [
       ['🧪', 'Joueur à l\'essai : coche « À l\'essai » sur sa fiche. Il porte 🧪 partout ; sur sa page, « Le garder dans l\'effectif » ou « Fin de l\'essai » (il reste dans la base du club).'],
       ['🤝', 'Renfort : dans un match, « Ajouter un renfort d\'une autre catégorie ». Il est convoqué et reste dans sa catégorie ; « gérer » pour le retirer.'],
