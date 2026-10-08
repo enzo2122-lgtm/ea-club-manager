@@ -3555,7 +3555,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.30';
+  const VERSION = '2.31';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -10408,16 +10408,20 @@ var Exos = (() => {
       <p class="muted small">L'appli prend d'abord les exercices des coachs du club, puis ceux de la base. Tu pourras tout changer ensuite.</p>`;
     modal({ title: '✨ Générer une séance', noFocus: true, body: `<div id="genBody">${body()}</div>`,
       onOpen: r => { r.querySelector('#genBody').onclick = e => { const b = e.target.closest('[data-gth]'); if (!b) return; keep(r); g.theme = b.dataset.gth; r.querySelector('#genBody').innerHTML = body(); }; },
-      actions: [{ label: 'Annuler' }, { label: 'Générer', kind: 'primary', onClick: (c, r) => { keep(r); S().ui.exGen = { theme: g.theme, minutes: g.minutes }; Store.persistNow(); setTimeout(() => build(g), 60); } }] });
+      actions: [{ label: 'Annuler' }, { label: 'Générer', kind: 'primary', onClick: (c, r) => { keep(r); if (g.target && (Store.get('trainings', g.target) || {}).teamId !== g.teamId) delete g.target; S().ui.exGen = { theme: g.theme, minutes: g.minutes }; Store.persistNow(); setTimeout(() => build(g), 60); } }] });
     function keep(r) { g.teamId = $('#gTeam', r).value; g.minutes = +$('#gMin', r).value; g.date = $('#gDate', r).value || UI.today(); }
   }
   // (2.30) a session that changes every time: a draw among all the exercises of the theme (the club's and the library's, those with a written
   // schema a little more often), never those of the team's last sessions; then a preview where each exercise can be swapped before creating
   function build(g) {
-    const fmt = fmtOf(g.teamId), pool = all().filter(e => e.formats.includes(fmt) || e.formats.length === 0);
+    // a picture or PDF put in a séance (« Depuis un fichier ») is not an exercise to draw: a file name for title, no text
+    const junk = e => /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(e.title).trim()) || /\.(pdf|jpe?g|png|heic|webp)$/i.test(String(e.title).trim()) || /^(img|image|photo|scan|capture)[ _-]?\d/i.test(String(e.title).trim())
+      || (e.club && !String(e.org || '').trim() && !String(e.consignes || '').trim());
+    const fmt = fmtOf(g.teamId), pool = all().filter(e => (e.formats.includes(fmt) || e.formats.length === 0) && !junk(e));
     const since = new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10);
     const recent = new Set(S().trainings.filter(t => t.teamId === g.teamId && (t.date || '') >= since).flatMap(t => (t.exercises || []).map(e => norm(e.title))));
-    const weight = e => (e.club ? 1.5 : 1) * (e.script || e.schemaId ? 1.6 : 1) * (recent.has(norm(e.title)) ? .12 : 1);
+    const shown = new Set((S().ui.genShown || []).map(norm));
+    const weight = e => (e.club ? 1.1 : 1) * (e.script || e.schemaId ? 2 : 1) * (recent.has(norm(e.title)) ? .1 : 1) * (shown.has(norm(e.title)) ? .35 : 1);
     const pick = (theme, used, n = 1) => {
       const c = pool.filter(e => themeOf(e).includes(theme) && !used.has(norm(e.title))).map(e => [e, Math.random() * weight(e)]).sort((x, y) => y[1] - x[1]).map(x => x[0]);
       const out = c.slice(0, n); out.forEach(e => used.add(norm(e.title))); return out;
@@ -10439,12 +10443,24 @@ var Exos = (() => {
       return { plan, used };
     };
     let cur = make();
+    const remember = () => { S().ui.genShown = [...cur.plan.map(p => p.e.title), ...(S().ui.genShown || [])].slice(0, 40); Store.persistNow(); };
+    remember();
     const thLabel = (TH().find(t => t[0] === g.theme) || ['', g.theme])[1].replace(/^\S+\s/, '');
     const row = (p, i) => { const sc = p.e.schemaId && Store.get('schemas', p.e.schemaId);
       return `<div class="gen-row"><button type="button" class="gen-thumb" data-genbig="${i}" title="Voir le schéma en grand"><img alt="" src="${UI.thumb(sc || AutoSchema.preview(p.e), 180, 117)}"></button>
         <div class="gen-txt"><span class="muted small">${esc(p.ph)} · ${p.d} min${p.e.club ? ' · 📚 club' : ''}</span><b>${esc(p.e.title)}</b><span class="small">${esc(String(p.e.org || '').slice(0, 110))}${String(p.e.org || '').length > 110 ? '…' : ''}</span></div>
         <button type="button" class="btn small" data-genswap="${i}" title="Un autre exercice">🔄</button></div>`; };
-    const body = () => `<p class="muted small">Touche 🔄 pour changer un exercice, ou 🎲 pour tout retirer au sort. Touche un schéma pour l'agrandir ; il s'anime une fois la séance créée.</p>
+    // the trainings already planned for this team (from today, 6 weeks), the one asked first, then the next without exercises
+    const planned = S().trainings.filter(t => t.teamId === g.teamId && !t.model && (t.date || '') >= UI.today() && (t.date || '') <= new Date(Date.now() + 42 * 864e5).toISOString().slice(0, 10))
+      .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).slice(0, 12);
+    const defDest = g.target && Store.get('trainings', g.target) ? g.target : ((planned.find(t => !(t.exercises || []).length) || {}).id || 'new');
+    const trLabel = t => `${UI.fmtDate(t.date, { weekday: 'short', day: 'numeric', month: 'short' })}${t.time ? ' · ' + t.time : ''} · ${(t.exercises || []).length ? (t.exercises || []).length + ' exercice(s) déjà prévu(s)' : 'vide'}`;
+    const dest = r => { const sel = r && r.querySelector('#genDest'), how = r && r.querySelector('#genHow'); return { to: sel ? sel.value : defDest, how: how ? how.value : 'add' }; };
+    const destHtml = d => { const t = d.to !== 'new' && Store.get('trainings', d.to);
+      return `<div class="gen-dest"><label class="fld"><span>📅 Mettre la séance dans</span><select id="genDest"><option value="new" ${d.to === 'new' ? 'selected' : ''}>Un nouvel entraînement (${esc(UI.fmtDate(g.date, { weekday: 'short', day: 'numeric', month: 'short' }))})</option>
+        ${[...planned, ...(t && !planned.includes(t) ? [t] : [])].map(x => `<option value="${x.id}" ${x.id === d.to ? 'selected' : ''}>L'entraînement du ${esc(trLabel(x))}</option>`).join('')}</select></label>
+        ${t && (t.exercises || []).length ? `<label class="fld"><span>Ses ${(t.exercises || []).length} exercice(s) déjà prévu(s)</span><select id="genHow"><option value="add" ${d.how !== 'replace' ? 'selected' : ''}>Les garder, ajouter la séance à la suite</option><option value="replace" ${d.how === 'replace' ? 'selected' : ''}>Les remplacer par la séance générée</option></select></label>` : ''}</div>`; };
+    const body = (d = { to: defDest, how: 'add' }) => `${destHtml(d)}<p class="muted small">Touche 🔄 pour changer un exercice, ou 🎲 pour tout retirer au sort. Touche un schéma pour l'agrandir ; il s'anime une fois la séance créée.</p>
       <style>.gen-row{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line,#e3e5ea)}.gen-thumb{border:0;padding:0;background:none;cursor:pointer;flex:none}.gen-thumb img{width:120px;border-radius:8px;display:block}.gen-row:has(.gen-thumb.on){flex-wrap:wrap}.gen-thumb.on{flex-basis:100%}.gen-thumb.on img{width:100%}.gen-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.gen-txt b{font-size:15px}@media(max-width:480px){.gen-thumb img{width:88px}}</style>
       ${cur.plan.map(row).join('')}<p class="muted small">Total : ${cur.plan.reduce((x, p) => x + p.d, 0)} min</p>`;
     modal({ title: `✨ ${thLabel} · ${g.minutes} min`, noFocus: true, body: `<div id="genPrev">${body()}</div>`,
@@ -10452,14 +10468,25 @@ var Exos = (() => {
         const big = ev.target.closest('[data-genbig]'); if (big) { const p = cur.plan[+big.dataset.genbig], img = big.querySelector('img'), on = big.classList.toggle('on'); img.src = UI.thumb((p.e.schemaId && Store.get('schemas', p.e.schemaId)) || AutoSchema.preview(p.e), on ? 640 : 180, on ? 416 : 117); return; }
         const sw = ev.target.closest('[data-genswap]'); if (!sw) return; const p = cur.plan[+sw.dataset.genswap];
         const alt = pick(p.th, cur.used)[0] || (cur.used.clear(), cur.plan.forEach(x => cur.used.add(norm(x.e.title))), pick(p.th, cur.used)[0]);
-        if (!alt) return toast('Pas d\'autre exercice pour ce thème dans cette catégorie'); p.e = alt; r.querySelector('#genPrev').innerHTML = body(); }; },
-      actions: [{ label: '🎲 Tout changer', onClick: (c, r) => { cur = make(); r.querySelector('#genPrev').innerHTML = body(); return false; } },
-        { label: 'Créer la séance', kind: 'primary', onClick: () => { setTimeout(create, 60); } }] });
-    function create() {
-      const plan = cur.plan, nCore = plan.filter(p => /^Exercice/.test(p.ph)).length;
-      const tr = Store.upsert('trainings', { id: Store.uid(), title: thLabel, date: g.date, time: '', teamId: g.teamId, goal: `Thème : ${thLabel}. Séance générée : échauffement, ${nCore} exercice${nCore > 1 ? 's' : ''} du thème, jeu à thème, retour au calme.`,
-        exercises: plan.map(p => Object.assign(copyEx(p.e), { duration: p.d })), presents: [] });
-      toast(`Séance « ${thLabel} » créée : ${plan.length} exercices, ${plan.reduce((x, p) => x + p.d, 0)} min`);
+        if (!alt) return toast('Pas d\'autre exercice pour ce thème dans cette catégorie'); p.e = alt; const d = dest(r); r.querySelector('#genPrev').innerHTML = body(d); }; r.querySelector('#genPrev').onchange = ev => { if (ev.target.id === 'genDest') r.querySelector('#genPrev').innerHTML = body(dest(r)); }; },
+      actions: [{ label: '🎲 Tout changer', onClick: (c, r) => { const keepDest = dest(r); cur = make(); remember(); r.querySelector('#genPrev').innerHTML = body(keepDest); return false; } },
+        { label: 'Valider la séance', kind: 'primary', onClick: (c, r) => { const d = dest(r); setTimeout(() => create(d), 60); } }] });
+    function create(d) {
+      const plan = cur.plan, nCore = plan.filter(p => /^Exercice/.test(p.ph)).length, exs = plan.map(p => Object.assign(copyEx(p.e), { duration: p.d }));
+      const goal = `Thème : ${thLabel}. Séance générée : échauffement, ${nCore} exercice${nCore > 1 ? 's' : ''} du thème, jeu à thème, retour au calme.`, min = plan.reduce((x, p) => x + p.d, 0);
+      const t = d && d.to !== 'new' && Store.get('trainings', d.to);
+      if (t) {
+        // (2.31) into the training already planned: its date, time, place and attendance stay; the exercises are added (or replace)
+        const keep = d.how === 'replace' ? [] : (t.exercises || []);
+        t.exercises = [...keep, ...exs];
+        if (!t.title || /^entra[iî]nement$/i.test(t.title)) t.title = thLabel;
+        if (!String(t.goal || '').includes(goal)) t.goal = [d.how === 'replace' ? '' : t.goal, goal].filter(Boolean).join('\n');
+        Store.upsert('trainings', t);
+        toast(`Séance « ${thLabel} » mise dans l'entraînement du ${UI.fmtDate(t.date, { weekday: 'long', day: 'numeric', month: 'long' })} : ${exs.length} exercices, ${min} min`);
+        location.hash = '#/entrainement/' + t.id; return;
+      }
+      const tr = Store.upsert('trainings', { id: Store.uid(), title: thLabel, date: g.date, time: '', teamId: g.teamId, goal, exercises: exs, presents: [] });
+      toast(`Séance « ${thLabel} » créée : ${exs.length} exercices, ${min} min`);
       location.hash = '#/entrainement/' + tr.id;
     }
   }
@@ -15333,6 +15360,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 87, date: '2026-10-08', title: 'La séance générée va dans ton entraînement 📅', items: [
+      ['📅', 'Dans l\'aperçu de la séance générée, choisis « Mettre la séance dans » : un nouvel entraînement, ou un entraînement déjà prévu au planning (le prochain vide est proposé). Sa date, son heure, son lieu et l\'appel restent.'],
+      ['✨', 'Sur la page d\'un entraînement, nouveau bouton « Générer la séance » : la séance générée arrive directement dedans. S\'il y a déjà des exercices, tu choisis de les garder ou de les remplacer.'],
+      ['🧹', 'Corrigé : une photo ou un PDF ajouté à une séance (« Depuis un fichier ») n\'est plus proposé comme exercice par le générateur.'],
+      ['🎲', 'Le tirage est plus juste : les exercices déjà proposés récemment reviennent moins, ceux qui ont un schéma dessiné passent devant.'],
+    ] },
     { n: 86, date: '2026-10-08', title: 'Des séances générées plus variées et des schémas complets ✨', items: [
       ['🎲', '« Générer une séance » tire maintenant au sort parmi tous les exercices du thème, et évite ceux des 4 dernières semaines de l\'équipe : deux séances de suite ne se ressemblent plus.'],
       ['🔄', 'Avant de créer la séance, un aperçu : touche 🔄 pour changer un exercice, ou 🎲 pour tout retirer au sort. Touche un schéma pour l\'agrandir.'],
@@ -18290,7 +18323,7 @@ var Views = (() => {
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
         <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
-        <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
+        <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(tr.teamId, tr.staffIds)}</div>
         ${tm ? `<div class="row-head"><h2 class="section" id="presH">Présents (${(tr.presents || []).length}/${squad(tm.id).length})</h2>
           <div class="chips"><button class="btn soft" data-allpres="1">${I.check}<span>Tous présents</span></button><button class="btn soft" data-allpres="0">${I.x}<span>Personne</span></button></div></div>
@@ -18383,6 +18416,7 @@ var Views = (() => {
       if (b.hasAttribute('data-draw')) return newSchema({ name: ex.title, teamId: tr.teamId, onCreate: s => { ex.schemaId = s.id; save(); } });
       if (b.hasAttribute('data-pick')) return pickSchema(s => { ex.schemaId = s.id; save(); render(); });
       switch (b.dataset.act) {
+        case 'exGen': return Exos.generator({ teamId: tr.teamId, date: tr.date, target: tr.id }); // (2.31) the generated session goes into this training
         case 'exClub': return Exos.pick(tr.teamId, ex => { tr.exercises.push(ex); save(); render(); toast('Exercice ajouté à la séance'); });
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
@@ -19164,7 +19198,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 131, UPD = AppCfg.key('update-tried');
+  const BUILD = 132, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
