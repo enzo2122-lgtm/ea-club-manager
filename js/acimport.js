@@ -100,23 +100,33 @@ const ACImport = (() => {
   // on the player: { vma: 15.5 }, { VMA: '15,5' }, { vma_kmh }, { vti }, { tests: { vma, vti } }, { physique: { … } }, { vma_date: … }
   function testsOnPlayer(a) {
     const out = [], seen = new Set();
-    const scan = (o, depth) => { if (!o || typeof o !== 'object' || depth > 2) return;
+    const scan = (o, depth) => { if (!o || typeof o !== 'object' || depth > 3) return;
       Object.entries(o).forEach(([k, v]) => { const t = TEST_OF(k);
         if (t && !/date|_at$|^at$/i.test(k)) { const val = valueFor(t, v && typeof v === 'object' ? (v.value != null ? v.value : v.result != null ? v.result : v.kmh) : v);
           if (val != null && !seen.has(t + val)) { seen.add(t + val); const dk = Object.keys(o).find(x => TEST_OF(x.replace(/_?(date|at|le|on)$/i, '')) === t && /date|_at$|_on$/i.test(x));
             out.push({ test: t, value: val, date: day(dk && o[dk]) || (v && typeof v === 'object' ? dateOf(v) : '') || day(a.updated_at) || UI.today() }); } }
-        else if (v && typeof v === 'object' && !Array.isArray(v)) scan(v, depth + 1); }); };
+        else if (Array.isArray(v)) v.forEach(r => { const t2 = r && typeof r === 'object' ? rowTest(r, testsOnPlayer.unk) : null; if (t2 && !seen.has(t2.test + t2.value + t2.date)) { seen.add(t2.test + t2.value + t2.date); out.push(Object.assign(t2, { date: t2.date || day(a.updated_at) || UI.today() })); } else if (r && typeof r === 'object' && depth < 3) scan(r, depth + 1); });
+        else if (v && typeof v === 'object') scan(v, depth + 1); }); };
     scan(a, 0); return out;
+  }
+  // (2.19) one result row: { type / test / name…: 'VMA', value / result / score…: 15.5, date } (or { vma: 15.5 } on the row)
+  const nameOf = r => String(r.type || r.test || r.kind || r.test_type || r.testType || r.test_name || r.testName || r.name || r.protocol || r.label || r.exercise || r.metric || r.titre || r.nom || '');
+  const rawOf = r => [r.value, r.result, r.score, r.valeur, r.resultat, r.kmh, r.speed, r.vitesse, r.time, r.temps, r.distance, r.measure, r.mesure].find(x => x != null && x !== '');
+  function rowTest(r, unknown) {
+    const nm = nameOf(r), kind = TEST_OF(nm), raw = rawOf(r);
+    if (kind) { const v = valueFor(kind, raw); if (v != null) return { test: kind, value: v, date: dateOf(r) }; if (unknown && raw != null) unknown.add(nm + ' (valeur ' + raw + ')'); return null; }
+    if (unknown && nm && raw != null && typeof raw !== 'object') unknown.add(nm);
+    return null;
   }
   // a tests page of AssistCoachAI: any list of rows with a player, a kind of test (or vma / vti columns) and a value
   function testsInPages(pages, pidOf, unknown = new Set()) {
-    const out = []; const rows = []; const walk = (x, d) => { if (d > 4 || !x) return; if (Array.isArray(x)) x.forEach(y => walk(y, d + 1)); else if (typeof x === 'object') { if (pidOf(x)) rows.push(x); else Object.values(x).forEach(y => walk(y, d + 1)); } };
-    Object.values(pages || {}).forEach(pg => walk(pg, 0));
+    // a page by test ({ test: 'VMA', date, results: [{ player_id, value }] }): the rows take the name (and the date) of the test above them
+    const out = []; const rows = []; const walk = (x, d, up) => { if (d > 5 || !x) return; if (Array.isArray(x)) x.forEach(y => walk(y, d + 1, up));
+      else if (typeof x === 'object') { if (pidOf(x)) rows.push(up && !nameOf(x) ? Object.assign({ type: up.n }, up.d ? { date: up.d } : {}, x) : x);
+        else { const nm = nameOf(x); const ctx = nm && TEST_OF(nm) ? { n: nm, d: dateOf(x) } : up; Object.values(x).forEach(y => walk(y, d + 1, ctx)); } } };
+    Object.values(pages || {}).forEach(pg => walk(pg, 0, null));
     rows.forEach(r => { const who = pidOf(r); if (!who) return;
-      const nm = String(r.type || r.test || r.kind || r.test_type || r.name || r.protocol || r.label || ''), kind = TEST_OF(nm);
-      const raw = r.value != null ? r.value : r.result != null ? r.result : r.score != null ? r.score : r.kmh != null ? r.kmh : r.speed != null ? r.speed : r.time != null ? r.time : r.distance != null ? r.distance : r.vitesse;
-      if (kind) { const v = valueFor(kind, raw); if (v != null) out.push({ who, test: kind, value: v, date: dateOf(r) || UI.today() }); else unknown.add(nm + ' (valeur ' + raw + ')'); }
-      else if (nm && raw != null) unknown.add(nm);
+      const t1 = rowTest(r, unknown); if (t1) out.push(Object.assign({ who }, t1, { date: t1.date || UI.today() }));
       testsOnPlayer(r).forEach(t => out.push(Object.assign({ who }, t, { date: dateOf(r) || t.date }))); });
     return out;
   }
@@ -130,7 +140,7 @@ const ACImport = (() => {
   /* ---------- the import ---------- */
   function run(D) {
     addTests.by = {};
-    const st = { players: [0, 0], matches: [0, 0], trainings: [0, 0], injuries: 0, absences: 0, wellness: 0, rpe: 0, sessions: 0, champ: 0, merged: 0, moves: [], answers: [], tests: 0, testKeys: new Set(), testUnknown: new Set(), testBy: {} };
+    const st = { players: [0, 0], matches: [0, 0], trainings: [0, 0], injuries: 0, absences: 0, wellness: 0, rpe: 0, sessions: 0, champ: 0, merged: 0, moves: [], answers: [], tests: 0, testKeys: new Set(), testUnknown: new Set(), testBy: {}, tried: D.testsTried || [] }; testsOnPlayer.unk = st.testUnknown;
     const teams = S().teams, fam = k => teams.filter(t => norm(t.category || t.name).replace(/ /g, '') === k);
     // the category: Seniors (the file is a Seniors team: « FCLR – Senior D3/D4 »)
     const acTeam = (D.effectif.teams || [])[0] || {}, catName = /senior/i.test(`${acTeam.category} ${acTeam.name}`) ? 'seniors' : norm(acTeam.category).replace(/ /g, '');
@@ -337,7 +347,7 @@ const ACImport = (() => {
       <li>🏃 Entraînements : ${r.trainings[0]} ajouté${r.trainings[0] > 1 ? 's' : ''}, ${r.trainings[1]} complété${r.trainings[1] > 1 ? 's' : ''} · ${r.sessions} séance${r.sessions > 1 ? 's' : ''} détaillée${r.sessions > 1 ? 's' : ''} · ${r.rpe} efforts (RPE)</li>
       <li>🚑 ${r.injuries} blessure${r.injuries > 1 ? 's' : ''} · ✈️ ${r.absences} absence${r.absences > 1 ? 's' : ''} · 💚 ${r.wellness} questionnaires de bien-être</li>
       <li>🏆 ${r.champ} championnat${r.champ > 1 ? 's' : ''} (classement)</li>
-      <li>🏃 ${r.tests ? `${r.tests} résultat${r.tests > 1 ? 's' : ''} de tests physiques (${Object.entries(r.testBy).map(([k, n]) => `${esc(({ vma: 'VMA', vift: 'VTI / VIFT', yoyo: 'Yo-Yo', cooper: 'Cooper', sp10: 'sprint 10 m', sp20: 'sprint 20 m', sp30: 'sprint 30 m', cmj: 'détente', sl: 'saut en longueur', illinois: 'Illinois', ttest: 'T-test', jongles: 'jongles', conduite: 'conduite' })[k] || k)} ${n}`).join(', ')}) : Joueurs → Tests` : `Aucun test physique trouvé dans AssistCoachAI${r.testKeys.size ? ` (champs vus : ${esc([...r.testKeys].slice(0, 8).join(', '))})` : ''}. S'il y en a, envoie une capture de cette fenêtre.`}</li>
+      <li>🏃 ${r.tests ? `${r.tests} résultat${r.tests > 1 ? 's' : ''} de tests physiques (${Object.entries(r.testBy).map(([k, n]) => `${esc(({ vma: 'VMA', vift: 'VTI / VIFT', yoyo: 'Yo-Yo', cooper: 'Cooper', sp10: 'sprint 10 m', sp20: 'sprint 20 m', sp30: 'sprint 30 m', cmj: 'détente', sl: 'saut en longueur', illinois: 'Illinois', ttest: 'T-test', jongles: 'jongles', conduite: 'conduite' })[k] || k)} ${n}`).join(', ')}) : Joueurs → Tests` : `Aucun test physique trouvé dans AssistCoachAI${r.testKeys.size ? ` (champs vus : ${esc([...r.testKeys].slice(0, 8).join(', '))})` : ''}. S'il y en a, ouvre la page des tests dans AssistCoachAI, touche le favori depuis cette page, puis envoie une capture de cette fenêtre.${r.tried.length ? ` <span class="muted small">(pages essayées : ${esc(r.tried.slice(0, 10).join(', '))})</span>` : ''}`}</li>
       ${r.testUnknown.size ? `<li class="muted">❔ Tests d'AssistCoachAI que l'appli ne connaît pas encore (non importés) : ${esc([...r.testUnknown].slice(0, 8).join(', '))}</li>` : ''}
       ${r.merged ? `<li>🤝 ${r.merged} match${r.merged > 1 ? 's' : ''} en double fusionné${r.merged > 1 ? 's' : ''} avec celui de la FFF</li>` : ''}
       <li>🗳️ ${sent.text}</li></ul>

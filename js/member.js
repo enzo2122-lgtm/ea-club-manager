@@ -93,6 +93,32 @@ const Member = (() => {
       <span class="btns">${l.filter(x => x.c !== c).map(x => `<button class="b small" data-usecode="${esc(x.c)}">${esc(x.first || x.name || pretty(x.c))}</button>`).join('')}
       ${PREVIEW ? (other ? `<a class="b small lnk" href="${other[0]}#c=${esc(c)}&preview=1">${other[1]}</a>` : '') : `<a class="b small lnk" href="moi.html#add=1">＋ ${kind === 'parents' ? 'Un autre enfant' : 'Un autre code'}</a>${other ? `<a class="b small lnk" href="${other[0]}">${other[1]}</a>` : ''}<button class="b small" data-forget="${esc(c)}">Se déconnecter</button>`}</span></div>`;
   }
+  /* ---------- (2.19) his birthday: a page dressed for the day (golden header, a crown, confetti once), on the player's and the parents' page ---------- */
+  const isBday = b => { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(String(b || '')); if (!m) return false; const n = new Date(), mm = n.getMonth() + 1, dd = n.getDate();
+    if (+m[1] === mm && +m[2] === dd) return true; const leap = new Date(n.getFullYear(), 1, 29).getMonth() === 1; return !leap && m[1] === '02' && m[2] === '29' && mm === 2 && dd === 28; };
+  const BD_CSS = `body.bday header.top{background:linear-gradient(135deg,#0e1d45 0%,#2a3d7a 45%,#c9a45c 100%)}body.bday header.top h1::after{content:' 👑'}
+    .bd-card{position:relative;overflow:hidden;text-align:center;padding:18px 16px 16px;margin:12px 0;border-radius:18px;border:2px solid #c9a45c;background:linear-gradient(160deg,#fff6d8,#f1d58a 60%,#c9a45c);color:#14172b;box-shadow:0 8px 24px rgba(201,164,92,.35)}
+    .bd-card .bd-crown{font-size:46px;line-height:1;display:block;animation:bdCrown 2.4s ease-in-out infinite}.bd-card h2{margin:6px 0 4px;font-size:21px;color:#14172b}.bd-card p{margin:4px 0;font-size:15.5px;line-height:1.4}
+    .bd-card .bd-k{display:inline-block;margin-top:8px;padding:5px 12px;border-radius:999px;background:#0e1d45;color:#f1d58a;font-weight:800;letter-spacing:.06em;font-size:13px}
+    .bd-fx{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}.bd-fx i{position:absolute;top:-40px;font-style:normal;font-size:24px;animation:bdFall linear forwards}
+    @keyframes bdFall{to{transform:translateY(110vh) rotate(540deg)}}@keyframes bdCrown{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) scale(1.08)}}
+    @media (prefers-reduced-motion:reduce){.bd-card .bd-crown{animation:none}.bd-fx{display:none}}`;
+  function confetti(key) {
+    if (confetti.done === key) return; confetti.done = key;
+    let seen = ''; try { seen = localStorage.getItem('raincy-bday') || ''; } catch (e) {} if (seen === key) return; try { localStorage.setItem('raincy-bday', key); } catch (e) {}
+    const fx = document.createElement('div'); fx.className = 'bd-fx'; const E = ['🎉', '🎂', '🎈', '👑', '✨', '🥳', '⚽'];
+    fx.innerHTML = Array.from({ length: 34 }, (_, i) => `<i style="left:${Math.round(Math.random() * 96)}%;animation-duration:${(2.8 + Math.random() * 2.6).toFixed(1)}s;animation-delay:${(Math.random() * 1.6).toFixed(1)}s">${E[i % E.length]}</i>`).join('');
+    document.body.appendChild(fx); setTimeout(() => fx.remove(), 7000);
+  }
+  function bday(d, kind) {
+    const me = (d && d.me) || {}, on = isBday(me.birth); document.body.classList.toggle('bday', on); if (!on) return '';
+    if (!document.getElementById('bdCss')) { const st = document.createElement('style'); st.id = 'bdCss'; st.textContent = BD_CSS; document.head.appendChild(st); }
+    const first = String(me.firstName || me.name || '').trim().split(/\s+/)[0] || '', a = age(me.birth), n = new Date();
+    setTimeout(() => confetti(`${read(CUR, '')}:${n.getFullYear()}-${n.getMonth() + 1}-${n.getDate()}`), 300);
+    return kind === 'parents'
+      ? `<div class="bd-card"><span class="bd-crown">👑</span><h2>Joyeux anniversaire ${esc(first)}&nbsp;! 🎂</h2><p><b>${esc(first)}</b>${a > 0 && a < 99 ? ` fête ses <b>${a} ans</b> aujourd'hui` : ' fête son anniversaire aujourd\'hui'}. Tout le club lui souhaite une magnifique journée 🥳</p><p class="muted small">Ses coachs et les parents de la catégorie le fêtent dans le chat.</p><span class="bd-k">KING OF THE DAY</span></div>`
+      : `<div class="bd-card"><span class="bd-crown">👑</span><h2>Joyeux anniversaire ${esc(first)}&nbsp;! 🎂</h2><p>${a > 0 && a < 99 ? `<b>${a} ans</b> aujourd'hui ! ` : ''}Tout le club te souhaite une super journée 🥳</p><p class="muted small">Tes coéquipiers et tes coachs te le souhaitent dans le chat 👑</p><span class="bd-k">KING OF THE DAY</span></div>`;
+  }
   function privacy() {
     return `<div class="card privacy"><p class="info">🔒 <a href="confidentialite.html">Confidentialité</a> : ta fiche, ta santé et tes contacts ne sont vus que par les coachs de ta catégorie et les responsables du club. Ce que tu écris ou envoies dans le chat est vu par ta catégorie (photos effacées après 90 jours, messages après 1 an).</p>
       <button class="b small" data-forgetme>🗑️ Supprimer mes données</button></div>`;
@@ -546,5 +572,5 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
-  return { badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest, family };
+  return { bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest, family };
 })();

@@ -220,7 +220,7 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.installCard('joueurs')}${wbCard(now)}${Injury.card()}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${wbCard(now)}${Injury.card()}${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
@@ -236,7 +236,7 @@
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
           ${Member.privacy()}` },
       ])}`;
-    if (typeof Chat !== 'undefined' && $('#chatBox')) Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
+    if (typeof Chat !== 'undefined' && $('#chatBox')) Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', king: Member.isBday((data.me || {}).birth), toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
       post: (c, b, r) => rpc('member_chat_post', Object.assign({ p_code: code, p_cat: c, p_body: b }, r ? { p_reply: r } : {})), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
       poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),

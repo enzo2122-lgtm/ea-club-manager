@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 75, date: '2026-10-08', title: 'Joyeux anniversaire ! 👑', items: [
+      ['🎂', 'Le jour de son anniversaire, la page du joueur se met en fête : en-tête doré, couronne, confettis et une carte « King of the day ». Côté parents aussi pour les U15 et en dessous.'],
+      ['👑', 'Dans le chat de sa catégorie, un message « King of the day » invite tout le groupe à lui souhaiter son anniversaire (bouton « 🎂 Lui souhaiter » en un geste), et une couronne s\'affiche devant son nom toute la journée.'],
+      ['📋', 'Coachs et responsables : une carte « Anniversaires » sur l\'accueil (ceux du jour et des 7 prochains jours), et une couronne sur la fiche du joueur.'],
+      ['🏃', 'Favori AssistCoachAI : il trouve maintenant tout seul la page des tests physiques. Astuce : ouvre la page des tests dans AssistCoachAI avant de toucher le favori.'],
+    ] },
     { n: 74, date: '2026-10-08', title: 'Les tests physiques d\'AssistCoachAI', items: [
       ['🏃', 'L\'import AssistCoachAI ramène les tests physiques de chaque joueur, avec leur date : VMA, VTI (VIFT du 30-15), sprints 10, 20 et 30 m, détente, saut en longueur, Illinois, T-test, Yo-Yo, Cooper, jongles et conduite. À voir dans Joueurs → Tests et sur la fiche du joueur. Un nouvel import ne fait pas de doublon.'],
       ['📏', 'Les unités sont remises d\'aplomb (un sprint en millisecondes, une détente en mètres…) et une valeur impossible est écartée. Un test qu\'AssistCoachAI a mais que l\'appli ne connaît pas est listé dans la fenêtre d\'import.'],

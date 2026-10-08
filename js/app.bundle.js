@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.18';
+  const VERSION = '2.19';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -5641,7 +5641,7 @@ var People = (() => {
     const am = Ratings.average(p.id, 'match'), at = Ratings.average(p.id, 'training');
     const tile = (v, l, cls = '') => `<div class="tile ${cls}"><b>${v}</b><span>${l}</span></div>`;
     const recentTr = s.att.list.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
-    root.innerHTML = `<header class="page-head"><div><h1>${p.number ? `<span class="pnum big">${esc(p.number)}</span> ` : ''}${esc(name(p))}</h1>
+    root.innerHTML = `<header class="page-head"><div><h1>${p.number ? `<span class="pnum big">${esc(p.number)}</span> ` : ''}${esc(name(p))}${p.birth && String(p.birth).slice(5, 10) === (d => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date()) ? ' <span title="C\'est son anniversaire aujourd\'hui">👑🎂</span>' : ''}</h1>
         <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute ? 'muté' : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
       ${UI.kindSeg()}
@@ -10808,23 +10808,33 @@ var ACImport = (() => {
   // on the player: { vma: 15.5 }, { VMA: '15,5' }, { vma_kmh }, { vti }, { tests: { vma, vti } }, { physique: { … } }, { vma_date: … }
   function testsOnPlayer(a) {
     const out = [], seen = new Set();
-    const scan = (o, depth) => { if (!o || typeof o !== 'object' || depth > 2) return;
+    const scan = (o, depth) => { if (!o || typeof o !== 'object' || depth > 3) return;
       Object.entries(o).forEach(([k, v]) => { const t = TEST_OF(k);
         if (t && !/date|_at$|^at$/i.test(k)) { const val = valueFor(t, v && typeof v === 'object' ? (v.value != null ? v.value : v.result != null ? v.result : v.kmh) : v);
           if (val != null && !seen.has(t + val)) { seen.add(t + val); const dk = Object.keys(o).find(x => TEST_OF(x.replace(/_?(date|at|le|on)$/i, '')) === t && /date|_at$|_on$/i.test(x));
             out.push({ test: t, value: val, date: day(dk && o[dk]) || (v && typeof v === 'object' ? dateOf(v) : '') || day(a.updated_at) || UI.today() }); } }
-        else if (v && typeof v === 'object' && !Array.isArray(v)) scan(v, depth + 1); }); };
+        else if (Array.isArray(v)) v.forEach(r => { const t2 = r && typeof r === 'object' ? rowTest(r, testsOnPlayer.unk) : null; if (t2 && !seen.has(t2.test + t2.value + t2.date)) { seen.add(t2.test + t2.value + t2.date); out.push(Object.assign(t2, { date: t2.date || day(a.updated_at) || UI.today() })); } else if (r && typeof r === 'object' && depth < 3) scan(r, depth + 1); });
+        else if (v && typeof v === 'object') scan(v, depth + 1); }); };
     scan(a, 0); return out;
+  }
+  // (2.19) one result row: { type / test / name…: 'VMA', value / result / score…: 15.5, date } (or { vma: 15.5 } on the row)
+  const nameOf = r => String(r.type || r.test || r.kind || r.test_type || r.testType || r.test_name || r.testName || r.name || r.protocol || r.label || r.exercise || r.metric || r.titre || r.nom || '');
+  const rawOf = r => [r.value, r.result, r.score, r.valeur, r.resultat, r.kmh, r.speed, r.vitesse, r.time, r.temps, r.distance, r.measure, r.mesure].find(x => x != null && x !== '');
+  function rowTest(r, unknown) {
+    const nm = nameOf(r), kind = TEST_OF(nm), raw = rawOf(r);
+    if (kind) { const v = valueFor(kind, raw); if (v != null) return { test: kind, value: v, date: dateOf(r) }; if (unknown && raw != null) unknown.add(nm + ' (valeur ' + raw + ')'); return null; }
+    if (unknown && nm && raw != null && typeof raw !== 'object') unknown.add(nm);
+    return null;
   }
   // a tests page of AssistCoachAI: any list of rows with a player, a kind of test (or vma / vti columns) and a value
   function testsInPages(pages, pidOf, unknown = new Set()) {
-    const out = []; const rows = []; const walk = (x, d) => { if (d > 4 || !x) return; if (Array.isArray(x)) x.forEach(y => walk(y, d + 1)); else if (typeof x === 'object') { if (pidOf(x)) rows.push(x); else Object.values(x).forEach(y => walk(y, d + 1)); } };
-    Object.values(pages || {}).forEach(pg => walk(pg, 0));
+    // a page by test ({ test: 'VMA', date, results: [{ player_id, value }] }): the rows take the name (and the date) of the test above them
+    const out = []; const rows = []; const walk = (x, d, up) => { if (d > 5 || !x) return; if (Array.isArray(x)) x.forEach(y => walk(y, d + 1, up));
+      else if (typeof x === 'object') { if (pidOf(x)) rows.push(up && !nameOf(x) ? Object.assign({ type: up.n }, up.d ? { date: up.d } : {}, x) : x);
+        else { const nm = nameOf(x); const ctx = nm && TEST_OF(nm) ? { n: nm, d: dateOf(x) } : up; Object.values(x).forEach(y => walk(y, d + 1, ctx)); } } };
+    Object.values(pages || {}).forEach(pg => walk(pg, 0, null));
     rows.forEach(r => { const who = pidOf(r); if (!who) return;
-      const nm = String(r.type || r.test || r.kind || r.test_type || r.name || r.protocol || r.label || ''), kind = TEST_OF(nm);
-      const raw = r.value != null ? r.value : r.result != null ? r.result : r.score != null ? r.score : r.kmh != null ? r.kmh : r.speed != null ? r.speed : r.time != null ? r.time : r.distance != null ? r.distance : r.vitesse;
-      if (kind) { const v = valueFor(kind, raw); if (v != null) out.push({ who, test: kind, value: v, date: dateOf(r) || UI.today() }); else unknown.add(nm + ' (valeur ' + raw + ')'); }
-      else if (nm && raw != null) unknown.add(nm);
+      const t1 = rowTest(r, unknown); if (t1) out.push(Object.assign({ who }, t1, { date: t1.date || UI.today() }));
       testsOnPlayer(r).forEach(t => out.push(Object.assign({ who }, t, { date: dateOf(r) || t.date }))); });
     return out;
   }
@@ -10838,7 +10848,7 @@ var ACImport = (() => {
   /* ---------- the import ---------- */
   function run(D) {
     addTests.by = {};
-    const st = { players: [0, 0], matches: [0, 0], trainings: [0, 0], injuries: 0, absences: 0, wellness: 0, rpe: 0, sessions: 0, champ: 0, merged: 0, moves: [], answers: [], tests: 0, testKeys: new Set(), testUnknown: new Set(), testBy: {} };
+    const st = { players: [0, 0], matches: [0, 0], trainings: [0, 0], injuries: 0, absences: 0, wellness: 0, rpe: 0, sessions: 0, champ: 0, merged: 0, moves: [], answers: [], tests: 0, testKeys: new Set(), testUnknown: new Set(), testBy: {}, tried: D.testsTried || [] }; testsOnPlayer.unk = st.testUnknown;
     const teams = S().teams, fam = k => teams.filter(t => norm(t.category || t.name).replace(/ /g, '') === k);
     // the category: Seniors (the file is a Seniors team: « FCLR – Senior D3/D4 »)
     const acTeam = (D.effectif.teams || [])[0] || {}, catName = /senior/i.test(`${acTeam.category} ${acTeam.name}`) ? 'seniors' : norm(acTeam.category).replace(/ /g, '');
@@ -11045,7 +11055,7 @@ var ACImport = (() => {
       <li>🏃 Entraînements : ${r.trainings[0]} ajouté${r.trainings[0] > 1 ? 's' : ''}, ${r.trainings[1]} complété${r.trainings[1] > 1 ? 's' : ''} · ${r.sessions} séance${r.sessions > 1 ? 's' : ''} détaillée${r.sessions > 1 ? 's' : ''} · ${r.rpe} efforts (RPE)</li>
       <li>🚑 ${r.injuries} blessure${r.injuries > 1 ? 's' : ''} · ✈️ ${r.absences} absence${r.absences > 1 ? 's' : ''} · 💚 ${r.wellness} questionnaires de bien-être</li>
       <li>🏆 ${r.champ} championnat${r.champ > 1 ? 's' : ''} (classement)</li>
-      <li>🏃 ${r.tests ? `${r.tests} résultat${r.tests > 1 ? 's' : ''} de tests physiques (${Object.entries(r.testBy).map(([k, n]) => `${esc(({ vma: 'VMA', vift: 'VTI / VIFT', yoyo: 'Yo-Yo', cooper: 'Cooper', sp10: 'sprint 10 m', sp20: 'sprint 20 m', sp30: 'sprint 30 m', cmj: 'détente', sl: 'saut en longueur', illinois: 'Illinois', ttest: 'T-test', jongles: 'jongles', conduite: 'conduite' })[k] || k)} ${n}`).join(', ')}) : Joueurs → Tests` : `Aucun test physique trouvé dans AssistCoachAI${r.testKeys.size ? ` (champs vus : ${esc([...r.testKeys].slice(0, 8).join(', '))})` : ''}. S'il y en a, envoie une capture de cette fenêtre.`}</li>
+      <li>🏃 ${r.tests ? `${r.tests} résultat${r.tests > 1 ? 's' : ''} de tests physiques (${Object.entries(r.testBy).map(([k, n]) => `${esc(({ vma: 'VMA', vift: 'VTI / VIFT', yoyo: 'Yo-Yo', cooper: 'Cooper', sp10: 'sprint 10 m', sp20: 'sprint 20 m', sp30: 'sprint 30 m', cmj: 'détente', sl: 'saut en longueur', illinois: 'Illinois', ttest: 'T-test', jongles: 'jongles', conduite: 'conduite' })[k] || k)} ${n}`).join(', ')}) : Joueurs → Tests` : `Aucun test physique trouvé dans AssistCoachAI${r.testKeys.size ? ` (champs vus : ${esc([...r.testKeys].slice(0, 8).join(', '))})` : ''}. S'il y en a, ouvre la page des tests dans AssistCoachAI, touche le favori depuis cette page, puis envoie une capture de cette fenêtre.${r.tried.length ? ` <span class="muted small">(pages essayées : ${esc(r.tried.slice(0, 10).join(', '))})</span>` : ''}`}</li>
       ${r.testUnknown.size ? `<li class="muted">❔ Tests d'AssistCoachAI que l'appli ne connaît pas encore (non importés) : ${esc([...r.testUnknown].slice(0, 8).join(', '))}</li>` : ''}
       ${r.merged ? `<li>🤝 ${r.merged} match${r.merged > 1 ? 's' : ''} en double fusionné${r.merged > 1 ? 's' : ''} avec celui de la FFF</li>` : ''}
       <li>🗳️ ${sent.text}</li></ul>
@@ -13625,6 +13635,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 75, date: '2026-10-08', title: 'Joyeux anniversaire ! 👑', items: [
+      ['🎂', 'Le jour de son anniversaire, la page du joueur se met en fête : en-tête doré, couronne, confettis et une carte « King of the day ». Côté parents aussi pour les U15 et en dessous.'],
+      ['👑', 'Dans le chat de sa catégorie, un message « King of the day » invite tout le groupe à lui souhaiter son anniversaire (bouton « 🎂 Lui souhaiter » en un geste), et une couronne s\'affiche devant son nom toute la journée.'],
+      ['📋', 'Coachs et responsables : une carte « Anniversaires » sur l\'accueil (ceux du jour et des 7 prochains jours), et une couronne sur la fiche du joueur.'],
+      ['🏃', 'Favori AssistCoachAI : il trouve maintenant tout seul la page des tests physiques. Astuce : ouvre la page des tests dans AssistCoachAI avant de toucher le favori.'],
+    ] },
     { n: 74, date: '2026-10-08', title: 'Les tests physiques d\'AssistCoachAI', items: [
       ['🏃', 'L\'import AssistCoachAI ramène les tests physiques de chaque joueur, avec leur date : VMA, VTI (VIFT du 30-15), sprints 10, 20 et 30 m, détente, saut en longueur, Illinois, T-test, Yo-Yo, Cooper, jongles et conduite. À voir dans Joueurs → Tests et sur la fiche du joueur. Un nouvel import ne fait pas de doublon.'],
       ['📏', 'Les unités sont remises d\'aplomb (un sprint en millisecondes, une détente en mètres…) et une valeur impossible est écartée. Un test qu\'AssistCoachAI a mais que l\'appli ne connaît pas est listé dans la fenêtre d\'import.'],
@@ -14011,11 +14027,16 @@ const eff=await j('/api/effectif/sync');const t=(eff.teams||[]).find(x=>x.is_act
 const d=new Date(),y=d.getMonth()>=6?d.getFullYear():d.getFullYear()-1,f=y+'-07-01',to=d.toISOString().slice(0,10),q='?teamId='+T;
 const [planning,seances,medical,wellness,rpe,ch]=await Promise.all([j('/api/planning'+q),j('/api/seances'),j('/api/medical/cases'+q),j('/api/wellness/logs'+q+'&kind=wellness&from='+f+'&to='+to),j('/api/wellness/logs'+q+'&kind=rpe&from='+f+'&to='+to),j('/api/championship'+q)]);
 const champDetail={};for(const c of (ch.championships||[])){try{champDetail[c.id]=await j('/api/championship/'+c.id);}catch(e){}}
-const tests={};for(const u of ['/api/tests','/api/tests/physiques','/api/physical-tests','/api/physique','/api/evaluations','/api/effectif/tests','/api/vma']){try{tests[u]=await j(u+q);}catch(e){}}
-const D={source:'assistcoachai',effectif:{players:(eff.players||[]).filter(p=>!p.team_id||p.team_id===T),teams:[t]},planning,seances,medical,wellness,rpe,champDetail,tests};
+const tests={},tried=[],KW=/test|vma|vti|vift|physi|perf|eval|mesur|athl|fitness|sprint|aptitud|bilan|stat/i,cand=new Set(['/api/tests','/api/tests/physiques','/api/physical-tests','/api/physique','/api/evaluations','/api/effectif/tests']);
+box('📥 Lecture d\\'AssistCoachAI pour l\\'appli…<br><small>recherche des tests physiques</small>');
+try{for(const e of performance.getEntriesByType('resource')){const u=new URL(e.name,location.href);if(u.origin===location.origin&&/^\\/api\\//.test(u.pathname)&&KW.test(u.pathname))cand.add(u.pathname+u.search);}}catch(e){}
+try{const js=new Set([...document.scripts].map(x=>x.src).filter(Boolean));try{performance.getEntriesByType('resource').forEach(e=>{if(/\\.m?js(\\?|$)/.test(e.name))js.add(e.name);});}catch(e){}
+for(const s of [...js].filter(x=>new URL(x,location.href).origin===location.origin).slice(0,40)){try{const t=await (await fetch(s)).text();for(const m of t.matchAll(/["'\`](\\/api\\/[A-Za-z0-9_\\-\\/]{2,80})/g)){const p=m[1].replace(/\\/+$/,'');if(KW.test(p)&&!/upload|delete|remove|export|logout|signout|reset|send|notify|pdf|\\.(png|jpg)/i.test(p))cand.add(p);}}catch(e){}}}catch(e){}
+for(const u of [...cand].slice(0,30)){const full=/\\?/.test(u)?u:u+q;try{const r=await fetch(full,{credentials:'include'});if(!r.ok){tried.push(u+' '+r.status);if(full!==u){const r2=await fetch(u,{credentials:'include'});if(r2.ok){tests[u]=await r2.json();tried.push(u+' ok');}}continue;}tests[u]=await r.json();tried.push(u+' ok');}catch(e){tried.push(u+' ✗');}}
+const D={source:'assistcoachai',effectif:{players:(eff.players||[]).filter(p=>!p.team_id||p.team_id===T),teams:[t]},planning,seances,medical,wellness,rpe,champDetail,tests,testsTried:tried};
 let z='';try{if(window.CompressionStream)z=await gz(JSON.stringify(D));}catch(e){}
 const ev=(planning.events||[]).length,ak=(planning.acks||[]).length;
-const b=box('✅ Lu : '+(D.effectif.players.length)+' joueurs, '+ev+' matchs et entraînements'+(ak?', '+ak+' réponses':'')+'<br><button id="clubImpGo" style="margin-top:10px;padding:12px 16px;font:bold 16px sans-serif;border:0;border-radius:10px;background:#c9a45c;color:#14172b;cursor:pointer">Envoyer à l\\'appli →</button>');
+const b=box('✅ Lu : '+(D.effectif.players.length)+' joueurs, '+ev+' matchs et entraînements'+(ak?', '+ak+' réponses':'')+', '+Object.keys(tests).length+' page(s) de tests'+(Object.keys(tests).length?'':'<br><small>Aucun test trouvé : ouvre la page des tests physiques d\\'AssistCoachAI, puis retouche ce favori.</small>')+'<br><button id="clubImpGo" style="margin-top:10px;padding:12px 16px;font:bold 16px sans-serif;border:0;border-radius:10px;background:#c9a45c;color:#14172b;cursor:pointer">Envoyer à l\\'appli →</button>');
 b.querySelector('#clubImpGo').onclick=()=>{
 if(z&&z.length<1500000){const u=A+'#/recevoir-source/ac='+z;const w=window.open(u,'_blank');if(!w)location.href=u;box('✅ Envoyé : regarde l\\'appli (onglet ou fenêtre de l\\'appli).');return;}
 const w=window.open(A+'#/recevoir-source','clubimport');let n=0;const send=()=>{try{w.postMessage({type:'club-import',source:'assistcoachai',payload:D},new URL(A).origin);}catch(e){}};
@@ -14633,6 +14654,10 @@ var Chat = (() => {
       '.cx-menu{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px;padding:8px;border-radius:14px;background:var(--surface,#fff);box-shadow:0 4px 14px rgba(0,0,0,.14)}.cx-menu .cx-rxpick{display:flex;justify-content:space-around}.cx-menu .cx-rxpick button{border:0;background:none;font-size:26px;min-width:44px;min-height:44px;cursor:pointer;border-radius:12px}.cx-menu .cx-rxpick button.me{background:color-mix(in srgb,#0e1d45 12%,transparent)}',
       '.cx-menu .cx-mbtn{display:flex;flex-wrap:wrap;gap:6px}.cx-menu .cx-mbtn button{flex:1 1 auto;border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:12px;min-height:42px;padding:6px 12px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}.cx-menu .cx-mbtn .del,.cx-menu .cx-mbtn .rep.go{background:#dc2626;color:#fff;border-color:#dc2626}',
       '.cx-replybar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:1px solid var(--line,#e3e5ea);background:var(--surface,#fff);font-size:13px}.cx-replybar span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid #8c1024;padding-left:8px}.cx-replybar button{border:0;background:none;font-size:18px;min-width:40px;min-height:40px;cursor:pointer;color:inherit}',
+      '.cx-crown{margin-right:3px}.cx-kings{padding:7px 12px;font-size:13.5px;text-align:center;background:linear-gradient(90deg,#f6e3b0,#c9a45c,#f6e3b0);color:#14172b;border-bottom:1px solid var(--line,#e3e5ea)}',
+      '.cx-bdrow{justify-content:center}.cx-b.cx-bday{max-width:92%;text-align:center;background:linear-gradient(160deg,#fff6d8,#f1d58a 55%,#c9a45c);color:#14172b;border:2px solid #c9a45c;border-radius:18px;padding:12px 16px 8px;font-weight:600;white-space:pre-line}',
+      '.cx-bdc{display:block;font-size:34px;line-height:1;margin-bottom:4px;animation:cxCrown 2.4s ease-in-out infinite}.cx-bdgo{display:block;margin:10px auto 2px;padding:9px 16px;border:0;border-radius:999px;background:#0e1d45;color:#fff;font:inherit;font-weight:800;cursor:pointer}',
+      '@keyframes cxCrown{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) scale(1.08)}}@media (prefers-reduced-motion:reduce){.cx-bdc{animation:none}}',
       '.cx-row.flash .cx-b{outline:3px solid #c9a45c}.cx-mute{border:0;background:none;font-size:20px;min-width:40px;min-height:40px;cursor:pointer}',
       '.cx-img{display:block;margin:2px -4px 4px;border-radius:12px;overflow:hidden;min-height:120px;background:color-mix(in srgb,currentColor 8%,transparent);cursor:zoom-in}.cx-img img{display:block;width:100%;max-height:340px;object-fit:cover}',
       '.cx-b.photo{min-width:min(70%,260px)}.cx-pin{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:13px;background:color-mix(in srgb,#c9a45c 16%,var(--surface,#fff));border-bottom:1px solid var(--line,#e3e5ea);cursor:pointer}.cx-pin span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -14731,12 +14756,16 @@ var Chat = (() => {
     const pic = m.img && !m.deleted ? `<span class="cx-img" data-cximg="${m.id}">${m.local || imgs.get(m.id) ? `<img alt="Photo" src="${m.local || imgs.get(m.id)}">` : ''}</span>` : '';
     const body = m.deleted ? '<span class="cx-gone">🚫 Message supprimé</span>' : m.poll && pollOf(m.id) ? pollHtml(pollOf(m.id)) : pic + (m.body ? linkify(m.body) : '');
     const av = m.mine ? '' : `<span class="cx-av ${first ? '' : 'ghost'}" style="background:${color(m.name)}" aria-hidden="true">${esc(initials(m.name))}</span>`;
-    const name = !m.mine && first ? `<span class="cx-name" style="color:${color(m.name)}">${esc(m.name.replace(/^Coach\s+/, ''))}${m.kind === 'coach' ? '<span class="cx-coach">COACH</span>' : ''}</span>` : '';
+    const name = !m.mine && first ? `<span class="cx-name" style="color:${color(m.name)}">${m.king ? '<span class="cx-crown" title="C\'est son anniversaire">👑</span>' : ''}${esc(m.name.replace(/^Coach\s+/, ''))}${m.kind === 'coach' ? '<span class="cx-coach">COACH</span>' : ''}</span>` : '';
     const st = m.fail ? '⚠️' : m.ok ? '✓' : m.pend ? '🕓' : '';
     const quote = m.reply && !m.deleted ? `<span class="cx-q" data-cxgoto="${m.reply.id}"><b>↩️ ${esc(String(m.reply.name || '').replace(/^Coach\s+/, ''))}</b>${m.reply.body == null ? '<i>Message supprimé</i>' : esc(m.reply.body)}</span>` : '';
     const rep = view && view.mod && view.reports && view.reports[m.id], flag = rep ? `<span class="cx-flag" title="Signalé par ${esc(rep.join(', '))}">🚩 ${rep.length}</span>` : '';
     const rx = (view && view.reacts && view.reacts[m.id]) || [];
     const rxs = rx.length && !m.deleted ? `<div class="cx-rxs ${m.mine ? 'mine' : ''}">${rx.map(r => `<button class="${r.me ? 'me' : ''}" data-cxrx="${m.id}:${r.e}" title="${esc((r.who || []).join(', '))}">${r.e} ${r.n}</button>`).join('')}</div>` : '';
+    // (2.19) the birthday message of the day: a golden card in the middle, and « Souhaiter » in one touch
+    if (m.bday && !m.deleted) { const who = (view.kings || []).map(n => String(n).split(' ')[0]); const wish = `Joyeux anniversaire${who.length === 1 ? ' ' + who[0] : ''} ! 🎂🎉`;
+      return `${day}<div class="cx-row cx-bdrow" data-cx="${m.id}"><div class="cx-b cx-bday ${animate && !drawn.has(m.id) ? 'cx-in' : ''}"><span class="cx-bdc" aria-hidden="true">👑</span>${linkify(m.body || '')}
+        ${canWrite() && !o.king && who.length ? `<button class="cx-bdgo" data-cxsay="${esc(wish)}">🎂 Lui souhaiter</button>` : ''}<span class="cx-t">${esc(time(m.at))}</span></div></div>${rxs}`; }
     return `${day}<div class="cx-row ${m.mine ? 'mine' : ''} ${first ? 'first' : ''} ${m.kind === 'coach' ? 'coach' : ''}" data-cx="${m.id}">${av}
       <div class="cx-b ${animate && !drawn.has(m.id) ? 'cx-in' : ''} ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.img && !m.deleted ? 'photo' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${quote}${body}<span class="cx-t">${flag}${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
       ${rxs}${m.fail ? `<div class="cx-retry" data-cxretry="${m.id}">Pas envoyé · toucher pour réessayer</div>` : ''}`;
@@ -14772,6 +14801,7 @@ var Chat = (() => {
         ${o.mute && typeof view.muted === 'boolean' ? `<button class="cx-mute" data-cxmute="${view.muted ? 0 : 1}" title="${view.muted ? 'Notifications du chat coupées : toucher pour les remettre' : 'Couper les notifications du chat'}" aria-label="${view.muted ? 'Remettre les notifications' : 'Couper les notifications'}">${view.muted ? '🔕' : '🔔'}</button>` : ''}
         ${view.mod && o.photosOk && view.filtered ? `<button class="cx-mute cx-ph ${view.photos ? '' : 'off'}" data-cxphotos="${view.photos ? 0 : 1}" title="${view.photos ? 'Les joueurs peuvent envoyer des photos : toucher pour réserver les photos aux coachs' : 'Photos réservées aux coachs : toucher pour les ouvrir aux joueurs'}" aria-label="Photos des joueurs">📷</button>` : ''}
         ${view.mod && o.off ? `<button class="cx-mod" data-cxoff="${view.off ? 0 : 1}" title="${parRoom() ? (view.off ? 'Les parents lisent sans pouvoir écrire : toucher pour leur rendre la parole' : 'Mettre tous les parents en sourdine : ils lisent, seuls les coachs écrivent') : (view.off ? 'Rouvrir le chat aux joueurs' : 'Fermer le chat : les joueurs lisent, seuls les coachs écrivent')}">${parRoom() ? (view.off ? '🔊 Parole aux parents' : '🔇 Sourdine parents') : (view.off ? '🔓 Rouvrir' : '🔒 Fermer')}</button>` : ''}</div>
+      ${(view.kings || []).length && mode === 'chat' ? `<div class="cx-kings">👑 <b>King of the day</b> : ${esc(view.kings.join(', '))} · joyeux anniversaire ! 🎂</div>` : ''}
       ${view.pin && mode === 'chat' ? `<div class="cx-pin" data-cxgoto="${view.pin.id}">📌<span><b>${esc(String(view.pin.name || '').replace(/^Coach\s+/, ''))}</b> : ${esc(view.pin.body || (view.pin.img ? '📷 Photo' : ''))}</span></div>` : ''}
       ${view.off ? `<div class="cx-off">${parRoom() ? '🔇 Parents en sourdine : seuls les coachs écrivent' : '🔒 Chat fermé par les coachs'}${view.mod ? ' (toi, tu peux écrire)' : ''}</div>` : ''}
       <div class="cx-list" id="cxList">${listHtml()}</div>
@@ -14856,7 +14886,7 @@ var Chat = (() => {
         const topSame = sameTop(r) && openPolls() === (r.polls || []).filter(p => !p.closed).length;
         if (JSON.stringify(r.polls || []) !== JSON.stringify(view.polls || []) || JSON.stringify(r.reacts || {}) !== JSON.stringify(view.reacts || {}) || JSON.stringify(r.reports || {}) !== JSON.stringify(view.reports || {})) changed = true;
         if (r.muted !== view.muted || r.photos !== view.photos || JSON.stringify(r.pin || null) !== JSON.stringify(view.pin || null)) setTimeout(drawAll, 0);
-        Object.assign(view, { off: r.off, filtered: r.filtered, mod: r.mod, cats: r.cats || view.cats, polls: r.polls || [], reacts: r.reacts || {}, reports: r.reports || {}, muted: r.muted, photos: r.photos, pin: r.pin || null });
+        Object.assign(view, { off: r.off, filtered: r.filtered, mod: r.mod, cats: r.cats || view.cats, polls: r.polls || [], reacts: r.reacts || {}, reports: r.reports || {}, muted: r.muted, photos: r.photos, pin: r.pin || null, kings: r.kings || [] });
         if (fresh.length) {
           // my messages back from the server: their copy replaces the ones shown at once
           let mine = fresh.filter(m => m.mine).length;
@@ -16182,6 +16212,27 @@ var Views = (() => {
     const hw = $('#heroWx', root);
     if (hw) Weather.todayShort($('.hero-me', root).dataset.wxTime).then(t => { if (t && hw.isConnected) hw.textContent = ' · ' + t; });
   }
+  /* (2.19) the birthdays: today (King of the day, with the chat of his category) and the next 7 days, for the coaches of his teams and the responsables */
+  function birthdayCard() {
+    const now = new Date(), day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const next = b => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(b || '')); if (!m) return null; let y = day0.getFullYear();
+      const at = yy => { const d = new Date(yy, +m[2] - 1, +m[3]); return d.getMonth() !== +m[2] - 1 ? new Date(yy, 1, 28) : d; }; // born on 29 Feb: the 28th
+      let d = at(y); if (d < day0) d = at(++y); return { in: Math.round((d - day0) / 864e5), age: y - +m[1] }; };
+    const teams = p => (p.teamIds || []).map(teamOf).filter(t => t && Auth.sees(t.id));
+    const list = S().players.filter(p => !p.left && teams(p).length).map(p => Object.assign({ p, t: teams(p)[0] }, next(p.birth))).filter(x => x.in != null && x.in <= 7)
+      .sort((a, b) => a.in - b.in || String(a.p.firstName).localeCompare(String(b.p.firstName)));
+    if (!list.length) return '';
+    const today = list.filter(x => !x.in), soon = list.filter(x => x.in);
+    const cat = t => t.category || t.name, room = t => `#/chat/${t.id}${AppCfg.family(cat(t)) ? '|parents' : ''}`;
+    const when = n => n === 1 ? 'demain' : new Date(day0.getTime() + n * 864e5).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' });
+    return `<section class="card bd-home ${today.length ? 'on' : ''}">
+      <h2>🎂 Anniversaires</h2>
+      ${today.map(x => `<div class="bd-today"><span class="bd-c">👑</span><div><b>${esc(Store.fullName(x.p))}</b><span>${esc(cat(x.t))} · ${x.age} ans aujourd'hui · King of the day</span></div>
+        <a class="btn small" href="${room(x.t)}">💬 Lui souhaiter</a></div>`).join('')}
+      ${today.length ? '<p class="muted small">Un message « King of the day » est posté dans le chat de sa catégorie, avec une couronne sur son nom toute la journée.</p>' : ''}
+      ${soon.length ? `<ul class="bd-soon">${soon.map(x => `<li><b>${esc(Store.fullName(x.p))}</b> <span class="muted">· ${esc(cat(x.t))} · ${x.age} ans ${esc(when(x.in))}</span></li>`).join('')}</ul>` : ''}
+    </section>`;
+  }
   function home(root) {
     const now = today();
     const matches = byTeam(S().matches), trainings = byTeam(S().trainings);
@@ -16193,6 +16244,7 @@ var Views = (() => {
       ${serverBanner()}
       ${teamSwitch()}
       ${setupCard()}
+      ${birthdayCard()}
       ${Onboard.planCard()}
       ${Quick.matchDayCard()}
       ${Quick.tomorrowCard()}
@@ -17344,7 +17396,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 119, UPD = AppCfg.key('update-tried');
+  const BUILD = 120, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
