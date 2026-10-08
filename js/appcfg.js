@@ -61,14 +61,16 @@ window.ScreenDiag = function () {
     ['100vh / 100dvh / 100lvh / 100svh', [probe('height:100vh'), probe('height:100dvh'), probe('height:100lvh'), probe('height:100svh')].join(' / ')],
     ['Défilement', Math.round(scrollX) + ', ' + Math.round(scrollY)], ['Barre du bas', rr ? Math.round(rr.top) + ' → ' + Math.round(rr.bottom) : '—'],
     ['Appli installée', (navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) ? 'oui' : 'non'], ['Barre d\'état', ms ? ms.content : '—'],
-    ['iOS', (navigator.userAgent.match(/OS (\d+[_\d]*)/) || [, '?'])[1].replace(/_/g, '.')]];
+    ['iOS', (navigator.userAgent.match(/OS (\d+[_\d]*)/) || [, '?'])[1].replace(/_/g, '.')],
+    ['Version de l\'appli', (typeof Help !== 'undefined' && Help.VERSION) || (document.querySelector('script[src*="appcfg.js?v="]') || { src: '' }).src.split('v=')[1] || '?'],
+    ['Correction de la bande', (() => { const f = document.getElementById('iosFill'); if (!f) return 'absente'; const r = f.getBoundingClientRect(); return (document.documentElement.classList.contains('ios-gap') ? 'active' : 'inactive') + ' · ' + Math.round(r.top) + ' → ' + Math.round(r.bottom); })()]];
   const box = document.createElement('div'); box.id = 'scrDiag';
   box.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 10px);z-index:99999;background:#111827;color:#fff;border-radius:14px;padding:12px 14px;font:13px/1.45 system-ui;box-shadow:0 10px 30px rgba(0,0,0,.4)';
   box.innerHTML = '<b style="font-size:15px">📏 Mesures de l\'écran</b><div style="margin:6px 0 8px;opacity:.8">Fais une capture d\'écran et envoie-la. Ligne rouge = bas de la page pour iOS ; bloc vert = juste en dessous. Touche ce cadre pour fermer.</div>'
     + rows.map(r => '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.12);padding:3px 0"><span style="opacity:.75">' + r[0] + '</span><b>' + r[1] + '</b></div>').join('');
   box.onclick = () => window.ScreenDiag();
   const red = document.createElement('div'); red.className = 'scr-mark'; red.style.cssText = 'position:fixed;left:0;right:0;bottom:0;height:6px;background:#ef4444;z-index:99998;pointer-events:none';
-  const green = document.createElement('div'); green.className = 'scr-mark'; green.style.cssText = 'position:absolute;left:0;right:0;height:140px;background:repeating-linear-gradient(45deg,#16a34a 0 14px,#22c55e 14px 28px);z-index:99998;pointer-events:none;top:' + (scrollY + innerHeight) + 'px';
+  const green = document.createElement('div'); green.className = 'scr-mark'; green.style.cssText = 'position:absolute;left:0;width:30%;height:140px;background:repeating-linear-gradient(45deg,#16a34a 0 14px,#22c55e 14px 28px);z-index:99998;pointer-events:none;top:' + (scrollY + innerHeight) + 'px';
   const blue = document.createElement('div'); blue.className = 'scr-mark'; blue.style.cssText = 'position:fixed;left:0;width:40%;top:0;height:100lvh;border-right:6px solid #3b82f6;z-index:99997;pointer-events:none';
   document.body.append(box, red, green, blue);
 };
