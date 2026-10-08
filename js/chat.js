@@ -29,7 +29,7 @@ const Chat = (() => {
     const st = document.createElement('style'); st.id = 'chatCss';
     st.textContent = [
       // the whole screen for the chat: the page header and the player card go away while the chat is open
-      'body.chat-on header.top,body.chat-on .card.who,body.chat-on .credit,body.chat-on .toast-bar{display:none!important}',
+      'body.chat-on header.top,body.chat-on .card.who,body.chat-on .credit,body.chat-on .toast-bar,body.chat-on .quick-fab,body.chat-on .help-fab{display:none!important}',
       'body.chat-on main{padding-top:calc(env(safe-area-inset-top) + 8px)!important;padding-bottom:0!important}',
       // (2.00) the chat is fixed on the screen, the page behind does not move (not even with the keyboard)
       'html:has(body.chat-on),body.chat-on{overflow:hidden;overscroll-behavior:none}body.chat-on .cx{position:fixed;z-index:7;min-height:0;margin:0}',
