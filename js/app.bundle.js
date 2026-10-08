@@ -3555,7 +3555,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.34';
+  const VERSION = '2.35';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15362,6 +15362,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 91, date: '2026-10-08', title: 'Plus de bande claire sous la barre du bas 📱', items: [
+      ['📱', 'Sur iPhone, après avoir écrit un message, la barre du bas pouvait rester remontée avec une bande claire en dessous. L\'appli remet l\'écran en place dès que le clavier se ferme.'],
+    ] },
     { n: 90, date: '2026-10-08', title: 'Le chat tient en place quand tu écris ⌨️', items: [
       ['⌨️', 'Quand tu écris dans le chat, la barre du bas s\'efface : le chat descend juste au-dessus du clavier et ne saute plus. Elle revient quand tu fermes le clavier.'],
     ] },
@@ -16668,6 +16671,20 @@ var Chat = (() => {
   function grow() { const t = $('#cxText'); if (!t) return; t.style.height = 'auto'; t.style.height = Math.min(120, t.scrollHeight + 2) + 'px'; }
   window.addEventListener('resize', () => { if (shown()) { fit(); if (nearBottom()) toBottom(); } });
   if (window.visualViewport) ['resize', 'scroll'].forEach(ev => window.visualViewport.addEventListener(ev, () => { if (shown()) { const b = nearBottom(); fit(); if (b) toBottom(); } }));
+  // (2.35) iPhone: once the keyboard is closed, iOS can leave the screen lifted (the tab bar no longer at the bottom, a light strip under it).
+  // The page is put back in place when the keyboard goes: at the top for the chat (it does not scroll), a 1-pixel nudge elsewhere (the reading place stays)
+  let liftT = 0;
+  const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+  function unlift() {
+    clearTimeout(liftT);
+    liftT = setTimeout(() => {
+      if (typing()) return;
+      if (document.body.classList.contains('chat-on')) { window.scrollTo(0, 0); fit(); return; }
+      const y = window.scrollY; window.scrollTo(0, y + 1); requestAnimationFrame(() => window.scrollTo(0, y));
+    }, 350);
+  }
+  document.addEventListener('focusout', e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) unlift(); }, true);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (!typing()) unlift(); });
 
   /* ---------- unread messages: a badge on the « Chat » tab ---------- */
   const SEEN = () => 'chat-seen-' + (o ? o.key : '') + '-' + cat;
@@ -19215,7 +19232,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 135, UPD = AppCfg.key('update-tried');
+  const BUILD = 136, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

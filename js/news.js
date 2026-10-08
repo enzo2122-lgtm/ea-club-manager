@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 91, date: '2026-10-08', title: 'Plus de bande claire sous la barre du bas 📱', items: [
+      ['📱', 'Sur iPhone, après avoir écrit un message, la barre du bas pouvait rester remontée avec une bande claire en dessous. L\'appli remet l\'écran en place dès que le clavier se ferme.'],
+    ] },
     { n: 90, date: '2026-10-08', title: 'Le chat tient en place quand tu écris ⌨️', items: [
       ['⌨️', 'Quand tu écris dans le chat, la barre du bas s\'efface : le chat descend juste au-dessus du clavier et ne saute plus. Elle revient quand tu fermes le clavier.'],
     ] },
