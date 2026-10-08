@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 67, date: '2026-10-08', title: 'Corriger un match en un seul écran ✏️', items: [
+      ['✏️', 'Matchs → Résultats : un ✏️ à côté de chaque match joué, et « Corriger un match » pour retrouver un match (par catégorie, par adversaire).'],
+      ['⚽', 'Un seul écran : le score, chaque but (minute, buteur, passeur), le temps de jeu et les cartons de chaque joueur, un joueur oublié à ajouter ou à retirer.'],
+      ['🔒', 'La correction est gardée : un nouvel import AssistCoachAI ou de la feuille FFF ne l\'écrase plus. Les stats de la saison, le compte-rendu et l\'espace des joueurs suivent.'],
+    ] },
     { n: 66, date: '2026-10-08', title: 'Le favori AssistCoachAI marche aussi avec l\'appli installée', items: [
       ['📥', 'Le favori AssistCoachAI montre ce qu\'il lit (joueurs, matchs, réponses), puis un bouton « Envoyer à l\'appli → ». Les données passent dans l\'adresse, comme Footclubs : ça marche même quand l\'appli est installée sur l\'ordinateur.'],
       ['🔁', 'Refais le favori une fois (Réglages → Le club) : l\'ancien ne marche plus.'],

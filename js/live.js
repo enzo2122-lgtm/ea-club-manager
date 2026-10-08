@@ -113,6 +113,7 @@ const Live = (() => {
       // (a player the FFF sheet takes off earlier — a change or a red card not noted live — gets the sheet's time)
       const mins = minutes(l), had = m.minutes || {}, fm = (m.fffSheet || {}).minutes || {}; m.minutes = {};
       (m.convoked || []).forEach(id => { const v = mins[id] || 0, f = fm[id]; m.minutes[id] = f != null ? (v > 0 ? Math.min(v, f) : f) : (v || +had[id] || 0); });
+      if (m.handFix && m.handFix.min) Object.assign(m.minutes, m.handFix.min); // (2.11) the playing time corrected by hand stays
       if (!SP().sets) m.duration = l.halfLen * Math.max(SP().periods, l.periods.length);
       m.played = true;
     }

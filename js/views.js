@@ -585,18 +585,22 @@ const Views = (() => {
       return `<a class="list-item ${side(m)}" href="#/match/${m.id}"><div class="date-box"><b>${new Date(m.date + 'T12:00').getDate()}</b><span>${esc(fmtDate(m.date, { month: 'short' }))}</span></div>
       <div class="li-main"><b>${matchTitle(m)}</b><span class="muted">${tm ? `<i class="li-cat" style="background:${Planning.teamColor(tm.id)}">${esc(tm.name)}</i> ` : ''}${m.exempt ? '' : sideTag(m) + (m.time ? ' · ' + esc(m.time) : '')}</span></div>
       ${m.played ? `<span class="score">${scoreTxt(m)}</span>${resPill(m)}` : ''}${I.next}</a>`; };
+    // (2.11) a result the coach can correct: ✏️ beside it opens « Corriger le match » at once
+    const doneItem = m => m.played && !m.exempt && Auth.sees(m.teamId) ? `<div class="fx-wrap">${item(m)}<button class="fx-pen" data-fixm="${esc(m.id)}" aria-label="Corriger ce match" title="Corriger buteurs, passeurs, temps de jeu">✏️</button></div>` : item(m);
     root.innerHTML = `${header('Matchs', 'Agenda et résultats de tout le club', `<button class="btn" data-act="imp">${I.upload}<span>Importer (${esc(Sport.fed()[0])}, agenda…)</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau match</span></button>`)}
       ${coach && !t ? `<div class="seg"><button class="seg-b ${scope === 'club' ? 'on' : ''}" data-scope="club">🏟️ Tout le club</button><button class="seg-b ${scope === 'mine' ? 'on' : ''}" data-scope="mine">⭐ Mes équipes</button></div>` : ''}
       <label class="team-select all-sizes"><span>Catégorie</span><select data-mteam aria-label="Catégorie"><option value="">Toutes les catégories</option>
         ${S().teams.map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
       <div class="side-legend"><span class="side-home">🏠 Domicile</span><span class="side-away">🚌 Extérieur</span></div>
       <h2 class="section">À venir (${up.length})</h2>${up.length ? `<div class="list">${shown.map(item).join('')}</div>${up.length > shown.length ? `<button class="btn soft wide" data-act="more">Voir les ${up.length - shown.length} matchs suivants</button>` : ''}` : '<p class="muted">Aucun match prévu.</p>'}
-      <h2 class="section">Résultats</h2>${done.length ? `<div class="list">${done.map(item).join('')}</div>` : '<p class="muted">Pas encore de résultat.</p>'}`;
+      <div class="row-head"><h2 class="section">Résultats</h2>${done.some(m => m.played) ? `<button class="btn soft" data-act="fixpick">✏️<span>Corriger un match</span></button>` : ''}</div>${done.length ? `<div class="list">${done.map(doneItem).join('')}</div>` : '<p class="muted">Pas encore de résultat.</p>'}`;
     $$('[data-mteam]', root).forEach(s => s.onchange = () => { ui.matchTeam = s.value; ui.matchMore = 0; Store.persistNow(); matches(root); });
     $$('[data-scope]', root).forEach(b => b.onclick = () => { ui.matchScope = b.dataset.scope; Store.persistNow(); matches(root); });
     const more = $('[data-act="more"]', root); if (more) more.onclick = () => { ui.matchMore = 1; matches(root); };
     $('[data-act="new"]', root).onclick = newMatch;
     $('[data-act="imp"]', root).onclick = () => Importer.matchesDialog(() => matches(root));
+    const fp = $('[data-act="fixpick"]', root); if (fp) fp.onclick = () => FixMatch.pick(() => matches(root), t);
+    $$('[data-fixm]', root).forEach(b => b.onclick = e => { e.preventDefault(); const m = Store.get('matches', b.dataset.fixm); if (m) FixMatch.open(m, () => matches(root)); });
   }
   function newMatch() {
     const t = activeTeam() || (Auth.teams()[0] && Auth.teams()[0].id) || '';
@@ -717,7 +721,7 @@ const Views = (() => {
       const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
       const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
-        `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button>`)}
+        `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button>`)}
         <div class="m-sum ${side(m)}"><span>${sum}</span><button class="btn soft" data-editm>${I.edit}<span>${editOpen ? 'Fermer' : 'Modifier'}</span></button></div>
         <section class="card ${side(m)} m-edit" ${editOpen ? '' : 'hidden'}>
           <div class="row3">
@@ -756,6 +760,7 @@ const Views = (() => {
         <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
         </div>
         <div ${panel('apres')}>
+        ${m.played && !m.exempt ? `<section class="card fix-card"><div><h2>✏️ Une erreur dans ce match ?</h2><p class="muted small">Score, ${Sport.W().scorers}, passeurs, temps de jeu et cartons sur un seul écran. La correction est gardée, même après un import AssistCoachAI ou de la feuille FFF.${m.handFix ? ` <b>Corrigé le ${esc(fmtDate(new Date(m.handFix.at).toISOString().slice(0, 10), { day: 'numeric', month: 'short' }))}.</b>` : ''}</p></div><button class="btn primary" data-act="fix">✏️<span>Corriger le match</span></button></section>` : ''}
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${m.played && !m.exempt ? `<section class="card share-card"><div><h2>📣 Réseaux sociaux</h2><p class="muted small">Une image du résultat aux couleurs du club, prête pour Instagram, Facebook, WhatsApp, X…</p></div><button class="btn primary" data-act="shareres">📣<span>Partager le résultat</span></button></section>` : ''}
         ${Sources.sheetCard(m)}
@@ -836,6 +841,7 @@ const Views = (() => {
       switch (b.dataset.act) {
         case 'pdf': return runExport('Création de la feuille de match…', () => Exporter.pdfMatch(m, teamOf(m.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'shareres': return shareResult(m); // (2.06)
+        case 'fix': return FixMatch.open(m, () => render()); // (2.11)
         case 'report': return runExport('Création du compte-rendu…', () => Exporter.pdfReport(m, teamOf(m.teamId), S().club));
         case 'lineup': return makeLineup(m);
         case 'delete': if (await confirmBox('Supprimer ce match ?')) { Store.remove('matches', m.id); Media.removeRef('match:' + m.id); location.hash = '#/matchs'; } return;

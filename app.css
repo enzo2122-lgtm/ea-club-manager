@@ -1898,9 +1898,9 @@ h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 .sheet-teams ol { margin: 0; padding-left: 22px; font-size: 14px; line-height: 1.5; }
 
 /* ---------- 1.47 : compte-rendu du match en PDF ---------- */
-.report-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.report-card h2 { margin-bottom: 2px; }
-.report-card > div { flex: 1 1 220px; }
+.report-card, .fix-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.report-card h2, .fix-card h2 { margin-bottom: 2px; }
+.report-card > div, .fix-card > div { flex: 1 1 220px; }
 
 /* ---------- 1.48 : résultats de toute la poule, forme de l'adversaire ---------- */
 .pr-table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; font-size: 14px; }
@@ -2014,3 +2014,10 @@ button.sending { opacity: .55; pointer-events: none; }
   background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 28px rgba(0,0,0,.18); }
 .more-pop > * { width: 100%; justify-content: flex-start; }
 .more-pop .btn .lg, .more-pop .btn span { display: inline !important; }
+
+/* (2.11) « Corriger le match »: the ✏️ beside each result */
+.fx-wrap { display: flex; align-items: stretch; gap: 6px; }
+.fx-wrap > .list-item { flex: 1; min-width: 0; }
+.fx-pen { flex: 0 0 48px; border: 1px solid var(--line, #d0d4dc); background: var(--surface, #fff); border-radius: 14px; font-size: 20px; cursor: pointer; color: inherit; }
+.fx-pen:hover { border-color: var(--accent, #c9a45c); }
+.fix-card { border-left: 4px solid var(--accent, #c9a45c); }
