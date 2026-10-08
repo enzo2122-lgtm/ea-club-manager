@@ -65,7 +65,9 @@ const UI = (() => {
     const key = sc.id + ':' + (sc.updatedAt || 0) + ':' + w;
     if (thumbCache.has(key)) return thumbCache.get(key);
     const c = document.createElement('canvas'); c.width = w; c.height = h;
-    Board.drawFrame(c.getContext('2d'), w, h, sc, 0, 0, { homeBib: Store.state.club.homeBib });
+    // (2.30) an animated schema is shown whole: every movement of every step on the picture
+    const view = typeof AutoSchema !== 'undefined' && AutoSchema.overview ? AutoSchema.overview(sc) : sc;
+    Board.drawFrame(c.getContext('2d'), w, h, view, 0, 0, { homeBib: Store.state.club.homeBib });
     const url = c.toDataURL('image/jpeg', .8); thumbCache.set(key, url); return url;
   }
 

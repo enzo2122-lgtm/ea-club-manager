@@ -82,11 +82,13 @@ const Exos = (() => {
   ].map(([theme, title, duration, org, consignes, materiel, formats, size], i) => ({ id: 'base' + i, theme, title, duration, org, consignes, materiel, formats: formats.split(','), size: size || '', base: true }));
   // the lists of the club's sport (football: the ones above; the other sports: sport-exos.js)
   const mapBase = (list, pre) => list.map(([theme, title, duration, org, consignes, materiel, formats, size], i) => ({ id: pre + i, theme, title, duration, org, consignes, materiel, formats: formats ? formats.split(',') : [], size: size || '', base: true }));
+  // (2.30) the library: exercises with a schema written for each one (exos-lib.js)
+  const LIB_F = (typeof EXOS_LIB !== 'undefined' ? EXOS_LIB : []).map(([theme, title, duration, org, consignes, materiel, formats, size, script], i) => ({ id: 'lib' + i, theme, title, duration, org, consignes, materiel, formats: formats.split(','), size: size || '', script: script || '', base: true, lib: true }));
   const SX = () => Sport.isFoot() ? null : SPORT_EXOS[Sport.id()];
   const TH = () => SX() ? SX().themes : THEMES_F;
   const KY = () => SX() ? SX().keys : KEYS_F;
   let baseCache = null, baseOf = '';
-  const BS = () => { if (baseOf !== Sport.id()) { baseOf = Sport.id(); baseCache = SX() ? mapBase(SX().base, baseOf + '-') : BASE_F; } return baseCache; };
+  const BS = () => { if (baseOf !== Sport.id()) { baseOf = Sport.id(); baseCache = SX() ? mapBase(SX().base, baseOf + '-') : [...LIB_F, ...BASE_F]; } return baseCache; };
   // the themes the generator can complete with (warm-up, game and cool-down apart)
   const coreThemes = () => TH().map(t => t[0]).filter(k => !['echauffement', 'calme', 'jeu'].includes(k));
 
@@ -99,7 +101,7 @@ const Exos = (() => {
     S().trainings.forEach(t => (t.exercises || []).forEach(e => {
       if (!e.title || !e.title.trim()) return;
       const k = norm(e.title), cur = seen.get(k);
-      const item = { id: t.id + ':' + e.id, theme: e.theme || null, title: e.title, duration: +e.duration || 15, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null,
+      const item = { id: t.id + ':' + e.id, theme: e.theme || null, title: e.title, duration: +e.duration || 15, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null, script: e.script || '',
         from: t, formats: e.formats && e.formats.length ? e.formats : [fmtOf(t.teamId)], size: e.size || '', club: true };
       if (!cur || (!cur.schemaId && item.schemaId) || (cur.from.date || '') < (t.date || '')) seen.set(k, cur ? Object.assign(item, { formats: [...new Set([...cur.formats, ...item.formats])] }) : item);
     }));
@@ -153,7 +155,7 @@ const Exos = (() => {
     toast('Schéma animé créé : change ce que tu veux'); location.hash = '#/schema/' + sc.id;
   }
 
-  const copyEx = e => ({ id: Store.uid(), theme: e.theme || themeOf(e)[0] || null, title: e.title, duration: e.duration, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null, size: e.size || '' });
+  const copyEx = e => ({ id: Store.uid(), theme: e.theme || themeOf(e)[0] || null, title: e.title, duration: e.duration, org: e.org || '', consignes: e.consignes || '', materiel: e.materiel || '', schemaId: e.schemaId || null, size: e.size || '', script: e.script || '' });
   // « Ajouter à une séance »: an entraînement to come (all of them, by category), or a new séance created with this exercise
   function addTo(ex) {
     if (!ex) return;
@@ -220,32 +222,57 @@ const Exos = (() => {
       actions: [{ label: 'Annuler' }, { label: 'Générer', kind: 'primary', onClick: (c, r) => { keep(r); S().ui.exGen = { theme: g.theme, minutes: g.minutes }; Store.persistNow(); setTimeout(() => build(g), 60); } }] });
     function keep(r) { g.teamId = $('#gTeam', r).value; g.minutes = +$('#gMin', r).value; g.date = $('#gDate', r).value || UI.today(); }
   }
+  // (2.30) a session that changes every time: a draw among all the exercises of the theme (the club's and the library's, those with a written
+  // schema a little more often), never those of the team's last sessions; then a preview where each exercise can be swapped before creating
   function build(g) {
     const fmt = fmtOf(g.teamId), pool = all().filter(e => e.formats.includes(fmt) || e.formats.length === 0);
+    const since = new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10);
+    const recent = new Set(S().trainings.filter(t => t.teamId === g.teamId && (t.date || '') >= since).flatMap(t => (t.exercises || []).map(e => norm(e.title))));
+    const weight = e => (e.club ? 1.5 : 1) * (e.script || e.schemaId ? 1.6 : 1) * (recent.has(norm(e.title)) ? .12 : 1);
     const pick = (theme, used, n = 1) => {
-      const c = pool.filter(e => themeOf(e).includes(theme) && !used.has(norm(e.title)));
-      // the club's exercises first (with a diagram first), then the base
-      c.sort((a, b) => (b.club ? 1 : 0) - (a.club ? 1 : 0) || (b.schemaId ? 1 : 0) - (a.schemaId ? 1 : 0) || Math.random() - .5);
+      const c = pool.filter(e => themeOf(e).includes(theme) && !used.has(norm(e.title))).map(e => [e, Math.random() * weight(e)]).sort((x, y) => y[1] - x[1]).map(x => x[0]);
       const out = c.slice(0, n); out.forEach(e => used.add(norm(e.title))); return out;
     };
-    const used = new Set(), total = g.minutes, warm = total >= 75 ? 15 : 10, calm = 5, game = total >= 75 ? 20 : 15, core = total - warm - calm - game;
-    const nCore = core >= 40 ? 3 : core >= 25 ? 2 : 1;
-    // the core time shared in blocks of 5 min, the last exercise takes what is left (the total is exactly the chosen length)
-    const coreEx = pick(g.theme, used, nCore);
-    // too few exercises of the theme for this category: a close theme completes (never one exercise of 45 min)
     const NEAR = { defense: ['pressing', 'physique'], pressing: ['transitions', 'defense'], transitions: ['pressing', 'finition'], finition: ['technique', 'transitions'],
-      conservation: ['construction', 'technique'], construction: ['conservation', 'technique'], technique: ['conservation', 'finition'], cpa: ['finition', 'defense'], physique: ['pressing', 'transitions'] };
-    for (const alt of Sport.isFoot() ? [...(NEAR[g.theme] || []), 'conservation', 'technique'] : coreThemes().filter(k => k !== g.theme)) { if (coreEx.length >= nCore) break; coreEx.push(...pick(alt, used, nCore - coreEx.length)); }
-    const each = Math.max(5, Math.floor(core / Math.max(1, coreEx.length) / 5) * 5);
-    const plan = [...pick('echauffement', used).map(e => [e, warm]), ...coreEx.map((e, i) => [e, i === coreEx.length - 1 ? core - each * (coreEx.length - 1) : each]),
-      ...pick('jeu', used).map(e => [e, game]), ...pick('calme', used).map(e => [e, calm])];
-    // not enough exercises of the theme: another close theme completes
-    const have = plan.reduce((a, [, d]) => a + d, 0); if (have < total - 10) { const extra = Sport.isFoot() ? pick('conservation', used)[0] || pick('technique', used)[0] : coreThemes().map(k => pick(k, used)[0]).find(Boolean); if (extra) plan.splice(1 + nCore, 0, [extra, total - have]); }
+      conservation: ['construction', 'technique'], construction: ['conservation', 'technique'], technique: ['conservation', 'finition'], cpa: ['finition', 'defense'], physique: ['pressing', 'transitions'], gardien: ['finition', 'technique'] };
+    const make = () => {
+      const used = new Set(), total = g.minutes, warm = total >= 75 ? 15 : 10, calm = 5, game = total >= 75 ? 20 : 15, core = total - warm - calm - game;
+      const nCore = core >= 40 ? 3 : core >= 25 ? 2 : 1;
+      const coreEx = pick(g.theme, used, nCore).map(e => [e, g.theme]);
+      // too few exercises of the theme for this category: a close theme completes (never one exercise of 45 min)
+      for (const alt of Sport.isFoot() ? [...(NEAR[g.theme] || []), 'conservation', 'technique'] : coreThemes().filter(k => k !== g.theme)) { if (coreEx.length >= nCore) break; coreEx.push(...pick(alt, used, nCore - coreEx.length).map(e => [e, alt])); }
+      const each = Math.max(5, Math.floor(core / Math.max(1, coreEx.length) / 5) * 5);
+      const plan = [...pick('echauffement', used).map(e => ({ e, d: warm, th: 'echauffement', ph: 'Échauffement' })),
+        ...coreEx.map(([e, th], i) => ({ e, th, d: i === coreEx.length - 1 ? core - each * (coreEx.length - 1) : each, ph: `Exercice ${i + 1}` })),
+        ...pick('jeu', used).map(e => ({ e, d: game, th: 'jeu', ph: 'Jeu' })), ...pick('calme', used).map(e => ({ e, d: calm, th: 'calme', ph: 'Retour au calme' }))];
+      const have = plan.reduce((x, p) => x + p.d, 0);
+      if (have < total - 10) { const th = Sport.isFoot() ? 'conservation' : coreThemes()[0], extra = pick(th, used)[0]; if (extra) plan.splice(1 + nCore, 0, { e: extra, d: total - have, th, ph: 'Exercice +' }); }
+      return { plan, used };
+    };
+    let cur = make();
     const thLabel = (TH().find(t => t[0] === g.theme) || ['', g.theme])[1].replace(/^\S+\s/, '');
-    const tr = Store.upsert('trainings', { id: Store.uid(), title: thLabel, date: g.date, time: '', teamId: g.teamId, goal: `Thème : ${thLabel}. Séance générée : échauffement, ${nCore} exercice${nCore > 1 ? 's' : ''} du thème, jeu à thème, retour au calme.`,
-      exercises: plan.map(([e, d]) => Object.assign(copyEx(e), { duration: d })), presents: [] });
-    toast(`Séance « ${thLabel} » créée : ${plan.length} exercices, ${plan.reduce((a, [, d]) => a + d, 0)} min`);
-    location.hash = '#/entrainement/' + tr.id;
+    const row = (p, i) => { const sc = p.e.schemaId && Store.get('schemas', p.e.schemaId);
+      return `<div class="gen-row"><button type="button" class="gen-thumb" data-genbig="${i}" title="Voir le schéma en grand"><img alt="" src="${UI.thumb(sc || AutoSchema.preview(p.e), 180, 117)}"></button>
+        <div class="gen-txt"><span class="muted small">${esc(p.ph)} · ${p.d} min${p.e.club ? ' · 📚 club' : ''}</span><b>${esc(p.e.title)}</b><span class="small">${esc(String(p.e.org || '').slice(0, 110))}${String(p.e.org || '').length > 110 ? '…' : ''}</span></div>
+        <button type="button" class="btn small" data-genswap="${i}" title="Un autre exercice">🔄</button></div>`; };
+    const body = () => `<p class="muted small">Touche 🔄 pour changer un exercice, ou 🎲 pour tout retirer au sort. Touche un schéma pour l'agrandir ; il s'anime une fois la séance créée.</p>
+      <style>.gen-row{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line,#e3e5ea)}.gen-thumb{border:0;padding:0;background:none;cursor:pointer;flex:none}.gen-thumb img{width:120px;border-radius:8px;display:block}.gen-row:has(.gen-thumb.on){flex-wrap:wrap}.gen-thumb.on{flex-basis:100%}.gen-thumb.on img{width:100%}.gen-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.gen-txt b{font-size:15px}@media(max-width:480px){.gen-thumb img{width:88px}}</style>
+      ${cur.plan.map(row).join('')}<p class="muted small">Total : ${cur.plan.reduce((x, p) => x + p.d, 0)} min</p>`;
+    modal({ title: `✨ ${thLabel} · ${g.minutes} min`, noFocus: true, body: `<div id="genPrev">${body()}</div>`,
+      onOpen: r => { r.querySelector('#genPrev').onclick = ev => {
+        const big = ev.target.closest('[data-genbig]'); if (big) { const p = cur.plan[+big.dataset.genbig], img = big.querySelector('img'), on = big.classList.toggle('on'); img.src = UI.thumb((p.e.schemaId && Store.get('schemas', p.e.schemaId)) || AutoSchema.preview(p.e), on ? 640 : 180, on ? 416 : 117); return; }
+        const sw = ev.target.closest('[data-genswap]'); if (!sw) return; const p = cur.plan[+sw.dataset.genswap];
+        const alt = pick(p.th, cur.used)[0] || (cur.used.clear(), cur.plan.forEach(x => cur.used.add(norm(x.e.title))), pick(p.th, cur.used)[0]);
+        if (!alt) return toast('Pas d\'autre exercice pour ce thème dans cette catégorie'); p.e = alt; r.querySelector('#genPrev').innerHTML = body(); }; },
+      actions: [{ label: '🎲 Tout changer', onClick: (c, r) => { cur = make(); r.querySelector('#genPrev').innerHTML = body(); return false; } },
+        { label: 'Créer la séance', kind: 'primary', onClick: () => { setTimeout(create, 60); } }] });
+    function create() {
+      const plan = cur.plan, nCore = plan.filter(p => /^Exercice/.test(p.ph)).length;
+      const tr = Store.upsert('trainings', { id: Store.uid(), title: thLabel, date: g.date, time: '', teamId: g.teamId, goal: `Thème : ${thLabel}. Séance générée : échauffement, ${nCore} exercice${nCore > 1 ? 's' : ''} du thème, jeu à thème, retour au calme.`,
+        exercises: plan.map(p => Object.assign(copyEx(p.e), { duration: p.d })), presents: [] });
+      toast(`Séance « ${thLabel} » créée : ${plan.length} exercices, ${plan.reduce((x, p) => x + p.d, 0)} min`);
+      location.hash = '#/entrainement/' + tr.id;
+    }
   }
 
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-exgen]'); if (b) generator(); });

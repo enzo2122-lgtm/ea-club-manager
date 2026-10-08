@@ -250,10 +250,65 @@ const AutoSchema = (() => {
     return S.sc;
   }
 
+
+  /* ---------- (2.30) a schema WRITTEN for the exercise (the library): every player, cone, zone and action placed by hand ----------
+     One line per element, in metres (x to the right, y down):
+       F 40x30                        the field (width x height)
+       Z x y w h color [label]        a coloured zone (jaune, bleu, rouge, violet, blanc, vert)
+       C x y [color]                  a cone          L x1 y1 x2 y2 n [color]   a line of n cones
+       G x y rot [width]              a goal (rot 0 = opens to the left, 180 = to the right, 90 / 270 = up / down)
+       P id x y team [label]          a player: h (us), a (them), j (joker, yellow), g (our goalkeeper), k (their goalkeeper)
+       B id                           the ball, at the feet of id
+       S sentence                     the starting position, with its sentence
+       > sentence | action ; action   a step: run id x y [c] · drib id x y [c] · pass id [c] · shot x y [c] · press id x y · pb (the nearest opponent presses the ball)
+     c = the curve of the arrow (-.4 … .4). */
+  function fromScript(ex) {
+    const lines = String(ex.script || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const f = (lines.find(l => /^F\s/.test(l)) || 'F 30x20').match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/) || [0, 30, 20];
+    const S = story(ex.title || 'Exercice', +f[1], +f[2]), ids = {}, them = [], num = v => +String(v).replace(',', '.');
+    const kinds = { h: l => home(l), a: l => away(l), j: l => Object.assign(joker(), { label: l || 'J' }), g: () => gkObj(), k: () => gkObj('jaune') };
+    lines.forEach(l => {
+      const [k, ...a] = l.split(/\s+/);
+      if (k === 'Z') S.sc.zones.push({ id: Store.uid(), x: num(a[0]), y: num(a[1]), w: num(a[2]), h: num(a[3]), color: a[4] || 'jaune', label: a.slice(5).join(' ') });
+      else if (k === 'C') S.cone([num(a[0]), num(a[1])], a[2] || 'orange');
+      else if (k === 'L') { const n = Math.max(2, +a[4] || 2); for (let i = 0; i < n; i++) S.cone([num(a[0]) + (num(a[2]) - num(a[0])) * i / (n - 1), num(a[1]) + (num(a[3]) - num(a[1])) * i / (n - 1)], a[5] || 'orange'); }
+      else if (k === 'G') S.goal(num(a[0]), num(a[1]), +a[2] || 0, a[3] ? num(a[3]) : 3);
+      else if (k === 'P') { const o = (kinds[a[3]] || kinds.h)(a.slice(4).join(' ') || a[0].replace(/^[A-Za-z]+/, '') || a[0]); ids[a[0]] = S.add(o, [num(a[1]), num(a[2])]); if (a[3] === 'a' || a[3] === 'k') them.push(ids[a[0]]); }
+    });
+    const ball = lines.find(l => /^B\s/.test(l)); if (ball && ids[ball.split(/\s+/)[1]]) S.giveBall(ids[ball.split(/\s+/)[1]]);
+    S.start((lines.find(l => /^S\s/.test(l)) || 'S Mise en place').slice(2));
+    lines.filter(l => l[0] === '>').forEach(l => {
+      const [note, acts = ''] = l.slice(1).split('|');
+      S.step(note.trim(), A => acts.split(';').map(x => x.trim().split(/\s+/)).forEach(([v, ...a]) => {
+        const id = ids[a[0]], xy = [num(a[1]), num(a[2])];
+        if (v === 'run' && id) A.run(id, xy, num(a[3] || 0));
+        else if (v === 'drib' && id) A.dribble(id, xy, num(a[3] || 0));
+        else if (v === 'press' && id) A.press(id, xy);
+        else if (v === 'pass' && id) A.pass(id, num(a[1] || 0));
+        else if (v === 'shot') A.shot([num(a[0]), num(a[1])], num(a[2] || 0));
+        else if (v === 'pb') A.pressBall(them, .5);
+      }));
+    });
+    return S.sc;
+  }
+  // (2.30) the whole exercise on ONE picture (cards, previews, PDF): the starting positions + every movement of every step as an arrow
+  // (passes, runs, dribbles, shots, pressing), like a coach's drawing on paper
+  function overview(sc) {
+    const st = sc.steps || []; if (st.length < 2 || st.length > 9) return sc;
+    const arrows = [];
+    for (let k = 1; k < st.length; k++) Object.entries(st[k].moves || {}).forEach(([id, mv]) => {
+      const a = (st[k - 1].pos || {})[id], b = (st[k].pos || {})[id]; if (!a || !b || !mv || mv.type === 'none' || dist(a, b) < .3) return;
+      arrows.push({ id: 'ov' + k + id, a: a.slice(), b: b.slice(), c: mv.c || 0, type: mv.type });
+    });
+    if (!arrows.length) return sc;
+    return Object.assign({}, sc, { id: sc.id + '-ov', steps: [Object.assign({}, st[0], { moves: {}, arrows: [...(st[0].arrows || []), ...arrows] })] });
+  }
   // the schema of an exercise (not saved): its action told step by step
   function build(ex) {
     const r = read(ex);
     let sc;
+    // (2.30) the library's exercises carry their own drawing
+    if (ex.script) { try { sc = fromScript(ex); sc.name = ex.title || sc.name; sc.notes = [ex.org, ex.consignes].filter(Boolean).join('\n'); sc.kind = 'script'; if (!sc.steps.length) sc.steps.push({ pos: {}, arrows: [], moves: {}, note: '', dur: 2 }); return sc; } catch (e) { /* the text below draws it */ } }
     // an unusual text must never break the page: the shape of the exercise is drawn instead
     try { sc = ({ possession, game, finish, duel, shape, run })[r.kind](ex, r); } catch (e) { try { sc = shape(ex, r); } catch (e2) { sc = story(ex.title || 'Exercice', r.w || 30, r.h || 20).sc; } }
     sc.name = ex.title || sc.name;
@@ -264,7 +319,7 @@ const AutoSchema = (() => {
   }
   // a preview for the card: the same id as long as the text does not change (the picture is kept)
   function preview(ex) {
-    const txt = `${ex.title}|${ex.org}|${ex.consignes}|${ex.size}`;
+    const txt = `${ex.title}|${ex.org}|${ex.consignes}|${ex.size}|${ex.script || ''}`;
     let hsh = 0; for (let i = 0; i < txt.length; i++) hsh = (hsh * 31 + txt.charCodeAt(i)) | 0;
     const key = 'auto-' + (ex.id || 'x') + ':' + hsh;
     if (cache.has(key)) return cache.get(key);
@@ -329,5 +384,5 @@ const AutoSchema = (() => {
       } });
     return close;
   }
-  return { read, build, preview, save, big };
+  return { read, build, preview, save, big, fromScript, overview };
 })();
