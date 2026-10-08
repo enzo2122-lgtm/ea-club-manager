@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 73, date: '2026-10-08', title: 'Les VMA et VTI d\'AssistCoachAI', items: [
+      ['🏃', 'L\'import AssistCoachAI ramène la VMA et la VTI (VIFT du 30-15) de chaque joueur, avec leur date : Joueurs → Tests, la fiche du joueur et ses allures de course. Un nouvel import ne fait pas de doublon.'],
+      ['🔁', 'Refais le favori AssistCoachAI (Réglages → Le club) : il lit maintenant aussi les tests.'],
+    ] },
     { n: 72, date: '2026-10-08', title: 'Petites corrections sur téléphone', items: [
       ['🟦', 'Corrigé : avec le menu discret en haut, un carré bleu apparaissait sous le menu.'],
       ['🎯', 'Corrigé : la page « Pronos » des joueurs dépassait de l\'écran (le téléphone dézoomait).'],

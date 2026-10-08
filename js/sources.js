@@ -26,7 +26,8 @@ const eff=await j('/api/effectif/sync');const t=(eff.teams||[]).find(x=>x.is_act
 const d=new Date(),y=d.getMonth()>=6?d.getFullYear():d.getFullYear()-1,f=y+'-07-01',to=d.toISOString().slice(0,10),q='?teamId='+T;
 const [planning,seances,medical,wellness,rpe,ch]=await Promise.all([j('/api/planning'+q),j('/api/seances'),j('/api/medical/cases'+q),j('/api/wellness/logs'+q+'&kind=wellness&from='+f+'&to='+to),j('/api/wellness/logs'+q+'&kind=rpe&from='+f+'&to='+to),j('/api/championship'+q)]);
 const champDetail={};for(const c of (ch.championships||[])){try{champDetail[c.id]=await j('/api/championship/'+c.id);}catch(e){}}
-const D={source:'assistcoachai',effectif:{players:(eff.players||[]).filter(p=>!p.team_id||p.team_id===T),teams:[t]},planning,seances,medical,wellness,rpe,champDetail};
+const tests={};for(const u of ['/api/tests','/api/tests/physiques','/api/physical-tests','/api/physique','/api/evaluations','/api/effectif/tests','/api/vma']){try{tests[u]=await j(u+q);}catch(e){}}
+const D={source:'assistcoachai',effectif:{players:(eff.players||[]).filter(p=>!p.team_id||p.team_id===T),teams:[t]},planning,seances,medical,wellness,rpe,champDetail,tests};
 let z='';try{if(window.CompressionStream)z=await gz(JSON.stringify(D));}catch(e){}
 const ev=(planning.events||[]).length,ak=(planning.acks||[]).length;
 const b=box('✅ Lu : '+(D.effectif.players.length)+' joueurs, '+ev+' matchs et entraînements'+(ak?', '+ak+' réponses':'')+'<br><button id="clubImpGo" style="margin-top:10px;padding:12px 16px;font:bold 16px sans-serif;border:0;border-radius:10px;background:#c9a45c;color:#14172b;cursor:pointer">Envoyer à l\\'appli →</button>');
