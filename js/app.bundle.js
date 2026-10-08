@@ -1943,8 +1943,10 @@ var Auth = (() => {
     const el = lock(); el.hidden = false;
     el.innerHTML = `<div class="lock-card">${Supporters.coin('lock-crest')}<p class="eyebrow">${esc(AppCfg.name)}</p><h1>${esc(Store.state.club.name || 'Espace éducateurs')}</h1>${inner}
       <button class="btn wide link how-btn" id="howTo">${I.help}<span>Comment utiliser l'appli ?</span></button>
+      <a class="btn wide link" href="moi.html" id="famLink"><span>⚽ Joueur ou parent ? Ouvrir mon espace</span></a>
       <p class="lock-version">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" id="updApp">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p></div>`;
     el.querySelector('#howTo').onclick = () => Help.tour();
+    el.querySelector('#famLink').onclick = () => { try { localStorage.removeItem(AppCfg.key('home')); } catch (e) {} }; // (2.08) the app of the stores opens on the families' page
     el.querySelector('#updApp').onclick = () => App.checkUpdate(true);
     el.scrollTop = 0;
     return el;
@@ -3537,7 +3539,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.07';
+  const VERSION = '2.08';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13420,6 +13422,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 64, date: '2026-10-08', title: 'Une seule appli pour tout le club', items: [
+      ['📲', 'La page du code (joueurs et parents) a un lien « Coach ou dirigeant ? » vers l\'appli des coachs, et l\'écran de connexion des coachs un lien « Joueur ou parent ? ». L\'appli retient ton choix.'],
+      ['🏪', 'Préparation de la publication sur le Play Store : icône adaptée à Android, captures, raccourcis.'],
+    ] },
     { n: 63, date: '2026-10-08', title: 'Espace famille jusqu\'aux U15, et sourdine des parents', items: [
       ['👪', 'L\'espace parents est réservé aux U15 et plus jeunes. À partir des U16 (et Seniors, Vétérans), le code ouvre directement l\'espace joueur.'],
       ['💬', 'Un seul chat par catégorie : jusqu\'aux U15, le chat des parents (espace parents, avec les coachs), plus de chat dans l\'espace joueur ; à partir des U16, le chat des joueurs.'],
@@ -14309,7 +14315,8 @@ var Chat = (() => {
       '.cx{display:flex;flex-direction:column;min-height:320px;box-sizing:border-box;border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,#e3e5ea);overflow:hidden;position:relative}',
       '.cx-top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line,#e3e5ea);min-height:46px}',
       'body.tabs-top .cx-top,body.nav-top .cx-top{padding-right:118px}',
-      '.cx-top b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cx-shield{font-size:12px;font-weight:700;color:#15803d;white-space:nowrap}',
+      '@media (max-width:430px){.cx-w{display:none}}', // (2.08) a narrow phone: the icons only, so the name of the room stays readable
+      '.cx-top b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}.cx-shield{font-size:12px;font-weight:700;color:#15803d;white-space:nowrap}',
       '.cx-top .cx-sp{flex:1}.cx-cats{display:flex;gap:4px}.cx-cats button,.cx-mod{border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:999px;min-height:36px;padding:6px 12px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}',
       '.cx-cats button.on{background:#0e1d45;color:#fff;border-color:#0e1d45}',
       '.cx-list{flex:1;overflow-y:auto;padding:10px 10px 6px;display:flex;flex-direction:column;gap:2px;background:var(--bg,#f2f3f7);overscroll-behavior:contain;-webkit-overflow-scrolling:touch}',
@@ -14486,7 +14493,7 @@ var Chat = (() => {
     const cats = view.cats || [];
     return `<div class="cx" id="cx">
       <div class="cx-top"><b>${esc(roomTitle(view.cat))}</b>${view.filtered ? '<span class="cx-shield" title="Les mots grossiers ou insultants sont bloqués">🛡️</span>' : ''}
-        <span class="cx-seg"><button class="${mode === 'chat' ? 'on' : ''}" data-cxmode="chat">💬 Chat</button><button class="${mode === 'polls' ? 'on' : ''}" data-cxmode="polls">📊 Sondages${openPolls() ? ` (${openPolls()})` : ''}</button></span><span class="cx-sp"></span>
+        <span class="cx-seg"><button class="${mode === 'chat' ? 'on' : ''}" data-cxmode="chat" aria-label="Chat">💬<span class="cx-w"> Chat</span></button><button class="${mode === 'polls' ? 'on' : ''}" data-cxmode="polls" aria-label="Sondages">📊<span class="cx-w"> Sondages</span>${openPolls() ? ` (${openPolls()})` : ''}</button></span><span class="cx-sp"></span>
         ${cats.length > 1 ? `<span class="cx-cats">${cats.map(c => `<button class="${c === view.cat ? 'on' : ''}" data-cxcat="${esc(c)}">${esc(roomLabel(c, cats))}</button>`).join('')}</span>` : ''}
         ${o.mute && typeof view.muted === 'boolean' ? `<button class="cx-mute" data-cxmute="${view.muted ? 0 : 1}" title="${view.muted ? 'Notifications du chat coupées : toucher pour les remettre' : 'Couper les notifications du chat'}" aria-label="${view.muted ? 'Remettre les notifications' : 'Couper les notifications'}">${view.muted ? '🔕' : '🔔'}</button>` : ''}
         ${view.mod && o.photosOk && view.filtered ? `<button class="cx-mute cx-ph ${view.photos ? '' : 'off'}" data-cxphotos="${view.photos ? 0 : 1}" title="${view.photos ? 'Les joueurs peuvent envoyer des photos : toucher pour réserver les photos aux coachs' : 'Photos réservées aux coachs : toucher pour les ouvrir aux joueurs'}" aria-label="Photos des joueurs">📷</button>` : ''}
@@ -16764,7 +16771,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 108, UPD = AppCfg.key('update-tried');
+  const BUILD = 109, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

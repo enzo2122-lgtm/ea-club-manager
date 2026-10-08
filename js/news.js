@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 64, date: '2026-10-08', title: 'Une seule appli pour tout le club', items: [
+      ['📲', 'La page du code (joueurs et parents) a un lien « Coach ou dirigeant ? » vers l\'appli des coachs, et l\'écran de connexion des coachs un lien « Joueur ou parent ? ». L\'appli retient ton choix.'],
+      ['🏪', 'Préparation de la publication sur le Play Store : icône adaptée à Android, captures, raccourcis.'],
+    ] },
     { n: 63, date: '2026-10-08', title: 'Espace famille jusqu\'aux U15, et sourdine des parents', items: [
       ['👪', 'L\'espace parents est réservé aux U15 et plus jeunes. À partir des U16 (et Seniors, Vétérans), le code ouvre directement l\'espace joueur.'],
       ['💬', 'Un seul chat par catégorie : jusqu\'aux U15, le chat des parents (espace parents, avec les coachs), plus de chat dans l\'espace joueur ; à partir des U16, le chat des joueurs.'],
