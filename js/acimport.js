@@ -115,7 +115,7 @@ const ACImport = (() => {
   function rowTest(r, unknown) {
     const nm = nameOf(r), kind = TEST_OF(nm), raw = rawOf(r);
     if (kind) { const v = valueFor(kind, raw); if (v != null) return { test: kind, value: v, date: dateOf(r) }; if (unknown && raw != null) unknown.add(nm + ' (valeur ' + raw + ')'); return null; }
-    if (unknown && nm && raw != null && typeof raw !== 'object') unknown.add(nm);
+    if (unknown && nm && raw != null && typeof raw !== 'object' && !LV_OF(nm)) unknown.add(nm); // (2.21) a criterion of the level is not a test
     return null;
   }
   // a tests page of AssistCoachAI: any list of rows with a player, a kind of test (or vma / vti columns) and a value
@@ -137,10 +137,38 @@ const ACImport = (() => {
     return list.length;
   }
 
+  /* ---------- (2.21) the coaches' marks: the level by criterion (→ Niveau) and the marks of a match or a training (→ notes des dirigeants) ---------- */
+  const LV = [['tech', /^(technique|technical|tech|habilete|gestuelle|qualitestechniques)$/], ['iq', /^(intelligence|intelligencedejeu|iq|tactique|tactic|tactical|vision|visiondujeu|lecture|lecturedujeu|comprehension|qualitestactiques)$/],
+    ['phys', /^(physique|physical|phys|athletique|athletic|condition|conditionphysique|qualitesphysiques)$/], ['att', /^(attitude|att|comportement|behavior|behaviour|etatdesprit|discipline|savoiretre|engagement|investissement)$/],
+    ['ment', /^(mental|mentale|ment|psycho|psychologique|caractere|mindset|forcementale)$/]];
+  const LV_OF = k => { const s = norm(k).replace(/ /g, '').replace(/^(note|score|niveau|level|eval)/, ''); const x = LV.find(([, re]) => re.test(s)); return x ? x[0] : null; };
+  const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) && n > 0 ? n : null; };
+  const TXT = ['commentaire', 'comment', 'appreciation', 'observation', 'observations', 'avis', 'remarque', 'feedback', 'bilan', 'coach_comment', 'coach_note', 'note_coach'];
+  // the level found on an object (a player, an evaluation row): { tech: 4, … } or [{ critere: 'Technique', note: 4 }], with its date and the coach's comment
+  function levelOn(o) {
+    const sc = {}; let date = '', c = '';
+    const scan = (x, d) => { if (!x || typeof x !== 'object' || d > 3) return;
+      if (Array.isArray(x)) return x.forEach(r => { if (r && typeof r === 'object') { const k = LV_OF(String(r.critere || r.criterion || r.category || r.categorie || r.domain || r.domaine || r.skill || r.name || r.label || r.type || ''));
+        const v = num(r.note != null ? r.note : r.value != null ? r.value : r.score != null ? r.score : r.rating != null ? r.rating : r.level);
+        if (k && v) { sc[k] = v; date = date || dateOf(r); } else scan(r, d + 1); } });
+      Object.entries(x).forEach(([k, v]) => { const lk = LV_OF(k);
+        if (lk && num(v) && typeof v !== 'object') { sc[lk] = num(v); date = date || dateOf(x); }
+        else if (lk && v && typeof v === 'object' && num(v.note != null ? v.note : v.value != null ? v.value : v.score)) { sc[lk] = num(v.note != null ? v.note : v.value != null ? v.value : v.score); date = date || dateOf(v) || dateOf(x); }
+        else if (!c && TXT.includes(norm(k).replace(/ /g, '_')) && typeof v === 'string' && v.trim().length > 2 && Object.keys(sc).length + Object.keys(x).filter(LV_OF).length) c = v.trim().slice(0, 400);
+        else if (v && typeof v === 'object' && !/^(wellness|rpe|logs|stats|planning|events|tests?)$/i.test(k)) scan(v, d + 1); }); };
+    scan(o, 0); return Object.keys(sc).length ? { sc, date: date || dateOf(o), c } : null;
+  }
+  // a mark of the player in a match or a training: « note », « rating »… (never the score of the match)
+  const RATE_KEYS = ['note', 'rating', 'rate', 'grade', 'mark', 'note_coach', 'coach_rating', 'coach_note', 'player_rating', 'evaluation', 'eval', 'nota'];
+  const rateOf = r => { if (!r || typeof r !== 'object') return null; for (const k of RATE_KEYS) { const v = r[k]; if (v != null && v !== '' && typeof v !== 'object' && /^\s*\d+([.,]\d+)?\s*(\/\s*\d+)?\s*$/.test(String(v))) return num(String(v).split('/')[0]); } return null; };
+  const textOf = r => { for (const k of ['comment', 'commentaire', 'appreciation', 'observation', 'remarque', 'feedback', 'avis']) if (typeof r[k] === 'string' && r[k].trim()) return r[k].trim().slice(0, 300); return ''; };
+  // the scale of a set of marks (out of 5, 10, 20 or 100) from the highest one
+  const scaleOf = vals => { const m = Math.max(0, ...vals); return m <= 5 ? 5 : m <= 10 ? 10 : m <= 20 ? 20 : 100; };
+
   /* ---------- the import ---------- */
   function run(D) {
     addTests.by = {};
-    const st = { players: [0, 0], matches: [0, 0], trainings: [0, 0], injuries: 0, absences: 0, wellness: 0, rpe: 0, sessions: 0, champ: 0, merged: 0, moves: [], answers: [], tests: 0, testKeys: new Set(), testUnknown: new Set(), testBy: {}, tried: D.testsTried || [] }; testsOnPlayer.unk = st.testUnknown;
+    const st = { players: [0, 0], matches: [0, 0], trainings: [0, 0], injuries: 0, absences: 0, wellness: 0, rpe: 0, sessions: 0, champ: 0, merged: 0, moves: [], answers: [], tests: 0, testKeys: new Set(), testUnknown: new Set(), testBy: {}, tried: D.testsTried || [], levels: 0, marks: 0, markEvents: 0 }; testsOnPlayer.unk = st.testUnknown; const lvFound = [];
     const teams = S().teams, fam = k => teams.filter(t => norm(t.category || t.name).replace(/ /g, '') === k);
     // the category: Seniors (the file is a Seniors team: « FCLR – Senior D3/D4 »)
     const acTeam = (D.effectif.teams || [])[0] || {}, catName = /senior/i.test(`${acTeam.category} ${acTeam.name}`) ? 'seniors' : norm(acTeam.category).replace(/ /g, '');
@@ -165,6 +193,8 @@ const ACImport = (() => {
       if (posts && !(p.posts || []).length) { p.posts = posts; p.pos = LINE[posts[0]]; }
       if (!(p.teamIds || []).some(id => groupIds.includes(id))) p.teamIds = [...(p.teamIds || []), main.id];
       const ph = testsOnPlayer(a); st.tests += addTests(p, ph); // (2.17) VMA, VTI / VIFT
+      const lv0 = levelOn(a); if (lv0) lvFound.push(Object.assign({ p }, lv0)); // (2.21) his level (technique, intelligence de jeu…)
+      ((D.perPlayer || {})[a.id] ? Object.values(D.perPlayer[a.id]) : []).forEach(pg => { const l1 = levelOn(pg); if (l1) lvFound.push(Object.assign({ p }, l1)); const t1 = testsInPages({ x: pg }, r => nameOf(r) ? p.id : null, st.testUnknown).concat(testsOnPlayer(pg)); if (t1.length) { const u = {}; t1.forEach(t => { u[t.test + (t.date || '')] = Object.assign(t, { date: t.date || UI.today() }); }); st.tests += addTests(p, Object.values(u)); } });
       Object.keys(a).forEach(k => { if (/vma|vti|vift|ift|vam|test|physi|sprint|cmj|detente|saut|agil|yoyo|cooper|jongl/i.test(k)) st.testKeys.add(k); });
       byAc[a.id] = p; byCid[a.client_id] = p;
       Store.upsert('players', p);
@@ -174,6 +204,14 @@ const ACImport = (() => {
     const pidOf = r => { const k = r.player_id || r.playerId || r.client_id || r.clientId || r.member_id || (typeof r.player === 'string' ? r.player : r.player && r.player.id); return k && (byAc[k] || byCid[k]) ? (byAc[k] || byCid[k]).id : null; };
     const fromPages = testsInPages(D.tests, pidOf, st.testUnknown), perP = {}; fromPages.forEach(t => { (perP[t.who] = perP[t.who] || []).push(t); });
     Object.entries(perP).forEach(([id, l]) => { const p = Store.get('players', id); if (!p) return; const u = {}; l.forEach(t => { u[t.test + t.date] = t; }); st.tests += addTests(p, Object.values(u)); Store.upsert('players', p); });
+    // (2.21) the level in the evaluation pages (a row per player), then into « Niveau » (out of 5 whatever the scale of AssistCoachAI)
+    { const rows = []; const walk = (x, d) => { if (d > 5 || !x) return; if (Array.isArray(x)) x.forEach(y => walk(y, d + 1)); else if (typeof x === 'object') { const w = pidOf(x); if (w) rows.push([w, x]); else Object.values(x).forEach(y => walk(y, d + 1)); } };
+      Object.values(D.tests || {}).forEach(pg => walk(pg, 0));
+      rows.forEach(([w, r]) => { const l = levelOn(r), p = Store.get('players', w); if (l && p) lvFound.push(Object.assign({ p }, l)); }); }
+    if (lvFound.length) { const sc = scaleOf(lvFound.flatMap(x => Object.values(x.sc))), by = {};
+      lvFound.forEach(x => { const k = x.p.id, o = by[k] = by[k] || { p: x.p, sc: {}, date: '', c: '' }; if (!o.date || (x.date || '') >= o.date) { Object.assign(o.sc, x.sc); o.date = x.date || o.date; o.c = x.c || o.c; } });
+      Object.values(by).forEach(o => { const s5 = {}; Object.entries(o.sc).forEach(([k, v]) => { s5[k] = Math.max(1, Math.min(5, Math.round(v * 5 / sc))); });
+        if (typeof Level !== 'undefined' && Level.put(o.p, s5, o.date || UI.today(), 'AssistCoachAI', o.c)) { st.levels++; Store.upsert('players', o.p); } }); }
     /* championships: which of our teams plays each one (from the matches it shares with the FFF import) */
     const champOfEvent = {}, champs = D.champDetail || {};
     Object.values(champs).forEach(c => (c.fixtures || []).forEach(f => { if (f.event_id) champOfEvent[f.event_id] = c.championship.id; }));
@@ -299,6 +337,19 @@ const ACImport = (() => {
     (D.planning.convocations || []).forEach(c => { const r = pick(c, ['response', 'reponse', 'answer', 'ack', 'ack_status', 'reply']); if (r != null) addAns(Object.assign({}, c, { response: r })); });
     (D.planning.attendances || []).forEach(a => addAns(a, true));
     st.answers = Object.values(ans); st.acksSeen = seen;
+    /* (2.21) the coaches' marks of each player in a match or a training (in the match tracking, the event, or the attendances) → « Notes des dirigeants » */
+    { const marks = []; const addM = (ev, who, v, c, at) => { let id = ev && evMap[ev] && evMap[ev](); id = moved[id] || id; const p = pid(who); if (id && p && v) marks.push({ id, p, v, c: c || '', at: at || evDate[ev] || today }); };
+      const fromMap = (ev, o) => { if (!o || typeof o !== 'object') return; if (Array.isArray(o)) return o.forEach(r => r && addM(ev, pick(r, ['player_id', 'playerId', 'client_id', 'player', 'member_id']), rateOf(r) || num(r.value), textOf(r), r.updated_at || r.created_at));
+        Object.entries(o).forEach(([who, r]) => addM(ev, who, typeof r === 'object' ? (rateOf(r) || num(r && r.value)) : num(r), r && typeof r === 'object' ? textOf(r) : '')); };
+      evs.forEach(e => { const pt = e.pt || {};
+        Object.entries(pt.stats || {}).forEach(([cid, s]) => addM(e.id, cid, rateOf(s), s && textOf(s)));
+        [pt.ratings, pt.notes, pt.marks, pt.playerRatings, e.ratings, e.player_ratings, e.notes_joueurs, e.evaluations].forEach(o => fromMap(e.id, o)); });
+      (D.planning.attendances || []).concat(D.planning.convocations || []).forEach(a => { const v = rateOf(a); if (v) addM(pick(a, ['event_id', 'eventId', 'event', 'match_id', 'seance_id']), pick(a, ['player_id', 'playerId', 'client_id', 'player']), v, textOf(a), a.updated_at); });
+      if (marks.length) { const sc = scaleOf(marks.map(x => x.v)), evSet = new Set();
+        marks.forEach(x => { const ev = Store.get('matches', x.id) || Store.get('trainings', x.id); if (!ev) return; const col = Store.get('matches', x.id) ? 'matches' : 'trainings';
+          const v = Math.max(1, Math.min(10, Math.round(x.v * 10 / sc * 2) / 2)); ev.ratings = ev.ratings || {}; ev.ratings[x.p] = Object.assign({}, ev.ratings[x.p], { ac: { v, s: 10, c: x.c, at: String(x.at).slice(0, 10), src: 'AssistCoachAI' } });
+          evSet.add(col + ':' + ev.id); st.marks++; });
+        evSet.forEach(k => { const [col, id] = k.split(':'); Store.upsert(col, Store.get(col, id)); }); st.markEvents = evSet.size; } }
     /* injuries, absences */
     ((D.medical || {}).cases || []).forEach(c => {
       const p = byAc[c.player_id]; if (!p) return;
@@ -349,6 +400,7 @@ const ACImport = (() => {
       <li>🏆 ${r.champ} championnat${r.champ > 1 ? 's' : ''} (classement)</li>
       <li>🏃 ${r.tests ? `${r.tests} résultat${r.tests > 1 ? 's' : ''} de tests physiques (${Object.entries(r.testBy).map(([k, n]) => `${esc(({ vma: 'VMA', vift: 'VTI / VIFT', yoyo: 'Yo-Yo', cooper: 'Cooper', sp10: 'sprint 10 m', sp20: 'sprint 20 m', sp30: 'sprint 30 m', cmj: 'détente', sl: 'saut en longueur', illinois: 'Illinois', ttest: 'T-test', jongles: 'jongles', conduite: 'conduite' })[k] || k)} ${n}`).join(', ')}) : Joueurs → Tests` : `Aucun test physique trouvé dans AssistCoachAI${r.testKeys.size ? ` (champs vus : ${esc([...r.testKeys].slice(0, 8).join(', '))})` : ''}. S'il y en a, ouvre la page des tests dans AssistCoachAI, touche le favori depuis cette page, puis envoie une capture de cette fenêtre.${r.tried.length ? ` <span class="muted small">(pages essayées : ${esc(r.tried.slice(0, 10).join(', '))})</span>` : ''}`}</li>
       ${r.testUnknown.size ? `<li class="muted">❔ Tests d'AssistCoachAI que l'appli ne connaît pas encore (non importés) : ${esc([...r.testUnknown].slice(0, 8).join(', '))}</li>` : ''}
+      <li>⭐ ${r.levels || r.marks ? [r.levels ? `${r.levels} niveau${r.levels > 1 ? 'x' : ''} de joueur (technique, intelligence de jeu, physique, attitude, mental) : Équipes → Niveau des joueurs` : '', r.marks ? `${r.marks} note${r.marks > 1 ? 's' : ''} de coach sur ${r.markEvents} match${r.markEvents > 1 ? 's' : ''} ou entraînement${r.markEvents > 1 ? 's' : ''} : fiche du joueur → Notes des dirigeants` : ''].filter(Boolean).join(' · ') : 'Aucune note de coach trouvée dans AssistCoachAI. Si tu notes tes joueurs là-bas, ouvre la page où sont les notes, touche le favori depuis cette page, puis envoie une capture de cette fenêtre.'}</li>
       ${r.merged ? `<li>🤝 ${r.merged} match${r.merged > 1 ? 's' : ''} en double fusionné${r.merged > 1 ? 's' : ''} avec celui de la FFF</li>` : ''}
       <li>🗳️ ${sent.text}</li></ul>
       ${!r.answers.length && r.acksSeen.n ? `<p class="muted small">AssistCoachAI a envoyé ${r.acksSeen.n} réponse${r.acksSeen.n > 1 ? 's' : ''} que l'appli ne sait pas encore lire (champs : ${esc([...r.acksSeen.keys].slice(0, 12).join(', '))} · valeurs : ${esc([...r.acksSeen.vals].slice(0, 8).join(', ') || 'aucune')}). Envoie une capture de ce message pour qu'on les ajoute.</p>` : ''}

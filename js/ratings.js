@@ -22,7 +22,7 @@ const Ratings = (() => {
   function history(pid) {
     const out = [], S = Store.state;
     const scan = (list, kind) => list.forEach(ev => Object.entries(((ev.ratings || {})[pid]) || {}).forEach(([sid, x]) => {
-      if (x.v) out.push({ kind, ev, date: ev.date, v: val(x), c: x.c || '', by: Store.get('staff', sid) });
+      if (x.v) out.push({ kind, ev, date: ev.date, v: val(x), c: x.c || '', by: Store.get('staff', sid), src: x.src || '' });
     }));
     scan(S.matches, 'match'); scan(S.trainings, 'training');
     return out.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
