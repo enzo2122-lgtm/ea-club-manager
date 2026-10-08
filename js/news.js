@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 66, date: '2026-10-08', title: 'Le favori AssistCoachAI marche aussi avec l\'appli installée', items: [
+      ['📥', 'Le favori AssistCoachAI montre ce qu\'il lit (joueurs, matchs, réponses), puis un bouton « Envoyer à l\'appli → ». Les données passent dans l\'adresse, comme Footclubs : ça marche même quand l\'appli est installée sur l\'ordinateur.'],
+      ['🔁', 'Refais le favori une fois (Réglages → Le club) : l\'ancien ne marche plus.'],
+    ] },
     { n: 65, date: '2026-10-08', title: 'AssistCoachAI : les réponses des joueurs, et plus de doublons', items: [
       ['🗳️', 'Les réponses des joueurs sur AssistCoachAI (présent / absent aux matchs et aux entraînements, avec le motif) arrivent dans l\'appli à l\'import. Une réponse plus récente donnée dans l\'appli reste.'],
       ['🤝', 'Corrigé : un match d\'AssistCoachAI rangé dans une autre équipe de la catégorie que celui de la FFF (la coupe en « Seniors », la FFF en « Seniors B »), ou nommé sans le numéro d\'équipe (« Villemomble » / « VILLEMOMBLE SPORTS 2 »), faisait un doublon. Les doublons déjà là sont fusionnés au prochain import : le match de la FFF reste, avec les convocations et les notes.'],

@@ -3553,7 +3553,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.09';
+  const VERSION = '2.10';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -13523,6 +13523,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 66, date: '2026-10-08', title: 'Le favori AssistCoachAI marche aussi avec l\'appli installée', items: [
+      ['📥', 'Le favori AssistCoachAI montre ce qu\'il lit (joueurs, matchs, réponses), puis un bouton « Envoyer à l\'appli → ». Les données passent dans l\'adresse, comme Footclubs : ça marche même quand l\'appli est installée sur l\'ordinateur.'],
+      ['🔁', 'Refais le favori une fois (Réglages → Le club) : l\'ancien ne marche plus.'],
+    ] },
     { n: 65, date: '2026-10-08', title: 'AssistCoachAI : les réponses des joueurs, et plus de doublons', items: [
       ['🗳️', 'Les réponses des joueurs sur AssistCoachAI (présent / absent aux matchs et aux entraînements, avec le motif) arrivent dans l\'appli à l\'import. Une réponse plus récente donnée dans l\'appli reste.'],
       ['🤝', 'Corrigé : un match d\'AssistCoachAI rangé dans une autre équipe de la catégorie que celui de la FFF (la coupe en « Seniors », la FFF en « Seniors B »), ou nommé sans le numéro d\'équipe (« Villemomble » / « VILLEMOMBLE SPORTS 2 »), faisait un doublon. Les doublons déjà là sont fusionnés au prochain import : le match de la FFF reste, avec les convocations et les notes.'],
@@ -13856,16 +13860,27 @@ var Sources = (() => {
   /* ---------- the bookmarks, made for this app's address ---------- */
   function bookmarks() {
     const A = JSON.stringify(appUrl());
+    // (2.10) AssistCoachAI: read, then the data go COMPRESSED IN THE ADDRESS of the app (like Footclubs): it works when the app is
+    // installed (its own window, without « opener ») and when the site cuts the link between windows. A box shows the reading and
+    // the button « Envoyer à l'appli » (a click: never blocked as a pop-up). Too big for an address: the old way (window + message).
     const ac = `(async()=>{const A=${A};if(!/assistcoachai\\.com$/.test(location.host)){alert('Ouvre d\\'abord AssistCoachAI (connecté), puis touche ce favori.');return;}
-const w=window.open(A+'#/recevoir-source','clubimport');
+const box=h=>{let b=document.getElementById('clubImp');if(!b){b=document.createElement('div');b.id='clubImp';b.style.cssText='position:fixed;top:12px;right:12px;z-index:2147483647;padding:14px 18px;background:#0e1d45;color:#fff;font:bold 15px sans-serif;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.35);max-width:340px;line-height:1.4';document.body.appendChild(b);}b.innerHTML=h;return b;};
 const j=async u=>{const r=await fetch(u,{credentials:'include'});if(!r.ok)throw new Error(u.split('?')[0]+' : '+r.status);return r.json();};
-try{const eff=await j('/api/effectif/sync');const t=(eff.teams||[]).find(x=>x.is_active)||(eff.teams||[])[0];if(!t)throw new Error('aucune équipe');const T=t.id;
+const gz=async s=>{const b=await new Response(new Blob([s]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer(),u=new Uint8Array(b);let t='';for(let i=0;i<u.length;i+=32768)t+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(t).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');};
+try{box('📥 Lecture d\\'AssistCoachAI pour l\\'appli…<br><small>ne touche à rien</small>');
+const eff=await j('/api/effectif/sync');const t=(eff.teams||[]).find(x=>x.is_active)||(eff.teams||[])[0];if(!t)throw new Error('aucune équipe');const T=t.id;
 const d=new Date(),y=d.getMonth()>=6?d.getFullYear():d.getFullYear()-1,f=y+'-07-01',to=d.toISOString().slice(0,10),q='?teamId='+T;
 const [planning,seances,medical,wellness,rpe,ch]=await Promise.all([j('/api/planning'+q),j('/api/seances'),j('/api/medical/cases'+q),j('/api/wellness/logs'+q+'&kind=wellness&from='+f+'&to='+to),j('/api/wellness/logs'+q+'&kind=rpe&from='+f+'&to='+to),j('/api/championship'+q)]);
 const champDetail={};for(const c of (ch.championships||[])){try{champDetail[c.id]=await j('/api/championship/'+c.id);}catch(e){}}
 const D={source:'assistcoachai',effectif:{players:(eff.players||[]).filter(p=>!p.team_id||p.team_id===T),teams:[t]},planning,seances,medical,wellness,rpe,champDetail};
-let n=0;const send=()=>{try{w.postMessage({type:'club-import',source:'assistcoachai',payload:D},new URL(A).origin);}catch(e){}};
-addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'&&!n++)send();});}catch(e){alert('Lecture impossible : '+e.message);}})()`;
+let z='';try{if(window.CompressionStream)z=await gz(JSON.stringify(D));}catch(e){}
+const ev=(planning.events||[]).length,ak=(planning.acks||[]).length;
+const b=box('✅ Lu : '+(D.effectif.players.length)+' joueurs, '+ev+' matchs et entraînements'+(ak?', '+ak+' réponses':'')+'<br><button id="clubImpGo" style="margin-top:10px;padding:12px 16px;font:bold 16px sans-serif;border:0;border-radius:10px;background:#c9a45c;color:#14172b;cursor:pointer">Envoyer à l\\'appli →</button>');
+b.querySelector('#clubImpGo').onclick=()=>{
+if(z&&z.length<1500000){const u=A+'#/recevoir-source/ac='+z;const w=window.open(u,'_blank');if(!w)location.href=u;box('✅ Envoyé : regarde l\\'appli (onglet ou fenêtre de l\\'appli).');return;}
+const w=window.open(A+'#/recevoir-source','clubimport');let n=0;const send=()=>{try{w.postMessage({type:'club-import',source:'assistcoachai',payload:D},new URL(A).origin);}catch(e){}};
+addEventListener('message',e=>{if(e.source===w&&e.data==='club-import-ready'&&!n++){send();box('✅ Envoyé : regarde l\\'appli.');}});box('⏳ Ouverture de l\\'appli…');};
+}catch(e){box('⚠️ Lecture impossible : '+e.message);}})()`;
     // Footclubs shows the list 30 by 30 (« De 1 à 30 sur 361 »): the bookmark reads every page (« page suivante », reading only)
     // (1.83) every frame, at any depth; the counter with any space (Footclubs puts non-breaking spaces); one page only if there is no counter;
     // an error is shown (it was silent)
@@ -13946,14 +13961,26 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
   /* ---------- the app opened by a bookmark ---------- */
   // (1.85) Footclubs: the data come in the address (#/recevoir-source/fc=…), so it works even when the app is installed
   // (Chrome then opens it in the app's own window, without « opener »); the address is cleaned at once
+  // (2.10) AssistCoachAI: « ac=<gzip in base64url> » (compressed by the bookmark)
+  async function unzip(b64) {
+    const bin = atob(b64.replace(/-/g, '+').replace(/_/g, '/')), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return JSON.parse(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+  }
   function fromLink(raw) {
-    if (!raw) { const m = location.hash.match(/^#\/recevoir-source\/fc=(.+)$/); if (!m) return false; raw = m[1]; history.replaceState(null, '', location.pathname + location.search + '#/'); }
+    if (!raw) { const m = location.hash.match(/^#\/recevoir-source\/((?:fc|ac)=.+)$/); if (!m) return false; raw = m[1]; history.replaceState(null, '', location.pathname + location.search + '#/'); }
+    if (/^ac=/.test(raw)) {
+      if (!Auth.isAdmin()) { toast('Réservé à un responsable du club.', 'err'); return true; }
+      const b = UI.busy('Réception des données AssistCoachAI…');
+      unzip(raw.slice(3)).then(D => { b.done(); assist(D); }).catch(err => { b.done(); console.error(err); toast('Données AssistCoachAI illisibles : touche à nouveau le favori, puis « Envoyer à l\'appli ».', 'err'); });
+      return true;
+    }
+    raw = raw.replace(/^fc=/, '');
     let P; try { P = JSON.parse(decodeURIComponent(raw)); } catch (e) { toast('Données Footclubs illisibles : refais la lecture.', 'err'); return true; }
     if (!Auth.isAdmin()) { toast('Réservé à un responsable du club.', 'err'); return true; }
     try { footclubs(P); } catch (err) { console.error(err); toast(err.message || 'Données illisibles', 'err'); }
     return true;
   }
-  addEventListener('hashchange', () => { if (/^#\/recevoir-source\/fc=/.test(location.hash) && Auth.current()) fromLink(); });
+  addEventListener('hashchange', () => { if (/^#\/recevoir-source\/(fc|ac)=/.test(location.hash) && Auth.current()) fromLink(); });
   function receive(fc) {
     if (fc) { fromLink(fc); return; }
     if (!window.opener) return toast('Ouvre cette page avec le favori, depuis AssistCoachAI ou Footclubs.', 'err');
@@ -16876,7 +16903,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 110, UPD = AppCfg.key('update-tried');
+  const BUILD = 111, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -16938,7 +16965,7 @@ var App = (() => {
     const recv = (location.hash.match(/^#\/recevoir\/([\w-]+)/) || [])[1];
     // (1.39) opened by the « AssistCoachAI / Footclubs → app » bookmark: the data arrive from the site
     const fromSite = /^#\/recevoir-source/.test(location.hash);
-    const fcData = (location.hash.match(/^#\/recevoir-source\/fc=(.+)$/) || [])[1]; // (1.85) the Footclubs data in the address
+    const fcData = (location.hash.match(/^#\/recevoir-source\/((?:fc|ac)=.+)$/) || [])[1]; // (1.85) the Footclubs data in the address; (2.10) AssistCoachAI's too
     if (fromSite) history.replaceState(null, '', location.pathname + location.search + '#/');
     if (recv) history.replaceState(null, '', location.pathname + location.search + '#/entrainements');
     const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
