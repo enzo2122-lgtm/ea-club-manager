@@ -2103,3 +2103,12 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 }
 
 .lv-note { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #c9a45c 14%, transparent); white-space: pre-line; }
+
+/* (2.23) travail athlétique */
+.ath-groups { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.ath-g { border-left: 6px solid var(--g, #16a34a); } .ath-g.g2 { --g: #2563eb; } .ath-g.g3 { --g: #9333ea; } .ath-g.g4 { --g: #ea580c; } .ath-g.g5 { --g: #db2777; }
+.ath-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .ath-head h2 { margin: 0; }
+.ath-nums { display: flex; gap: 10px; margin: 8px 0; } .ath-nums div { flex: 1; text-align: center; padding: 8px 4px; border-radius: 12px; background: var(--surface2); } .ath-nums b { display: block; font-size: 24px; } .ath-nums span { font-size: 12px; opacity: .75; }
+.ath-names { display: flex; flex-wrap: wrap; gap: 6px; } .ath-names span { padding: 5px 10px; border-radius: 999px; background: var(--surface2); font-size: 14px; } .ath-names i { font-style: normal; opacity: .6; margin-left: 5px; font-size: 12px; }
+.ath-set .chips select.chip { font: inherit; }
+@media print { .ath-set, .head-actions, .page-head .sub { display: none; } }

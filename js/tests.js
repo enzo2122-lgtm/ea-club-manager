@@ -42,7 +42,7 @@ const Tests = (() => {
     const ranked = rows.filter(x => x.l).sort((a, b) => up ? b.l.value - a.l.value : a.l.value - b.l.value);
     const vals = ranked.map(x => +x.l.value), avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
     root.innerHTML = `<header class="page-head"><div><h1>🏃 Tests physiques</h1><p class="sub">${esc(t.name)} · ${esc(name)}${avg != null ? ` · moyenne ${fmtV(k, avg)} ${esc(unit)}` : ''}</p></div>
-      <div class="head-actions"><a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a><button class="btn" data-tt="import">${I.upload}<span>Importer (Excel, CSV)</span></button><button class="btn primary" data-tt="new">${I.plus}<span>Nouvelle séance de tests</span></button></div></header>
+      <div class="head-actions"><a class="btn" href="#/athle/${t.id}">⚡<span>Travail athlétique</span></a><button class="btn" data-tt="import">${I.upload}<span>Importer (Excel, CSV)</span></button><button class="btn primary" data-tt="new">${I.plus}<span>Nouvelle séance de tests</span></button></div></header>
       <div class="row2"><label class="fld"><span>Équipe</span><select id="ttTeam">${teams.map(x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
         <label class="fld"><span>Test</span><select id="ttTest">${LIST.map(([key, n, u]) => `<option value="${key}" ${key === k ? 'selected' : ''}>${esc(n)} (${u})</option>`).join('')}</select></label></div>
       <p class="muted small">${esc(def(k)[5])}</p>

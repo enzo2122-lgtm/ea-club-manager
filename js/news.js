@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 79, date: '2026-10-08', title: "Les plots se placent tout seuls ⚡", items: [
+      ['⚡', "Travail athlétique (Joueurs → « Travail athlétique », ou depuis les tests physiques) : d'après les VMA, l'appli fait 1 à 5 groupes de course et donne à chacun sa vitesse et sa distance (% de VMA, effort, récup, séries). Présents seulement, gardiens ou non, image à partager sur WhatsApp."],
+    ] },
     { n: 78, date: '2026-10-08', title: 'La page confidentialité a rattrapé l\'appli 🔒', items: [
       ['🔒', "Page confidentialité complétée : profil et blessures signalés par les joueurs, messages au coach, highlights et vidéos (YouTube sans cookie, option Gemini avec accord des familles), jeu des pronos, anniversaires, imports AssistCoachAI / Footclubs, durées de conservation."],
     ] },
