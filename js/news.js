@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 108, date: '2026-10-09', title: 'Réglages des notifications aux familles 🔔', items: [
+      ['🔔', 'Réglages → Notifications : le responsable choisit ce que reçoivent les familles. Nouveau match (7, 14, 30 jours avant ou jamais), nouvelle séance (3, 7, 14 jours ou jamais), relance des indécis (aucune, la veille, ou 2 jours avant et la veille), changement ou annulation (48 h, 72 h, toujours ou jamais).'],
+    ] },
     { n: 107, date: '2026-10-09', title: 'Après l\'effort, le joueur répond 💪', items: [
       ['💪', 'Après une séance ou un match, le joueur (ou ses parents) dit sur son accueil si c\'était dur (1 à 10) et s\'il a aimé. Ça compte dans la charge quand le coach n\'a rien noté (📱 sur la séance).'],
       ['🙋', 'Après un match, 3 h après le coup d\'envoi : il se note de 0 à 10, dit son match et l\'équipe en un mot, et vote pour l\'étoile du match.'],
