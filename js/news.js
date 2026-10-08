@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 109, date: '2026-10-09', title: 'Chrono d\'exercice et score par chasubles ⏱️', items: [
+      ['⏱️', 'Plus → « Chrono et score » : chrono d\'exercice avec effort / récup, répétitions, séries, décompte 3-2-1 et sons (sifflet, bip, klaxon…). Réglages tout prêts : 30-30, 15-15, 45-15, jeu 4\' / 1\', gainage. L\'écran reste allumé.'],
+      ['🎽', 'Score par chasubles : 2 à 4 équipes à leurs couleurs, + / − en gros boutons, gardé sur le téléphone.'],
+    ] },
     { n: 108, date: '2026-10-09', title: 'Réglages des notifications aux familles 🔔', items: [
       ['🔔', 'Réglages → Notifications : le responsable choisit ce que reçoivent les familles. Nouveau match (7, 14, 30 jours avant ou jamais), nouvelle séance (3, 7, 14 jours ou jamais), relance des indécis (aucune, la veille, ou 2 jours avant et la veille), changement ou annulation (48 h, 72 h, toujours ou jamais).'],
     ] },

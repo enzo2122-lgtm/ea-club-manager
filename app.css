@@ -2161,3 +2161,33 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .self-row > .small, .self-row > .muted { grid-column: 1 / -1; }
 .fam-notif { margin-top: 12px; }
 .fam-notif .fld { margin-top: 8px; }
+
+/* (2.53) on the pitch: exercise timer, score by bibs */
+.ch-big { border-radius: 24px; padding: 22px 16px; text-align: center; color: #fff; background: #334155; margin: 12px 0; transition: background .3s; }
+.ch-big.work { background: linear-gradient(160deg, #dc2626, #9f1239); }
+.ch-big.rest { background: linear-gradient(160deg, #16a34a, #0f766e); }
+.ch-big.setrest { background: linear-gradient(160deg, #2563eb, #4338ca); }
+.ch-big.pre { background: linear-gradient(160deg, #f59e0b, #d97706); }
+.ch-big.paused { filter: saturate(.35); }
+.ch-big .ch-ph { font-size: 20px; font-weight: 800; letter-spacing: .02em; }
+.ch-big .ch-t { font-size: clamp(72px, 26vw, 150px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; margin: 6px 0; }
+.ch-big .ch-sub { font-size: 15px; opacity: .9; }
+.ch-ctl { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 14px; }
+.btn.big { min-height: 54px; padding: 0 20px; font-size: 17px; }
+.ch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+.ch-grid2 { display: grid; gap: 8px; margin-top: 10px; }
+.ch-step { display: flex; align-items: stretch; gap: 4px; }
+.ch-step button { width: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); font-size: 20px; font-weight: 800; color: var(--ink); }
+.ch-step input { flex: 1; min-width: 0; text-align: center; font-weight: 800; font-size: 17px; }
+.ch-presets { margin-top: 4px; }
+.bib-board { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 12px 0; }
+.bib-team { border-radius: 22px; background: var(--bg); color: var(--fg); padding: 14px 10px; text-align: center; box-shadow: inset 0 0 0 2px rgba(0,0,0,.08); }
+.bib-name { font-weight: 800; font-size: 18px; }
+.bib-score { font-size: clamp(64px, 22vw, 120px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; margin: 4px 0 10px; }
+.bib-btns { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.bib-btns button { min-height: 58px; border-radius: 14px; border: 0; background: rgba(0,0,0,.18); color: inherit; font-size: 30px; font-weight: 900; }
+.bib-btns button:last-child { background: rgba(255,255,255,.28); }
+.bib-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; }
+.bib-pick b { min-width: 80px; }
+.bib-dot { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(0,0,0,.15); font-weight: 900; }
+.bib-dot.on { outline: 3px solid var(--ink); outline-offset: 2px; }
