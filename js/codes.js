@@ -152,5 +152,6 @@ const Codes = (() => {
       <tbody>${rows.map(p => `<tr><td>${esc(full(p))}</td><td>${esc((p.birth || '').slice(0, 4))}</td><td class="pl-code">${esc(pretty((map[p.id] || {}).code || ''))}</td><td></td></tr>`).join('')}</tbody></table>
       <p class="pl-note">Document confidentiel : chaque code ouvre les informations d'un licencié.</p></div>`, 'pa-list');
   }
-  return { page, qrDialog, catUrl };
+  const qrSvg = async (text, cell = 5) => { await loadQr(); return svg(text, cell); }; // (2.63)
+  return { page, qrDialog, catUrl, qrSvg, base };
 })();

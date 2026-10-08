@@ -144,6 +144,8 @@ const Cloud = (() => {
     chatPin: (team, id) => rpc('club_chat_pin', { p_team: team, p_id: id }),
     chatPhotos: (team, on) => rpc('club_chat_photos', { p_team: team, p_on: on }),
     chatDel: (team, id) => rpc('club_chat_del', { p_team: team, p_id: id }),
+    liveShare: match => rpc('club_live_share', { p_match: match }),
+    liveInbox: (match, after) => rpc('club_live_inbox', { p_match: match, p_after: after || 0 }),
     chatEdit: (team, id, body) => rpc('club_chat_edit', { p_team: team, p_id: id, p_body: body }),
     chatOff: (team, off) => rpc('club_chat_off', { p_team: team, p_off: off }),
     chatPoll: (team, q, opts, multi) => rpc('club_chat_poll', { p_team: team, p_q: q, p_opts: opts, p_multi: multi }),

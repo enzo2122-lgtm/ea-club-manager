@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Clubbo · Aide au match</title>
+<meta name="description" content="Noter le match en direct pour le coach, avec le code du match">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0e1d45">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Clubbo">
+<link rel="icon" href="icons/ea-logo.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="famille.css?v=164">
+<style>
+.ah-score { text-align: center; padding: 14px; border-radius: 18px; background: #0e1d45; color: #fff; margin: 10px 0; }
+.ah-score b { font-size: 40px; display: block; font-variant-numeric: tabular-nums; }
+.ah-score small { opacity: .8; }
+.ah-acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.ah-acts button { min-height: 64px; border-radius: 16px; border: 2px solid var(--c, #475569); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 16px; }
+.ah-acts button b { display: block; font-size: 24px; }
+.ah-poss { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ah-poss button { min-height: 58px; border-radius: 14px; border: 2px solid #16a34a; background: var(--surface); color: #15803d; font-weight: 900; font-size: 18px; }
+.ah-poss button.them { border-color: #dc2626; color: #b91c1c; }
+.ah-poss button.on { background: #16a34a; color: #fff; } .ah-poss button.them.on { background: #dc2626; color: #fff; }
+.ah-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.ah-pick button { padding: 8px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 700; }
+.ah-pick button.on { background: #0e1d45; color: #fff; border-color: #0e1d45; }
+.ah-sent { font-size: 14px; } .ah-sent li { padding: 4px 0; border-bottom: 1px solid var(--line); }
+.ah-in { width: 100%; box-sizing: border-box; min-height: 46px; border-radius: 12px; border: 1px solid var(--line); padding: 0 12px; font-size: 18px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in"><img src="icons/ea-logo.png" alt="" id="clubCrest"><div><p id="club">Clubbo</p><h1 id="team">Aide au match</h1></div></div></header>
+<main id="page"></main>
+<p class="credit">Clubbo · créée par <b>Coach Enzo</b></p>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="js/config.js?v=164"></script>
+<script src="js/appcfg.js?v=164"></script>
+<script src="js/sport.js?v=164"></script>
+<script src="js/member.js?v=164"></script>
+<script src="js/helper.js?v=164"></script>
+</body>
+</html>
