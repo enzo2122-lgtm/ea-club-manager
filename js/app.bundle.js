@@ -49,6 +49,32 @@ var AppCfg = (() => {
   if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (!typing()) soon(); });
 })();
 
+/* (2.41) « 📏 Mesurer l'écran » (Plus): the sizes the phone gives to the app, and marks to see what the phone draws at the bottom.
+   A red line at the bottom of the page as iOS sees it (fixed), a green block just below it (in the page): a screenshot tells where the band comes from. */
+window.ScreenDiag = function () {
+  const old = document.getElementById('scrDiag'); if (old) { old.remove(); document.querySelectorAll('.scr-mark').forEach(e => e.remove()); return; }
+  const probe = css => { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:0;top:0;width:1px;visibility:hidden;pointer-events:none;' + css; document.body.appendChild(d); const h = d.offsetHeight; d.remove(); return h; };
+  const vv = window.visualViewport, ms = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  const rail = document.querySelector('.rail, .tabbar'), rr = rail ? rail.getBoundingClientRect() : null;
+  const rows = [
+    ['Écran', screen.width + ' × ' + screen.height], ['Fenêtre (innerHeight)', innerWidth + ' × ' + innerHeight],
+    ['Page (clientHeight)', document.documentElement.clientHeight], ['Zone visible', vv ? Math.round(vv.width) + ' × ' + Math.round(vv.height) + ' (décalage ' + Math.round(vv.offsetTop) + ')' : '—'],
+    ['Écart écran − fenêtre', screen.height - innerHeight], ['Encoche haut / bas', probe('height:env(safe-area-inset-top)') + ' / ' + probe('height:env(safe-area-inset-bottom)')],
+    ['100vh / 100dvh / 100lvh / 100svh', [probe('height:100vh'), probe('height:100dvh'), probe('height:100lvh'), probe('height:100svh')].join(' / ')],
+    ['Défilement', Math.round(scrollX) + ', ' + Math.round(scrollY)], ['Barre du bas', rr ? Math.round(rr.top) + ' → ' + Math.round(rr.bottom) : '—'],
+    ['Appli installée', (navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) ? 'oui' : 'non'], ['Barre d\'état', ms ? ms.content : '—'],
+    ['iOS', (navigator.userAgent.match(/OS (\d+[_\d]*)/) || [, '?'])[1].replace(/_/g, '.')]];
+  const box = document.createElement('div'); box.id = 'scrDiag';
+  box.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 10px);z-index:99999;background:#111827;color:#fff;border-radius:14px;padding:12px 14px;font:13px/1.45 system-ui;box-shadow:0 10px 30px rgba(0,0,0,.4)';
+  box.innerHTML = '<b style="font-size:15px">📏 Mesures de l\'écran</b><div style="margin:6px 0 8px;opacity:.8">Fais une capture d\'écran et envoie-la. Ligne rouge = bas de la page pour iOS ; bloc vert = juste en dessous. Touche ce cadre pour fermer.</div>'
+    + rows.map(r => '<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.12);padding:3px 0"><span style="opacity:.75">' + r[0] + '</span><b>' + r[1] + '</b></div>').join('');
+  box.onclick = () => window.ScreenDiag();
+  const red = document.createElement('div'); red.className = 'scr-mark'; red.style.cssText = 'position:fixed;left:0;right:0;bottom:0;height:6px;background:#ef4444;z-index:99998;pointer-events:none';
+  const green = document.createElement('div'); green.className = 'scr-mark'; green.style.cssText = 'position:absolute;left:0;right:0;height:140px;background:repeating-linear-gradient(45deg,#16a34a 0 14px,#22c55e 14px 28px);z-index:99998;pointer-events:none;top:' + (scrollY + innerHeight) + 'px';
+  const blue = document.createElement('div'); blue.className = 'scr-mark'; blue.style.cssText = 'position:fixed;left:0;width:40%;top:0;height:100lvh;border-right:6px solid #3b82f6;z-index:99997;pointer-events:none';
+  document.body.append(box, red, green, blue);
+};
+
 ;
 /* ===== sport.js ===== */
 /* Sport: what changes from one sport to another. The club chooses its sport when it is created (club.sport);
@@ -3583,7 +3609,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.40';
+  const VERSION = '2.41';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15390,6 +15416,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 97, date: '2026-10-08', title: 'Mesurer l\'écran 📏', items: [
+      ['📏', 'Dans « Plus », « Mesurer l\'écran » affiche les tailles que le téléphone donne à l\'appli, pour régler la bande sous la barre du bas sur iPhone.'],
+    ] },
     { n: 96, date: '2026-10-08', title: 'Tague aussi les coachs 🧢', items: [
       ['🧢', 'Avec @, les coachs de la catégorie sont proposés en premier (« @Coach Karim »). Le coach tagué reçoit sa notification, même s\'il a mis le chat en sourdine.'],
     ] },
@@ -19257,9 +19286,9 @@ var App = (() => {
       + `<button class="nav-more ${idx >= PHONE_MAIN ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
     document.getElementById('navMore').onclick = () => {
       const close = UI.modal({ title: 'Plus', noFocus: true,
-        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
+        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button><button class="more-item" data-morediag>📏<span>Mesurer l'écran</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
         onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; const nw = r.querySelector('[data-morenews]'); if (nw) nw.onclick = () => { close(); setTimeout(() => News.all(), 60); };
-          const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; } }); // (1.67) the latest version in one tap
+          const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; const dg = r.querySelector('[data-morediag]'); if (dg) dg.onclick = () => { close(); setTimeout(() => window.ScreenDiag && window.ScreenDiag(), 350); }; } }); // (1.67) the latest version in one tap
     };
     Messages.badge(); Help.inboxBadge();
   }
@@ -19331,7 +19360,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 141, UPD = AppCfg.key('update-tried');
+  const BUILD = 142, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
