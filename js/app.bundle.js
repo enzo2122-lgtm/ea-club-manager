@@ -3583,7 +3583,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.39';
+  const VERSION = '2.40';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15390,6 +15390,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 96, date: '2026-10-08', title: 'Tague aussi les coachs 🧢', items: [
+      ['🧢', 'Avec @, les coachs de la catégorie sont proposés en premier (« @Coach Karim »). Le coach tagué reçoit sa notification, même s\'il a mis le chat en sourdine.'],
+    ] },
     { n: 95, date: '2026-10-08', title: 'Tague un joueur avec @ 📣', items: [
       ['📣', 'Dans le chat, tape @ : la liste des joueurs de la catégorie s\'affiche, touche un nom pour le taguer. Il ressort en bleu dans le message.'],
       ['🔔', 'Le joueur tagué reçoit une notification rien que pour lui, même s\'il a mis le chat en sourdine. Dans le chat des parents, ce sont ses parents qui la reçoivent.'],
@@ -16488,7 +16491,7 @@ var Chat = (() => {
       // (2.39) @ to tag a player: the suggestions above the box, the names tagged in the messages
       '.cx-ment{display:flex;flex-direction:column;max-height:190px;overflow-y:auto;margin:0 8px 4px;border:1px solid var(--line,#e3e5ea);border-radius:14px;background:var(--surface,#fff);box-shadow:0 -6px 20px rgba(0,0,0,.12)}.cx-ment[hidden]{display:none}',
       '.cx-ment button{display:flex;align-items:center;gap:10px;padding:9px 12px;border:0;border-bottom:1px solid var(--line,#eef0f3);background:none;text-align:left;font:600 15px/1.2 inherit;color:inherit}.cx-ment button:last-child{border-bottom:0}.cx-ment button:active,.cx-ment button.on{background:rgba(29,78,216,.08)}',
-      '.cx-ment i{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#1d4ed8;color:#fff;font:800 11px/1 system-ui;font-style:normal}',
+      '.cx-ment i{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#1d4ed8;color:#fff;font:800 11px/1 system-ui;font-style:normal}.cx-ment i.co{background:#fde68a;font-size:15px}',
       '.cx-at{font-weight:800;color:#1d4ed8}.cx-row.mine .cx-at{color:inherit;text-decoration:underline}',
       '.cx-emo{display:flex;gap:4px;overflow-x:auto;padding:6px 10px 0;scrollbar-width:none}.cx-emo button{font-size:20px;padding:2px 8px;border:0;background:none}',
       '.cx-bar{display:flex;align-items:flex-end;gap:6px;padding:8px;border-top:1px solid var(--line,#e3e5ea);background:var(--surface,#fff)}',
@@ -16541,8 +16544,9 @@ var Chat = (() => {
   function tags(h) {
     if (h.indexOf('@') < 0) return h;
     const names = people().slice().sort((a, b) => b.length - a.length);
-    return h.replace(/@([^\s@<]+(?: [A-Z][a-zA-Z]?\.)?)/g, (all, w) => {
-      const n = names.find(x => fold(all).startsWith('@' + fold(esc(x)))) || names.find(x => fold(w).replace(/[^a-z0-9-]+$/, '') === fold(x.split(' ')[0]));
+    return h.replace(/@([^\s@<]+(?: [^\s@<]+)?)/g, (all, w) => {
+      w = w.split(' ')[0];
+      const n = names.find(x => fold(all).startsWith('@' + fold(esc(x)))) || names.find(x => !/^Coach /.test(x) && fold(w).replace(/[^a-z0-9-]+$/, '') === fold(x.split(' ')[0]));
       if (!n) return all;
       const exact = fold(all).startsWith('@' + fold(esc(n))), len = exact ? esc(n).length + 1 : 1 + w.replace(/[^\p{L}\p{N}-]+$/u, '').length;
       return `<b class="cx-at">${all.slice(0, len)}</b>${all.slice(len)}`;
@@ -16557,7 +16561,7 @@ var Chat = (() => {
     const list = w === null ? [] : people().filter(n => { const f = fold(n); return f.startsWith(w) || f.split(' ').some(x => x.startsWith(w)); }).slice(0, 8);
     if (!list.length) { ment = null; if (!p.hidden) { p.hidden = true; p.innerHTML = ''; fit(); } return; }
     ment = { from: before.length - m[2].length - 1, to: before.length };
-    p.innerHTML = list.map(n => `<button type="button" data-cxment="${esc(n)}"><i>${esc(n.split(' ').map(x => x[0] || '').join('').slice(0, 2).toUpperCase())}</i>${esc(n)}</button>`).join('');
+    p.innerHTML = list.map(n => `<button type="button" data-cxment="${esc(n)}"><i class="${/^Coach /.test(n) ? 'co' : ''}">${/^Coach /.test(n) ? '🧢' : esc(n.split(' ').map(x => x[0] || '').join('').slice(0, 2).toUpperCase())}</i>${esc(n)}</button>`).join('');
     if (p.hidden) { p.hidden = false; fit(); }
   }
   function mentionPick(n) {
@@ -19327,7 +19331,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 140, UPD = AppCfg.key('update-tried');
+  const BUILD = 141, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

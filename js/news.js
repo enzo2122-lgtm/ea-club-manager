@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 96, date: '2026-10-08', title: 'Tague aussi les coachs 🧢', items: [
+      ['🧢', 'Avec @, les coachs de la catégorie sont proposés en premier (« @Coach Karim »). Le coach tagué reçoit sa notification, même s\'il a mis le chat en sourdine.'],
+    ] },
     { n: 95, date: '2026-10-08', title: 'Tague un joueur avec @ 📣', items: [
       ['📣', 'Dans le chat, tape @ : la liste des joueurs de la catégorie s\'affiche, touche un nom pour le taguer. Il ressort en bleu dans le message.'],
       ['🔔', 'Le joueur tagué reçoit une notification rien que pour lui, même s\'il a mis le chat en sourdine. Dans le chat des parents, ce sont ses parents qui la reçoivent.'],
