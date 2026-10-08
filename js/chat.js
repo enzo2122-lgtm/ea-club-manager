@@ -18,7 +18,7 @@ const Chat = (() => {
   // (1.99) polls: the « Sondages » part, whose votes are shown, the new poll being written
   let mode = 'chat', sheet = null; const whoOpen = new Set(), drawn = new Set(); let animate = false;
   // (2.03) the message being answered, the bubble whose actions are open (« sure? » for a report)
-  let replyTo = null, sure = null;
+  let replyTo = null, sure = null, editing = null; // editing (2.47): {id, body} of my message being changed
   // (2.04) the photos already loaded (id → picture), kept while the page lives
   const imgs = new Map(), imgAsk = new Map();
   const RX = ['👍', '❤️', '😂', '⚽', '🔥', '👏'];
@@ -89,6 +89,7 @@ const Chat = (() => {
       '.cx-flag{display:inline-block;margin-left:6px;font-size:11.5px;font-weight:800;color:#dc2626}',
       '.cx-menu{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px;padding:8px;border-radius:14px;background:var(--surface,#fff);box-shadow:0 4px 14px rgba(0,0,0,.14)}.cx-menu .cx-rxpick{display:flex;justify-content:space-around}.cx-menu .cx-rxpick button{border:0;background:none;font-size:26px;min-width:44px;min-height:44px;cursor:pointer;border-radius:12px}.cx-menu .cx-rxpick button.me{background:color-mix(in srgb,#0e1d45 12%,transparent)}',
       '.cx-menu .cx-mbtn{display:flex;flex-wrap:wrap;gap:6px}.cx-menu .cx-mbtn button{flex:1 1 auto;border:1px solid var(--line,#d0d4dc);background:var(--surface,#fff);color:inherit;border-radius:12px;min-height:42px;padding:6px 12px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}.cx-menu .cx-mbtn .del,.cx-menu .cx-mbtn .rep.go{background:#dc2626;color:#fff;border-color:#dc2626}',
+      '.cx-ed{font-style:normal;opacity:.85;margin-right:2px}.cx-editbar{background:#eff6ff!important}',
       '.cx-replybar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:1px solid var(--line,#e3e5ea);background:var(--surface,#fff);font-size:13px}.cx-replybar span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid #8c1024;padding-left:8px}.cx-replybar button{border:0;background:none;font-size:18px;min-width:40px;min-height:40px;cursor:pointer;color:inherit}',
       '.cx-crown{margin-right:3px}.cx-kings{padding:7px 12px;font-size:13.5px;text-align:center;background:linear-gradient(90deg,#f6e3b0,#c9a45c,#f6e3b0);color:#14172b;border-bottom:1px solid var(--line,#e3e5ea)}',
       '.cx-bdrow{justify-content:center}.cx-b.cx-bday{max-width:92%;text-align:center;background:linear-gradient(160deg,#fff6d8,#f1d58a 55%,#c9a45c);color:#14172b;border:2px solid #c9a45c;border-radius:18px;padding:12px 16px 8px;font-weight:600;white-space:pre-line}',
@@ -236,17 +237,18 @@ const Chat = (() => {
       return `${day}<div class="cx-row cx-bdrow" data-cx="${m.id}"><div class="cx-b cx-bday ${animate && !drawn.has(m.id) ? 'cx-in' : ''}"><span class="cx-bdc" aria-hidden="true">👑</span>${linkify(m.body || '')}
         ${canWrite() && !o.king && who.length ? `<button class="cx-bdgo" data-cxsay="${esc(wish)}">🎂 Lui souhaiter</button>` : ''}<span class="cx-t">${esc(time(m.at))}</span></div></div>${rxs}`; }
     return `${day}<div class="cx-row ${m.mine ? 'mine' : ''} ${first ? 'first' : ''} ${m.kind === 'coach' ? 'coach' : ''}" data-cx="${m.id}">${av}
-      <div class="cx-b ${animate && !drawn.has(m.id) ? 'cx-in' : ''} ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.img && !m.deleted ? 'photo' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${quote}${body}<span class="cx-t">${flag}${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
+      <div class="cx-b ${animate && !drawn.has(m.id) ? 'cx-in' : ''} ${big ? 'big' : ''} ${m.poll && !m.deleted ? 'poll' : ''} ${m.img && !m.deleted ? 'photo' : ''} ${m.pend ? 'pend' : ''} ${m.fail ? 'fail' : ''}">${name}${quote}${body}<span class="cx-t">${flag}${m.edited && !m.deleted ? '<i class="cx-ed">modifié</i> ' : ''}${esc(time(m.at))}${st ? ' ' + st : ''}</span></div></div>
       ${rxs}${m.fail ? `<div class="cx-retry" data-cxretry="${m.id}">Pas envoyé · toucher pour réessayer</div>` : ''}`;
   }
   // (2.03) the actions of a bubble: a reaction, answer, report, delete
   function menuHtml(m) {
     const mine = new Set(((view.reacts || {})[m.id] || []).filter(r => r.me).map(r => r.e));
-    const canDel = m.mine || view.mod, canRep = !m.mine && o.report && o.kind !== 'coach';
+    // (2.47) only the author deletes or changes his message (the coaches: reports, close the chat)
+    const canDel = m.mine && typeof m.id === 'number', canEdit = canDel && o.edit && canWrite() && !m.poll && !m.bday && !m.deleted && (m.body || '') !== '', canRep = !m.mine && o.report && o.kind !== 'coach';
     return `<div class="cx-menu" data-cxmenu="${m.id}"><div class="cx-rxpick">${RX.map(e => `<button class="${mine.has(e) ? 'me' : ''}" data-cxrx="${m.id}:${e}" aria-label="Réagir ${e}">${e}</button>`).join('')}</div>
       <div class="cx-mbtn">${canWrite() ? `<button data-cxreply="${m.id}">↩️ Répondre</button>` : ''}${canRep ? `<button class="rep ${sure === m.id ? 'go' : ''}" data-cxreport="${m.id}">${sure === m.id ? '🚩 Oui, prévenir les coachs' : '🚩 Signaler'}</button>` : ''}
         ${view.mod && o.pin ? `<button data-cxpin="${view.pin && view.pin.id === m.id ? 0 : m.id}">${view.pin && view.pin.id === m.id ? '📌 Désépingler' : '📌 Épingler'}</button>` : ''}
-        ${canDel ? `<button class="del" data-cxdel="${m.id}">🗑️ Supprimer</button>` : ''}<button data-cxno>Fermer</button></div></div>`;
+        ${canEdit ? `<button data-cxedit="${m.id}">✏️ Modifier</button>` : ''}${canDel ? `<button class="del" data-cxdel="${m.id}">🗑️ Supprimer</button>` : ''}<button data-cxno>Fermer</button></div></div>`;
   }
   const withWho = m => Object.assign(m, { who: m.mine ? 'me' : m.name });
   function listHtml() {
@@ -277,6 +279,7 @@ const Chat = (() => {
       <button class="cx-new" id="cxNew" hidden>⬇ Nouveaux messages</button>
       ${canWrite() && mode === 'polls' && o.poll ? '<div class="cx-bar"><button class="cx-newpoll" data-cxnewpoll>＋ Nouveau sondage</button></div>' : ''}
       ${canWrite() && mode === 'chat' ? `<div class="cx-emo" id="cxEmo" hidden>${EMOJI.map(e => `<button data-cxemo="${e}">${e}</button>`).join('')}</div>
+      ${editing ? `<div class="cx-replybar cx-editbar"><span>✏️ <b>Modification</b> de ton message</span><button type="button" data-cxeditno aria-label="Annuler la modification">✕</button></div>` : ''}
       ${replyTo ? `<div class="cx-replybar"><span>↩️ Réponse à <b>${esc(String(replyTo.name).replace(/^Coach\s+/, ''))}</b> : ${esc(replyTo.body || '')}</span><button type="button" data-cxreplyno aria-label="Ne plus répondre">✕</button></div>` : ''}
       <div class="cx-ment" id="cxMent" hidden></div>
       <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}${o.photo && (view.mod || view.photos) ? '<button type="button" class="cx-ic" data-cxphoto aria-label="Envoyer une photo">📷</button><input type="file" accept="image/*" id="cxFile" hidden>' : ''}
@@ -365,14 +368,21 @@ const Chat = (() => {
   /* ---------- the server ---------- */
   const local = m => typeof m.id !== 'number'; // shown at once, not yet back from the server
   const lastId = () => { const ms = ((view && view.msgs) || []).filter(m => !local(m)); return ms.length ? ms[ms.length - 1].id : 0; };
+  // (2.47) the messages changed by their author: the new text and « modifié »
+  function edits(r) {
+    let ch = false; const by = new Map((r.edits || []).map(x => [x.id, x]));
+    if (by.size) view.msgs.forEach(m => { const x = by.get(m.id); if (x && !m.deleted && (m.body !== x.body || !m.edited) && !(editing && editing.id === m.id)) { m.body = x.body; m.edited = true; ch = true; } });
+    return ch;
+  }
   async function load(full) {
     if (!o || busy) return; busy = true; lastPoll = Date.now(); const asked = cat;
     try {
       const r = await o.load(cat || null, full || !view ? 0 : lastId());
       if (!r || asked !== cat) { if (asked !== cat) lastPoll = 0; return; } // (2.01) another category was chosen meanwhile
-      if (full || !view || r.cat !== view.cat) { view = r; cat = r.cat || cat; drawAll(); }
+      if (full || !view || r.cat !== view.cat) { view = r; cat = r.cat || cat; edits(r); drawAll(); }
       else {
         const gone = new Set(r.gone || []), had = new Set(view.msgs.map(m => m.id)); let changed = false;
+        if (edits(r)) changed = true;
         view.msgs.forEach(m => { if (gone.has(m.id) && !m.deleted) { m.deleted = true; m.body = null; changed = true; } });
         const fresh = (r.msgs || []).filter(m => !had.has(m.id));
         const topSame = sameTop(r) && openPolls() === (r.polls || []).filter(p => !p.closed).length;
@@ -404,12 +414,21 @@ const Chat = (() => {
   // sent at once on the screen, then to the server one after the other
   function send(text) {
     const b = String(text || '').trim(); if (!b || !canWrite()) return;
+    if (editing) return saveEdit(b);
     const m = { id: 'p' + (++pend), at: new Date().toISOString(), name: 'moi', kind: o.kind || 'player', mine: true, body: b, pend: true, reply: replyTo };
     if (replyTo) { replyTo = null; const rb = box.querySelector('.cx-replybar'); if (rb) rb.remove(); }
     view.msgs.push(m); draft = ''; const t = $('#cxText'); if (t && t.value.trim() === b) { t.value = ''; grow(); } { const mp = $('#cxMent'); if (mp && !mp.hidden) { mp.hidden = true; ment = null; fit(); } }
     const s = $('#cxSend'); if (s) s.disabled = true;
     drawList(true);
     queue = queue.then(() => post(m));
+  }
+  // (2.47) my message changed: at once on the screen, then on the server (back as it was if refused)
+  async function saveEdit(b) {
+    const ed = editing, m = view.msgs.find(x => x.id === ed.id); editing = null; draft = '';
+    if (!m || b === ed.body) return drawAll();
+    const old = m.body; m.body = b; m.edited = true; drawAll();
+    try { await o.edit(view.cat, m.id, b); (o.toast || (() => {}))('✏️ Message modifié'); }
+    catch (e) { m.body = old; if (!ed.was) m.edited = false; drawAll(); (o.toast || alert)(nice(e), true); }
   }
   async function post(m, again) {
     try {
@@ -517,6 +536,9 @@ const Chat = (() => {
         try { await o.report(view.cat, id); (o.toast || (() => {}))('🚩 Merci, les coachs sont prévenus.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       const mu = q('[data-cxmute]'); if (mu && o.mute) { const on = mu.dataset.cxmute === '1';
         try { await o.mute(on); view.muted = on; drawAll(); (o.toast || (() => {}))(on ? '🔕 Plus de notifications du chat sur tes téléphones.' : '🔔 Les notifications du chat sont remises.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
+      const ed = q('[data-cxedit]'); if (ed) { const m = view.msgs.find(x => String(x.id) === ed.dataset.cxedit); armed = null; closeMenu(); if (!m) return;
+        editing = { id: m.id, body: m.body || '', was: !!m.edited }; replyTo = null; draft = m.body || ''; drawAll(); const t = $('#cxText'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); grow(); } return; }
+      if (q('[data-cxeditno]')) { editing = null; draft = ''; drawAll(); return; }
       const yes = q('[data-cxdel]');
       if (yes) { const id = +yes.dataset.cxdel; armed = null; closeMenu();
         try { await o.del(view.cat, id); const m = view.msgs.find(x => x.id === id); if (m) { m.deleted = true; m.body = null; } drawList(false); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
@@ -533,7 +555,7 @@ const Chat = (() => {
      photo(cat, dataUrl, caption), img(cat, id), pin(cat, id|null), photosOk(on) (2.04), toast(msg, err) } */
   function mount(el, opts) {
     if (!el) return; css();
-    if (!o || o.key !== opts.key) { view = null; cat = ''; draft = ''; mode = 'chat'; sheet = null; whoOpen.clear(); replyTo = null; armed = null; sure = null; }
+    if (!o || o.key !== opts.key) { view = null; cat = ''; draft = ''; mode = 'chat'; sheet = null; whoOpen.clear(); replyTo = null; armed = null; sure = null; editing = null; }
     const old = box && box !== el && view && o && o.key === opts.key && box.firstElementChild;
     o = opts; bind(el);
     if (old) { const l = old.querySelector('#cxList'), top = l ? l.scrollTop : 0, f = document.activeElement; el.innerHTML = ''; el.appendChild(old); box = el;

@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 103, date: '2026-10-09', title: 'Modifier son message ✏️', items: [
+      ['✏️', 'Dans le chat, touche ton message : « Modifier » pour corriger le texte (il s\'affiche « modifié »), « Supprimer » pour l\'enlever.'],
+      ['🔒', 'Seul l\'auteur d\'un message peut le modifier ou le supprimer, coachs compris. Pour un message déplacé : « Signaler », ou fermer le chat.'],
+    ] },
     { n: 102, date: '2026-10-09', title: 'Mesurer l\'écran, plus précis 📏', items: [
       ['📏', '« Mesurer l\'écran » montre aussi la version de l\'appli et l\'état de la correction de la barre du bas.'],
     ] },

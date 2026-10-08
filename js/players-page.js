@@ -240,7 +240,7 @@
     if (typeof Urgent !== 'undefined' && $('#urgBox')) Urgent.mount($('#urgBox'), { key: code, toast,
       load: () => rpc('member_urgent', { p_code: code }), save: d => rpc('member_urgent', { p_code: code, p_data: d }) });
     if (typeof Chat !== 'undefined' && $('#chatBox')) Chat.mount($('#chatBox'), { key: 'p:' + code, kind: 'player', king: Member.isBday((data.me || {}).birth), toast, load: (c, after) => rpc('member_chat', { p_code: code, p_cat: c, p_after: after || 0 }),
-      post: (c, b, r) => rpc('member_chat_post', Object.assign({ p_code: code, p_cat: c, p_body: b }, r ? { p_reply: r } : {})), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
+      post: (c, b, r) => rpc('member_chat_post', Object.assign({ p_code: code, p_cat: c, p_body: b }, r ? { p_reply: r } : {})), edit: (c, id, b) => rpc('member_chat_edit', { p_code: code, p_cat: c, p_id: id, p_body: b }), del: (c, id) => rpc('member_chat_del', { p_code: code, p_id: id }),
       poll: (c, q, opts, multi) => rpc('member_chat_poll', { p_code: code, p_cat: c, p_q: q, p_opts: opts, p_multi: multi }), vote: (c, id, i) => rpc('member_chat_vote', { p_code: code, p_cat: c, p_id: id, p_opt: i }),
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),
       react: (c, id, e) => rpc('member_chat_react', { p_code: code, p_cat: c, p_id: id, p_emo: e }), report: (c, id) => rpc('member_chat_report', { p_code: code, p_cat: c, p_id: id }),

@@ -1309,7 +1309,7 @@ const Views = (() => {
     bindTeamSwitch(root, () => chat(root));
     const box = $('#chatBox', root); if (!box) return;
     Chat.mount(box, { key: 't:' + tk, kind: 'coach', toast: (m, err) => toast(m, err ? 'err' : ''), load: (c, after) => Cloud.chat(tk, after),
-      post: (c, b, r) => Cloud.chatPost(tk, b, r), del: (c, id) => Cloud.chatDel(tk, id), off: off => Cloud.chatOff(tk, off),
+      post: (c, b, r) => Cloud.chatPost(tk, b, r), del: (c, id) => Cloud.chatDel(tk, id), edit: (c, id, b) => Cloud.chatEdit(tk, id, b), off: off => Cloud.chatOff(tk, off),
       poll: (c, q, opts, multi) => Cloud.chatPoll(tk, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(tk, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(tk, id, closed),
       react: (c, id, e) => Cloud.chatReact(tk, id, e), mute: on => Cloud.chatMute(on),
       photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
