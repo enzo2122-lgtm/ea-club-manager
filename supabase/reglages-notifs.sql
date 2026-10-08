@@ -7,10 +7,9 @@ create or replace function ea_notif_cfg(c text) returns jsonb language sql stabl
   select jsonb_build_object('matchDays', 30, 'trainDays', 7, 'relance', 1, 'changeHours', 72)
     || coalesce((select case when coalesce((data->>'noRelance')::boolean, false) then jsonb_build_object('relance', 0) else '{}'::jsonb end
       || case when jsonb_typeof(data->'notif') = 'object' then data->'notif' else '{}'::jsonb end from items where club = c and col = 'club' and id = 'club' and not deleted), '{}'::jsonb) $$;
--- the players to tell for an event: a match with its convocation sent → the convoked ones; otherwise the players of the team (or of the category for a match)
+-- the players to remind for an event: a match with its convocation sent → the convoked ones; otherwise the players of the team
 create or replace function ea_event_people(e items) returns text[] language sql stable security definer set search_path = public as $$
   select case when e.col = 'matches' and (e.data->>'convSent') is not null then member_arr(e.data->'convoked')
-    when e.col = 'matches' then ea_cat_players(e.club, (select ea_team_cat(data) from items where club = e.club and col = 'teams' and id = e.data->>'teamId'))
     else array(select p.id from items p where p.club = e.club and p.col = 'players' and not p.deleted and coalesce(p.data->'teamIds', '[]'::jsonb) ? (e.data->>'teamId')) end $$;
 
 -- a new match or session: as before, with the windows of the club
