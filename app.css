@@ -2232,3 +2232,16 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .brief-row span { color: var(--muted); font-weight: 700; }
 .brief-row b { font-weight: 600; }
 @media (max-width: 520px) { .brief-row { grid-template-columns: 1fr; gap: 2px; } }
+/* (2.58) where the goals come from, penalty shoot-out */
+.lv-spot { display: block; width: 100% !important; height: auto !important; max-width: 360px; border-radius: 12px; margin: 4px 0 8px; cursor: crosshair; touch-action: manipulation; }
+.an-maps { display: flex; gap: 10px; flex-wrap: wrap; }
+.an-maps figure { margin: 0; flex: 1 1 140px; max-width: 220px; }
+.an-maps svg { width: 100% !important; height: auto !important; border-radius: 10px; display: block; }
+.an-maps figcaption { font-size: 12px; text-align: center; color: var(--muted); margin-top: 2px; }
+.lv-tab summary { font-weight: 800; font-size: 17px; cursor: pointer; }
+.lv-tab-btns { display: grid; grid-template-columns: 50px 1fr 1fr; gap: 8px; align-items: center; margin: 10px 0; }
+.lv-tab-btns button { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 800; font-size: 15px; color: var(--ink); }
+.lv-tab-btns span { font-weight: 800; }
+.lv-tab-list { font-size: 22px; letter-spacing: 4px; }
+.lv-tab-list .us { color: #16a34a; } .lv-tab-list .them { color: #dc2626; }
+.lv-tab-list .linkish { font-size: 14px; letter-spacing: 0; }

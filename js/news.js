@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 114, date: '2026-10-09', title: 'Carte des buts, tirs au but, carton blanc 🗺️', items: [
+      ['🗺️', 'Sur un but (pour ou contre), touche le terrain pour dire d\'où il a été marqué. L\'analyse du match montre la carte de nos buts et des buts encaissés.'],
+      ['🎯', 'Tirs au but : après la fin du match (ou à la pause), choisis le tireur et touche ✅ / ❌ pour nous et pour eux. Le score s\'enregistre sur le match.'],
+      ['⬜', 'Nouveau bouton « Carton blanc (10 min) » pour les exclusions temporaires.'],
+    ] },
     { n: 113, date: '2026-10-09', title: 'Le brief d\'avant-match 📋', items: [
       ['📋', 'Sur un match à venir (onglet Avant) : le brief calculé tout seul — effectif et indisponibles, suspendus, vigilance cartons, notre forme sur 5 matchs, les joueurs en forme, les gardiens, la forme de l\'adversaire, l\'effet du premier but.'],
       ['📤', '« Copier » pour le coller dans le groupe des coachs.'],

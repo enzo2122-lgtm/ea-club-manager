@@ -13,7 +13,8 @@ const Live = (() => {
     SP().score.forEach(e => { o[e.k] = [e.ic, e.l, e.us ? '#15803d' : '#be123c']; });
     o.sub = ['🔁', 'Changement', '#2563eb'];
     SP().extra.forEach(([k, ic, l, c]) => { o[k] = [ic, l, c]; });
-    if (Sport.isFoot() && !o.save) o.save = ['🧤', 'Arrêt du gardien', '#0d9488']; // (2.56) the saves of our goalkeeper, by zone
+    if (Sport.isFoot() && !o.save) o.save = ['🧤', 'Arrêt du gardien', '#0d9488'];
+    if (Sport.isFoot() && !o.white) o.white = ['⬜', 'Carton blanc (10 min)', '#64748b']; // (2.58) temporary exclusion (youth football) // (2.56) the saves of our goalkeeper, by zone
     if (!SP().sets) { o.chance = ['🎯', 'Occasion', '#0891b2']; o.chanceThem = ['⚠️', 'Occasion adverse', '#b45309']; o.post = ['🥅', 'Poteau / barre', '#0e7490']; } // (1.88) both teams, for the automatic highlights
     o.injury = ['🚑', 'Blessure', '#9333ea']; o.note = ['📝', 'Note', '#475569'];
     return o;
@@ -161,6 +162,7 @@ const Live = (() => {
         <p class="muted small">Garde l'appli ouverte pendant le match : l'écran reste allumé. Si tu la fermes, le chrono continue quand même.</p></section>` : ''}
       ${l.status !== 'pre' ? `<section class="lv-actions">${Object.entries(evs).map(([k, [ic, lab, c]]) => `<button class="lv-act" data-ev="${k}" style="--c:${c}" ${l.status === 'end' ? 'disabled' : ''}><b>${ic}</b><span>${lab}</span></button>`).join('')}</section>` : ''}
       ${Sport.isFoot() && l.status !== 'pre' ? possHtml(l) : ''}
+      ${Sport.isFoot() && (l.status === 'end' || pause(l.status)) ? tabHtml(m, l) : ''}
       ${l.status !== 'pre' ? `<div class="lv-field"><div><h3>Sur le terrain (${on.size})</h3><p>${[...on].map(id => `<span>${esc(pname(id))}</span>`).join('') || '<span class="muted">—</span>'}</p></div>
         <div><h3>Remplaçants (${bench.length})</h3><p>${bench.map(p => `<span>${esc(pname(p.id))}</span>`).join('') || '<span class="muted">—</span>'}</p></div></div>` : ''}
       <h2 class="section">Le fil du match</h2>
@@ -176,6 +178,10 @@ const Live = (() => {
       const btn = e.target.closest('button'); if (!btn) return;
       if (btn.dataset.start) { const x = btn.dataset.start; l.starters = l.starters.includes(x) ? l.starters.filter(y => y !== x) : [...l.starters, x]; save(); return redraw(); }
       if (btn.dataset.poss) { possSet(l, btn.dataset.poss); save(); return redraw(); }
+      if (btn.dataset.tab) { const [side, ok] = btn.dataset.tab.split(':'), t = l.tab = l.tab || { list: [] }; t.list.push({ us: side === 'us', ok: ok === '1', p: side === 'us' ? (t.next || null) : null }); t.next = null;
+        const a = t.list.filter(x => x.us && x.ok).length, b = t.list.filter(x => !x.us && x.ok).length; m.pens = [a, b]; save(); return redraw(); }
+      if (btn.dataset.tabwho) { const t = l.tab = l.tab || { list: [] }; t.next = t.next === btn.dataset.tabwho ? null : btn.dataset.tabwho; save(); return redraw(); }
+      if (btn.dataset.tabundo) { const t = l.tab; if (t && t.list.length) { t.list.pop(); m.pens = [t.list.filter(x => x.us && x.ok).length, t.list.filter(x => !x.us && x.ok).length]; if (!t.list.length) { delete l.tab; delete m.pens; } save(); } return redraw(); }
       const act = btn.dataset.lv;
       if (act === 'ko') {
         if (!l.starters.length && !(await confirmBox('Aucun titulaire choisi : le temps de jeu ne pourra pas être calculé. Commencer quand même ?', 'Commencer'))) return;
@@ -215,6 +221,9 @@ const Live = (() => {
     if (SP().sets && (isUs(ev) || isThem(ev))) return redraw();
     details(m, ev, redraw);
   }
+  // (2.58) the place of the shot on the half of the pitch where the goal is (x: 0 left – 100 right, y: 0 goal line – 100 halfway line)
+  const HALF = '<rect x="0" y="0" width="100" height="70" fill="#15803d"/><g fill="none" stroke="#fff" stroke-width=".7" opacity=".85"><rect x="1" y="1" width="98" height="68"/><rect x="21" y="1" width="58" height="17"/><rect x="37" y="1" width="26" height="6"/><path d="M40 18a12 9 0 0 0 20 0"/><circle cx="50" cy="12" r=".7" fill="#fff"/><path d="M38 69a12 12 0 0 1 24 0"/></g><rect x="44" y="-1" width="12" height="2.5" fill="#fff"/>';
+  const spotPitch = ev => `<svg class="lv-spot" viewBox="0 -2 100 72" data-spot="1">${HALF}${ev.spot ? `<circle cx="${ev.spot[0]}" cy="${ev.spot[1] * .7}" r="3" fill="${isUs(ev) ? '#facc15' : '#ef4444'}" stroke="#111" stroke-width=".6"/>` : ''}</svg>`;
   const chipsOf = (k, L, ev) => `<div class="chips lv-pick">${L.map(([v, l]) => `<button class="chip ${ev[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
   function details(m, ev, redraw) {
     const l = L(m), on = [...onField(l, ev.wall - 1)], all = players(m), benchIds = all.map(p => p.id).filter(id => !on.includes(id));
@@ -225,6 +234,7 @@ const Live = (() => {
     else if (ev.type === 'sub') body = `<div class="lbl">Sort</div>${pick('out', on.length ? on : all.map(p => p.id))}<div class="lbl">Entre</div>${pick('in', benchIds.length ? benchIds : all.map(p => p.id))}`;
     else if (ev.type !== 'note' && ev.type !== 'chanceThem' && !isThem(ev)) body = `<div class="lbl">Joueur ${ev.type === 'chance' || ev.type === 'post' || ev.type === 'injury' ? '(facultatif)' : ''}</div>${pick('player', ev.type === 'chance' || ev.type === 'post' || ev.type === 'injury' ? all.map(p => p.id) : on.length ? on : all.map(p => p.id))}`;
     if (Sport.isFoot() && (isUs(ev) || isThem(ev))) body += `<div class="lbl">${isUs(ev) ? 'Origine du but' : 'Origine du but adverse'} (facultatif)</div>${chipsOf('origin', ORIG, ev)}`;
+    if (Sport.isFoot() && (isUs(ev) || isThem(ev))) body += `<div class="lbl">D'où ${isUs(ev) ? 'on a marqué' : 'ils ont marqué'} (touche le terrain, facultatif)</div>${spotPitch(ev)}`;
     if (Sport.isFoot() && isThem(ev)) body += `<div class="lbl">Joueurs impliqués (facultatif)</div><div class="chips lv-pick">${(on.length ? on : all.map(p => p.id)).map(id => `<button class="chip ${(ev.inv || []).includes(id) ? 'on' : ''}" data-k="inv" data-multi="1" data-v="${id}">${esc(pname(id))}</button>`).join('')}</div>
       <div class="lbl">Ce qui n'a pas marché</div>${chipsOf('err', ERRS, ev)}<div class="lbl">Part dans le but</div>${chipsOf('deg', DEG, ev)}`;
     if (ev.type === 'save') body = `<div class="lbl">Gardien</div>${pick('player', on.length ? on : all.map(p => p.id))}<div class="lbl">Type d'arrêt</div>${chipsOf('zone', ZONES, ev)}
@@ -232,13 +242,15 @@ const Live = (() => {
     body += `<label class="fld"><span>${ev.type === 'note' ? 'Note' : 'Précision (facultatif)'}</span><input id="lvText" value="${esc(ev.text || '')}" maxlength="120" placeholder="${isThem(ev) ? 'ex : sur contre-attaque, erreur de placement' : 'ex : après une belle combinaison'}"></label>
       <label class="fld inline"><span>${SP().sets ? 'Set' : 'Minute'}</span><input id="lvMin" value="${esc(ev.min)}" maxlength="8" style="max-width:90px"></label>`;
     modal({ title: `${EV[ev.type][0]} ${EV[ev.type][1]} · ${ev.min}`, noFocus: true, body,
-      onOpen: r => $$('[data-k]', r).forEach(x => x.onclick = () => {
+      onOpen: r => { const sp = r.querySelector('[data-spot]'); if (sp) sp.onclick = e2 => { const b = sp.getBoundingClientRect(), x = Math.round((e2.clientX - b.left) / b.width * 100), y = Math.round(((e2.clientY - b.top) / b.height * 72 - 2) / .7);
+        ev.spot = [Math.max(0, Math.min(100, x)), Math.max(0, Math.min(100, y))]; sp.outerHTML = spotPitch(ev); const n = r.querySelector('[data-spot]'); if (n) n.onclick = sp.onclick; };
+        $$('[data-k]', r).forEach(x => x.onclick = () => {
         const k = x.dataset.k;
         if (x.dataset.multi) { const a = new Set(ev[k] || []); a.has(x.dataset.v) ? a.delete(x.dataset.v) : a.add(x.dataset.v); ev[k] = [...a]; x.classList.toggle('on', a.has(x.dataset.v)); return; }
         if (x.dataset.flag) { ev[k] = !ev[k]; x.classList.toggle('on', !!ev[k]); return; }
         // a second touch on the chosen one: nothing chosen
         if (ev[k] === x.dataset.v && ['origin', 'err', 'deg', 'zone'].includes(k)) { ev[k] = null; x.classList.remove('on'); return; }
-        ev[k] = x.dataset.v || null; $$(`[data-k="${k}"]`, r).forEach(y => y.classList.toggle('on', y === x)); }),
+        ev[k] = x.dataset.v || null; $$(`[data-k="${k}"]`, r).forEach(y => y.classList.toggle('on', y === x)); }); },
       actions: [{ label: 'Plus tard' }, { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
         ev.text = $('#lvText', r).value.trim(); ev.min = $('#lvMin', r).value.trim() || ev.min;
         if (ev.type === 'sub' && ev.in && ev.in === ev.out) { toast('Le même joueur ne peut pas sortir et entrer', 'err'); return false; }
@@ -247,6 +259,16 @@ const Live = (() => {
     // the page behind shows the event as soon as the sheet is closed
     const obs = new MutationObserver(() => { if (document.getElementById('modal').hidden) { obs.disconnect(); if (/^#\/direct\//.test(location.hash)) redraw(); } });
     obs.observe(document.getElementById('modal'), { attributes: true });
+  }
+
+  /* ---------- (2.58) the penalty shoot-out: our shooter, ✓ / ✗ for each side; the score goes on the match (m.pens) ---------- */
+  function tabHtml(m, l) {
+    const t = l.tab || { list: [] }, a = t.list.filter(x => x.us && x.ok).length, b = t.list.filter(x => !x.us && x.ok).length, done = new Set(t.list.filter(x => x.us).map(x => x.p));
+    const on = [...onField(l)], cand = (on.length ? on : (m.convoked || [])).filter(id => !done.has(id));
+    return `<details class="card lv-tab" ${t.list.length || t.next ? "open" : ""}><summary>🎯 Tirs au but${t.list.length ? ` · <b>${a} – ${b}</b>` : ''}</summary>
+      <div class="lbl">Notre tireur</div><div class="chips lv-pick">${cand.map(id => `<button class="chip ${t.next === id ? 'on' : ''}" data-tabwho="${id}">${esc(pname(id))}</button>`).join('')}</div>
+      <div class="lv-tab-btns"><span>Nous</span><button data-tab="us:1">✅ Marqué</button><button data-tab="us:0">❌ Raté</button><span>Eux</span><button data-tab="them:1">✅ Marqué</button><button data-tab="them:0">❌ Raté</button></div>
+      ${t.list.length ? `<p class="lv-tab-list">${t.list.map(x => `<span class="${x.us ? 'us' : 'them'}">${x.ok ? '●' : '○'}</span>`).join('')} <button class="linkish" data-tabundo>annuler le dernier</button></p>` : ''}</details>`;
   }
 
   /* ---------- (2.56) possession: two big buttons, the ball for us or for them; the time is counted while the clock runs ---------- */
@@ -272,7 +294,9 @@ const Live = (() => {
   function analysis(m) {
     const l = m.live; if (!l || !Sport.isFoot()) return '';
     const ev = l.events, us = ev.filter(isUs), them = ev.filter(isThem), sv = ev.filter(e => e.type === 'save'), pc = possPct(l);
-    if (!us.some(e => e.origin) && !them.some(e => e.origin || e.err || (e.inv || []).length) && !sv.length && pc == null) return '';
+    const pens = (l.tab || {}).list || [];
+    if (!us.some(e => e.origin || e.spot) && !them.some(e => e.origin || e.err || e.spot || (e.inv || []).length) && !sv.length && pc == null && !pens.length) return '';
+    const spots = (list, col) => list.filter(e => e.spot).map(e => `<circle cx="${e.spot[0]}" cy="${e.spot[1] * .7}" r="2.6" fill="${col}" stroke="#111" stroke-width=".5"><title>${esc(e.min + ' ' + desc(e))}</title></circle>`).join('');
     const count = (list, k, L) => { const c = {}; list.forEach(e => { if (e[k]) c[e[k]] = (c[e[k]] || 0) + 1; }); return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([v, n]) => `<span class="an-chip">${esc(lab(L, v))} <b>${n}</b></span>`).join(''); };
     const inv = {}; them.forEach(e => (e.inv || []).forEach(id => { inv[id] = (inv[id] || 0) + (e.deg === 'dec' ? 3 : e.deg === 'imp' ? 2 : 1); }));
     const gk = {}; sv.forEach(e => { const k = e.player || '?'; gk[k] = gk[k] || { n: 0, big: 0 }; gk[k].n++; if (e.big) gk[k].big++; });
@@ -282,6 +306,8 @@ const Live = (() => {
       ${them.some(e => e.origin) ? `<div class="an-row"><span>🥅 Buts encaissés</span><div>${count(them, 'origin', ORIG)}</div></div>` : ''}
       ${them.some(e => e.err) ? `<div class="an-row"><span>❗ Ce qui n'a pas marché</span><div>${count(them, 'err', ERRS)}</div></div>` : ''}
       ${Object.keys(inv).length ? `<div class="an-row"><span>👥 Impliqués sur les buts encaissés</span><div>${Object.entries(inv).sort((a, b) => b[1] - a[1]).map(([id, n]) => `<span class="an-chip">${esc(pname(id))} <b>${n}</b></span>`).join('')}</div></div><p class="muted small">Points : décisive 3, importante 2, mitigée ou non précisée 1.</p>` : ''}
+      ${us.some(e => e.spot) || them.some(e => e.spot) ? `<div class="an-row"><span>🗺️ D'où viennent les buts</span><div class="an-maps">${us.some(e => e.spot) ? `<figure><svg viewBox="0 -2 100 72">${HALF}${spots(us, '#facc15')}</svg><figcaption>Nos buts</figcaption></figure>` : ''}${them.some(e => e.spot) ? `<figure><svg viewBox="0 -2 100 72">${HALF}${spots(them, '#ef4444')}</svg><figcaption>Buts encaissés</figcaption></figure>` : ''}</div></div>` : ''}
+      ${pens.length ? `<div class="an-row"><span>🎯 Tirs au but</span><div><b>${pens.filter(x => x.us && x.ok).length} – ${pens.filter(x => !x.us && x.ok).length}</b>${pens.filter(x => x.us).map(x => `<span class="an-chip">${x.ok ? '✅' : '❌'} ${esc(x.p ? pname(x.p) : '?')}</span>`).join('')}</div></div>` : ''}
       ${sv.length ? `<div class="an-row"><span>🧤 Arrêts</span><div>${Object.entries(gk).map(([id, x]) => `<span class="an-chip">${esc(id === '?' ? 'Gardien' : pname(id))} <b>${x.n}</b>${x.big ? ` dont ${x.big} ⭐` : ''}</span>`).join('')}${count(sv, 'zone', ZONES)}</div></div>` : ''}</section>`;
   }
 
