@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 65, date: '2026-10-08', title: 'AssistCoachAI : les réponses des joueurs, et plus de doublons', items: [
+      ['🗳️', 'Les réponses des joueurs sur AssistCoachAI (présent / absent aux matchs et aux entraînements, avec le motif) arrivent dans l\'appli à l\'import. Une réponse plus récente donnée dans l\'appli reste.'],
+      ['🤝', 'Corrigé : un match d\'AssistCoachAI rangé dans une autre équipe de la catégorie que celui de la FFF (la coupe en « Seniors », la FFF en « Seniors B »), ou nommé sans le numéro d\'équipe (« Villemomble » / « VILLEMOMBLE SPORTS 2 »), faisait un doublon. Les doublons déjà là sont fusionnés au prochain import : le match de la FFF reste, avec les convocations et les notes.'],
+    ] },
     { n: 64, date: '2026-10-08', title: 'Une seule appli pour tout le club', items: [
       ['📲', 'La page du code (joueurs et parents) a un lien « Coach ou dirigeant ? » vers l\'appli des coachs, et l\'écran de connexion des coachs un lien « Joueur ou parent ? ». L\'appli retient ton choix.'],
       ['🏪', 'Préparation de la publication sur le Play Store : icône adaptée à Android, captures, raccourcis.'],
