@@ -8,7 +8,7 @@ const Tests = (() => {
   // key, name, unit, higher is better, decimals, help
   const LIST = [
     ['vma', 'VMA', 'km/h', true, 1, 'Vitesse maximale aérobie (VAMEVAL, 45-15, Luc Léger, Gacon…)'],
-    ['vift', 'VIFT (30-15)', 'km/h', true, 1, 'Vitesse du dernier palier du test intermittent 30-15 IFT'],
+    ['vift', 'VIFT / VTI (30-15)', 'km/h', true, 1, 'Vitesse du dernier palier du test intermittent 30-15 IFT (VIFT, aussi appelée VTI)'],
     ['yoyo', 'Yo-Yo IR1', 'm', true, 0, 'Distance totale du Yo-Yo intermittent recovery niveau 1'],
     ['cooper', 'Cooper (12 min)', 'm', true, 0, 'Distance courue en 12 minutes'],
     ['sp10', 'Sprint 10 m', 's', false, 2, 'Départ arrêté'], ['sp20', 'Sprint 20 m', 's', false, 2, ''], ['sp30', 'Sprint 30 m', 's', false, 2, ''],
@@ -89,7 +89,7 @@ const Tests = (() => {
   }
   // a column name → the test it probably is
   const guess = h => { const x = norm(h);
-    return /vma|vameval|45 ?15|leger|gacon/.test(x) ? 'vma' : /vift|30 ?15|ift/.test(x) ? 'vift' : /yo ?yo/.test(x) ? 'yoyo' : /cooper/.test(x) ? 'cooper'
+    return /vma|vameval|45 ?15|leger|gacon/.test(x) ? 'vma' : /vift|vti|30 ?15|ift/.test(x) ? 'vift' : /yo ?yo/.test(x) ? 'yoyo' : /cooper/.test(x) ? 'cooper'
       : /10 ?m/.test(x) && /sprint|vit|10 ?m/.test(x) ? 'sp10' : /20 ?m/.test(x) ? 'sp20' : /30 ?m/.test(x) ? 'sp30' : /cmj|detente|saut vert/.test(x) ? 'cmj'
       : /longueur/.test(x) ? 'sl' : /illinois|agilit/.test(x) ? 'illinois' : /t ?test/.test(x) ? 'ttest' : /jongl/.test(x) ? 'jongles' : /slalom|conduite/.test(x) ? 'conduite' : ''; };
   function findPlayer(ps, full, first, lastN) {
