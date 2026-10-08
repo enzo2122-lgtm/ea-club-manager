@@ -289,6 +289,20 @@ const Chat = (() => {
   function grow() { const t = $('#cxText'); if (!t) return; t.style.height = 'auto'; t.style.height = Math.min(120, t.scrollHeight + 2) + 'px'; }
   window.addEventListener('resize', () => { if (shown()) { fit(); if (nearBottom()) toBottom(); } });
   if (window.visualViewport) ['resize', 'scroll'].forEach(ev => window.visualViewport.addEventListener(ev, () => { if (shown()) { const b = nearBottom(); fit(); if (b) toBottom(); } }));
+  // (2.35) iPhone: once the keyboard is closed, iOS can leave the screen lifted (the tab bar no longer at the bottom, a light strip under it).
+  // The page is put back in place when the keyboard goes: at the top for the chat (it does not scroll), a 1-pixel nudge elsewhere (the reading place stays)
+  let liftT = 0;
+  const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+  function unlift() {
+    clearTimeout(liftT);
+    liftT = setTimeout(() => {
+      if (typing()) return;
+      if (document.body.classList.contains('chat-on')) { window.scrollTo(0, 0); fit(); return; }
+      const y = window.scrollY; window.scrollTo(0, y + 1); requestAnimationFrame(() => window.scrollTo(0, y));
+    }, 350);
+  }
+  document.addEventListener('focusout', e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) unlift(); }, true);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (!typing()) unlift(); });
 
   /* ---------- unread messages: a badge on the « Chat » tab ---------- */
   const SEEN = () => 'chat-seen-' + (o ? o.key : '') + '-' + cat;
