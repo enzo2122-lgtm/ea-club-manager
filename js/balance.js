@@ -29,6 +29,16 @@ const Balance = (() => {
     const order = list => list.slice().sort((a, b) => (b.s == null ? -1 : b.s) - (a.s == null ? -1 : a.s) || rnd() - .5);
     order(rated.filter(x => x.gk)).forEach((x, i) => add(teams[i % n], x));
     for (const L of ['D', 'M', 'A', '?']) order(rated.filter(x => !x.gk && x.l === L)).forEach(x => add(weakest(), x));
+    // (2.62) the affinities: « éviter » in the same team → one goes to another team, « jouer avec » apart → together (a swap with a player of the same line)
+    const where = id => teams.findIndex(t => t.ps.some(x => x.p.id === id));
+    const swap = (x, from, to) => { const T = teams[to], y = T.ps.filter(z => !z.gk && z.l === x.l && !(z.p.with || []).length).sort((a, b) => Math.abs((a.s || 0) - (x.s || 0)) - Math.abs((b.s || 0) - (x.s || 0)))[0] || T.ps.find(z => !z.gk);
+      if (!y) return false; teams[from].ps = teams[from].ps.filter(z => z !== x).concat(y); T.ps = T.ps.filter(z => z !== y).concat(x); return true; };
+    if (n > 1) for (let pass = 0; pass < 2; pass++) rated.forEach(x => {
+      const i = where(x.p.id); if (i < 0 || x.gk) return;
+      (x.p.avoid || []).forEach(id => { if (where(id) === i) swap(x, i, (i + 1) % n); });
+      (x.p.with || []).forEach(id => { const j = where(id); if (j >= 0 && j !== i && !(x.p.avoid || []).length) swap(x, i, j); });
+    });
+    teams.forEach(t => { const r = t.ps.filter(x => x.s != null); t.sum = r.reduce((a, x) => a + x.s, 0); t.c = r.length; });
     return teams.map(t => ({ ps: t.ps, avg: t.c ? t.sum / t.c : null }));
   }
   function page(root, teamId) {

@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 118, date: '2026-10-09', title: 'La fiche joueur s\'étoffe 📷', items: [
+      ['📷', 'Photo du joueur (prise avec le téléphone ou choisie), sur sa page et dans les listes. Vue par les coachs seulement.'],
+      ['📏', 'Croissance : taille et poids datés, les courbes, et ⚠️ « pic de croissance » quand il grandit vite (vigilance sur les charges).'],
+      ['🤝', 'Affinités : « jouer avec » / « éviter » (2 au plus, dans les deux sens), prises en compte par « Former des équipes ».'],
+      ['🗣️', 'Entretiens individuels : points forts, axes de progrès, objectifs, ressenti. Privés, ou partagés avec le joueur et sa famille, qui peuvent répondre (onglet Coach).'],
+    ] },
     { n: 117, date: '2026-10-09', title: 'Accès en observation (lecture seule) 👀', items: [
       ['👀', 'Sur la fiche d\'un dirigeant, le responsable choisit « Accès : Observation » : il voit les catégories qui lui sont ouvertes (toutes pour un président ou un superviseur) sans rien pouvoir modifier. Le serveur refuse aussi ses changements.'],
     ] },
