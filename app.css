@@ -2063,3 +2063,41 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .bd-c { font-size: 30px; line-height: 1; }
 .bd-soon { margin: 6px 0 0; padding-left: 18px; }
 .bd-soon li { margin: 3px 0; }
+
+/* (2.20) the level of the players (coaches only) */
+.lv-card h2 { display: flex; align-items: center; gap: 8px; }
+.lv-avg { margin-left: auto; font-size: 15px; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--brand, #0e1d45) 10%, transparent); }
+.lv-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line, #e3e5ea); flex-wrap: wrap; }
+.lv-row:last-of-type { border-bottom: 0; }
+.lv-l { flex: 1 1 150px; font-weight: 700; color: var(--c); }
+.lv-stars { display: inline-flex; gap: 2px; }
+.lv-stars button { border: 0; background: none; font-size: 26px; line-height: 1; min-width: 34px; min-height: 36px; color: #cbd5e1; cursor: pointer; padding: 0; }
+.lv-stars button.on { color: #f5b301; }
+.lv-w { min-width: 74px; font-size: 13px; opacity: .8; }
+.lv-w i { font-style: normal; font-weight: 800; }
+.lv-w i.up { color: #16a34a; } .lv-w i.down { color: #dc2626; }
+.lv-tot { text-align: center; margin: 10px 0 0; }
+.lv-table table { width: 100%; }
+.lv-table th, .lv-table td { text-align: center; padding: 6px 4px; }
+.lv-table th:first-child, .lv-table td:first-child { text-align: left; }
+.lv-table tbody tr { cursor: pointer; }
+.lv-table tbody tr:hover { background: color-mix(in srgb, var(--brand, #0e1d45) 5%, transparent); }
+.lv-sort { border: 0; background: none; font: inherit; font-weight: 800; cursor: pointer; padding: 4px 2px; color: inherit; }
+.lv-sort.on { text-decoration: underline; text-underline-offset: 4px; }
+.lv-chip { display: inline-block; min-width: 28px; padding: 3px 0; border-radius: 8px; background: color-mix(in srgb, var(--c) calc(var(--a) * 100%), transparent); color: var(--ink, #111); }
+.lv-chip.none { background: none; opacity: .4; }
+.lv-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; opacity: .8; margin: 8px 0 0; }
+.lv-bar { display: grid; grid-template-columns: 170px 1fr 40px; align-items: center; gap: 8px; margin: 6px 0; }
+.lv-bar i { display: block; height: 12px; border-radius: 6px; background: var(--c); }
+.lv-bar b { text-align: right; }
+@media (max-width: 520px) { .lv-bar { grid-template-columns: 120px 1fr 34px; font-size: 14px; } .lv-table td:first-child b { font-size: 14px; } }
+.lv-table table { table-layout: auto; border-collapse: collapse; }
+.lv-table td:first-child b { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 1.2; }
+.lv-table td:first-child .pnum { flex: none; }
+@media (max-width: 520px) {
+  .lv-table th, .lv-table td { padding: 5px 1px; }
+  .lv-table td:first-child, .lv-table th:first-child { max-width: 38vw; }
+  .lv-table td:first-child b { font-size: 13px; }
+  .lv-chip { min-width: 22px; font-size: 13px; padding: 2px 0; border-radius: 6px; }
+  .lv-m { font-size: 13px; }
+}
