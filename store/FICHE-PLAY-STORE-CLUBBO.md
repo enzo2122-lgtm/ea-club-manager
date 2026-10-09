@@ -13,7 +13,7 @@ Même méthode que pour FA Le Raincy (voir `raincy-coach/store/PUBLIER-PLAY-STOR
 | Image de présentation 1024 × 500 | store/banniere-1024x500.png |
 | Captures téléphone (dans l'ordre) | store/1-accueil.png · 2-matchs.png · 3-seances.png · 4-joueurs.png · 5-match.png |
 | Adresse de l'appli pour PWABuilder | https://enzo2122-lgtm.github.io/ea-club-manager/ |
-| Package ID (définitif, à choisir) | proposition : `fr.clubbo.app` — à décider avant PWABuilder, il ne pourra plus changer |
+| Package ID (définitif) | `fr.coach.club` (choisi le 9 octobre 2026) |
 | Accès pour Google (Informations de connexion) | aucun compte : sur le premier écran, « Essayer avec un club de démonstration » ouvre tout |
 
 ## Description complète
