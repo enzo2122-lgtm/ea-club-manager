@@ -3698,7 +3698,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.66';
+  const VERSION = '2.67';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4111,6 +4111,7 @@ var Cloud = (() => {
     // personal codes of the licensees, answers to convocations
     memberCodes: (ids, renew) => rpc('club_member_codes', { admin_k: adminKey() || null, p_players: ids, p_renew: renew || [] }),
     memberGiven: (id, given) => rpc('club_member_given', { admin_k: adminKey() || null, p_player: id, p_given: !!given }),
+    guestCodes: (team, n) => rpc('club_guest_codes', { admin_k: adminKey() || null, p_team: team, p_new: n || 0 }), // (2.67) invitation codes: players without a licence sign up, the coach validates
     answers: matchIds => rpc('club_answers', { p_matches: matchIds }),
     evFeed: ids => rpc('club_event', { p_ids: ids }), // (2.27) reactions and comments under an event
     evReact: (id, emo) => rpc('club_event_react', { p_event: id, p_emo: emo }),
@@ -5282,7 +5283,7 @@ var People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
         ${p.photo ? PCard.photo(p, 'pc-row') : `<span class="pnum">${esc(p.number || '')}</span>`}
-        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
+        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.guest === 'pending' ? '🆕 ' : p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
       </button>${ab}
@@ -5846,6 +5847,8 @@ var People = (() => {
         <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute && !/^non/.test(p.mute) ? ({ mute: 'muté', mute_hp: 'muté hors période', contrat: 'sous contrat' }[p.mute] || String(p.mute).replace(/_/g, ' ')) : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
       ${PCard.photoHtml(p)}
+      ${p.guest === 'pending' ? `<div class="trial-banner guest-banner">🆕 <b>Inscription à valider</b> <span class="muted small">inscrit${p.guestBy === 'parent' ? ' par ses parents' : ''} avec un code d'invitation${p.guestAt ? ' le ' + esc(UI.fmtDate(p.guestAt, { day: 'numeric', month: 'long' })) : ''}${p.phone ? ' · 📞 ' + esc(p.phone) : ''} · en attendant, il ne voit que le nom du club et sa catégorie</span>
+        <span class="acts"><button class="btn small primary" data-act="guestok">✅ Valider sa fiche</button><button class="btn small" data-act="guestno">❌ Refuser</button></span></div>` : ''}
       ${p.trial ? `<div class="trial-banner">🧪 <b>À l'essai${p.trial.since ? ' depuis le ' + esc(UI.fmtDate(p.trial.since, { day: 'numeric', month: 'long' })) : ''}</b>
         <span class="muted small">${s.att.total ? `${s.att.n} entraînement${s.att.n > 1 ? 's' : ''}` : 'Pas encore d\'entraînement'}${s.played.length ? ` · ${s.played.length} match${s.played.length > 1 ? 's' : ''}` : ''}</span>
         <span class="acts"><button class="btn small primary" data-act="trialkeep">✅ Le garder dans l'effectif</button><button class="btn small" data-act="trialend">👋 Fin de l'essai</button></span></div>` : ''}
@@ -5908,6 +5911,9 @@ var People = (() => {
         if (!ok) return; const tag = String(p.id).replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
         ['birth', 'phone', 'email', 'parents', 'notes', 'urgent', 'photo', 'licence', 'strengths', 'weaknesses', 'weight', 'height', 'subcat', 'mute', 'unavail', 'notesHist'].forEach(k => delete p[k]);
         p.firstName = 'Ancien joueur ' + tag; p.lastName = ''; p.anon = UI.today(); Store.upsert('players', p); toast('🕶️ Fiche anonymisée'); playerPage(root, id); });
+      // (2.67) a player signed up with an invitation code: validated (his space opens, he stays « à l'essai ») or refused (his card goes, his code too)
+      if (b.dataset.act === 'guestok') { delete p.guest; Store.upsert('players', p); toast(`${Store.shortName(p)} validé : son espace est ouvert 🎉`); return playerPage(root, id); }
+      if (b.dataset.act === 'guestno') return confirmBox(`Refuser l'inscription de ${name(p)} ? Sa fiche est supprimée et son code ne marchera plus.`, 'Refuser').then(ok => { if (!ok) return; Store.remove('players', p.id); toast('Inscription refusée'); location.hash = '#/joueurs'; });
       if (b.dataset.act === 'trialkeep') { delete p.trial; Store.upsert('players', p); toast(`${Store.shortName(p)} fait partie de l'effectif 🎉`); return playerPage(root, id); }
       if (b.dataset.act === 'trialend') return confirmBox(`Fin de l'essai pour ${name(p)} ? Il sort de ses catégories et reste dans la base du club (« Tous les joueurs »), avec ses séances et matchs.`, 'Fin de l\'essai').then(ok => {
         if (!ok) return; delete p.trial; p.teamIds = []; Store.upsert('players', p); toast('Essai terminé'); location.hash = '#/joueurs'; });
@@ -15396,6 +15402,15 @@ var Codes = (() => {
     const silent = on.filter(p => Date.now() - new Date((map[p.id] || {}).used || 0) > 30 * 864e5); // (2.26) the app not opened for a month
     const rows = admin ? (ui.show === 'todo' ? todo : ui.show === 'wait' ? wait : ui.show === 'given' ? given : ps) : todo;
     const d = x => x ? new Date(x).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+    // (2.67) the invitation codes of the category: a player without a licence signs up with one, the coach validates his card
+    let guests = null; try { guests = await Cloud.guestCodes(t.id, 0); } catch (e) { guests = e.message; }
+    const gFree = Array.isArray(guests) ? guests.filter(g => !g.used) : [], gUsed = Array.isArray(guests) ? guests.filter(g => g.used) : [];
+    const gStatus = g => g.status === 'pending' ? `<a href="#/joueur/${esc(g.player)}" class="wait">⏳ à valider</a>` : g.status === 'ok' ? '<b class="ok">✓ validé</b>' : '<span class="muted">refusé</span>';
+    const guestHtml = `<section class="card guest-card"><div class="row-head"><h3>🎟️ Codes d'invitation</h3><div class="chips"><button class="btn primary small" data-gnew ${Array.isArray(guests) ? '' : 'disabled'}>＋<span>10 codes</span></button><button class="btn small" data-gprint ${gFree.length ? '' : 'disabled'}>🖨️<span>Imprimer (${gFree.length})</span></button></div></div>
+        <p class="muted small">Pour un joueur qui vient essayer <b>sans licence</b> (pas encore dans Footclubs) : tu lui donnes un code, il s'inscrit lui-même sur <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b> (prénom, nom, date de naissance). Tant que tu n'as pas validé sa fiche, il ne voit que le nom du club et sa catégorie : pas de chat, pas de séances, pas de convocations.</p>
+        ${Array.isArray(guests) ? `${gFree.length ? `<div class="guest-codes">${gFree.map(g => `<code class="cr-code">${esc(pretty(g.code))}</code>`).join('')}</div>` : '<p class="muted small">Aucun code libre : crée-en 10.</p>'}
+          ${gUsed.length ? `<div class="codes-list">${gUsed.map(g => `<div class="code-row given"><span class="cr-name"><b>${esc(g.name || 'Fiche supprimée')}</b><span class="muted small">inscrit le ${esc(d(g.used))}</span></span><code class="cr-code">${esc(pretty(g.code))}</code><span>${gStatus(g)}</span></div>`).join('')}</div>` : ''}`
+          : `<p class="tip">${esc(guests || 'Le serveur du club doit être mis à jour (supabase/codes-invites.sql).')}</p>`}</section>`;
     root.innerHTML = head + `
       <section class="card codes-card">
         <p class="muted small">${admin ? `${ps.length} licencié${ps.length > 1 ? 's' : ''} · ${todo.length} code${todo.length > 1 ? 's' : ''} à remettre · ${given.length} remis.${silent.length ? ` · 📶 ${silent.length} silencieux (pas ouvert l'appli depuis 30 jours : ${silent.map(p => esc(Store.shortName(p))).join(', ')})` : ''}`
@@ -15411,14 +15426,15 @@ var Codes = (() => {
             ${c.given && !c.first ? `<button class="btn soft small" data-rl="${p.id}">💬<span>Relancer</span></button>` : ''}
             ${admin ? `<button class="icon-btn" data-cr="${p.id}" title="Nouveau code (l'ancien ne marchera plus)" aria-label="Nouveau code pour ${esc(full(p))}">↻</button>` : ''}</div>`; }).join('') || `<p class="muted">${admin ? 'Personne dans cette liste.' : 'Tous les codes de la catégorie ont été remis. 👍'}</p>`}</div>
       </section>
+      ${guestHtml}
       ${!admin && wait.length ? `<section class="card"><div class="row-head"><h3>⏳ Remis, pas encore activés (${wait.length})</h3><button class="btn soft" data-rlall>📋<span>Copier la liste</span></button></div>
         <p class="muted small">Ces familles ont reçu leur code mais n'ont pas encore ouvert leur espace : relance-les.</p>
         <div class="codes-list">${wait.map(p => `<div class="code-row"><span class="cr-name"><b>${esc(full(p))}</b><span class="muted small">remis le ${esc(d((map[p.id] || {}).given))}</span></span><button class="btn soft small" data-rl="${p.id}">💬<span>Relancer</span></button></div>`).join('')}</div></section>` : ''}
       ${admin && wait.length && ui.show === 'wait' ? `<p><button class="btn soft" data-rlall>📋<span>Copier la liste à relancer</span></button></p>` : ''}
       <p class="muted small">Tu reçois une notification quand une famille ouvre son espace pour la première fois. Le joueur (ou ses parents) scanne le QR code de la catégorie, ou ouvre <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b>, puis tape son code. Il ne voit que ses convocations, son temps de jeu, et les matchs et séances de sa catégorie. Un code perdu ou qui a circulé : le responsable en fait un nouveau (↻).</p>`;
-    bind(root, t, rows, map, wait);
+    bind(root, t, rows, map, wait, gFree);
   }
-  function bind(root, t, rows = [], map = {}, wait = []) {
+  function bind(root, t, rows = [], map = {}, wait = [], gFree = []) {
     root.onchange = async e => {
       const cb = e.target.closest('[data-cg]'); if (!cb) return;
       const p = Store.get('players', cb.dataset.cg), on = cb.checked;
@@ -15439,6 +15455,10 @@ var Codes = (() => {
       if (e.target.closest('[data-rlall]')) { const txt = `${t.name} · codes remis, espace pas encore ouvert :\n` + wait.map(p => '• ' + full(p)).join('\n');
         navigator.clipboard.writeText(txt).then(() => toast('Liste copiée')).catch(() => toast(txt)); return; }
       const cq = e.target.closest('[data-cq]'); if (cq) { cq.dataset.cq === 'app' ? qrDialog('app') : qrDialog('cat', t); return; }
+      // (2.67) invitation codes
+      if (e.target.closest('[data-gnew]')) { try { await Cloud.guestCodes(t.id, 10); toast('10 codes d\'invitation créés'); page(root, t.id); } catch (x) { toast(/LIMITE/.test(x.message) ? 'Déjà beaucoup de codes libres : distribue-les d\'abord.' : x.message, 'err'); } return; }
+      if (e.target.closest('[data-gprint]')) { print(`<h2>🎟️ ${esc(S().club.name)} · ${esc(t.name)} · codes d'invitation</h2><p>Pour venir essayer sans licence : ouvre <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b>, tape ton code et inscris-toi (prénom, nom, date de naissance). Le coach valide ensuite ta fiche.</p>
+        <div class="print-codes">${gFree.map(g => `<div class="print-code"><b>${esc(pretty(g.code))}</b><span>${esc(t.name)} · ${esc(S().club.name)}</span></div>`).join('')}</div>`, 'print-list'); return; }
       const cp = e.target.closest('[data-cp]'); if (cp) { cp.dataset.cp === 'cards' ? printCards(t, rows, map) : printList(t, rows, map); }
     };
   }
@@ -16607,6 +16627,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 123, date: '2026-10-09', title: "Le ticket d'entrée pour venir essayer 🎟️", items: [
+      ['🎟️', "Codes d'invitation (Codes personnels → « 10 codes ») : un joueur sans licence s'inscrit lui-même avec son code (prénom, nom, date de naissance). Tant que le coach n'a pas validé sa fiche (Joueurs → ✅ Valider), il ne voit que le nom du club et sa catégorie : pas de chat, pas de séances."],
+    ] },
     { n: 122, date: '2026-10-09', title: 'Plateaux, intendance, autorisations, langues 🌍', items: [
       ['🎪', 'Journée de plateau ou de tournoi : en créant le match, ajoute les autres adversaires (un par ligne) : un match par adversaire, le même jour. Sur chaque match : la liste de la journée, son bilan et « Mêmes convoqués pour les autres matchs ». Dans Résultats et stats : une ligne par journée, hors classement.'],
       ['🎽', 'Équipements (Joueurs → Équipements) : tailles, numéro et ce que le club a donné à chaque joueur, le nombre de chaque taille pour commander, l\'export Excel.'],
@@ -20880,7 +20903,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 167, UPD = AppCfg.key('update-tried');
+  const BUILD = 168, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

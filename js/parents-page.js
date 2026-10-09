@@ -116,6 +116,8 @@
     const club = (data.club && data.club.name) || 'Le club';
     document.title = `${kid()} · ${club} · Parents`;
     $('#club').textContent = `${club} · Espace parents`; $('#team').textContent = data.team || 'Équipe';
+    // (2.67) signed up with an invitation code, not yet validated by the coach: the waiting page only
+    if (data.guest === 'pending') { $('#page').innerHTML = Member.bar(data, 'parents') + Member.pendingCard(data, 'parents'); const b = $('[data-reload]'); if (b) b.onclick = () => load(); return; }
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now), past = ms.filter(m => m.played || m.date < now).reverse().slice(0, 8);
     const trs = data.trainings || [], prog = Member.programme(trs, data.matches, trRow);
     // (1.64) in tabs: matches (présent / absent, covoiturage, coup de main), sessions, results, coaches, settings
@@ -171,7 +173,7 @@
     try {
       const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
       if (!Member.family(d)) { Member.remember(code, d); location.replace('joueurs.html' + location.hash); return; } // (2.07) no families' space above U15
-      data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); loadPhotos();
+      data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); if (data.guest === 'pending') return; loadPhotos(); // (2.67)
       const [, t, ld] = await Promise.all([Member.replies(code, data), Member.tips(code), Injury.load(code).catch(() => null).then(() => rpc('member_leaders', { p_code: code })).catch(() => null)]);
       if (tok !== loadTok) return;
       tips = t || []; lead = ld || null; render(); loadPhotos();

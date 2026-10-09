@@ -51,6 +51,7 @@ const Member = (() => {
       if (/\bPHOTO\b/.test(m)) throw new Error('Cette photo ne passe pas : essaie avec une autre.');
       if (/LIMITE_CHAT/.test(m)) throw new Error('Beaucoup de messages aujourd\'hui : réessaie demain.');
       if (/LIMITE/.test(m)) throw new Error('Tu as déjà envoyé 10 messages aujourd’hui : réessaie demain.');
+      if (/EN_ATTENTE/.test(m)) { const e = new Error('Ta fiche n\'est pas encore validée par le coach.'); e.code = 'WAIT'; throw e; }
       if (/CODE_PERSO/.test(m)) { const e = new Error('Ce code ne fonctionne pas. Vérifie-le, ou demande ton code au coach.'); e.code = 'CODE'; throw e; }
       if (/MATCH_PASSE/.test(m)) throw new Error('C\'est passé : les réponses sont fermées.');
       if (/COMPLET/.test(m)) throw new Error('Cette tâche est déjà complète. Merci quand même !');
@@ -82,9 +83,49 @@ const Member = (() => {
       if (!root.querySelector('#codeOk').checked) { err.textContent = 'Coche la case : tu as lu la page confidentialité (et, pour un enfant de moins de 15 ans, tu es son parent).'; return; }
       err.textContent = 'Vérification…';
       try { const d = await rpc('member_view', { p_code: c }); remember(c, d); opts.onOk ? opts.onOk(c, d) : location.replace(pageFor(d)); }
-      catch (x) { err.textContent = x.message; }
+      catch (x) {
+        // (2.67) an invitation code (a player without a licence): he signs up here, the coach validates afterwards
+        if (x.code === 'CODE') { let g = null; try { g = await rpc('member_guest', { p_code: c }); } catch (y) {} if (g && g.guest) return guestForm(root, c, g, opts); }
+        err.textContent = x.message;
+      }
     };
     root.querySelectorAll('[data-usecode]').forEach(b => b.onclick = () => { use(b.dataset.usecode); opts.onOk ? opts.onOk(b.dataset.usecode) : location.replace('moi.html#c=' + b.dataset.usecode); });
+  }
+  // (2.67) the sign-up with an invitation code: first name, name, birth date, who fills it; then the card waits for the coach
+  function guestForm(root, c, g, opts = {}) {
+    root.innerHTML = `<div class="card code-card">
+      <p class="code-cat">🎟️ ${esc(g.team || '')}</p>
+      <h2>Inscription avec un code d'invitation</h2>
+      <p class="info">Ce code t'invite à venir essayer à <b>${esc(g.club || 'ce club')}</b>. Remplis cette fiche : le coach la valide, puis ton espace s'ouvre en entier.</p>
+      <form id="guestForm" autocomplete="off">
+        <label class="fld"><span>Prénom du joueur</span><input id="gFirst" class="code-in" maxlength="40" required></label>
+        <label class="fld"><span>Nom du joueur</span><input id="gLast" class="code-in" maxlength="40" autocapitalize="characters" required></label>
+        <label class="fld"><span>Date de naissance du joueur</span><input id="gBirth" class="code-in" type="date" required></label>
+        <label class="fld"><span>Téléphone (pour que le coach te rappelle)</span><input id="gPhone" class="code-in" type="tel" maxlength="30"></label>
+        <p class="info">Qui remplit ?</p><div class="btns"><label class="b small"><input type="radio" name="gWho" value="joueur" checked> Le joueur</label><label class="b small"><input type="radio" name="gWho" value="parent"> Un parent</label></div>
+        <label class="consent"><input type="checkbox" id="gOk"> <span>J'ai lu la <a href="confidentialite.html" target="_blank">page confidentialité</a>. Si le joueur a moins de 15 ans, je suis son parent et je donne mon accord.</span></label>
+        <div class="btns"><button class="b yes on code-go" type="submit">M'inscrire</button><button class="b small" type="button" id="gBack">Retour</button></div></form>
+      <p id="gErr" class="code-err" role="alert"></p></div>`;
+    root.querySelector('#gBack').onclick = () => form(root, Object.assign({}, opts, { code: c }));
+    root.querySelector('#guestForm').onsubmit = async e => {
+      e.preventDefault(); const err = root.querySelector('#gErr'), v = id => root.querySelector('#' + id).value.trim();
+      if (!v('gFirst') || !v('gLast') || !v('gBirth')) { err.textContent = 'Le prénom, le nom et la date de naissance sont nécessaires.'; return; }
+      if (!root.querySelector('#gOk').checked) { err.textContent = 'Coche la case : tu as lu la page confidentialité (et, pour un enfant de moins de 15 ans, tu es son parent).'; return; }
+      err.textContent = 'Inscription…';
+      try {
+        await rpc('member_guest', { p_code: c, p_data: { firstName: v('gFirst'), lastName: v('gLast'), birth: v('gBirth'), phone: v('gPhone'), parent: (root.querySelector('[name=gWho]:checked') || {}).value === 'parent' } });
+        const d = await rpc('member_view', { p_code: c }); remember(c, d); opts.onOk ? opts.onOk(c, d) : location.replace(pageFor(d));
+      } catch (x) { err.textContent = /DONNEES/.test(x.message) ? 'Vérifie le prénom, le nom et la date de naissance.' : x.message; }
+    };
+  }
+  // (2.67) the waiting page of a player signed up with an invitation code (the coach has not validated his card yet)
+  function pendingCard(d, kind) {
+    const me = d.me || {}, cs = d.coaches || [];
+    return `<div class="card code-card"><h2>⏳ Inscription en attente</h2>
+      <p class="info"><b>${esc(me.name || '')}</b> est inscrit dans la catégorie <b>${esc(d.team || '')}</b> de <b>${esc((d.club || {}).name || 'ton club')}</b> avec un code d'invitation.</p>
+      <p class="info">Le coach doit valider la fiche. Ensuite, cet espace s'ouvre en entier : convocations, séances, chat, vidéos… En attendant, rien d'autre n'est visible ici.</p>
+      ${cs.length ? `<p class="info">Les coachs : ${cs.map(c => `<b>${esc(c.name)}</b>${c.phone ? ` · <a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a>` : ''}`).join(' · ')}</p>` : ''}
+      <div class="btns"><button class="b yes on" data-reload>Vérifier maintenant</button></div></div>`;
   }
   // top of the page: who is shown, the other children of this phone, add a code, the other space
   function bar(d, kind) {
@@ -619,5 +660,5 @@ const Member = (() => {
   }
   // (2.29) the service worker is registered as soon as the page opens (offline copy, and what the stores check), not only with the notifications
   if (location.protocol !== 'file:' && 'serviceWorker' in navigator && !PREVIEW) navigator.serviceWorker.register('sw.js').catch(() => {});
-  return { bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest, family };
+  return { pendingCard, bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest, family };
 })();

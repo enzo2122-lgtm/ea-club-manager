@@ -110,6 +110,7 @@ const Cloud = (() => {
     // personal codes of the licensees, answers to convocations
     memberCodes: (ids, renew) => rpc('club_member_codes', { admin_k: adminKey() || null, p_players: ids, p_renew: renew || [] }),
     memberGiven: (id, given) => rpc('club_member_given', { admin_k: adminKey() || null, p_player: id, p_given: !!given }),
+    guestCodes: (team, n) => rpc('club_guest_codes', { admin_k: adminKey() || null, p_team: team, p_new: n || 0 }), // (2.67) invitation codes: players without a licence sign up, the coach validates
     answers: matchIds => rpc('club_answers', { p_matches: matchIds }),
     evFeed: ids => rpc('club_event', { p_ids: ids }), // (2.27) reactions and comments under an event
     evReact: (id, emo) => rpc('club_event_react', { p_event: id, p_emo: emo }),

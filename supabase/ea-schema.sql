@@ -51,7 +51,7 @@ create table if not exists member_codes (club text not null references clubs(id)
   created_at timestamptz not null default now(), used_at timestamptz, given_at timestamptz, given_by text, first_at timestamptz, primary key (club, player_id));
 do $rls$ declare t text; begin
   foreach t in array array['ea_platform', 'ea_activation', 'clubs', 'accounts', 'sessions', 'items', 'messages', 'bookings', 'slots', 'answers', 'match_photos',
-    'push_config', 'push_subs', 'notifs', 'message_reads', 'backups', 'member_codes'] loop
+    'push_config', 'push_subs', 'notifs', 'message_reads', 'backups', 'member_codes', 'guest_codes'] loop
     execute format('alter table %I enable row level security', t);
   end loop;
 end $rls$;
@@ -488,13 +488,19 @@ do $cron$ begin
 end $cron$;
 
 /* ================= codes personnels des licenciés (joueurs et parents) ================= */
-create or replace function ea_member(p_code text) returns items language plpgsql stable security definer set search_path = public as $$
+create or replace function ea_member_any(p_code text) returns items language plpgsql stable security definer set search_path = public as $$
 declare c text := upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g')); pl items;
 begin
   if length(c) <> 8 then raise exception 'CODE_PERSO'; end if;
   select i.* into pl from member_codes mc join clubs cl on cl.id = mc.club and cl.status = 'active'
     join items i on i.club = mc.club and i.col = 'players' and i.id = mc.player_id and not i.deleted where mc.code = c;
   if pl.id is null then raise exception 'CODE_PERSO'; end if;
+  return pl; end $$;
+-- (2.67) un joueur inscrit avec un code d'invitation, pas encore validé par le coach : rien d'autre que la page d'attente (member_view)
+create or replace function ea_member(p_code text) returns items language plpgsql stable security definer set search_path = public as $$
+declare pl items := ea_member_any(p_code);
+begin
+  if pl.data->>'guest' = 'pending' then raise exception 'EN_ATTENTE'; end if;
   return pl; end $$;
 create or replace function ea_member_teams(pl items) returns text[] language sql immutable as $$ select ea_arr(pl.data->'teamIds') $$;
 -- le responsable voit tous les codes ; un coach ne voit que ceux de ses catégories qu'il n'a pas encore remis
@@ -546,9 +552,20 @@ create or replace function ea_season_end() returns text language sql stable as $
   select greatest(to_char(make_date(extract(year from current_date)::int + case when extract(month from current_date) >= 8 then 1 else 0 end, 7, 31), 'YYYY-MM-DD'),
     to_char(current_date + 30, 'YYYY-MM-DD')) $$;
 create or replace function member_view(p_code text, p_preview boolean default false) returns jsonb language plpgsql security definer set search_path = public as $$
-declare pl items := ea_member(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); today text := to_char(current_date, 'YYYY-MM-DD'); first boolean;
+declare pl items := ea_member_any(p_code); c text := pl.club; tids text[] := ea_member_teams(pl); today text := to_char(current_date, 'YYYY-MM-DD'); first boolean;
   season text := case when extract(month from current_date) >= 8 then to_char(current_date, 'YYYY') else to_char(current_date - interval '1 year', 'YYYY') end || '-08-01';
 begin
+  -- (2.67) a player signed up with an invitation code, not yet validated by the coach: the club, the category, his name — nothing else
+  if pl.data->>'guest' = 'pending' then
+    return jsonb_build_object('guest', 'pending',
+      'team', coalesce((select string_agg(t.data->>'name', ' · ' order by t.data->>'name') from items t where t.club = c and t.col = 'teams' and not t.deleted and t.id = any(tids)), ''),
+      'me', jsonb_build_object('id', pl.id, 'name', ea_short(pl.data), 'firstName', pl.data->>'firstName', 'birth', pl.data->>'birth'),
+      'club', (select jsonb_build_object('name', data->>'name', 'fieldName', data->>'fieldName', 'crest', data->>'crest', 'sport', data->>'sport') from items where club = c and col = 'club' and id = 'club' and not deleted),
+      'coaches', (select coalesce(jsonb_agg(jsonb_build_object('name', trim(coalesce(st.data->>'firstName', '') || ' ' || coalesce(st.data->>'lastName', '')), 'role', st.data->>'role', 'phone', st.data->>'phone')
+          order by st.data->>'lastName'), '[]'::jsonb) from items st where st.club = c and st.col = 'staff' and not st.deleted and st.data->>'phoneShow' = 'parents' and coalesce(st.data->>'phone', '') <> ''
+          and exists (select 1 from unnest(ea_arr(st.data->'teamIds')) x where x = any(tids))),
+      'matches', '[]'::jsonb, 'trainings', '[]'::jsonb);
+  end if;
   if not coalesce(p_preview, false) then
     select first_at is null into first from member_codes where club = c and player_id = pl.id;
     update member_codes set used_at = now(), first_at = coalesce(first_at, now()) where club = c and player_id = pl.id;
@@ -1353,3 +1370,64 @@ grant execute on function club_event(text, text[]), club_event_react(text, text,
 -- ménage : plus de 180 jours
 create or replace function ea_event_purge() returns void language sql security definer set search_path = public as $$ delete from event_posts where at < now() - interval '180 days' $$;
 revoke all on function ea_event_purge() from public, anon, authenticated;
+
+/* ================= (2.67) codes d'invitation : un joueur sans licence s'inscrit lui-même, le coach valide ================= */
+create table if not exists guest_codes (club text not null references clubs(id) on delete cascade, team_id text not null, code text not null unique,
+  created_at timestamptz not null default now(), created_by text, used_at timestamptz, player_id text);
+alter table guest_codes enable row level security;
+-- le coach (ou le responsable) crée jusqu'à 10 codes à la fois pour une catégorie, et voit qui s'en est servi
+create or replace function club_guest_codes(k text, admin_k text, p_team text, p_new int default 0) returns jsonb language plpgsql security definer set search_path = public as $$
+declare c text := ea_need(k); adm boolean := ea_admin(admin_k, c); sid text := ea_staff(k); st items; v text; i int; who text;
+begin
+  if not exists (select 1 from items t where t.club = c and t.col = 'teams' and t.id = p_team and not t.deleted) then raise exception 'DONNEES'; end if;
+  if not adm then
+    if sid is null then raise exception 'ADMIN'; end if;
+    select * into st from items where club = c and col = 'staff' and id = sid and not deleted;
+    if not (p_team = any(ea_arr(st.data->'teamIds'))) then raise exception 'ADMIN'; end if;
+  end if;
+  if coalesce(p_new, 0) > 0 then
+    if (select count(*) from guest_codes where club = c and team_id = p_team and player_id is null) + least(p_new, 10) > 50 then raise exception 'LIMITE'; end if;
+    who := coalesce((select trim(coalesce(s.data->>'firstName', '') || ' ' || coalesce(s.data->>'lastName', '')) from items s where s.club = c and s.col = 'staff' and s.id = sid and not s.deleted), 'Responsable');
+    for i in 1..least(p_new, 10) loop
+      loop v := ea_code(8); exit when not exists (select 1 from guest_codes where code = v) and not exists (select 1 from member_codes where code = v); end loop;
+      insert into guest_codes (club, team_id, code, created_by) values (c, p_team, v, who);
+    end loop;
+  end if;
+  return (select coalesce(jsonb_agg(jsonb_build_object('code', g.code, 'at', g.created_at, 'by', g.created_by, 'used', g.used_at, 'player', g.player_id,
+      'name', (select ea_short(i.data) from items i where i.club = c and i.col = 'players' and i.id = g.player_id and not i.deleted),
+      'status', case when g.player_id is null then null else coalesce((select case when i.data->>'guest' = 'pending' then 'pending' else 'ok' end from items i where i.club = c and i.col = 'players' and i.id = g.player_id and not i.deleted), 'gone') end)
+      order by g.used_at nulls first, g.created_at), '[]'::jsonb) from guest_codes g where g.club = c and g.team_id = p_team);
+end $$;
+-- le joueur (ou un parent) tape le code d'invitation : d'abord le club et la catégorie (p_data null), puis son inscription (prénom, nom, naissance…)
+-- La fiche est créée « à l'essai », en attente de validation ; le code devient son code personnel ; les coachs de la catégorie sont prévenus.
+create or replace function member_guest(p_code text, p_data jsonb default null) returns jsonb language plpgsql security definer set search_path = public as $$
+declare c text := upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g')); g guest_codes; t items; pid text; fn text; ln text; b text; ph text; em text; parent boolean;
+begin
+  if length(c) <> 8 then raise exception 'CODE_PERSO'; end if;
+  select g1.* into g from guest_codes g1 join clubs cl on cl.id = g1.club and cl.status = 'active' where g1.code = c;
+  if g.code is null or g.player_id is not null then raise exception 'CODE_PERSO'; end if;
+  select * into t from items where club = g.club and col = 'teams' and id = g.team_id and not deleted;
+  if t.id is null then raise exception 'CODE_PERSO'; end if;
+  if p_data is null then
+    return jsonb_build_object('guest', true, 'team', t.data->>'name', 'club', (select data->>'name' from items where club = g.club and col = 'club' and id = 'club' and not deleted));
+  end if;
+  fn := left(trim(coalesce(p_data->>'firstName', '')), 40); ln := upper(left(trim(coalesce(p_data->>'lastName', '')), 40)); b := nullif(trim(coalesce(p_data->>'birth', '')), '');
+  if fn = '' or ln = '' or b is null or b !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' then raise exception 'DONNEES'; end if;
+  ph := left(trim(coalesce(p_data->>'phone', '')), 30); em := left(trim(coalesce(p_data->>'email', '')), 80); parent := coalesce((p_data->>'parent')::boolean, false);
+  pid := 'g' || replace(gen_random_uuid()::text, '-', '');
+  insert into items (club, col, id, data, updated_at, deleted, rev) values (g.club, 'players', pid,
+    jsonb_build_object('firstName', fn, 'lastName', ln, 'birth', b, 'phone', ph, 'email', em, 'teamIds', jsonb_build_array(g.team_id),
+      'trial', jsonb_build_object('since', to_char(current_date, 'YYYY-MM-DD')), 'guest', 'pending', 'guestAt', to_char(now(), 'YYYY-MM-DD'), 'guestBy', case when parent then 'parent' else 'joueur' end),
+    (extract(epoch from now()) * 1000)::bigint, false, nextval('items_rev'));
+  update guest_codes set used_at = now(), player_id = pid where code = c;
+  insert into member_codes (club, player_id, code, given_at, given_by) values (g.club, pid, c, now(), 'invitation');
+  begin
+    perform ea_notify(g.club, array(select distinct x from (select a.staff_id x from accounts a where a.club = g.club and a.admin
+        union select st.id from items st join accounts a on a.club = g.club and a.staff_id = st.id where st.club = g.club and st.col = 'staff' and not st.deleted and g.team_id = any(ea_arr(st.data->'teamIds'))) z),
+      'codes', 'guest:' || pid, '🆕 Inscription à valider', fn || ' ' || ln || ' (' || coalesce(t.data->>'name', '') || ') s''est inscrit avec un code d''invitation', '#/joueur/' || pid);
+  exception when others then raise notice 'notification invitation : %', sqlerrm; end;
+  return jsonb_build_object('ok', true);
+end $$;
+revoke all on function club_guest_codes(text, text, text, int) from public; revoke all on function member_guest(text, jsonb) from public;
+grant execute on function club_guest_codes(text, text, text, int), member_guest(text, jsonb) to anon, authenticated;
+notify pgrst, 'reload schema';

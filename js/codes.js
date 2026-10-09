@@ -57,6 +57,15 @@ const Codes = (() => {
     const silent = on.filter(p => Date.now() - new Date((map[p.id] || {}).used || 0) > 30 * 864e5); // (2.26) the app not opened for a month
     const rows = admin ? (ui.show === 'todo' ? todo : ui.show === 'wait' ? wait : ui.show === 'given' ? given : ps) : todo;
     const d = x => x ? new Date(x).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+    // (2.67) the invitation codes of the category: a player without a licence signs up with one, the coach validates his card
+    let guests = null; try { guests = await Cloud.guestCodes(t.id, 0); } catch (e) { guests = e.message; }
+    const gFree = Array.isArray(guests) ? guests.filter(g => !g.used) : [], gUsed = Array.isArray(guests) ? guests.filter(g => g.used) : [];
+    const gStatus = g => g.status === 'pending' ? `<a href="#/joueur/${esc(g.player)}" class="wait">⏳ à valider</a>` : g.status === 'ok' ? '<b class="ok">✓ validé</b>' : '<span class="muted">refusé</span>';
+    const guestHtml = `<section class="card guest-card"><div class="row-head"><h3>🎟️ Codes d'invitation</h3><div class="chips"><button class="btn primary small" data-gnew ${Array.isArray(guests) ? '' : 'disabled'}>＋<span>10 codes</span></button><button class="btn small" data-gprint ${gFree.length ? '' : 'disabled'}>🖨️<span>Imprimer (${gFree.length})</span></button></div></div>
+        <p class="muted small">Pour un joueur qui vient essayer <b>sans licence</b> (pas encore dans Footclubs) : tu lui donnes un code, il s'inscrit lui-même sur <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b> (prénom, nom, date de naissance). Tant que tu n'as pas validé sa fiche, il ne voit que le nom du club et sa catégorie : pas de chat, pas de séances, pas de convocations.</p>
+        ${Array.isArray(guests) ? `${gFree.length ? `<div class="guest-codes">${gFree.map(g => `<code class="cr-code">${esc(pretty(g.code))}</code>`).join('')}</div>` : '<p class="muted small">Aucun code libre : crée-en 10.</p>'}
+          ${gUsed.length ? `<div class="codes-list">${gUsed.map(g => `<div class="code-row given"><span class="cr-name"><b>${esc(g.name || 'Fiche supprimée')}</b><span class="muted small">inscrit le ${esc(d(g.used))}</span></span><code class="cr-code">${esc(pretty(g.code))}</code><span>${gStatus(g)}</span></div>`).join('')}</div>` : ''}`
+          : `<p class="tip">${esc(guests || 'Le serveur du club doit être mis à jour (supabase/codes-invites.sql).')}</p>`}</section>`;
     root.innerHTML = head + `
       <section class="card codes-card">
         <p class="muted small">${admin ? `${ps.length} licencié${ps.length > 1 ? 's' : ''} · ${todo.length} code${todo.length > 1 ? 's' : ''} à remettre · ${given.length} remis.${silent.length ? ` · 📶 ${silent.length} silencieux (pas ouvert l'appli depuis 30 jours : ${silent.map(p => esc(Store.shortName(p))).join(', ')})` : ''}`
@@ -72,14 +81,15 @@ const Codes = (() => {
             ${c.given && !c.first ? `<button class="btn soft small" data-rl="${p.id}">💬<span>Relancer</span></button>` : ''}
             ${admin ? `<button class="icon-btn" data-cr="${p.id}" title="Nouveau code (l'ancien ne marchera plus)" aria-label="Nouveau code pour ${esc(full(p))}">↻</button>` : ''}</div>`; }).join('') || `<p class="muted">${admin ? 'Personne dans cette liste.' : 'Tous les codes de la catégorie ont été remis. 👍'}</p>`}</div>
       </section>
+      ${guestHtml}
       ${!admin && wait.length ? `<section class="card"><div class="row-head"><h3>⏳ Remis, pas encore activés (${wait.length})</h3><button class="btn soft" data-rlall>📋<span>Copier la liste</span></button></div>
         <p class="muted small">Ces familles ont reçu leur code mais n'ont pas encore ouvert leur espace : relance-les.</p>
         <div class="codes-list">${wait.map(p => `<div class="code-row"><span class="cr-name"><b>${esc(full(p))}</b><span class="muted small">remis le ${esc(d((map[p.id] || {}).given))}</span></span><button class="btn soft small" data-rl="${p.id}">💬<span>Relancer</span></button></div>`).join('')}</div></section>` : ''}
       ${admin && wait.length && ui.show === 'wait' ? `<p><button class="btn soft" data-rlall>📋<span>Copier la liste à relancer</span></button></p>` : ''}
       <p class="muted small">Tu reçois une notification quand une famille ouvre son espace pour la première fois. Le joueur (ou ses parents) scanne le QR code de la catégorie, ou ouvre <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b>, puis tape son code. Il ne voit que ses convocations, son temps de jeu, et les matchs et séances de sa catégorie. Un code perdu ou qui a circulé : le responsable en fait un nouveau (↻).</p>`;
-    bind(root, t, rows, map, wait);
+    bind(root, t, rows, map, wait, gFree);
   }
-  function bind(root, t, rows = [], map = {}, wait = []) {
+  function bind(root, t, rows = [], map = {}, wait = [], gFree = []) {
     root.onchange = async e => {
       const cb = e.target.closest('[data-cg]'); if (!cb) return;
       const p = Store.get('players', cb.dataset.cg), on = cb.checked;
@@ -100,6 +110,10 @@ const Codes = (() => {
       if (e.target.closest('[data-rlall]')) { const txt = `${t.name} · codes remis, espace pas encore ouvert :\n` + wait.map(p => '• ' + full(p)).join('\n');
         navigator.clipboard.writeText(txt).then(() => toast('Liste copiée')).catch(() => toast(txt)); return; }
       const cq = e.target.closest('[data-cq]'); if (cq) { cq.dataset.cq === 'app' ? qrDialog('app') : qrDialog('cat', t); return; }
+      // (2.67) invitation codes
+      if (e.target.closest('[data-gnew]')) { try { await Cloud.guestCodes(t.id, 10); toast('10 codes d\'invitation créés'); page(root, t.id); } catch (x) { toast(/LIMITE/.test(x.message) ? 'Déjà beaucoup de codes libres : distribue-les d\'abord.' : x.message, 'err'); } return; }
+      if (e.target.closest('[data-gprint]')) { print(`<h2>🎟️ ${esc(S().club.name)} · ${esc(t.name)} · codes d'invitation</h2><p>Pour venir essayer sans licence : ouvre <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b>, tape ton code et inscris-toi (prénom, nom, date de naissance). Le coach valide ensuite ta fiche.</p>
+        <div class="print-codes">${gFree.map(g => `<div class="print-code"><b>${esc(pretty(g.code))}</b><span>${esc(t.name)} · ${esc(S().club.name)}</span></div>`).join('')}</div>`, 'print-list'); return; }
       const cp = e.target.closest('[data-cp]'); if (cp) { cp.dataset.cp === 'cards' ? printCards(t, rows, map) : printList(t, rows, map); }
     };
   }

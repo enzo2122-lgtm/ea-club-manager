@@ -215,6 +215,8 @@
     const now = today();
     document.title = `${(data.me || {}).name || 'Joueur'} · ${club()}`;
     $('#club').textContent = `${club()} · Espace joueur`; $('#team').textContent = data.team || 'Équipe';
+    // (2.67) signed up with an invitation code, not yet validated by the coach: the waiting page only
+    if (data.guest === 'pending') { $('#page').innerHTML = Member.bar(data, 'joueurs') + Member.pendingCard(data, 'joueurs'); const b = $('[data-reload]'); if (b) b.onclick = () => load(); return; }
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now && !m.exempt), past = ms.filter(m => m.played).reverse();
     const my = season(), prog = Member.programme(data.trainings, data.matches, trRow);
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
@@ -276,6 +278,7 @@
     try {
       const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
       data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render();
+      if (data.guest === 'pending') return; // (2.67) nothing else is open before the coach validates
       const soft = p => p.catch(() => undefined); // a club server not yet updated: that part stays empty
       const [, t, , v, pr, st, ld] = await Promise.all([Member.replies(code, data), Member.tips(code), soft(Injury.load(code)),
         soft(rpc('member_videos', { p_code: code })), soft(rpc('member_profile', { p_code: code })), soft(rpc('member_standings', { p_code: code })), soft(rpc('member_leaders', { p_code: code }))]);

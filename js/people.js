@@ -72,7 +72,7 @@ const People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
         ${p.photo ? PCard.photo(p, 'pc-row') : `<span class="pnum">${esc(p.number || '')}</span>`}
-        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
+        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.guest === 'pending' ? '🆕 ' : p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
       </button>${ab}
@@ -636,6 +636,8 @@ const People = (() => {
         <p class="sub">${[postsLabel(p), p.birth ? `${age(p.birth)} ans (${fmtBirth(p.birth)})` : '', p.foot ? 'pied ' + String(p.foot).toLowerCase() : '', p.height ? p.height + ' cm' : '', p.weight ? p.weight + ' kg' : '', +p.weight && +p.height ? 'IMC ' + String(Math.round(p.weight / Math.pow(p.height / 100, 2) * 10) / 10).replace('.', ',') : '', p.mute && !/^non/.test(p.mute) ? ({ mute: 'muté', mute_hp: 'muté hors période', contrat: 'sous contrat' }[p.mute] || String(p.mute).replace(/_/g, ' ')) : '', p.licence ? 'licence ' + p.licence : '', p.subcat, teamNames(p.teamIds)].filter((x, i, a) => x && a.indexOf(x) === i).map(esc).join(' · ')}</p></div>
       <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button><button class="btn primary" data-act="edit">${I.edit}<span>Modifier</span></button></div></header>
       ${PCard.photoHtml(p)}
+      ${p.guest === 'pending' ? `<div class="trial-banner guest-banner">🆕 <b>Inscription à valider</b> <span class="muted small">inscrit${p.guestBy === 'parent' ? ' par ses parents' : ''} avec un code d'invitation${p.guestAt ? ' le ' + esc(UI.fmtDate(p.guestAt, { day: 'numeric', month: 'long' })) : ''}${p.phone ? ' · 📞 ' + esc(p.phone) : ''} · en attendant, il ne voit que le nom du club et sa catégorie</span>
+        <span class="acts"><button class="btn small primary" data-act="guestok">✅ Valider sa fiche</button><button class="btn small" data-act="guestno">❌ Refuser</button></span></div>` : ''}
       ${p.trial ? `<div class="trial-banner">🧪 <b>À l'essai${p.trial.since ? ' depuis le ' + esc(UI.fmtDate(p.trial.since, { day: 'numeric', month: 'long' })) : ''}</b>
         <span class="muted small">${s.att.total ? `${s.att.n} entraînement${s.att.n > 1 ? 's' : ''}` : 'Pas encore d\'entraînement'}${s.played.length ? ` · ${s.played.length} match${s.played.length > 1 ? 's' : ''}` : ''}</span>
         <span class="acts"><button class="btn small primary" data-act="trialkeep">✅ Le garder dans l'effectif</button><button class="btn small" data-act="trialend">👋 Fin de l'essai</button></span></div>` : ''}
@@ -698,6 +700,9 @@ const People = (() => {
         if (!ok) return; const tag = String(p.id).replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
         ['birth', 'phone', 'email', 'parents', 'notes', 'urgent', 'photo', 'licence', 'strengths', 'weaknesses', 'weight', 'height', 'subcat', 'mute', 'unavail', 'notesHist'].forEach(k => delete p[k]);
         p.firstName = 'Ancien joueur ' + tag; p.lastName = ''; p.anon = UI.today(); Store.upsert('players', p); toast('🕶️ Fiche anonymisée'); playerPage(root, id); });
+      // (2.67) a player signed up with an invitation code: validated (his space opens, he stays « à l'essai ») or refused (his card goes, his code too)
+      if (b.dataset.act === 'guestok') { delete p.guest; Store.upsert('players', p); toast(`${Store.shortName(p)} validé : son espace est ouvert 🎉`); return playerPage(root, id); }
+      if (b.dataset.act === 'guestno') return confirmBox(`Refuser l'inscription de ${name(p)} ? Sa fiche est supprimée et son code ne marchera plus.`, 'Refuser').then(ok => { if (!ok) return; Store.remove('players', p.id); toast('Inscription refusée'); location.hash = '#/joueurs'; });
       if (b.dataset.act === 'trialkeep') { delete p.trial; Store.upsert('players', p); toast(`${Store.shortName(p)} fait partie de l'effectif 🎉`); return playerPage(root, id); }
       if (b.dataset.act === 'trialend') return confirmBox(`Fin de l'essai pour ${name(p)} ? Il sort de ses catégories et reste dans la base du club (« Tous les joueurs »), avec ses séances et matchs.`, 'Fin de l\'essai').then(ok => {
         if (!ok) return; delete p.trial; p.teamIds = []; Store.upsert('players', p); toast('Essai terminé'); location.hash = '#/joueurs'; });

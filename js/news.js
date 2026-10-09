@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 123, date: '2026-10-09', title: "Le ticket d'entrée pour venir essayer 🎟️", items: [
+      ['🎟️', "Codes d'invitation (Codes personnels → « 10 codes ») : un joueur sans licence s'inscrit lui-même avec son code (prénom, nom, date de naissance). Tant que le coach n'a pas validé sa fiche (Joueurs → ✅ Valider), il ne voit que le nom du club et sa catégorie : pas de chat, pas de séances."],
+    ] },
     { n: 122, date: '2026-10-09', title: 'Plateaux, intendance, autorisations, langues 🌍', items: [
       ['🎪', 'Journée de plateau ou de tournoi : en créant le match, ajoute les autres adversaires (un par ligne) : un match par adversaire, le même jour. Sur chaque match : la liste de la journée, son bilan et « Mêmes convoqués pour les autres matchs ». Dans Résultats et stats : une ligne par journée, hors classement.'],
       ['🎽', 'Équipements (Joueurs → Équipements) : tailles, numéro et ce que le club a donné à chaque joueur, le nombre de chaque taille pour commander, l\'export Excel.'],
