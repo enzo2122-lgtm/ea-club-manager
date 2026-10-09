@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 143, date: '2026-10-10', title: "Les remplaçants ont leur ligne 🪑", items: [
+      ['🪑', "Compo d'un match : sous « Qui joue où ? », les convoqués sans poste apparaissent comme remplaçants, tout seuls."],
+      ['👕', "« Numéros du match » se plie : il ne sert que si un joueur change de maillot pour ce match."],
+    ] },
     { n: 142, date: '2026-10-09', title: "Le banc est là 🪑", items: [
       ['🪑', "Compo d'un match : « Placer les remplaçants » les met sur la ligne de touche, et les listes ne proposent plus que les convoqués."],
     ] },

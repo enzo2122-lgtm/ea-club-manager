@@ -3730,7 +3730,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.84';
+  const VERSION = '2.85';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16720,6 +16720,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 143, date: '2026-10-10', title: "Les remplaçants ont leur ligne 🪑", items: [
+      ['🪑', "Compo d'un match : sous « Qui joue où ? », les convoqués sans poste apparaissent comme remplaçants, tout seuls."],
+      ['👕', "« Numéros du match » se plie : il ne sert que si un joueur change de maillot pour ce match."],
+    ] },
     { n: 142, date: '2026-10-09', title: "Le banc est là 🪑", items: [
       ['🪑', "Compo d'un match : « Placer les remplaçants » les met sur la ligne de touche, et les listes ne proposent plus que les convoqués."],
     ] },
@@ -20404,7 +20408,7 @@ var Views = (() => {
   }
   function slotsCard(sc, conv) {
     const st = (sc.steps || [])[0] || { pos: {} };
-    const slots = sc.objects.filter(o => o.type === 'player' && st.pos[o.id])
+    const slots = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id])
       .sort((a, b) => (b.gk - a.gk) || (st.pos[a.id][0] - st.pos[b.id][0]) || (st.pos[a.id][1] - st.pos[b.id][1]));
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
@@ -20412,7 +20416,9 @@ var Views = (() => {
     return `<section class="card slots-card"><h2>👕 Qui joue où ?</h2>
       <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur déjà placé disparaît des autres listes.</p>
       <div class="slots">${slots.map((o, i) => { const t = taken(o); return `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}">${o.gk ? '🧤' : esc(o.post || o.label || String(i + 1))}</span>
-        <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`; }).join('')}</div></section>`;
+        <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`; }).join('')}</div>
+      ${(() => { const placed = new Set(slots.map(o => o.playerId).filter(Boolean)), bench = players.filter(p => !placed.has(p.id)); // (2.85) the convoked players without a position: the bench
+        return `<p class="small bench-line">🪑 <b>Remplaçants (${bench.length})</b> : ${bench.length ? bench.map(p => `<span class="chip small">${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</span>`).join(' ') : '<span class="muted">aucun, tous les convoqués ont un poste</span>'}</p>`; })()}</section>`;
   }
   function setSlot(sc, slotId, pid) {
     const o = sc.objects.find(x => x.id === slotId); if (!o) return;
@@ -20514,7 +20520,7 @@ var Views = (() => {
         ${conv.length && !m.exempt ? `<section class="card capt-card"><label class="fld"><span>©️ Capitaine</span><select data-capt><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label>
           <label class="fld"><span>Vice-capitaine</span><select data-capt2><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain2 === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label></section>` : ''}
         ${lineup ? slotsCard(lineup, conv) : ''}
-        ${conv.length && !m.exempt ? numbersCard(m, conv) : ''}
+        ${conv.length && !m.exempt ? `<details class="fold"><summary>👕 Numéros du match <span class="muted small">(seulement si un joueur change de maillot)</span></summary>${numbersCard(m, conv)}</details>` : ''}
         </div>
         <div ${panel('pendant')}>
         ${!m.exempt ? Live.card(m) : '<p class="muted">Pas de match cette semaine (exempt).</p>'}
@@ -21224,7 +21230,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 185, UPD = AppCfg.key('update-tried');
+  const BUILD = 186, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
