@@ -186,13 +186,16 @@
     if (prof === null) return '';
     const p = profDraft(), v = bmi(p.weight, p.height);
     return `<h2>🧍 Mon profil</h2><div class="card prof-card">
+      ${typeof Profil !== 'undefined' ? Profil.photoHtml(prof, { note: 'Ta photo de profil : vue par les coachs et sur ta fiche.' }) : ''}
       <div class="prof-row"><label>Poids (kg)<input id="pfW" inputmode="decimal" maxlength="5" value="${esc(p.weight)}" placeholder="70"></label><label>Taille (cm)<input id="pfH" inputmode="numeric" maxlength="3" value="${esc(p.height)}" placeholder="178"></label>
         <div class="bmi"><b id="pfBmi">${v || '–'}</b><span id="pfBmiL">${v ? 'IMC · ' + bmiLabel(v) : 'IMC (auto)'}</span></div></div>
+      ${typeof Profil !== 'undefined' ? Profil.growthHtml(prof) : ''}
       <p class="info">Pied fort</p><div class="btns">${['Droit', 'Gauche', 'Les deux'].map(f => `<button class="b small ${p.foot === f ? 'on' : ''}" data-foot="${f}">🦶 ${f}</button>`).join('')}</div>
       <label class="prof-l">💪 Mes points forts<textarea id="pfS" class="wb-note" rows="2" maxlength="300" placeholder="Vitesse, jeu de tête, passes longues…">${esc(p.strengths)}</textarea></label>
       <label class="prof-l">🎯 Mes points à travailler<textarea id="pfK" class="wb-note" rows="2" maxlength="300" placeholder="Pied gauche, endurance, placement…">${esc(p.weaknesses)}</textarea></label>
       <button class="b yes on" data-profsave>Enregistrer</button><p class="info small">Ton coach voit ton profil. L'IMC est indicatif (chez les jeunes, il se lit avec les courbes de croissance).</p></div>`;
   }
+  if (typeof Profil !== 'undefined') Profil.bind({ code: () => code, rpc, toast, done: pr => { prof = Object.assign(prof || {}, pr); draft = null; render(); } }); // (2.75) the profile photo
   const readProf = () => { const p = profDraft(), g = id => ($(id) || {}).value || ''; if ($('#pfW')) Object.assign(p, { weight: g('#pfW').trim(), height: g('#pfH').trim(), strengths: g('#pfS'), weaknesses: g('#pfK') }); return p; };
   async function profSave() {
     const p = readProf(), w = String(p.weight).replace(',', '.'), h = String(p.height).replace(',', '.');

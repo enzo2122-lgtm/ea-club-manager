@@ -3716,7 +3716,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.74';
+  const VERSION = '2.75';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15167,6 +15167,7 @@ var Parents = (() => {
     if (!mine.length) return toast('Ajoute d\'abord des photos dans « Photos et vidéos du match » (plus haut)', 'err');
     const close = modal({ title: 'Photos pour les parents', noFocus: true,
       body: `<p class="muted small">Touche les photos à montrer aux parents, puis « Partager ».</p><div class="gallery pick-photos">${mine.map(x => `<button class="thumb-btn ${done.has(x.id) ? 'on' : ''}" data-ph="${x.id}" ${done.has(x.id) ? 'disabled' : ''}><img alt="" src="${x.thumb}">${done.has(x.id) ? '<span class="play-badge">✓</span>' : ''}</button>`).join('')}</div>
+        ${(() => { const no = (m.convoked || []).map(id => Store.get('players', id)).filter(p => p && typeof Consent !== 'undefined' && Consent.noPhoto(p)); return no.length ? `<p class="tip">🚫 Droit à l'image refusé dans l'appli pour : <b>${no.map(p => esc(Store.fullName(p))).join(', ')}</b>. Ne partage pas de photo où on ${no.length > 1 ? 'les' : 'le'} reconnaît.</p>` : ''; })()}
         <label class="switch"><input type="checkbox" id="phOk"><span>Les enfants reconnaissables ont l'accord de leurs parents (droit à l'image)</span></label>`,
       onOpen: r => r.querySelectorAll('[data-ph]').forEach(b => b.onclick = () => b.classList.toggle('sel')),
       actions: [{ label: 'Annuler' }, { label: 'Partager', kind: 'primary', icon: I.share, onClick: (c, r) => {
@@ -15422,11 +15423,14 @@ var Codes = (() => {
     const d = x => x ? new Date(x).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
     // (2.67) the invitation codes of the category: a player without a licence signs up with one, the coach validates his card
     let guests = null; try { guests = await Cloud.guestCodes(t.id, 0); } catch (e) { guests = e.message; }
-    const gFree = Array.isArray(guests) ? guests.filter(g => !g.used) : [], gUsed = Array.isArray(guests) ? guests.filter(g => g.used) : [];
+    // (2.75) each invitation is a unique link (moi.html#c=CODE), good for 60 days; the expired ones are shown apart
+    const gFree = Array.isArray(guests) ? guests.filter(g => !g.used && !g.expired) : [], gUsed = Array.isArray(guests) ? guests.filter(g => g.used) : [], gOld = Array.isArray(guests) ? guests.filter(g => !g.used && g.expired) : [];
+    const gLink = g => base() + 'moi.html#c=' + pretty(g.code), gLeft = g => Math.max(0, 60 - Math.floor((Date.now() - new Date(g.at)) / 864e5));
     const gStatus = g => g.status === 'pending' ? `<a href="#/joueur/${esc(g.player)}" class="wait">⏳ à valider</a>` : g.status === 'ok' ? '<b class="ok">✓ validé</b>' : '<span class="muted">refusé</span>';
     const guestHtml = `<section class="card guest-card"><div class="row-head"><h3>🎟️ Codes d'invitation</h3><div class="chips"><button class="btn primary small" data-gnew ${Array.isArray(guests) ? '' : 'disabled'}>＋<span>10 codes</span></button><button class="btn small" data-gprint ${gFree.length ? '' : 'disabled'}>🖨️<span>Imprimer (${gFree.length})</span></button></div></div>
         <p class="muted small">Pour un joueur qui vient essayer <b>sans licence</b> (pas encore dans Footclubs) : tu lui donnes un code, il s'inscrit lui-même sur <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b> (prénom, nom, date de naissance). Tant que tu n'as pas validé sa fiche, il ne voit que le nom du club et sa catégorie : pas de chat, pas de séances, pas de convocations.</p>
-        ${Array.isArray(guests) ? `${gFree.length ? `<div class="guest-codes">${gFree.map(g => `<code class="cr-code">${esc(pretty(g.code))}</code>`).join('')}</div>` : '<p class="muted small">Aucun code libre : crée-en 10.</p>'}
+        ${Array.isArray(guests) ? `${gFree.length ? `<div class="guest-codes">${gFree.map(g => `<span class="guest-code"><code class="cr-code">${esc(pretty(g.code))}</code><button class="btn small" data-glink="${esc(g.code)}" title="Copier le lien d'invitation">🔗</button><button class="btn small" data-gwa="${esc(g.code)}" title="Envoyer sur WhatsApp">💬</button><span class="muted small">${gLeft(g)} j</span></span>`).join('')}</div><p class="muted small">🔗 copie le lien unique de l'invitation (il ouvre directement l'inscription) · 💬 l'envoie sur WhatsApp. Une invitation non utilisée s'éteint au bout de 60 jours.</p>` : '<p class="muted small">Aucun code libre : crée-en 10.</p>'}
+          ${gOld.length ? `<p class="muted small">⌛ ${gOld.length} invitation${gOld.length > 1 ? 's' : ''} expirée${gOld.length > 1 ? 's' : ''} (jamais utilisée${gOld.length > 1 ? 's' : ''} en 60 jours) : elle${gOld.length > 1 ? 's' : ''} ser${gOld.length > 1 ? 'ont' : 'a'} supprimée${gOld.length > 1 ? 's' : ''} à la prochaine création de codes.</p>` : ''}
           ${gUsed.length ? `<div class="codes-list">${gUsed.map(g => `<div class="code-row given"><span class="cr-name"><b>${esc(g.name || 'Fiche supprimée')}</b><span class="muted small">inscrit le ${esc(d(g.used))}</span></span><code class="cr-code">${esc(pretty(g.code))}</code><span>${gStatus(g)}</span></div>`).join('')}</div>` : ''}`
           : `<p class="tip">${esc(guests || 'Le serveur du club doit être mis à jour (supabase/codes-invites.sql).')}</p>`}</section>`;
     root.innerHTML = head + `
@@ -15475,6 +15479,8 @@ var Codes = (() => {
       const cq = e.target.closest('[data-cq]'); if (cq) { cq.dataset.cq === 'app' ? qrDialog('app') : qrDialog('cat', t); return; }
       // (2.67) invitation codes
       if (e.target.closest('[data-gnew]')) { try { await Cloud.guestCodes(t.id, 10); toast('10 codes d\'invitation créés'); page(root, t.id); } catch (x) { toast(/LIMITE/.test(x.message) ? 'Déjà beaucoup de codes libres : distribue-les d\'abord.' : x.message, 'err'); } return; }
+      const gl = e.target.closest('[data-glink]'); if (gl) { const u = base() + 'moi.html#c=' + pretty(gl.dataset.glink); navigator.clipboard.writeText(u).then(() => toast('Lien d\'invitation copié')).catch(() => toast(u)); return; }
+      const gw = e.target.closest('[data-gwa]'); if (gw) { const u = base() + 'moi.html#c=' + pretty(gw.dataset.gwa), txt = `Bonjour, c'est ${Messages.coachName(Auth.current() || {}) || 'le coach'} (${S().club.name}). Pour venir essayer avec les ${t.name}, inscris-toi avec ce lien (il est personnel, valable 60 jours) : ${u}`; window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank'); return; }
       if (e.target.closest('[data-gprint]')) { print(`<h2>🎟️ ${esc(S().club.name)} · ${esc(t.name)} · codes d'invitation</h2><p>Pour venir essayer sans licence : ouvre <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b>, tape ton code et inscris-toi (prénom, nom, date de naissance). Le coach valide ensuite ta fiche.</p>
         <div class="print-codes">${gFree.map(g => `<div class="print-code"><b>${esc(pretty(g.code))}</b><span>${esc(t.name)} · ${esc(S().club.name)}</span></div>`).join('')}</div>`, 'print-list'); return; }
       const cp = e.target.closest('[data-cp]'); if (cp) { cp.dataset.cp === 'cards' ? printCards(t, rows, map) : printList(t, rows, map); }
@@ -16645,6 +16651,13 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 133, date: '2026-10-09', title: 'Photo, mètre et carnet d\'invitations 📷📏🎟️', items: [
+      ['📷', "Espaces joueur et parents : une photo de profil, prise avec le téléphone (coupée en rond, toute petite). Le coach la voit sur la fiche du joueur."],
+      ['📏', "Les parents saisissent la taille et le poids de leur enfant ; joueurs et parents voient les courbes de croissance, les mêmes que le coach."],
+      ['🎟️', "Codes d'invitation : chaque code devient un lien unique (🔗 copier, 💬 WhatsApp) qui ouvre directement l'inscription ; une invitation jamais utilisée s'éteint au bout de 60 jours. Serveur : coller supabase/codes-invites-2.75.sql et supabase/profil-photo.sql."],
+      ['🎪', "Plateaux : la durée d'un match est demandée à la création de la journée (minutes justes) ; une équipe qui ne joue que des plateaux voit ses tuiles de bilan comptées sur ses plateaux, avec le nombre de journées."],
+      ['🚫', "Partage de photos aux parents : si une famille a refusé le droit à l'image dans l'appli, les noms sont rappelés avant l'envoi."],
+    ] },
     { n: 132, date: '2026-10-09', title: 'On arrête de déplacer la barre, on repeint le sol 🎨', items: [
       ['📱', "iPhone (appli installée) : la barre des onglets n'est plus déplacée (elle finissait coupée en bas). Le fond de la page sous la barre est peint en bleu marine : la bande en bas est de la couleur de la barre, quoi que fasse l'iPhone."],
     ] },
@@ -20107,7 +20120,7 @@ var Views = (() => {
       <div class="row2"><label class="fld"><span>Compétition</span><select id="mComp">${COMPS.map(c => `<option>${c}</option>`).join('')}</select></label>
       <label class="fld"><span>Équipe</span><select id="mTeam">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label></div>
       <div id="mDay" hidden><label class="fld"><span>🎪 Les autres adversaires de la journée (un par ligne, facultatif)</span><textarea id="mOpps" rows="3" placeholder="ex :\nFC Livry\nES Montreuil"></textarea></label>
-        <div class="row2"><label class="fld"><span>Minutes entre deux matchs</span><input id="mGap" type="number" min="0" max="120" value="20" inputmode="numeric"></label></div>
+        <div class="row2"><label class="fld"><span>Durée d'un match (min)</span><input id="mDur" type="number" min="5" max="90" value="15" inputmode="numeric"></label><label class="fld"><span>Minutes entre deux matchs</span><input id="mGap" type="number" min="0" max="120" value="20" inputmode="numeric"></label></div>
         <p class="muted small">Un match est créé pour chaque adversaire, le même jour : ils forment une journée de plateau (convocation commune, bilan de la journée dans les stats).</p></div>`,
       onOpen: r => { $$('#mHome .chip', r).forEach(b => b.onclick = () => { $$('#mHome .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); });
         const sync = () => { $('#mDay', r).hidden = !/plateau|tournoi/i.test($('#mComp', r).value); }; $('#mComp', r).onchange = sync; sync(); },
@@ -20116,6 +20129,8 @@ var Views = (() => {
         const base = { teamId: $('#mTeam', r).value, date: $('#mDate', r).value || today(), home: $('#mHome .on', r).dataset.v === '1', competition: $('#mComp', r).value, place: '', rdv: '', played: false, gf: 0, ga: 0, convoked: [], stats: {}, notes: '' };
         const day = /plateau|tournoi/i.test(base.competition) ? $('#mOpps', r).value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 11) : [];
         const gap = Math.max(0, Math.min(120, +$('#mGap', r).value || 0)), t0 = $('#mTime', r).value;
+        // (2.75) a day of plateau: short matches, their length is kept on each match (minutes, « tout le monde a joué tout le match »)
+        if (day.length || /plateau|tournoi/i.test(base.competition)) { const d = Math.max(5, Math.min(90, +$('#mDur', r).value || 0)); if (d) base.duration = d; }
         const at = i => { if (!t0 || !i) return t0; const [h, mi] = t0.split(':').map(Number), x = h * 60 + mi + i * gap; return `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
         const m = Store.upsert('matches', { ...base, id: Store.uid(), opponent: $('#mOpp', r).value.trim() || 'Adversaire', time: t0 });
         day.forEach((o, i) => Store.upsert('matches', { ...base, convoked: [], stats: {}, id: Store.uid(), opponent: o, time: at(i + 1) }));
@@ -20507,7 +20522,9 @@ var Views = (() => {
     const trs = S().trainings.filter(x => x.teamId === t.id && (x.presents || []).length);
     // (1.57) the cups (knock-out) apart: the tiles count the championship (or the friendlies), the cups have their own card
     // (2.66) the plateaux apart too (no ranking): one line per day, with its record
-    const isCupM = m => m.competition === 'Coupe', isPlat = m => /plateau/i.test(m.competition || ''), msL = ms.filter(m => !isCupM(m) && !isPlat(m));
+    const isCupM = m => m.competition === 'Coupe', isPlat = m => /plateau/i.test(m.competition || '');
+    // (2.75) a team that only plays plateaux (école de foot): the tiles count the plateau matches, without ranking points
+    let msL = ms.filter(m => !isCupM(m) && !isPlat(m)); const platOnly = !msL.length && ms.some(isPlat); if (platOnly) msL = ms.filter(isPlat);
     const dayCardStats = () => {
       const days = {}; ms.filter(Store.isDayComp).forEach(m => { (days[m.date] = days[m.date] || []).push(m); });
       const list = Object.entries(days).filter(([, d]) => d.length > 1 || isPlat(d[0])).sort((a, b) => b[0].localeCompare(a[0])); if (!list.length) return '';
@@ -20553,13 +20570,13 @@ var Views = (() => {
       ${Store.matchKind() === 'ami' ? '' : Season.leagueCard(t)}
       ${Season.advanced(t)}
       <div class="tiles">
-        <div class="tile"><b>${msL.length}</b><span>Matchs${Store.matchKind() === 'ami' ? '' : ' de championnat'}</span></div>
+        <div class="tile"><b>${msL.length}</b><span>Matchs${Store.matchKind() === 'ami' ? '' : platOnly ? ' de plateau' : ' de championnat'}</span></div>
         <div class="tile v"><b>${V}</b><span>Gagnés</span></div>
         <div class="tile n"><b>${N}</b><span>Nuls</span></div>
         <div class="tile d"><b>${D}</b><span>Perdus</span></div>
         <div class="tile"><b>${bp}</b><span>${Sport.W().Units} marqués</span></div>
         <div class="tile"><b>${bc}</b><span>${Sport.W().Units} encaissés</span></div>
-        <div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>
+        ${platOnly ? `<div class="tile"><b>${new Set(msL.map(m => m.date)).size}</b><span>Journées</span></div>` : `<div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>`}
       </div>
       ${cupCard()}
       ${dayCardStats()}
@@ -20949,7 +20966,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 175, UPD = AppCfg.key('update-tried');
+  const BUILD = 176, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

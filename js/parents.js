@@ -195,6 +195,7 @@ const Parents = (() => {
     if (!mine.length) return toast('Ajoute d\'abord des photos dans « Photos et vidéos du match » (plus haut)', 'err');
     const close = modal({ title: 'Photos pour les parents', noFocus: true,
       body: `<p class="muted small">Touche les photos à montrer aux parents, puis « Partager ».</p><div class="gallery pick-photos">${mine.map(x => `<button class="thumb-btn ${done.has(x.id) ? 'on' : ''}" data-ph="${x.id}" ${done.has(x.id) ? 'disabled' : ''}><img alt="" src="${x.thumb}">${done.has(x.id) ? '<span class="play-badge">✓</span>' : ''}</button>`).join('')}</div>
+        ${(() => { const no = (m.convoked || []).map(id => Store.get('players', id)).filter(p => p && typeof Consent !== 'undefined' && Consent.noPhoto(p)); return no.length ? `<p class="tip">🚫 Droit à l'image refusé dans l'appli pour : <b>${no.map(p => esc(Store.fullName(p))).join(', ')}</b>. Ne partage pas de photo où on ${no.length > 1 ? 'les' : 'le'} reconnaît.</p>` : ''; })()}
         <label class="switch"><input type="checkbox" id="phOk"><span>Les enfants reconnaissables ont l'accord de leurs parents (droit à l'image)</span></label>`,
       onOpen: r => r.querySelectorAll('[data-ph]').forEach(b => b.onclick = () => b.classList.toggle('sel')),
       actions: [{ label: 'Annuler' }, { label: 'Partager', kind: 'primary', icon: I.share, onClick: (c, r) => {
