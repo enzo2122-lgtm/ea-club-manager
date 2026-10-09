@@ -1735,7 +1735,8 @@ input[type=color] { width: 100%; min-height: 44px; padding: 2px; border-radius: 
 
 /* ---------- 3.63 : « + » button, search, match day, « saved » light, shorter menu ---------- */
 @media (min-width: 761px) {
-  #nav a.more-d { display: none; } /* (2.73) a computer: 9 pages in the sidebar */
+  #nav a.more-d { display: none; }
+ /* (2.73) a computer: 9 pages in the sidebar */
   .nav-more { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 9px 4px; border: 0; border-radius: 12px; background: none; color: rgba(255,255,255,.72); font: 600 12.5px var(--font); cursor: pointer; }
   .nav-more svg { width: 26px; height: 26px; }
   .nav-more.on { background: rgba(201,164,92,.18); color: var(--gold-soft); }
@@ -2286,3 +2287,5 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 
 /* (2.72) iPhone, app installed (iOS 26): the whole page, bars included, bounced when pulled past its ends and iOS did not always put it back: no bounce */
 html.ios-app, html.ios-app body { overscroll-behavior: none; }
+/* (2.74) iPhone, app installed: iOS cuts what is fixed at the bottom at the height it announces and draws the canvas (html background) under it: navy under the bottom bar, so the band is the colour of the bar */
+@media (max-width: 760px) { html.ios-app:has(body:not(.nav-top):not(.editing)) { background: var(--navy); } html.ios-app:has(body:not(.nav-top):not(.editing)) body { background: var(--bg); min-height: 100%; } }

@@ -73,3 +73,5 @@ body { min-height: 100dvh; }
 
 /* (2.72) iPhone, app installed (iOS 26): no bounce of the page (the bar moved with it) */
 html.ios-app, html.ios-app body { overscroll-behavior: none; }
+/* (2.74) iPhone, app installed: the canvas under the bottom bar is navy (what iOS draws under the bar it cuts), see app.css */
+html.ios-app:has(body.has-tabs:not(.tabs-top)) { background: var(--navy); } html.ios-app:has(body.has-tabs:not(.tabs-top)) body { background: var(--bg); min-height: 100%; }
