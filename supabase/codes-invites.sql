@@ -7,7 +7,7 @@ begin
   select i.* into pl from member_codes mc join clubs cl on cl.id = mc.club and cl.status = 'active'
     join items i on i.club = mc.club and i.col = 'players' and i.id = mc.player_id and not i.deleted where mc.code = c;
   if pl.id is null then raise exception 'CODE_PERSO'; end if;
-  return pl; end $;
+  return pl; end $$;
 -- (2.67) un joueur inscrit avec un code d'invitation, pas encore validé par le coach : rien d'autre que la page d'attente (member_view)
 create or replace function ea_member(p_code text) returns items language plpgsql stable security definer set search_path = public as $$
 declare pl items := ea_member_any(p_code);
