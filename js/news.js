@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 134, date: '2026-10-09', title: "Pas d'imprimante dans la poche 🖨️", items: [
+      ['📱', "Codes personnels : sur iPhone, l'appli installée ne peut pas imprimer (iOS l'interdit). Elle le dit maintenant, et propose de partager la liste des codes en texte. Les cartes avec QR code s'impriment depuis un ordinateur."],
+    ] },
     { n: 133, date: '2026-10-09', title: 'Photo, mètre et carnet d\'invitations 📷📏🎟️', items: [
       ['📷', "Espaces joueur et parents : une photo de profil, prise avec le téléphone (coupée en rond, toute petite). Le coach la voit sur la fiche du joueur."],
       ['📏', "Les parents saisissent la taille et le poids de leur enfant ; joueurs et parents voient les courbes de croissance, les mêmes que le coach."],

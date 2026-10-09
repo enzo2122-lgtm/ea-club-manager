@@ -3716,7 +3716,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.75';
+  const VERSION = '2.76';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -15502,7 +15502,18 @@ var Codes = (() => {
   }
 
   /* ---------- printing (A4 sheets; on a phone, « Enregistrer en PDF ») ---------- */
+  // (2.76) the installed app on iPhone cannot print (iOS gives it no print function): say it, and share the codes as text instead
+  const noPrint = () => document.documentElement.classList.contains('ios-app') || (/iP(hone|ad|od)/.test(navigator.userAgent || '') && navigator.standalone === true);
   function print(html, cls) {
+    if (noPrint() && !window.__printTest) {
+      const area = document.createElement('div'); area.innerHTML = html;
+      const lines = [...area.querySelectorAll('.pc, .pl-row, tr')].map(e => e.innerText.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      const txt = (S().club.name || '') + ' · codes personnels\n' + lines.join('\n');
+      return modal({ title: '🖨️ Imprimer depuis un ordinateur', body: `<p>L'appli installée sur iPhone ne peut pas imprimer : iOS ne le permet pas aux applis de ce type.</p>
+        <p>Pour les cartes avec QR code, ouvre l'appli sur un <b>ordinateur</b> (Réglages → Codes personnels → Imprimer les cartes).</p>
+        <p class="muted small">En dépannage, tu peux partager la liste des codes en texte (WhatsApp, Notes, mail) : sans QR code, les familles ouvrent <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b> et tapent leur code.</p>`,
+        actions: [{ label: 'Fermer' }, { label: '📤 Partager la liste', kind: 'primary', onClick: () => { if (navigator.share) navigator.share({ title: 'Codes personnels', text: txt }).catch(() => {}); else navigator.clipboard.writeText(txt).then(() => toast('Liste copiée')).catch(() => toast(txt)); } }] });
+    }
     const old = document.getElementById('printArea'); if (old) old.remove();
     const area = document.createElement('div'); area.id = 'printArea'; area.className = cls || ''; area.innerHTML = html;
     document.body.appendChild(area);
@@ -16651,6 +16662,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 134, date: '2026-10-09', title: "Pas d'imprimante dans la poche 🖨️", items: [
+      ['📱', "Codes personnels : sur iPhone, l'appli installée ne peut pas imprimer (iOS l'interdit). Elle le dit maintenant, et propose de partager la liste des codes en texte. Les cartes avec QR code s'impriment depuis un ordinateur."],
+    ] },
     { n: 133, date: '2026-10-09', title: 'Photo, mètre et carnet d\'invitations 📷📏🎟️', items: [
       ['📷', "Espaces joueur et parents : une photo de profil, prise avec le téléphone (coupée en rond, toute petite). Le coach la voit sur la fiche du joueur."],
       ['📏', "Les parents saisissent la taille et le poids de leur enfant ; joueurs et parents voient les courbes de croissance, les mêmes que le coach."],
@@ -20966,7 +20980,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 176, UPD = AppCfg.key('update-tried');
+  const BUILD = 177, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

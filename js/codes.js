@@ -138,7 +138,18 @@ const Codes = (() => {
   }
 
   /* ---------- printing (A4 sheets; on a phone, « Enregistrer en PDF ») ---------- */
+  // (2.76) the installed app on iPhone cannot print (iOS gives it no print function): say it, and share the codes as text instead
+  const noPrint = () => document.documentElement.classList.contains('ios-app') || (/iP(hone|ad|od)/.test(navigator.userAgent || '') && navigator.standalone === true);
   function print(html, cls) {
+    if (noPrint() && !window.__printTest) {
+      const area = document.createElement('div'); area.innerHTML = html;
+      const lines = [...area.querySelectorAll('.pc, .pl-row, tr')].map(e => e.innerText.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      const txt = (S().club.name || '') + ' · codes personnels\n' + lines.join('\n');
+      return modal({ title: '🖨️ Imprimer depuis un ordinateur', body: `<p>L'appli installée sur iPhone ne peut pas imprimer : iOS ne le permet pas aux applis de ce type.</p>
+        <p>Pour les cartes avec QR code, ouvre l'appli sur un <b>ordinateur</b> (Réglages → Codes personnels → Imprimer les cartes).</p>
+        <p class="muted small">En dépannage, tu peux partager la liste des codes en texte (WhatsApp, Notes, mail) : sans QR code, les familles ouvrent <b>${esc(base().replace(/^https?:\/\//, ''))}moi.html</b> et tapent leur code.</p>`,
+        actions: [{ label: 'Fermer' }, { label: '📤 Partager la liste', kind: 'primary', onClick: () => { if (navigator.share) navigator.share({ title: 'Codes personnels', text: txt }).catch(() => {}); else navigator.clipboard.writeText(txt).then(() => toast('Liste copiée')).catch(() => toast(txt)); } }] });
+    }
     const old = document.getElementById('printArea'); if (old) old.remove();
     const area = document.createElement('div'); area.id = 'printArea'; area.className = cls || ''; area.innerHTML = html;
     document.body.appendChild(area);
