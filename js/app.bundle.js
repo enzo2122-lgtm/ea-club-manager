@@ -101,6 +101,35 @@ window.ScreenDiag = function () {
   watch();
 })();
 
+/* (2.65) The « back » button of the phone (Android, the app from the Play Store) closes the window open on top
+   (a window of the app, a sheet, the video, the photo…) instead of leaving the page or the app.
+   When such a window opens, one step is added to the history (same address); « back » takes it away and closes the window.
+   The window closed by its own button: the step stays, and the next « back » goes on by itself to the page before. */
+(() => {
+  const SEL = '#modal:not([hidden]), #psOverlay, .rs-back, .tf-view, .cx-view, .sh-back, .vp-back';
+  const CLOSERS = '[data-close], [data-x], [data-vpx], [data-tfclose], [data-ps="close"]';
+  let onGuard = false, guardHref = '';
+  const top = () => { const l = document.querySelectorAll(SEL); return l[l.length - 1] || null; };
+  const arm = () => {
+    if (onGuard || !top()) return;
+    try { history.pushState(Object.assign({}, history.state || {}, { bg: 1 }), '', location.href); onGuard = true; guardHref = location.href; } catch (e) {}
+  };
+  addEventListener('popstate', () => {
+    const was = onGuard; onGuard = !!(history.state && history.state.bg);
+    if (!was || onGuard || location.href !== guardHref) return; // not « back » from our step (a page change by the app, for example)
+    const t = top();
+    if (t) { const c = t.querySelector(CLOSERS); (c && c.offsetParent !== null ? c : t).click(); return; }
+    history.back();
+  });
+  const watch = () => {
+    if (!document.body) return setTimeout(watch, 50);
+    const mo = new MutationObserver(() => { if (!onGuard && top()) arm(); });
+    mo.observe(document.body, { childList: true });
+    const m = document.getElementById('modal'); if (m) mo.observe(m, { attributes: true, attributeFilter: ['hidden'] });
+  };
+  watch();
+})();
+
 ;
 /* ===== sport.js ===== */
 /* Sport: what changes from one sport to another. The club chooses its sport when it is created (club.sport);
@@ -1165,15 +1194,21 @@ var UI = (() => {
   }
 
   // modal({title, body, actions:[{label, kind:'primary'|'danger'|'', onClick(close, root) -> false keeps it open}] , onOpen(root)})
+  // (2.65) the listeners a modal puts on the shared #modal element are removed when it closes or when another modal takes its place
+  //   (before, they piled up: opening the same window twice ran its buttons twice)
+  let modalLs = [];
+  const dropModalLs = root => { modalLs.forEach(([t, f, c]) => root.removeEventListener(t, f, c)); modalLs = []; };
   function modal(o) {
     const root = $('#modal');
+    dropModalLs(root);
     root.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mTitle">
       <div class="sheet-head"><h2 id="mTitle">${esc(o.title || '')}</h2><button class="icon-btn" data-close aria-label="Fermer">${I.x}</button></div>
       <div class="sheet-body">${o.body || ''}</div>
       ${o.actions && o.actions.length ? `<div class="sheet-foot">${o.actions.map((a, i) => `<button class="btn ${a.kind || ''}" data-i="${i}">${a.icon || ''}<span>${esc(a.label)}</span></button>`).join('')}</div>` : ''}
     </div>`;
     root.hidden = false;
-    const close = () => { root.hidden = true; root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
+    const mine = [];
+    const close = () => { root.hidden = true; root.innerHTML = ''; document.removeEventListener('keydown', onKey); mine.forEach(([t, f, c]) => root.removeEventListener(t, f, c)); };
     const onKey = e => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
     root.onclick = e => {
@@ -1181,7 +1216,10 @@ var UI = (() => {
       const b = e.target.closest('.sheet-foot [data-i]');
       if (b) { const a = o.actions[+b.dataset.i]; if (!a.onClick || a.onClick(close, root) !== false) close(); }
     };
-    if (o.onOpen) o.onOpen(root, close);
+    if (o.onOpen) {
+      root.addEventListener = function (t, f, c) { mine.push([t, f, c]); modalLs.push([t, f, c]); return EventTarget.prototype.addEventListener.call(this, t, f, c); };
+      try { o.onOpen(root, close); } finally { delete root.addEventListener; }
+    }
     const first = root.querySelector('input,select,textarea'); if (first && !o.noFocus && finePointer()) setTimeout(() => first.focus(), 60);
     return close;
   }
@@ -1638,7 +1676,7 @@ var Exporter = (() => {
   }
   setTimeout(() => loadPdf().catch(() => {}), 4000);
   function Doc(club) {
-    if (!window.jspdf) { loadPdf().catch(() => {}); throw new Error('Le PDF se prépare : réessaie dans 2 secondes.'); }
+    if (!window.jspdf) { loadPdf().catch(() => {}); throw new Error(navigator.onLine === false ? 'Pas de connexion : le PDF a besoin d\'internet la première fois.' : 'Le PDF se prépare : réessaie dans 2 secondes.'); }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const PW = 210, PH = 297, M = 14, CW = PW - 2 * M;
@@ -3650,7 +3688,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.64';
+  const VERSION = '2.65';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3757,6 +3795,14 @@ var Help = (() => {
     messages: ['Messages', ['« Tout le club » : pour tous les éducateurs.', 'Chaque catégorie a sa conversation.', '« Écrire à un éducateur » ouvre une conversation privée.', 'Les nouveaux messages arrivent tout seuls ; le chiffre rouge dans le menu indique ceux que tu n\'as pas lus.', 'Écris @ puis le prénom d\'un coach (une liste s\'ouvre) : il reçoit une notification tout de suite, même s\'il a coupé celles des messages.', 'Accusés de lecture : ✓ envoyé, ✓✓ lu (message privé) ; « Vu par » sous ton dernier message dans une catégorie ou Tout le club.', 'Notifications sur le téléphone : Réglages → Mon compte → Activer les notifications.']],
     reglages: ['Réglages', ['Deux parties : « Moi » (mon compte, mes notifications, l\'aide) et « Le club » (serveur, invitations, fichiers, et pour les responsables : le club, les comptes des dirigeants).', 'Recevoir un fichier : licenciés ou données d\'un autre éducateur.', 'Les données se partagent toutes seules par le serveur du club. « Envoyer toutes mes données » fait une sauvegarde.', 'Inviter les éducateurs : un lien à envoyer par WhatsApp pour leur première connexion.', 'Le responsable gère les comptes des dirigeants et l\'e-mail qui reçoit les signalements.', 'Mon compte : ajoute ton téléphone si tu veux, et choisis qui le voit (les responsables, tous les éducateurs, ou aussi les parents de tes catégories).']],
     bibliotheque: ['Bibliothèque', ['« Importer » : choisis une vidéo, un montage, un PDF ou une image (Fichiers, Photos…).', 'Vidéo : mets sur pause puis « Dessiner sur cette image ».', 'PDF : « Créer une séance » ou « Dessiner sur cette page ».', '« Joindre… » ajoute le fichier à une séance ou à un match.']],
+    jeu: ['Jeu des pronos', ['Avant chaque match, joueurs, parents et coachs de la catégorie devinent le score.', 'Les points se calculent tout seuls après le match : bon résultat, bon écart, score exact.', 'Le classement de la saison motive tout le monde à suivre l\'équipe.']],
+    chat: ['Chat des joueurs', ['Un chat par catégorie avec les joueurs (16 ans et plus) et un chat des parents pour les plus jeunes.', 'Tape @ pour taguer un joueur ou un coach : il reçoit une notification, même en sourdine.', 'Touche ton message pour le modifier ou le supprimer ; seul l\'auteur peut le faire. Les messages déplacés se signalent.', '« Fermer » coupe le chat ; les mots grossiers sont bloqués chez les jeunes.']],
+    signalements: ['Signalements et idées', ['« Signaler un problème » ou « Proposer une idée » : avec ce que tu faisais, ça arrive au responsable.', 'Les filtres montrent les problèmes, idées et questions, à traiter ou traités.']],
+    athle: ['Travail athlétique', ['Choisis l\'équipe, l\'intensité (% de VMA), l\'effort et la récup : les groupes et les distances se calculent avec la VMA de chacun.', '« Présents seulement » garde les joueurs de la séance choisie.', 'Partage en image ou en PDF pour le terrain.']],
+    equilibre: ['Former des équipes', ['Choisis le nombre d\'équipes et le critère (niveau global, physique, vitesse, VMA…) : les équipes sont équilibrées, un gardien chacune.', 'Les affinités de la fiche joueur sont respectées (« jouer avec », « éviter »).', '« Remélanger » propose une autre répartition ; « Partager » l\'envoie sur WhatsApp.']],
+    niveau: ['Niveau des joueurs', ['Chaque joueur noté de 1 à 5 sur 5 critères : technique, intelligence de jeu, physique, attitude, mental.', '« Noter l\'équipe » enchaîne les joueurs ; touche un titre de colonne pour trier.', 'Réservé aux coachs et aux responsables : jamais montré aux joueurs ni aux parents.']],
+    terrain: ['Chrono et score', ['Chrono d\'exercice : effort, récup, répétitions et séries, avec des sons ; l\'écran reste allumé.', 'Score : 2 à 4 équipes aux couleurs des chasubles.', 'Test VMA : VAMEVAL, 45-15 ou 30-15 avec les bips ; touche un joueur quand il s\'arrête, puis « Enregistrer ».', 'Tournoi : tous contre tous, poules + finales ou élimination directe, le classement se fait seul.']],
+    urgences: ['Fiches urgence', ['Toute l\'équipe sur un écran : d\'abord ceux à connaître (allergies, traitements, conduite à tenir), puis les autres.', 'Touche un contact pour l\'appeler.', 'Les familles remplissent la fiche dans leur espace, onglet « Moi » ; tu peux aussi la remplir sur la page du joueur.']],
   };
   const pageKey = () => (location.hash || '#/').split('/')[1] || '';
   function open(key = pageKey()) {
@@ -16337,6 +16383,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 121, date: '2026-10-09', title: 'Tour complet de l\'appli ✅', items: [
+      ['📱', 'Le bouton « retour » du téléphone (Android) ferme la fenêtre ouverte (fiche, feuille, vidéo, photo, entraînement perso) au lieu de quitter la page ou l\'appli.'],
+      ['🛠️', 'Une fenêtre ouverte plusieurs fois ne lance plus ses boutons en double (ex. « Documents PDF » : le bilan se créait deux fois).'],
+      ['❓', '« Comment ça marche ? » sur les pages qui n\'en avaient pas : jeu, chat, signalements, travail athlétique, former des équipes, niveau, chrono et score, fiches urgence.'],
+      ['📄', 'PDF hors connexion : un message clair au lieu de « réessaie dans 2 secondes ».'],
+    ] },
     { n: 120, date: '2026-10-09', title: 'Messages : la conversation jusqu\'en bas 💬', items: [
       ['💬', 'Sur téléphone, une conversation des Messages descend jusqu\'à la barre du bas (ou au clavier) : plus de vide en dessous, plus de saut.'],
     ] },
@@ -20555,7 +20607,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 165, UPD = AppCfg.key('update-tried');
+  const BUILD = 166, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -193,7 +193,7 @@ const Exporter = (() => {
   }
   setTimeout(() => loadPdf().catch(() => {}), 4000);
   function Doc(club) {
-    if (!window.jspdf) { loadPdf().catch(() => {}); throw new Error('Le PDF se prépare : réessaie dans 2 secondes.'); }
+    if (!window.jspdf) { loadPdf().catch(() => {}); throw new Error(navigator.onLine === false ? 'Pas de connexion : le PDF a besoin d\'internet la première fois.' : 'Le PDF se prépare : réessaie dans 2 secondes.'); }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const PW = 210, PH = 297, M = 14, CW = PW - 2 * M;
