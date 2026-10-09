@@ -3730,7 +3730,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.83';
+  const VERSION = '2.84';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -6583,6 +6583,28 @@ var Editor = (() => {
   // typing: saved half a second after the last letter (nothing is lost if the app is closed right after)
   function saveSoon() { clearTimeout(E.saveT); E.saveT = setTimeout(() => { if (E) commit(); }, 500); draw(); }
 
+  // (2.84) the compo of a match: the players to choose from are its convoked ones (the whole category otherwise)
+  const matchOf = sc => sc && Store.state.matches.find(m => m.lineupId === sc.id);
+  function pool(sc) {
+    const all = sc.teamId ? Store.rosterOf(sc.teamId) : [], m = matchOf(sc);
+    return m && (m.convoked || []).length ? all.filter(p => m.convoked.includes(p.id)) : all;
+  }
+  // the convoked players not on the field yet: on the touchline, in a row, like a bench
+  function placeBench() {
+    const sc = E.sc, onField = new Set(sc.objects.map(o => o.playerId).filter(Boolean)), free = pool(sc).filter(p => !onField.has(p.id));
+    if (!free.length) return UI.toast('Tous les convoqués sont déjà placés');
+    snapshot();
+    const { L, W } = Board.dims(sc.field), r = Board.tokenR(sc.field), st = cur(), c = club();
+    free.forEach((p, i) => {
+      const gk = p.pos === 'GB';
+      const o = addObject({ type: 'player', color: gk ? 'jaune' : c.homeBib, gk, label: p.number ? String(p.number) : (gk ? 'G' : 'R'), name: Store.shortName(p), playerId: p.id, bench: true }, [r * 2.2 + i * r * 3.6, W + r]);
+      st.pos[o.id] = [Math.min(r * 2.2 + i * r * 3.6, L - r), W + r];
+    });
+    sc.overlays.names = true;
+    const m = matchOf(sc); if (m && !/Remplaçants/.test(sc.notes || '')) sc.notes = ((sc.notes || '') + '\nRemplaçants : ' + free.map(p => Store.shortName(p)).join(', ')).trim();
+    E.sel = null; commit(); renderPanel();
+    UI.toast(`${free.length} remplaçant${free.length > 1 ? 's' : ''} sur la ligne de touche`);
+  }
   function clampW(w) {
     const e = Board.extents(E.sc.field), r = Board.tokenR(E.sc.field);
     return [Board.clamp(w[0], e.x0 - r, e.x1 + r), Board.clamp(w[1], e.y0 - r, e.y1 + r)];
@@ -6833,8 +6855,9 @@ var Editor = (() => {
       const titles = { player: o.gk ? 'Gardien' : 'Joueur', ball: 'Ballon', cone: 'Plot', goal: 'But' };
       h += `<div class="panel-head"><h3>${titles[o.type]}</h3><button class="icon-btn danger" data-act="delSel" aria-label="Supprimer">${I.trash}</button></div>`;
       if (o.type === 'player') {
-        const roster = sc.teamId ? Store.rosterOf(sc.teamId) : [];
-        h += `${roster.length ? `<label class="fld"><span>Joueur de l'effectif</span><select id="pWho"><option value="">Choisir un joueur…</option>${roster.map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.fullName(p))}${p.number ? ' (' + esc(p.number) + ')' : ''}</option>`).join('')}</select></label>` : ''}
+        const mt = matchOf(sc), onF = new Set(sc.objects.filter(x => x.id !== o.id).map(x => x.playerId).filter(Boolean));
+        let roster = pool(sc); if (o.playerId && !roster.some(p => p.id === o.playerId)) { const me = Store.get('players', o.playerId); if (me) roster = [me, ...roster]; }
+        h += `${roster.length ? `<label class="fld"><span>${mt ? 'Joueur convoqué' : 'Joueur de l\'effectif'}</span><select id="pWho"><option value="">Choisir un joueur…</option>${roster.map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.fullName(p))}${p.number ? ' (' + esc(p.number) + ')' : ''}${onF.has(p.id) ? ' · déjà placé' : ''}</option>`).join('')}</select></label>` : ''}
           <label class="fld"><span>Numéro ou lettre</span><input id="pLabel" maxlength="3" value="${esc(o.label || '')}"></label>
           <label class="fld"><span>Nom affiché</span><input id="pName" maxlength="24" value="${esc(o.name || '')}" placeholder="Prénom"></label>
           <div class="lbl">Couleur du maillot</div>
@@ -6889,8 +6912,9 @@ var Editor = (() => {
           : chipRow([['full', 'Terrain entier'], ['half', 'Demi-terrain']], 'view', f.view || 'full')}
         <h3>Équipe</h3>
         <label class="fld"><span>Catégorie</span><select id="scTeam"><option value="">Aucune</option>${Auth.teams().map(t => `<option value="${t.id}" ${t.id === sc.teamId ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
-        ${sc.teamId ? (() => { const onField = new Set(sc.objects.map(o => o.playerId).filter(Boolean)), free = Store.rosterOf(sc.teamId).filter(p => !onField.has(p.id));
+        ${sc.teamId ? (() => { const onField = new Set(sc.objects.map(o => o.playerId).filter(Boolean)), free = pool(sc).filter(p => !onField.has(p.id)), mt = matchOf(sc);
           return `<label class="fld"><span>Mettre un joueur sur le terrain</span><select id="addWho"><option value="">${free.length ? 'Choisir un joueur…' : 'Tout l\'effectif est sur le terrain'}</option>${free.map(p => `<option value="${p.id}">${esc(Store.fullName(p))}${p.number ? ' (' + esc(p.number) + ')' : ''}${People.postsLabel(p, true) ? ' · ' + esc(People.postsLabel(p, true)) : ''}</option>`).join('')}</select></label>`; })() : '<p class="tip">Choisis une catégorie pour placer tes joueurs avec un menu.</p>'}
+        ${matchOf(sc) ? `<button class="btn soft wide" data-act="bench">🪑<span>Placer les remplaçants (${pool(sc).filter(p => !sc.objects.some(o => o.playerId === p.id)).length})</span></button>` : ''}
         <button class="btn soft wide" data-act="formation" ${f.format === 'zone' || f.format === 'bg' ? 'disabled' : ''}>${I.formation}<span>Placer une formation</span></button>
         <h3>Les flèches</h3>
         <ul class="legend">${Object.entries(Board.ARROWS).map(([k, a]) => `<li>${arrowSw(k)}<span>${a.label}</span></li>`).join('')}</ul>`;
@@ -7045,6 +7069,7 @@ var Editor = (() => {
         case 'delSel': snapshot(); removeThing(sel); E.sel = null; commit(); return renderPanel();
         case 'rotGoal': return setSel(() => { const o = findObj(sel.id); o.rot = ((o.rot || 0) + 90) % 360; });
         case 'formation': return formationModal();
+        case 'bench': return placeBench();
         case 'dropTrace': snapshot(); delete E.sc.trace; commit(); renderPanel(); return UI.toast('Calque retiré : ton schéma est au propre');
       }
     });
@@ -16695,6 +16720,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 142, date: '2026-10-09', title: "Le banc est là 🪑", items: [
+      ['🪑', "Compo d'un match : « Placer les remplaçants » les met sur la ligne de touche, et les listes ne proposent plus que les convoqués."],
+    ] },
     { n: 141, date: '2026-10-09', title: "Des têtes, une image, un mois 📸", items: [
       ['📸', "Les joueurs qui ont une photo l'ont aussi dans les convocations et les présences (surtout en vue Liste)."],
       ['🖼️', "Séance : « Image pour WhatsApp » dans le menu ⋯ fabrique une belle carte de la séance, à poster dans le groupe."],
@@ -21196,7 +21224,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 184, UPD = AppCfg.key('update-tried');
+  const BUILD = 185, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

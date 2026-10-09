@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 142, date: '2026-10-09', title: "Le banc est là 🪑", items: [
+      ['🪑', "Compo d'un match : « Placer les remplaçants » les met sur la ligne de touche, et les listes ne proposent plus que les convoqués."],
+    ] },
     { n: 141, date: '2026-10-09', title: "Des têtes, une image, un mois 📸", items: [
       ['📸', "Les joueurs qui ont une photo l'ont aussi dans les convocations et les présences (surtout en vue Liste)."],
       ['🖼️', "Séance : « Image pour WhatsApp » dans le menu ⋯ fabrique une belle carte de la séance, à poster dans le groupe."],
