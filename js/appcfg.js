@@ -56,21 +56,12 @@ window.ScreenDiag = function () {
 /* (2.70) iOS 26/27, app installed: the height iOS gives the page (innerHeight, 100dvh, 100lvh…) does not match what is drawn on the
    screen, and it changes with the keyboard and the pages. The only reliable thing is the visual viewport (what is really visible):
    the bottom bars are moved so that their bottom edge is the bottom of the visible area. Checked on every change and twice a second. */
+/* (2.74) iOS, app installed: what is « fixed » at the bottom is cut at the height iOS announces (894 on a 956 screen), whatever is
+   done to it — moving the bars down (2.73) only hid their lower half. Under that line iOS draws the canvas of the page (the html
+   background): it is painted navy under the bottom bars (app.css, famille.css, member.js), so the band is the colour of the bar.
+   The bars themselves are left alone. */
 function placeBars() {
-  const vv = window.visualViewport; if (!vv) return;
-  // (2.73) the only constant: the physical height of the screen (portrait). The page is drawn from the top of the screen; when iOS gives it
-  // 894 instead of 956, the bars fixed at the « bottom » stop 62 px too high: they are moved down by the difference. (The visual viewport
-  // and 100dvh/100lvh flip independently on iOS 26: not used.)
-  const place = () => {
-    const portrait = innerHeight > innerWidth, dy = portrait ? Math.round(screen.height - innerHeight) : 0, t = dy > 0 && dy <= 120 ? 'translateY(' + dy + 'px)' : '';
-    let changed = false;
-    document.querySelectorAll('.rail, .tabbar').forEach(b => { const cs = getComputedStyle(b); if (cs.position !== 'fixed' || cs.display === 'none' || cs.bottom !== '0px') return; if (b.style.transform !== t) { b.style.transform = t; changed = true; } });
-    if (changed) setTimeout(() => window.dispatchEvent(new Event('resize')), 0); // the chat and the messages measure the bar to size themselves
-  };
-  ['resize', 'scroll'].forEach(e => vv.addEventListener(e, place));
-  ['resize', 'orientationchange', 'pageshow', 'hashchange', 'focusout'].forEach(e => window.addEventListener(e, place));
-  setInterval(place, 500);
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place); else place();
+  document.querySelectorAll('.rail, .tabbar').forEach(b => { if (b.style.transform) b.style.transform = ''; });
 }
 (function iosFill() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;

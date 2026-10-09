@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 132, date: '2026-10-09', title: 'On arrête de déplacer la barre, on repeint le sol 🎨', items: [
+      ['📱', "iPhone (appli installée) : la barre des onglets n'est plus déplacée (elle finissait coupée en bas). Le fond de la page sous la barre est peint en bleu marine : la bande en bas est de la couleur de la barre, quoi que fasse l'iPhone."],
+    ] },
     { n: 131, date: '2026-10-09', title: 'La barre du bas, mesurée au mètre de maçon 🧱', items: [
       ['📱', "iPhone (appli installée) : la barre des onglets est calée sur la hauteur physique de l'écran, la seule valeur qui ne change jamais. Plus de bande claire dessous, plus de barre cachée ou coupée, chat compris."],
     ] },
