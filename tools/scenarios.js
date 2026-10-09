@@ -1,0 +1,143 @@
+/* Scénarios joués dans un vrai navigateur (Chrome ou Edge, sans fenêtre) avant chaque publication :
+     node tools/scenarios.js            (lance son propre petit serveur sur le port 8797)
+   Chaque scénario ouvre le club de démonstration, fait ce qu'un coach fait (ouvrir un match, convoquer, jour J, séance, réglages…)
+   et vérifie le résultat. Toute erreur JavaScript de l'appli fait échouer le scénario. Rien n'est envoyé à un serveur.
+   Sans dépendance : Chrome est piloté par son protocole de débogage (WebSocket de Node). */
+const { spawn, execSync } = require('child_process'), fs = require('fs'), path = require('path'), http = require('http'), os = require('os');
+const ROOT = path.join(__dirname, '..'), PORT = 8797, DBG = 9339;
+const BROWSERS = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+const DEMO = fs.existsSync(path.join(ROOT, 'demo', 'foot', 'index.html')) ? `http://localhost:${PORT}/demo/foot/` : `http://localhost:${PORT}/verif-app.html?demo=1`;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const get = url => new Promise((res, rej) => http.get(url, r => { let s = ''; r.on('data', d => s += d); r.on('end', () => res(s)); }).on('error', rej));
+
+/* ---------- the browser, through its debugging protocol ---------- */
+class CDP {
+  constructor(ws) { this.ws = ws; this.id = 0; this.waiting = new Map(); this.events = []; ws.onmessage = e => this.onMsg(JSON.parse(e.data)); }
+  onMsg(m) { if (m.id && this.waiting.has(m.id)) { const w = this.waiting.get(m.id); this.waiting.delete(m.id); m.error ? w.rej(new Error(m.error.message)) : w.res(m.result); } else if (m.method) this.events.push(m); }
+  send(method, params = {}, sessionId) { const id = ++this.id; return new Promise((res, rej) => { this.waiting.set(id, { res, rej }); this.ws.send(JSON.stringify({ id, method, params, sessionId })); }); }
+}
+async function openBrowser() {
+  const exe = BROWSERS.find(p => fs.existsSync(p)); if (!exe) throw new Error('Chrome ou Edge introuvable');
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'clubbo-scen-'));
+  const proc = spawn(exe, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--window-size=540,960', '--remote-debugging-port=' + DBG, '--user-data-dir=' + profile, 'about:blank'], { stdio: 'ignore' });
+  let info; for (let i = 0; i < 50 && !info; i++) { try { info = JSON.parse(await get(`http://127.0.0.1:${DBG}/json/version`)); } catch (e) { await sleep(200); } }
+  if (!info) { proc.kill(); throw new Error('le navigateur ne répond pas'); }
+  const ws = new WebSocket(info.webSocketDebuggerUrl); await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+  return { proc, profile, cdp: new CDP(ws) };
+}
+
+/* ---------- one page per scenario ---------- */
+async function page(cdp) {
+  const { targetId } = await cdp.send('Target.createTarget', { url: 'about:blank' });
+  const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
+  await cdp.send('Runtime.enable', {}, sessionId); await cdp.send('Page.enable', {}, sessionId);
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 540, height: 960, deviceScaleFactor: 1, mobile: true }, sessionId);
+  const errors = () => cdp.events.filter(e => e.sessionId === sessionId && (e.method === 'Runtime.exceptionThrown' || (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error')))
+    .map(e => e.method === 'Runtime.exceptionThrown' ? (e.params.exceptionDetails.exception || {}).description || e.params.exceptionDetails.text : e.params.args.map(a => a.value || a.description || '').join(' '));
+  const evalIn = async (expr) => {
+    const r = await cdp.send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }, sessionId);
+    if (r.exceptionDetails) throw new Error('dans la page : ' + ((r.exceptionDetails.exception || {}).description || r.exceptionDetails.text).split('\n')[0]);
+    return r.result.value;
+  };
+  const goto = async (url) => { await cdp.send('Page.navigate', { url }, sessionId); await sleep(2500); };
+  const close = () => cdp.send('Target.closeTarget', { targetId });
+  return { evalIn, goto, errors, close };
+}
+
+/* ---------- helpers injected in the page ---------- */
+const H = `
+  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const guide = () => $$('button').filter(b => /J'ai compris|C'est parti/.test(b.innerText)).forEach(b => b.click());
+  const go = async h => { location.hash = h; await wait(900); guide(); await wait(200); };
+  const click = async (sel, ms = 500) => { const b = $(sel); if (!b) throw new Error('bouton absent : ' + sel); b.click(); await wait(ms); return b; };
+  const text = sel => (($(sel) || {}).innerText || '').trim();
+  const must = (ok, msg) => { if (!ok) throw new Error(msg); };
+  const modal = () => $('#modal');
+  const closeModal = async () => { $$('#modal button').filter(b => /Annuler|Fermer/.test(b.innerText)).forEach(b => b.click()); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await wait(300); };
+`;
+
+/* ---------- the scenarios ---------- */
+const SCENARIOS = [
+  ['Accueil : prochain rendez-vous et menu', `
+    guide(); must($('.today-card'), 'pas de carte « Prochain rendez-vous »');
+    must($('#nav a'), 'pas de menu'); must(matchMedia('(max-width: 760px)').matches, 'largeur téléphone attendue');
+    must($('#quickFab'), 'pas de bouton +'); return text('.today-card').slice(0, 60);`],
+  ['Matchs : liste, fiche, un seul bouton principal', `
+    await go('#/matchs'); must($$('a[href^="#/match/"]').length > 0, 'aucun match listé');
+    const first = $$('a[href^="#/match/"]')[0].getAttribute('href'); await go(first);
+    const heads = $$('.page-head .head-actions > *'); must(heads.length <= 2, 'trop de boutons en tête : ' + heads.length);
+    must($('.more-acts'), 'pas de menu ⋯'); return first;`],
+  ['Convocation : vider, reprendre « comme au dernier match », envoyer', `
+    const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0]; must(m, 'aucun match à venir');
+    m.convoked = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/match/' + m.id);
+    must(text('.section').startsWith('Convoqués (0)'), 'devrait afficher 0 convoqué : ' + text('.section'));
+    await click('[data-act="sameconv"]'); const n = (Store.get('matches', m.id).convoked || []).length; must(n > 0, 'rien repris');
+    await click('[data-act="convoc"]', 800); must(modal() || Store.get('matches', m.id).convSent, 'envoi non déclenché'); await closeModal(); return n + ' convoqués';`],
+  ['Jour de match : qui est là, absent noté', `
+    const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
+    m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);
+    must($$('.md-who .chip').length > 0, 'pas de liste « Qui est là ? »');
+    await click('.md-who .chip'); must((Store.get('matches', m.id).absents || []).length === 1, 'absent non noté');
+    await click('.md-who .chip.abs'); must((Store.get('matches', m.id).absents || []).length === 0, 'absent non retiré'); return 'ok';`],
+  ['Séances : liste, fiche pliée, PDF en tête', `
+    await go('#/entrainements'); const a = $$('a[href^="#/entrainement/"]')[0]; must(a, 'aucune séance');
+    await go(a.getAttribute('href')); must($('.tr-more'), 'objectif et groupe non pliés'); must($('[data-act="pdf"]'), 'pas de bouton PDF');
+    return (text('h1') || text('.page-head')).slice(0, 40);`],
+  ['Le + : reprendre la dernière séance', `
+    await go('#/entrainements'); await click('#quickFab', 600); must($('[data-t="last"]'), 'pas de « Reprendre la dernière séance »');
+    await click('[data-t="last"]', 700); must(/Reprendre/.test(text('#modal h2')), 'mauvaise fenêtre : ' + text('#modal h2'));
+    const d = $('#cpDate').value; must(d >= UI.today(), 'date passée proposée'); await closeModal(); return d;`],
+  ['Joueurs : liste, fiche, nouveau joueur par le +', `
+    await go('#/joueurs'); must($$('[data-person]').length > 0, 'aucun joueur'); await click('#quickFab', 600);
+    must(/Nouveau joueur/.test(text('#modal h2')), 'le + devrait ouvrir « Nouveau joueur »'); await closeModal();
+    const id = $('[data-person]').dataset.person; await go('#/joueur/' + id); must($('.page-head'), 'fiche joueur vide'); return id;`],
+  ['Équipes et dirigeants : ajouter un éducateur', `
+    await go('#/equipes'); must($$('a[href^="#/equipe/"]').length > 0, 'aucune catégorie');
+    await go('#/dirigeants'); await click('[data-act="new"]', 500); must(/éducateur/i.test(text('#modal h2')), 'fiche éducateur non ouverte'); await closeModal(); return 'ok';`],
+  ['Schémas : nouveau schéma, retour', `
+    await go('#/schemas'); await click('#quickFab', 800); const h = location.hash;
+    must(modal() || /#\\/schema\\//.test(h), 'rien ne s\\'ouvre'); await closeModal(); await go('#/schemas'); return h;`],
+  ["Messages, planning, stats, vie du club : s'affichent", `
+    for (const p of ['#/messages', '#/planning', '#/stats', '#/club', '#/bibliotheque', '#/chat']) { await go(p); must($('#view').innerText.trim().length > 20, 'page vide : ' + p); }
+    return 'ok';`],
+  ['Gestion du club : À faire et tuiles', `
+    await go('#/gestion'); must($('.g-tile'), 'pas de tuiles'); must(/À faire/.test($('#view').innerText), 'pas de « À faire »');
+    await click('[data-g="newstaff"]', 500); must(/éducateur/i.test(text('#modal h2')), 'ajout éducateur non ouvert'); await closeModal(); return $$('.list-item').length + ' points';`],
+  ['Réglages : deux onglets, avancé plié', `
+    await go('#/reglages'); must($$('.set-tabs .chip').length === 2, 'pas deux onglets');
+    await click('[data-stab="club"]'); must(!$$('.set-pane')[1].hidden, 'onglet club caché'); must($('.set-pane:not([hidden]) details.fold'), 'pas de « Avancé »');
+    await click('[data-stab="moi"]'); must(!$$('.set-pane')[0].hidden, 'onglet moi caché'); return 'ok';`],
+  ['Hors connexion : le bandeau', `
+    document.body.classList.add('offline'); const c = getComputedStyle(document.body, '::before').content; document.body.classList.remove('offline');
+    must(/Hors connexion/.test(c), 'pas de bandeau'); return 'ok';`],
+];
+
+/* ---------- run ---------- */
+(async () => {
+  const srv = spawn(process.execPath, [path.join(__dirname, 'serveur.js'), String(PORT)], { stdio: 'ignore' });
+  await sleep(600);
+  let br; const t0 = Date.now(); let bad = 0;
+  try {
+    br = await openBrowser();
+    for (const [name, body] of SCENARIOS) {
+      const p = await page(br.cdp);
+      try {
+        await p.goto(DEMO);
+        const out = await p.evalIn(`(async () => { ${H} ${body} })()`);
+        const errs = p.errors().filter(e => !/favicon|net::ERR|Failed to fetch|NetworkError|Load failed/.test(e));
+        if (errs.length) throw new Error('erreur de l\'appli : ' + errs[0].split('\n')[0]);
+        console.log(`  ✅ ${name}${out ? ' · ' + String(out).replace(/\s+/g, ' ').slice(0, 60) : ''}`);
+      } catch (e) { bad++; console.log(`  ❌ ${name}\n     ${e.message.split('\n')[0]}`); }
+      finally { await p.close().catch(() => {}); }
+    }
+  } catch (e) { bad++; console.log('❌ ' + e.message); }
+  finally {
+    if (br) { try { br.cdp.ws.close(); } catch (e) {} br.proc.kill(); await sleep(400); try { fs.rmSync(br.profile, { recursive: true, force: true }); } catch (e) {} }
+    srv.kill();
+  }
+  console.log(bad ? `\n❌ ${bad} scénario${bad > 1 ? 's' : ''} en échec (${Math.round((Date.now() - t0) / 1000)} s)` : `\n✅ ${SCENARIOS.length} scénarios réussis (${Math.round((Date.now() - t0) / 1000)} s)`);
+  process.exit(bad ? 1 : 0);
+})();

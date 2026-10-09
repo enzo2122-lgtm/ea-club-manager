@@ -19,9 +19,10 @@ const Views = (() => {
     const mine = all.filter(p => own.has(p.id)), guests = all.filter(p => !own.has(p.id) && Store.helps(p, teamId) && !Store.sameCat(p, teamId)),
       others = all.filter(p => !own.has(p.id) && !guests.includes(p)), t = teamOf(teamId);
     // sorted by position: one row of chips per line (goalkeepers, defenders, midfielders, forwards)
-    const block = list => mode === 'post' ? People.byLine(list).map(([lab, ps]) => `<div class="lbl line-lbl">${esc(lab)} (${ps.length})</div><div class="chips roster">${ps.map(chip).join('')}</div>`).join('') : `<div class="chips roster">${People.sortPlayers(list, mode).map(chip).join('')}</div>`;
+    const block = list => mode === 'post' ? People.byLine(list).map(([lab, ps]) => `<div class="lbl line-lbl">${esc(lab)} (${ps.length})</div><div class="chips roster ${view === 'list' ? 'as-list' : ''}">${ps.map(chip).join('')}</div>`).join('') : `<div class="chips roster ${view === 'list' ? 'as-list' : ''}">${People.sortPlayers(list, mode).map(chip).join('')}</div>`;
     const warn = all.filter(p => ClubAdmin.problem(p));
-    return (all.length > 1 ? People.sortBar(mode, 'rsort') : '') + (warn.length ? `<p class="muted small">⚠️ = pas en règle (${warn.length}) : licence en attente ou certificat médical à fournir. Voir avec le responsable.</p>` : '') + (mine.length ? block(mine) : '') +
+    const view = S().ui.rosterView || 'chips';
+    return (all.length > 1 ? People.sortBar(mode, 'rsort').replace('</span>', `<button type="button" class="chip ${view === 'list' ? 'on' : ''}" data-rview="${view === 'list' ? 'chips' : 'list'}" title="Puces ou liste">${view === 'list' ? '☰ Liste' : '▦ Puces'}</button></span>`) : '') + (warn.length ? `<p class="muted small">⚠️ = pas en règle (${warn.length}) : licence en attente ou certificat médical à fournir. Voir avec le responsable.</p>` : '') + (mine.length ? block(mine) : '') +
       (others.length ? `${mine.length ? `<div class="lbl">Autres joueurs de la catégorie ${esc((t && t.category) || '')} (${others.length})</div>` : ''}${block(others)}` : '') +
       (guests.length ? `<div class="lbl">🤝 Renforts d'autres catégories (${guests.length}) <button type="button" class="linkish" data-guestman="${esc(teamId)}">gérer</button></div>${block(guests)}` : '') +
       (!all.length ? '<p class="muted">Aucun joueur dans cette catégorie : ajoute-les dans Équipes.</p>' : '');
@@ -672,6 +673,7 @@ const Views = (() => {
         const ab = $('.abs-fold', root); if (ab) { const open = ab.open; const tmp = document.createElement('div'); tmp.innerHTML = absBox(tr.teamId); const nb = tmp.firstElementChild; if (nb) { nb.open = open; ab.replaceWith(nb); } else ab.remove(); }
         rateTr(); return;
       }
+      if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.allpres) {
         if (b.dataset.allpres === '0' && (tr.presents || []).length && !(await confirmBox('Décocher tous les présents de cette séance ?', 'Décocher'))) return;
@@ -1056,6 +1058,7 @@ const Views = (() => {
       if (b.dataset.act === 'sameconv') { const prev = lastConv(m); if (!prev) return; const ids = new Set(Store.rosterOf(m.teamId).map(p => p.id)); m.convoked = prev.convoked.filter(id => ids.has(id)); save(); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
+      if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.minset) {
         const full = People.matchLength(m), v = { full, half: Math.round(full / 2), zero: 0 }[b.dataset.v];
@@ -1247,6 +1250,11 @@ const Views = (() => {
       <div class="set-pane" ${tabs && setTab !== 'moi' ? 'hidden' : ''}>
       ${Auth.settingsSection()}
       ${Help.settingsSection()}
+      <section class="card">
+        <h2>🌗 Apparence</h2>
+        <p class="muted">Sur cet appareil. « Auto » suit le réglage du téléphone.</p>
+        <div class="chips">${[['', 'Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([v, l]) => `<button class="chip ${(document.documentElement.dataset.theme || '') === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div>
+      </section>
       <section class="card nav-pos-card">
         <h2>🧭 Menu sur le téléphone</h2>
         <p class="muted">Où veux-tu le menu de l'appli quand tu es sur ton téléphone ? Le choix reste sur cet appareil.</p>
@@ -1292,6 +1300,7 @@ const Views = (() => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.stab) { setTab = b.dataset.stab; return settings(root); }
+      if (b.dataset.theme != null) { const v = b.dataset.theme; try { if (v) localStorage.setItem(AppCfg.key('theme'), v); else localStorage.removeItem(AppCfg.key('theme')); } catch (e) {} if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; return settings(root); }
       if (b.dataset.navpos) { App.setNavPos(b.dataset.navpos); return settings(root); }
       if (b.dataset.home) { c.homeBib = b.dataset.home; Store.save(); App.refreshChrome(); return settings(root); }
       if (b.dataset.away) { c.awayBib = b.dataset.away; Store.save(); return settings(root); }

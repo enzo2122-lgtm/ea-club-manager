@@ -19,7 +19,7 @@ const Media = (() => {
   async function removeRef(ref) { (await list(ref)).forEach(m => del(m.id)); }
 
   function loadImage(url) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; }); }
-  function drawScaled(src, w, h, max, type = 'image/jpeg', q = .85) {
+  function drawScaled(src, w, h, max, type = UI.IMG, q = .85) {
     const k = Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas');
     c.width = Math.round(w * k); c.height = Math.round(h * k);
     c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
@@ -30,8 +30,8 @@ const Media = (() => {
     try {
       const img = await loadImage(url);
       const big = drawScaled(img, img.naturalWidth, img.naturalHeight, 1920);
-      const blob = await new Promise(r => big.toBlob(r, 'image/jpeg', .85));
-      return { blob, mime: 'image/jpeg', thumb: drawScaled(img, img.naturalWidth, img.naturalHeight, 360).toDataURL('image/jpeg', .7) };
+      const blob = await new Promise(r => big.toBlob(r, UI.IMG, .85));
+      return { blob, mime: UI.IMG, thumb: drawScaled(img, img.naturalWidth, img.naturalHeight, 360).toDataURL(UI.IMG, .7) };
     } finally { URL.revokeObjectURL(url); }
   }
   async function videoThumb(file) {
@@ -40,7 +40,7 @@ const Media = (() => {
     try {
       await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(res, 4000); });
       await new Promise(res => { v.onseeked = res; try { v.currentTime = Math.min(.5, (v.duration || 1) / 2); } catch (e) { res(); } setTimeout(res, 2500); });
-      return v.videoWidth ? drawScaled(v, v.videoWidth, v.videoHeight, 360).toDataURL('image/jpeg', .7) : '';
+      return v.videoWidth ? drawScaled(v, v.videoWidth, v.videoHeight, 360).toDataURL(UI.IMG, .7) : '';
     } catch (e) { return ''; } finally { URL.revokeObjectURL(url); }
   }
   async function add(ref, files) {

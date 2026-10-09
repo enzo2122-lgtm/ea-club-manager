@@ -11,6 +11,24 @@ const App = (() => {
   const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain']], ['Réglages et aide', ['signalements', 'reglages']]];
   const view = () => document.getElementById('view');
 
+  // (2.80) phone gestures: a swipe from the left edge goes back, a pull from the top of the page refreshes
+  (() => {
+    let x0 = -1, y0 = -1, pull = 0, edge = false;
+    const ptr = document.getElementById('pullHint') || (() => { const d = document.createElement('div'); d.id = 'pullHint'; d.textContent = '↓ Actualiser'; document.body.appendChild(d); return d; })();
+    addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; pull = 0; edge = x0 < 22 && !document.body.classList.contains('editing'); }, { passive: true });
+    addEventListener('touchmove', e => {
+      if (document.body.classList.contains('editing') || document.getElementById('modal')) return;
+      const t = e.touches[0], dy = t.clientY - y0;
+      if (!edge && window.scrollY <= 0 && dy > 0 && Math.abs(t.clientX - x0) < 40) { pull = dy; ptr.classList.toggle('show', dy > 50); ptr.classList.toggle('go', dy > 90); }
+    }, { passive: true });
+    addEventListener('touchend', e => {
+      const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      ptr.classList.remove('show', 'go');
+      if (edge && dx > 90 && Math.abs(dy) < 70 && !document.getElementById('modal')) { history.back(); return; }
+      if (pull > 90) { if (typeof Sync !== 'undefined' && Sync.run) { try { Sync.run(); } catch (x) {} } route(); UI.toast('Actualisé'); }
+      pull = 0; edge = false;
+    }, { passive: true });
+  })();
   // (2.79) no network (the pitch, the gym): say it, the changes leave when it comes back
   const netState = () => document.body.classList.toggle('offline', !navigator.onLine);
   window.addEventListener('online', netState); window.addEventListener('offline', netState); setTimeout(netState, 0);
@@ -146,7 +164,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 180, UPD = AppCfg.key('update-tried');
+  const BUILD = 181, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

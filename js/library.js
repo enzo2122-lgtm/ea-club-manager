@@ -32,10 +32,10 @@ const Library = (() => {
       const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
       const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
-      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .85));
+      const blob = await new Promise(r => c.toBlob(r, UI.IMG, .85));
       let text = '';
       try { text = (await page.getTextContent()).items.map(it => it.str + (it.hasEOL ? '\n' : ' ')).join('').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim(); } catch (e) {}
-      pages.push({ blob, w: c.width, h: c.height, text, thumb: i === 1 ? Media.drawScaled(c, c.width, c.height, 360).toDataURL('image/jpeg', .7) : '' });
+      pages.push({ blob, w: c.width, h: c.height, text, thumb: i === 1 ? Media.drawScaled(c, c.width, c.height, 360).toDataURL(UI.IMG, .7) : '' });
     }
     return { pages, total: doc.numPages };
   }
@@ -92,7 +92,7 @@ const Library = (() => {
       } else { parts.push(await r.blob()); }
       // « application/octet-stream » (Google Drive, OneDrive): the kind of file comes from its name
       let type = (r.headers.get('content-type') || '').split(';')[0];
-      if (!/pdf|image\/|video\//.test(type)) type = /\.pdf$/i.test(name) ? 'application/pdf' : /\.(jpe?g|png|webp)$/i.test(name) ? 'image/jpeg' : /\.(mp4|m4v|mov)$/i.test(name) ? 'video/mp4' : '';
+      if (!/pdf|image\/|video\//.test(type)) type = /\.pdf$/i.test(name) ? 'application/pdf' : /\.(jpe?g|png|webp)$/i.test(name) ? UI.IMG : /\.(mp4|m4v|mov)$/i.test(name) ? 'video/mp4' : '';
       if (!type) throw new Error('pas un fichier');
       const blob = new Blob(parts, { type });
       const ext = type.includes('pdf') ? '.pdf' : type.startsWith('image/') ? '.jpg' : '.mp4';
@@ -152,7 +152,7 @@ const Library = (() => {
   /* ---------- use a picture as a drawing background ---------- */
   async function drawOn(blob, w, h, name, teamId) {
     const id = Store.uid();
-    await Media.put({ id, ref: 'bg', kind: 'image', name, blob, mime: 'image/jpeg', createdAt: Date.now() });
+    await Media.put({ id, ref: 'bg', kind: 'image', name, blob, mime: UI.IMG, createdAt: Date.now() });
     Board.BG.set(id, await Media.loadImage(URL.createObjectURL(blob)));
     const sc = { id: Store.uid(), name, teamId: teamId || null, field: { format: 'bg', bgId: id, w: 100, h: Math.round(100 * h / w * 10) / 10 }, overlays: {}, objects: [], zones: [],
       steps: [{ pos: {}, arrows: [], moves: {}, note: '', dur: 2 }] };
@@ -160,7 +160,7 @@ const Library = (() => {
   }
   async function canvasBlob(src, w, h) {
     const c = Media.drawScaled(src, w, h, 1600);
-    return { blob: await new Promise(r => c.toBlob(r, 'image/jpeg', .88)), w: c.width, h: c.height };
+    return { blob: await new Promise(r => c.toBlob(r, UI.IMG, .88)), w: c.width, h: c.height };
   }
   const cleanName = n => String(n || 'Document').replace(/\.[a-z0-9]{2,4}$/i, '');
 
@@ -174,7 +174,7 @@ const Library = (() => {
         const format = $('#ccFmt .on', r).dataset.v, nm = $('#ccName', r).value.trim() || cleanName(name);
         (async () => {
           const bgId = Store.uid();
-          await Media.put({ id: bgId, ref: 'bg', kind: 'image', name: nm, blob, mime: 'image/jpeg', createdAt: Date.now() });
+          await Media.put({ id: bgId, ref: 'bg', kind: 'image', name: nm, blob, mime: UI.IMG, createdAt: Date.now() });
           Board.BG.set(bgId, await Media.loadImage(URL.createObjectURL(blob)));
           const field = format === 'zone' ? { format, view: 'full', w: 40, h: Math.round(40 * h / w) } : { format, view: 'full' };
           const sc = Store.upsert('schemas', { id: Store.uid(), name: nm, teamId: S().ui.teamId || null, field, overlays: {}, objects: [], zones: [], trace: { bgId, on: true, opacity: .7 },
@@ -337,7 +337,7 @@ const Library = (() => {
   async function aiRead(p, fmt) {
     const c = Cloud.cfg(), t = Cloud.token && Cloud.token();
     if (!c || !t) throw new Error('Connecte-toi au serveur du club pour utiliser l\'IA.');
-    const img = await Media.loadImage(URL.createObjectURL(p.blob)), image = Media.drawScaled(img, img.naturalWidth, img.naturalHeight, 1400).toDataURL('image/jpeg', .85);
+    const img = await Media.loadImage(URL.createObjectURL(p.blob)), image = Media.drawScaled(img, img.naturalWidth, img.naturalHeight, 1400).toDataURL(UI.IMG, .85);
     const headers = { apikey: c.key, 'Content-Type': 'application/json' }; if (!String(c.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + c.key;
     let r; try { r = await fetch(c.url.replace(/\/+$/, '') + '/functions/v1/exercice-ia', { method: 'POST', headers, body: JSON.stringify({ k: t, image, text: p.text || '', fmt: Sport.formatLabel(fmt) || fmt, sport: Sport.cur().ai, themes: Exos.THEMES.map(x => x[0]) }) }); }
     catch (e) { throw new Error('Pas de connexion internet.'); }

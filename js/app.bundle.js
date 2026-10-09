@@ -21,6 +21,9 @@ var AppCfg = (() => {
   };
 })();
 
+/* (2.80) the look chosen on this device (Réglages → Moi → Apparence): auto (the phone decides), light or dark */
+(function () { try { const t = localStorage.getItem(AppCfg.key('theme')); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {} })();
+
 /* (2.38 → removed in 2.48: hiding and showing the page to make iOS measure again made the screen flash; the gap is handled by iosFill) */
 
 /* (2.41) « 📏 Mesurer l'écran » (Plus): the sizes the phone gives to the app, and marks to see what the phone draws at the bottom.
@@ -932,7 +935,15 @@ var Store = (() => {
   }
   // Save without telling the listeners (used by the sync, which is itself a listener)
   function persistNow() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 50); }
-  const get = (col, id) => state[col].find(x => x.id === id);
+  // (2.80) an index id → position per collection, rebuilt when the array changes (replaced, grown) or no longer matches
+  const idx = {};
+  const build = a => { const m = new Map(); for (let i = 0; i < a.length; i++) m.set(a[i].id, i); return { a, n: a.length, m }; };
+  const get = (col, id) => {
+    const a = state[col]; if (!a) return undefined;
+    let x = idx[col]; if (!x || x.a !== a || x.n !== a.length) x = idx[col] = build(a);
+    let p = x.m.get(id); if (p != null && a[p] && a[p].id === id) return a[p];
+    x = idx[col] = build(a); p = x.m.get(id); return p != null ? a[p] : undefined;
+  };
   // (2.61) a staff with « Observation (lecture seule) »: he sees everything he may see, he changes nothing
   let roT = 0;
   const ro = col => typeof Auth !== 'undefined' && Auth.canWrite && !Auth.canWrite(col);
@@ -1204,6 +1215,8 @@ var Seed = {
 /* ===== ui.js ===== */
 /* Small UI helpers: escaping, toasts, modal sheets, confirmations, thumbnails. */
 var UI = (() => {
+  // (2.80) photos and thumbnails: WebP where the browser can make it (2 to 3 times lighter), JPEG elsewhere
+  const IMG = (() => { try { const c = document.createElement('canvas'); c.width = c.height = 2; return c.toDataURL('image/webp').indexOf('image/webp') > 0 ? 'image/webp' : 'image/jpeg'; } catch (e) { return 'image/jpeg'; } })();
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -1281,7 +1294,7 @@ var UI = (() => {
     // (2.30) an animated schema is shown whole: every movement of every step on the picture
     const view = typeof AutoSchema !== 'undefined' && AutoSchema.overview ? AutoSchema.overview(sc) : sc;
     Board.drawFrame(c.getContext('2d'), w, h, view, 0, 0, { homeBib: Store.state.club.homeBib });
-    const url = c.toDataURL('image/jpeg', .8); thumbCache.set(key, url); return url;
+    const url = c.toDataURL(IMG, .8); thumbCache.set(key, url); return url;
   }
 
   const fmtDate = (d, opts = { weekday: 'short', day: 'numeric', month: 'short' }) => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', opts) : '';
@@ -1376,7 +1389,7 @@ var UI = (() => {
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   })();
-  return { kindSeg, finePointer, esc, $, $$, toast, modal, confirmBox, busy, bgTask, thumb, fmtDate, today, accentFor, pickFiles, chooseFiles, motto, mottoIdea, MOTTO_MAX };
+  return { IMG,  kindSeg, finePointer, esc, $, $$, toast, modal, confirmBox, busy, bgTask, thumb, fmtDate, today, accentFor, pickFiles, chooseFiles, motto, mottoIdea, MOTTO_MAX };
 })();
 
 ;
@@ -2563,7 +2576,7 @@ var Media = (() => {
   async function removeRef(ref) { (await list(ref)).forEach(m => del(m.id)); }
 
   function loadImage(url) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; }); }
-  function drawScaled(src, w, h, max, type = 'image/jpeg', q = .85) {
+  function drawScaled(src, w, h, max, type = UI.IMG, q = .85) {
     const k = Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas');
     c.width = Math.round(w * k); c.height = Math.round(h * k);
     c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
@@ -2574,8 +2587,8 @@ var Media = (() => {
     try {
       const img = await loadImage(url);
       const big = drawScaled(img, img.naturalWidth, img.naturalHeight, 1920);
-      const blob = await new Promise(r => big.toBlob(r, 'image/jpeg', .85));
-      return { blob, mime: 'image/jpeg', thumb: drawScaled(img, img.naturalWidth, img.naturalHeight, 360).toDataURL('image/jpeg', .7) };
+      const blob = await new Promise(r => big.toBlob(r, UI.IMG, .85));
+      return { blob, mime: UI.IMG, thumb: drawScaled(img, img.naturalWidth, img.naturalHeight, 360).toDataURL(UI.IMG, .7) };
     } finally { URL.revokeObjectURL(url); }
   }
   async function videoThumb(file) {
@@ -2584,7 +2597,7 @@ var Media = (() => {
     try {
       await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(res, 4000); });
       await new Promise(res => { v.onseeked = res; try { v.currentTime = Math.min(.5, (v.duration || 1) / 2); } catch (e) { res(); } setTimeout(res, 2500); });
-      return v.videoWidth ? drawScaled(v, v.videoWidth, v.videoHeight, 360).toDataURL('image/jpeg', .7) : '';
+      return v.videoWidth ? drawScaled(v, v.videoWidth, v.videoHeight, 360).toDataURL(UI.IMG, .7) : '';
     } catch (e) { return ''; } finally { URL.revokeObjectURL(url); }
   }
   async function add(ref, files) {
@@ -2776,10 +2789,10 @@ var Library = (() => {
       const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
       const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
-      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .85));
+      const blob = await new Promise(r => c.toBlob(r, UI.IMG, .85));
       let text = '';
       try { text = (await page.getTextContent()).items.map(it => it.str + (it.hasEOL ? '\n' : ' ')).join('').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim(); } catch (e) {}
-      pages.push({ blob, w: c.width, h: c.height, text, thumb: i === 1 ? Media.drawScaled(c, c.width, c.height, 360).toDataURL('image/jpeg', .7) : '' });
+      pages.push({ blob, w: c.width, h: c.height, text, thumb: i === 1 ? Media.drawScaled(c, c.width, c.height, 360).toDataURL(UI.IMG, .7) : '' });
     }
     return { pages, total: doc.numPages };
   }
@@ -2836,7 +2849,7 @@ var Library = (() => {
       } else { parts.push(await r.blob()); }
       // « application/octet-stream » (Google Drive, OneDrive): the kind of file comes from its name
       let type = (r.headers.get('content-type') || '').split(';')[0];
-      if (!/pdf|image\/|video\//.test(type)) type = /\.pdf$/i.test(name) ? 'application/pdf' : /\.(jpe?g|png|webp)$/i.test(name) ? 'image/jpeg' : /\.(mp4|m4v|mov)$/i.test(name) ? 'video/mp4' : '';
+      if (!/pdf|image\/|video\//.test(type)) type = /\.pdf$/i.test(name) ? 'application/pdf' : /\.(jpe?g|png|webp)$/i.test(name) ? UI.IMG : /\.(mp4|m4v|mov)$/i.test(name) ? 'video/mp4' : '';
       if (!type) throw new Error('pas un fichier');
       const blob = new Blob(parts, { type });
       const ext = type.includes('pdf') ? '.pdf' : type.startsWith('image/') ? '.jpg' : '.mp4';
@@ -2896,7 +2909,7 @@ var Library = (() => {
   /* ---------- use a picture as a drawing background ---------- */
   async function drawOn(blob, w, h, name, teamId) {
     const id = Store.uid();
-    await Media.put({ id, ref: 'bg', kind: 'image', name, blob, mime: 'image/jpeg', createdAt: Date.now() });
+    await Media.put({ id, ref: 'bg', kind: 'image', name, blob, mime: UI.IMG, createdAt: Date.now() });
     Board.BG.set(id, await Media.loadImage(URL.createObjectURL(blob)));
     const sc = { id: Store.uid(), name, teamId: teamId || null, field: { format: 'bg', bgId: id, w: 100, h: Math.round(100 * h / w * 10) / 10 }, overlays: {}, objects: [], zones: [],
       steps: [{ pos: {}, arrows: [], moves: {}, note: '', dur: 2 }] };
@@ -2904,7 +2917,7 @@ var Library = (() => {
   }
   async function canvasBlob(src, w, h) {
     const c = Media.drawScaled(src, w, h, 1600);
-    return { blob: await new Promise(r => c.toBlob(r, 'image/jpeg', .88)), w: c.width, h: c.height };
+    return { blob: await new Promise(r => c.toBlob(r, UI.IMG, .88)), w: c.width, h: c.height };
   }
   const cleanName = n => String(n || 'Document').replace(/\.[a-z0-9]{2,4}$/i, '');
 
@@ -2918,7 +2931,7 @@ var Library = (() => {
         const format = $('#ccFmt .on', r).dataset.v, nm = $('#ccName', r).value.trim() || cleanName(name);
         (async () => {
           const bgId = Store.uid();
-          await Media.put({ id: bgId, ref: 'bg', kind: 'image', name: nm, blob, mime: 'image/jpeg', createdAt: Date.now() });
+          await Media.put({ id: bgId, ref: 'bg', kind: 'image', name: nm, blob, mime: UI.IMG, createdAt: Date.now() });
           Board.BG.set(bgId, await Media.loadImage(URL.createObjectURL(blob)));
           const field = format === 'zone' ? { format, view: 'full', w: 40, h: Math.round(40 * h / w) } : { format, view: 'full' };
           const sc = Store.upsert('schemas', { id: Store.uid(), name: nm, teamId: S().ui.teamId || null, field, overlays: {}, objects: [], zones: [], trace: { bgId, on: true, opacity: .7 },
@@ -3081,7 +3094,7 @@ var Library = (() => {
   async function aiRead(p, fmt) {
     const c = Cloud.cfg(), t = Cloud.token && Cloud.token();
     if (!c || !t) throw new Error('Connecte-toi au serveur du club pour utiliser l\'IA.');
-    const img = await Media.loadImage(URL.createObjectURL(p.blob)), image = Media.drawScaled(img, img.naturalWidth, img.naturalHeight, 1400).toDataURL('image/jpeg', .85);
+    const img = await Media.loadImage(URL.createObjectURL(p.blob)), image = Media.drawScaled(img, img.naturalWidth, img.naturalHeight, 1400).toDataURL(UI.IMG, .85);
     const headers = { apikey: c.key, 'Content-Type': 'application/json' }; if (!String(c.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + c.key;
     let r; try { r = await fetch(c.url.replace(/\/+$/, '') + '/functions/v1/exercice-ia', { method: 'POST', headers, body: JSON.stringify({ k: t, image, text: p.text || '', fmt: Sport.formatLabel(fmt) || fmt, sport: Sport.cur().ai, themes: Exos.THEMES.map(x => x[0]) }) }); }
     catch (e) { throw new Error('Pas de connexion internet.'); }
@@ -3717,7 +3730,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.79';
+  const VERSION = '2.80';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16682,6 +16695,16 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 138, date: '2026-10-09', title: "Sous le capot et dans le miroir 🔧🪞", items: [
+      ['🌗', "Apparence : Auto, Clair ou Sombre, dans Réglages → Moi. Pour les soirs d'entraînement sous les projecteurs."],
+      ['☰', "Convocations et présences : en plus des puces, une vue « Liste » avec de grandes lignes, faite pour le pouce."],
+      ['👈', "Sur téléphone : glisse depuis le bord gauche pour revenir en arrière, tire la page vers le bas pour actualiser."],
+      ['👪', "Côté joueurs et parents : l'en-tête prend moins de place, le contenu arrive plus vite à l'écran."],
+      ['🖼️', "Photos et miniatures enregistrées en WebP quand le téléphone sait le faire : deux à trois fois plus légères."],
+      ['⚡', "Les recherches dans les données du club sont indexées : plus de lenteur avec des centaines de joueurs et plusieurs saisons."],
+      ['🧪', "Avant chaque publication, treize scénarios sont joués dans un vrai navigateur (ouvrir un match, convoquer, jour J, séance, réglages…)."],
+      ['🧹', "Ménage dans la feuille de style : règles mortes supprimées, coins et ombres harmonisés."],
+    ] },
     { n: 137, date: '2026-10-09', title: "Moins de gestes, plus de terrain 🏃", items: [
       ['🔁', "Convocation en un geste : « Comme au dernier match » reprend la même équipe, tu ajustes et tu envoies."],
       ['📝', "Le + sur Séances propose « Reprendre la dernière séance » : même catégorie, même jour de la semaine, tout est prêt."],
@@ -19481,9 +19504,10 @@ var Views = (() => {
     const mine = all.filter(p => own.has(p.id)), guests = all.filter(p => !own.has(p.id) && Store.helps(p, teamId) && !Store.sameCat(p, teamId)),
       others = all.filter(p => !own.has(p.id) && !guests.includes(p)), t = teamOf(teamId);
     // sorted by position: one row of chips per line (goalkeepers, defenders, midfielders, forwards)
-    const block = list => mode === 'post' ? People.byLine(list).map(([lab, ps]) => `<div class="lbl line-lbl">${esc(lab)} (${ps.length})</div><div class="chips roster">${ps.map(chip).join('')}</div>`).join('') : `<div class="chips roster">${People.sortPlayers(list, mode).map(chip).join('')}</div>`;
+    const block = list => mode === 'post' ? People.byLine(list).map(([lab, ps]) => `<div class="lbl line-lbl">${esc(lab)} (${ps.length})</div><div class="chips roster ${view === 'list' ? 'as-list' : ''}">${ps.map(chip).join('')}</div>`).join('') : `<div class="chips roster ${view === 'list' ? 'as-list' : ''}">${People.sortPlayers(list, mode).map(chip).join('')}</div>`;
     const warn = all.filter(p => ClubAdmin.problem(p));
-    return (all.length > 1 ? People.sortBar(mode, 'rsort') : '') + (warn.length ? `<p class="muted small">⚠️ = pas en règle (${warn.length}) : licence en attente ou certificat médical à fournir. Voir avec le responsable.</p>` : '') + (mine.length ? block(mine) : '') +
+    const view = S().ui.rosterView || 'chips';
+    return (all.length > 1 ? People.sortBar(mode, 'rsort').replace('</span>', `<button type="button" class="chip ${view === 'list' ? 'on' : ''}" data-rview="${view === 'list' ? 'chips' : 'list'}" title="Puces ou liste">${view === 'list' ? '☰ Liste' : '▦ Puces'}</button></span>`) : '') + (warn.length ? `<p class="muted small">⚠️ = pas en règle (${warn.length}) : licence en attente ou certificat médical à fournir. Voir avec le responsable.</p>` : '') + (mine.length ? block(mine) : '') +
       (others.length ? `${mine.length ? `<div class="lbl">Autres joueurs de la catégorie ${esc((t && t.category) || '')} (${others.length})</div>` : ''}${block(others)}` : '') +
       (guests.length ? `<div class="lbl">🤝 Renforts d'autres catégories (${guests.length}) <button type="button" class="linkish" data-guestman="${esc(teamId)}">gérer</button></div>${block(guests)}` : '') +
       (!all.length ? '<p class="muted">Aucun joueur dans cette catégorie : ajoute-les dans Équipes.</p>' : '');
@@ -20134,6 +20158,7 @@ var Views = (() => {
         const ab = $('.abs-fold', root); if (ab) { const open = ab.open; const tmp = document.createElement('div'); tmp.innerHTML = absBox(tr.teamId); const nb = tmp.firstElementChild; if (nb) { nb.open = open; ab.replaceWith(nb); } else ab.remove(); }
         rateTr(); return;
       }
+      if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.allpres) {
         if (b.dataset.allpres === '0' && (tr.presents || []).length && !(await confirmBox('Décocher tous les présents de cette séance ?', 'Décocher'))) return;
@@ -20518,6 +20543,7 @@ var Views = (() => {
       if (b.dataset.act === 'sameconv') { const prev = lastConv(m); if (!prev) return; const ids = new Set(Store.rosterOf(m.teamId).map(p => p.id)); m.convoked = prev.convoked.filter(id => ids.has(id)); save(); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
+      if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.minset) {
         const full = People.matchLength(m), v = { full, half: Math.round(full / 2), zero: 0 }[b.dataset.v];
@@ -20709,6 +20735,11 @@ var Views = (() => {
       <div class="set-pane" ${tabs && setTab !== 'moi' ? 'hidden' : ''}>
       ${Auth.settingsSection()}
       ${Help.settingsSection()}
+      <section class="card">
+        <h2>🌗 Apparence</h2>
+        <p class="muted">Sur cet appareil. « Auto » suit le réglage du téléphone.</p>
+        <div class="chips">${[['', 'Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([v, l]) => `<button class="chip ${(document.documentElement.dataset.theme || '') === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div>
+      </section>
       <section class="card nav-pos-card">
         <h2>🧭 Menu sur le téléphone</h2>
         <p class="muted">Où veux-tu le menu de l'appli quand tu es sur ton téléphone ? Le choix reste sur cet appareil.</p>
@@ -20754,6 +20785,7 @@ var Views = (() => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.stab) { setTab = b.dataset.stab; return settings(root); }
+      if (b.dataset.theme != null) { const v = b.dataset.theme; try { if (v) localStorage.setItem(AppCfg.key('theme'), v); else localStorage.removeItem(AppCfg.key('theme')); } catch (e) {} if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; return settings(root); }
       if (b.dataset.navpos) { App.setNavPos(b.dataset.navpos); return settings(root); }
       if (b.dataset.home) { c.homeBib = b.dataset.home; Store.save(); App.refreshChrome(); return settings(root); }
       if (b.dataset.away) { c.awayBib = b.dataset.away; Store.save(); return settings(root); }
@@ -20943,6 +20975,24 @@ var App = (() => {
   const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain']], ['Réglages et aide', ['signalements', 'reglages']]];
   const view = () => document.getElementById('view');
 
+  // (2.80) phone gestures: a swipe from the left edge goes back, a pull from the top of the page refreshes
+  (() => {
+    let x0 = -1, y0 = -1, pull = 0, edge = false;
+    const ptr = document.getElementById('pullHint') || (() => { const d = document.createElement('div'); d.id = 'pullHint'; d.textContent = '↓ Actualiser'; document.body.appendChild(d); return d; })();
+    addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; pull = 0; edge = x0 < 22 && !document.body.classList.contains('editing'); }, { passive: true });
+    addEventListener('touchmove', e => {
+      if (document.body.classList.contains('editing') || document.getElementById('modal')) return;
+      const t = e.touches[0], dy = t.clientY - y0;
+      if (!edge && window.scrollY <= 0 && dy > 0 && Math.abs(t.clientX - x0) < 40) { pull = dy; ptr.classList.toggle('show', dy > 50); ptr.classList.toggle('go', dy > 90); }
+    }, { passive: true });
+    addEventListener('touchend', e => {
+      const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      ptr.classList.remove('show', 'go');
+      if (edge && dx > 90 && Math.abs(dy) < 70 && !document.getElementById('modal')) { history.back(); return; }
+      if (pull > 90) { if (typeof Sync !== 'undefined' && Sync.run) { try { Sync.run(); } catch (x) {} } route(); UI.toast('Actualisé'); }
+      pull = 0; edge = false;
+    }, { passive: true });
+  })();
   // (2.79) no network (the pitch, the gym): say it, the changes leave when it comes back
   const netState = () => document.body.classList.toggle('offline', !navigator.onLine);
   window.addEventListener('online', netState); window.addEventListener('offline', netState); setTimeout(netState, 0);
@@ -21078,7 +21128,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 180, UPD = AppCfg.key('update-tried');
+  const BUILD = 181, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

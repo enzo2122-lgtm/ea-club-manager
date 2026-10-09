@@ -5,6 +5,16 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 138, date: '2026-10-09', title: "Sous le capot et dans le miroir 🔧🪞", items: [
+      ['🌗', "Apparence : Auto, Clair ou Sombre, dans Réglages → Moi. Pour les soirs d'entraînement sous les projecteurs."],
+      ['☰', "Convocations et présences : en plus des puces, une vue « Liste » avec de grandes lignes, faite pour le pouce."],
+      ['👈', "Sur téléphone : glisse depuis le bord gauche pour revenir en arrière, tire la page vers le bas pour actualiser."],
+      ['👪', "Côté joueurs et parents : l'en-tête prend moins de place, le contenu arrive plus vite à l'écran."],
+      ['🖼️', "Photos et miniatures enregistrées en WebP quand le téléphone sait le faire : deux à trois fois plus légères."],
+      ['⚡', "Les recherches dans les données du club sont indexées : plus de lenteur avec des centaines de joueurs et plusieurs saisons."],
+      ['🧪', "Avant chaque publication, treize scénarios sont joués dans un vrai navigateur (ouvrir un match, convoquer, jour J, séance, réglages…)."],
+      ['🧹', "Ménage dans la feuille de style : règles mortes supprimées, coins et ombres harmonisés."],
+    ] },
     { n: 137, date: '2026-10-09', title: "Moins de gestes, plus de terrain 🏃", items: [
       ['🔁', "Convocation en un geste : « Comme au dernier match » reprend la même équipe, tu ajustes et tu envoies."],
       ['📝', "Le + sur Séances propose « Reprendre la dernière séance » : même catégorie, même jour de la semaine, tout est prêt."],

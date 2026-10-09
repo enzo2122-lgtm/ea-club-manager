@@ -19,6 +19,9 @@ const AppCfg = (() => {
   };
 })();
 
+/* (2.80) the look chosen on this device (Réglages → Moi → Apparence): auto (the phone decides), light or dark */
+(function () { try { const t = localStorage.getItem(AppCfg.key('theme')); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {} })();
+
 /* (2.38 → removed in 2.48: hiding and showing the page to make iOS measure again made the screen flash; the gap is handled by iosFill) */
 
 /* (2.41) « 📏 Mesurer l'écran » (Plus): the sizes the phone gives to the app, and marks to see what the phone draws at the bottom.

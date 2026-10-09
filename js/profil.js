@@ -18,7 +18,7 @@ const Profil = (() => {
     return new Promise((res, rej) => {
       const img = new Image(), url = URL.createObjectURL(file);
       img.onload = () => { const c = document.createElement('canvas'); c.width = c.height = size; const s = Math.min(img.width, img.height), x = (img.width - s) / 2, y = (img.height - s) / 2;
-        c.getContext('2d').drawImage(img, x, y, s, s, 0, 0, size, size); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', .8)); };
+        c.getContext('2d').drawImage(img, x, y, s, s, 0, 0, size, size); URL.revokeObjectURL(url); res(c.toDataURL((() => { try { const t = document.createElement('canvas'); t.width = t.height = 2; return t.toDataURL('image/webp').indexOf('image/webp') > 0 ? 'image/webp' : 'image/jpeg'; } catch (e) { return 'image/jpeg'; } })(), .8)); };
       img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Photo illisible')); }; img.src = url;
     });
   }

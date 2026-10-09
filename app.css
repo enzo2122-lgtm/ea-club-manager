@@ -291,9 +291,6 @@ a.hero-chip:hover { background: rgba(201,164,92,.22); }
 .badge { display: inline-block; font-size: 12.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--navy); color: var(--gold-soft); }
 .team-card { border-top: 4px solid var(--bordeaux); }
 .players { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 14px; }
-.player-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 150px 44px; gap: 8px; align-items: center; }
-.player-row .num { text-align: center; font-weight: 800; }
-@media (max-width: 520px) { .player-row { grid-template-columns: 58px minmax(0, 1fr) 44px; } .player-row select { grid-column: 2; } .player-row .icon-btn { grid-row: 1; grid-column: 3; } }
 
 .schema-card { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .sc-meta { display: flex; flex-direction: column; padding: 0 4px; }
@@ -309,7 +306,6 @@ a.hero-chip:hover { background: rgba(201,164,92,.22); }
 .dur input { width: 74px; text-align: center; }
 .ex-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 16px; }
 .ex-schema { display: flex; flex-direction: column; gap: 8px; }
-.no-schema { display: flex; flex-direction: column; gap: 8px; justify-content: center; height: 100%; padding: 16px; border: 2px dashed var(--line); border-radius: 12px; }
 @media (max-width: 900px) { .ex-body { grid-template-columns: 1fr; } .ex-head { flex-wrap: wrap; } .ex-title { flex: 1 1 60%; } }
 .roster .chip { min-height: 46px; }
 .pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
@@ -511,7 +507,6 @@ fieldset.parent legend { font-weight: 800; padding: 0 6px; font-family: var(--ro
 @media (max-width: 560px) { .rate-row { grid-template-columns: 1fr auto; } .rate-row .face, .rate-row .avg { justify-self: start; } .star { width: 38px; } }
 .notes-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; }
 .notes-list li { display: grid; grid-template-columns: auto 1fr; gap: 10px; }
-.stars-ro { color: var(--gold); letter-spacing: 1px; white-space: nowrap; }
 .stars-ro i { font-style: normal; color: var(--line); }
 
 /* ---------- result smileys ---------- */
@@ -537,7 +532,6 @@ fieldset.parent legend { font-weight: 800; padding: 0 6px; font-family: var(--ro
 .no-thumb { display: grid; place-items: center; width: 100%; height: 100%; color: var(--muted); }
 .play-badge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(14,29,69,.75); color: #fff; }
 .play-badge svg { width: 18px; height: 18px; }
-.file-btn { cursor: pointer; }
 .viewer img, .viewer video { width: 100%; max-height: 65dvh; object-fit: contain; border-radius: 12px; background: #000; display: block; }
 
 /* ================= phone polish ================= */
@@ -1865,8 +1859,6 @@ body.modal-top #modal { z-index: 90; }
 @media (max-width: 520px) { .ex-lib .ex-item > .ex-add span { display: none; } .ex-lib .ex-item > .ex-add { width: 44px; padding: 0; justify-content: center; } }
 .ex-more > summary { cursor: pointer; color: var(--muted); font-weight: 700; font-size: 14px; margin-top: 6px; }
 /* réglages : deux parties */
-.group-h { margin: 26px 0 10px; font-size: 15px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 800; }
-.page-head + .group-h { margin-top: 4px; }
 /* titres de section plus marqués, plus d'air entre les blocs */
 h2.section { padding-left: 10px; border-left: 4px solid var(--gold); }
 
@@ -2296,7 +2288,6 @@ html.ios-app, html.ios-app body { overscroll-behavior: none; }
 .chip:has(.lic-warn) { background: #fff3e0; border-color: #f59e0b; color: #7c2d12; }
 .chip.on:has(.lic-warn) { background: #f59e0b; border-color: #d97706; color: #fff; }
 .person:has(.lic-warn) .person-main { background: #fff7ed; }
-.lic-legend { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
 .tr-more { margin-top: 8px; }
 
 /* (2.78) the home: the next thing to do on top, the rest folded; Réglages in two tabs; the orange legend wherever a pending licence shows */
@@ -2310,3 +2301,19 @@ html.ios-app, html.ios-app body { overscroll-behavior: none; }
 .md-who-t { margin: 12px 0 6px; }
 .chip.abs { background: #fee2e2; border-color: #ef4444; color: #7f1d1d; text-decoration: line-through; }
 body.offline::before { content: '📴 Hors connexion : tes changements partiront quand le réseau reviendra'; position: fixed; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 8px); z-index: 60; background: #7c2d12; color: #fff; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,.3); max-width: calc(100vw - 32px); text-align: center; pointer-events: none; }
+
+/* (2.80) the look chosen by hand (Réglages → Apparence) wins over the phone's setting */
+html[data-theme="dark"] { --bg: #0a0f22; --surface: #121a33; --surface2: #18223f; --ink: #eceef6; --muted: #9aa1b8; --line: #263156; color-scheme: dark; }
+html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[data-theme="dark"] .quick-btn:first-child, html[data-theme="dark"] .step-chip.on { --accent: #b3203a; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="light"] { --bg: #f3f1ef; --surface: #ffffff; --surface2: #f7f4f2; --ink: #14172b; --muted: #5d6072; --line: #e2dcd8; color-scheme: light; }
+  html[data-theme="light"] .btn.primary, html[data-theme="light"] .chip.on, html[data-theme="light"] .quick-btn:first-child, html[data-theme="light"] .step-chip.on { --accent: #8c1024; }
+}
+/* (2.80) the roster as a list: one big row per player, a tick at the end when he is chosen */
+.chips.roster.as-list { flex-direction: column; gap: 6px; }
+.chips.roster.as-list .chip { width: 100%; justify-content: flex-start; min-height: 50px; padding: 0 16px; border-radius: 12px; font-size: 16.5px; }
+.chips.roster.as-list .chip::after { content: ''; margin-left: auto; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+.chips.roster.as-list .chip.on::after { content: '✓'; display: inline-flex; align-items: center; justify-content: center; border-color: transparent; background: rgba(255,255,255,.25); color: inherit; font-weight: 800; font-size: 14px; }
+/* (2.80) pull to refresh */
+#pullHint { position: fixed; top: calc(env(safe-area-inset-top) + 6px); left: 50%; transform: translate(-50%, -140%); z-index: 59; background: var(--surface); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; transition: transform .15s; pointer-events: none; }
+#pullHint.show { transform: translate(-50%, 0); } #pullHint.go { color: var(--accent); border-color: var(--accent); }

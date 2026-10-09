@@ -122,7 +122,15 @@ const Store = (() => {
   }
   // Save without telling the listeners (used by the sync, which is itself a listener)
   function persistNow() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 50); }
-  const get = (col, id) => state[col].find(x => x.id === id);
+  // (2.80) an index id → position per collection, rebuilt when the array changes (replaced, grown) or no longer matches
+  const idx = {};
+  const build = a => { const m = new Map(); for (let i = 0; i < a.length; i++) m.set(a[i].id, i); return { a, n: a.length, m }; };
+  const get = (col, id) => {
+    const a = state[col]; if (!a) return undefined;
+    let x = idx[col]; if (!x || x.a !== a || x.n !== a.length) x = idx[col] = build(a);
+    let p = x.m.get(id); if (p != null && a[p] && a[p].id === id) return a[p];
+    x = idx[col] = build(a); p = x.m.get(id); return p != null ? a[p] : undefined;
+  };
   // (2.61) a staff with « Observation (lecture seule) »: he sees everything he may see, he changes nothing
   let roT = 0;
   const ro = col => typeof Auth !== 'undefined' && Auth.canWrite && !Auth.canWrite(col);

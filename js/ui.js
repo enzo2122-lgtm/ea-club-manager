@@ -1,5 +1,7 @@
 /* Small UI helpers: escaping, toasts, modal sheets, confirmations, thumbnails. */
 const UI = (() => {
+  // (2.80) photos and thumbnails: WebP where the browser can make it (2 to 3 times lighter), JPEG elsewhere
+  const IMG = (() => { try { const c = document.createElement('canvas'); c.width = c.height = 2; return c.toDataURL('image/webp').indexOf('image/webp') > 0 ? 'image/webp' : 'image/jpeg'; } catch (e) { return 'image/jpeg'; } })();
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -77,7 +79,7 @@ const UI = (() => {
     // (2.30) an animated schema is shown whole: every movement of every step on the picture
     const view = typeof AutoSchema !== 'undefined' && AutoSchema.overview ? AutoSchema.overview(sc) : sc;
     Board.drawFrame(c.getContext('2d'), w, h, view, 0, 0, { homeBib: Store.state.club.homeBib });
-    const url = c.toDataURL('image/jpeg', .8); thumbCache.set(key, url); return url;
+    const url = c.toDataURL(IMG, .8); thumbCache.set(key, url); return url;
   }
 
   const fmtDate = (d, opts = { weekday: 'short', day: 'numeric', month: 'short' }) => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', opts) : '';
@@ -172,5 +174,5 @@ const UI = (() => {
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   })();
-  return { kindSeg, finePointer, esc, $, $$, toast, modal, confirmBox, busy, bgTask, thumb, fmtDate, today, accentFor, pickFiles, chooseFiles, motto, mottoIdea, MOTTO_MAX };
+  return { IMG,  kindSeg, finePointer, esc, $, $$, toast, modal, confirmBox, busy, bgTask, thumb, fmtDate, today, accentFor, pickFiles, chooseFiles, motto, mottoIdea, MOTTO_MAX };
 })();
