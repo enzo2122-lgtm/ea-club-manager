@@ -5,6 +5,21 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 136, date: '2026-10-09', title: "L'accueil va droit au but 🎯", items: [
+      ['📅', "En haut de l'accueil : ton prochain rendez-vous (séance ou match) et le seul bouton qui compte. Le reste (raccourcis, planning, résultats, schémas) se plie et se déplie, et l'appli s'en souvient."],
+      ['⚙️', "Réglages en deux onglets pour les responsables : Moi, Le club. Les réglages rares (couleurs du tableau, fichiers, exemples, effacer) attendent sous « Avancé »."],
+      ['🏳️', "Jour de match sur téléphone : le drapeau des supporters passe sous le message de bienvenue au lieu de l'écraser."],
+      ['⏳', "Dès qu'un joueur en attente de licence apparaît en orange, une petite légende explique la couleur."],
+    ] },
+    { n: 135, date: '2026-10-09', title: "Moins de boutons, plus de foot 🧹", items: [
+      ['🧢', "Ajouter un éducateur : un bouton partout où tu le cherches (le +, Gestion, Réglages → Comptes, Équipes). Sa fiche, puis son lien pour entrer dans l'appli."],
+      ['⋯', "Sur chaque page, un seul bouton principal reste en vue (trois sur ordinateur) ; les autres attendent sagement derrière « ⋯ »."],
+      ['🏟️', "Page d'un match : le bouton qui compte maintenant (Convoquer, Faire la compo, Jour de match, Score et notes), rien d'autre."],
+      ['📝', "Page d'une séance : la date, l'heure, l'équipe. Objectif et groupe sont pliés, à déplier si besoin."],
+      ['➕', "Le gros + fait la chose évidente là où tu es : nouvelle séance sur Séances, nouveau match sur Matchs, nouveau joueur sur Joueurs."],
+      ['⏳', "Les joueurs dont la licence n'est pas encore validée sont en orange partout (convocations, compos, listes)."],
+      ['❓', "La carte « Comment ça marche ? » ne s'ouvre qu'à la première visite d'une page. Ensuite, le ? la rappelle."],
+    ] },
     { n: 134, date: '2026-10-09', title: "Pas d'imprimante dans la poche 🖨️", items: [
       ['📱', "Codes personnels : sur iPhone, l'appli installée ne peut pas imprimer (iOS l'interdit). Elle le dit maintenant, et propose de partager la liste des codes en texte. Les cartes avec QR code s'impriment depuis un ordinateur."],
     ] },

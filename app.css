@@ -1281,6 +1281,7 @@ h2.section svg { width: 22px; height: 22px; vertical-align: -4px; margin-right: 
 @media (max-width: 760px) {
   .hero-me { flex-wrap: wrap; }
   .hero-flag { order: 5; width: 100%; max-width: 330px; margin: 4px auto -10px; }
+  .hero-main { min-width: 55%; } /* (2.78) match day on a phone: the flag goes under the greeting instead of crushing it */
 }
 @media (prefers-reduced-motion: reduce) {
   .coin-in, .coin-front::after, .fl-s, .fl-sh, .sp, .sp-scarf, .coin, #view.page-enter .hero .coin { animation: none !important; }
@@ -2297,3 +2298,10 @@ html.ios-app, html.ios-app body { overscroll-behavior: none; }
 .person:has(.lic-warn) .person-main { background: #fff7ed; }
 .lic-legend { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
 .tr-more { margin-top: 8px; }
+
+/* (2.78) the home: the next thing to do on top, the rest folded; Réglages in two tabs; the orange legend wherever a pending licence shows */
+.today-card { border-left: 5px solid var(--accent, #1b2f6b); }
+.today-card .tc-title { margin: 4px 0 12px; font-size: 16px; line-height: 1.35; }
+.set-tabs { margin: 0 0 14px; }
+.set-pane[hidden] { display: none; }
+.chips:has(.chip .lic-warn)::after, .people:has(.lic-warn)::after { content: '⏳ en orange : licence pas encore validée (ou certificat manquant)'; display: block; flex-basis: 100%; width: 100%; font-size: 12px; color: var(--muted); margin-top: 4px; }

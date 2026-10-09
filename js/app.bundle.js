@@ -3717,7 +3717,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.77';
+  const VERSION = '2.78';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16670,6 +16670,21 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 136, date: '2026-10-09', title: "L'accueil va droit au but 🎯", items: [
+      ['📅', "En haut de l'accueil : ton prochain rendez-vous (séance ou match) et le seul bouton qui compte. Le reste (raccourcis, planning, résultats, schémas) se plie et se déplie, et l'appli s'en souvient."],
+      ['⚙️', "Réglages en deux onglets pour les responsables : Moi, Le club. Les réglages rares (couleurs du tableau, fichiers, exemples, effacer) attendent sous « Avancé »."],
+      ['🏳️', "Jour de match sur téléphone : le drapeau des supporters passe sous le message de bienvenue au lieu de l'écraser."],
+      ['⏳', "Dès qu'un joueur en attente de licence apparaît en orange, une petite légende explique la couleur."],
+    ] },
+    { n: 135, date: '2026-10-09', title: "Moins de boutons, plus de foot 🧹", items: [
+      ['🧢', "Ajouter un éducateur : un bouton partout où tu le cherches (le +, Gestion, Réglages → Comptes, Équipes). Sa fiche, puis son lien pour entrer dans l'appli."],
+      ['⋯', "Sur chaque page, un seul bouton principal reste en vue (trois sur ordinateur) ; les autres attendent sagement derrière « ⋯ »."],
+      ['🏟️', "Page d'un match : le bouton qui compte maintenant (Convoquer, Faire la compo, Jour de match, Score et notes), rien d'autre."],
+      ['📝', "Page d'une séance : la date, l'heure, l'équipe. Objectif et groupe sont pliés, à déplier si besoin."],
+      ['➕', "Le gros + fait la chose évidente là où tu es : nouvelle séance sur Séances, nouveau match sur Matchs, nouveau joueur sur Joueurs."],
+      ['⏳', "Les joueurs dont la licence n'est pas encore validée sont en orange partout (convocations, compos, listes)."],
+      ['❓', "La carte « Comment ça marche ? » ne s'ouvre qu'à la première visite d'une page. Ensuite, le ? la rappelle."],
+    ] },
     { n: 134, date: '2026-10-09', title: "Pas d'imprimante dans la poche 🖨️", items: [
       ['📱', "Codes personnels : sur iPhone, l'appli installée ne peut pas imprimer (iOS l'interdit). Elle le dit maintenant, et propose de partager la liste des codes en texte. Les cartes avec QR code s'impriment depuis un ordinateur."],
     ] },
@@ -19669,6 +19684,29 @@ var Views = (() => {
       ${soon.length ? `<ul class="bd-soon">${soon.map(x => `<li><b>${esc(Store.fullName(x.p))}</b> <span class="muted">· ${esc(cat(x.t))} · ${x.age} ans ${esc(when(x.in))}</span></li>`).join('')}</ul>` : ''}
     </section>`;
   }
+  // (2.78) the top of the home: the one next thing to do, with its one button
+  const homeOpen = () => S().ui.homeMore != null ? !!S().ui.homeMore : innerWidth > 760;
+  function todayCard(next, nextTr, now) {
+    const tn = id => (Store.get('teams', id) || {}).name || '';
+    const trFirst = nextTr && (!next || nextTr.date < next.date || (nextTr.date === next.date && (nextTr.time || '') < (next.time || '')));
+    const when = d => d === now ? 'Aujourd\'hui' : d === addDays(now, 1) ? 'Demain' : fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, c => c.toUpperCase());
+    let title, sub, act = '';
+    if (trFirst) {
+      const n = (nextTr.exercises || []).length;
+      title = when(nextTr.date) + (nextTr.time ? ' ' + esc(nextTr.time) : '') + ' · séance ' + esc(tn(nextTr.teamId));
+      sub = esc(nextTr.title || 'Entraînement') + ' · ' + (n ? n + ' exercice' + (n > 1 ? 's' : '') : 'pas encore d\'exercice');
+      act = '<a class="btn primary" href="#/entrainement/' + nextTr.id + '">📝<span>' + (n ? 'Ouvrir la séance' : 'Préparer la séance') + '</span></a>';
+    } else if (next) {
+      const conv = next.convoked || [], lineup = next.lineupId;
+      title = when(next.date) + (next.time ? ' ' + esc(next.time) : '') + ' · ' + matchTitle(next);
+      sub = (next.home ? 'Domicile' : 'Extérieur') + (conv.length ? ' · ' + conv.length + ' convoqué' + (conv.length > 1 ? 's' : '') : ' · personne n\'est convoqué');
+      act = next.date === now ? '<a class="btn primary" href="#/jourj/' + next.id + '">🏟️<span>Jour de match</span></a>'
+        : !conv.length ? '<a class="btn primary" href="#/match/' + next.id + '">📣<span>Convoquer</span></a>'
+        : !lineup ? '<a class="btn primary" href="#/match/' + next.id + '">🧩<span>Faire la compo</span></a>'
+        : '<a class="btn primary" href="#/jourj/' + next.id + '">🏟️<span>Tout préparer</span></a>';
+    } else { title = 'Rien de prévu'; sub = 'Ajoute un match ou prépare une séance avec le gros +'; }
+    return '<section class="card today-card"><h2>📅 Prochain rendez-vous</h2><p class="tc-title"><b>' + title + '</b><br><span class="muted">' + sub + '</span></p>' + act + '</section>';
+  }
   function home(root) {
     const now = today();
     const matches = byTeam(S().matches), trainings = byTeam(S().trainings);
@@ -19679,6 +19717,7 @@ var Views = (() => {
     root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${Auth.limited() === 'med' ? '<div class="ro-note">🩺 <b>Accès référent médical</b> : tu vois toutes les catégories du club. Tu modifies seulement les fiches des joueurs (blessures, fiche urgence). <a href="#/infirmerie">Infirmerie</a> · <a href="#/urgences">Fiches urgence</a></div>' : ''}${hero(now)}
       ${serverBanner()}
       ${teamSwitch()}
+      ${todayCard(next, nextTr, now)}
       ${setupCard()}
       ${birthdayCard()}
       ${Onboard.planCard()}
@@ -19688,6 +19727,7 @@ var Views = (() => {
       ${Quick.backupCard()}
       ${President.homeReminder()}
       ${Weather.placeholder()}
+      <details class="fold home-more" ${homeOpen() ? 'open' : ''}><summary>🗂️ Le reste de l'accueil <span class="muted small">(raccourcis, planning, résultats, schémas)</span></summary>
       <div class="quick">
         <button class="quick-btn" data-go="new-schema">${I.board}<b>Dessiner un exercice</b><span>Joueurs, flèches, zones</span></button>
         <button class="quick-btn" data-go="new-training">${I.training}<b>Préparer un entraînement</b><span>Exercices et PDF</span></button>
@@ -19718,7 +19758,8 @@ var Views = (() => {
           <h2>${I.board}Derniers schémas</h2>
           ${schemas.length ? `<div class="mini-grid">${schemas.map(s => `<a href="#/schema/${s.id}" class="mini"><img alt="" src="${UI.thumb(s, 320, 208)}"><span>${esc(s.name)}</span></a>`).join('')}</div>` : `<p class="muted">Aucun schéma.</p>`}
         </section>
-      </div>`;
+      </div></details>`;
+    const hm = $('.home-more', root); if (hm) hm.ontoggle = () => { S().ui.homeMore = hm.open ? 1 : 0; Store.persistNow(); };
     bindTeamSwitch(root, () => home(root));
     Planning.upcoming($('#planMini', root));
     homeWeather(root, now);
@@ -20630,12 +20671,14 @@ var Views = (() => {
   }
 
   /* ================= Réglages ================= */
+  let setTab = 'moi'; // (2.78) the tab of Réglages a responsable looks at
   function settings(root) {
-    const c = S().club;
+    const c = S().club, tabs = Auth.isAdmin();
     const bibs = (key, cur) => `<div class="chips">${Object.entries(Board.BIBS).map(([k, v]) => `<button class="chip bib ${k === cur ? 'on' : ''}" data-${key}="${k}" aria-label="${k}"><i class="sw" style="background:${v[0]}"></i>${k}</button>`).join('')}</div>`;
     const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-    root.innerHTML = `${header('Réglages', Auth.isAdmin() ? 'Toi, puis le club' : '')}
-      <h2 class="group-h">👤 Moi</h2>
+    root.innerHTML = `${header('Réglages', '')}
+      ${tabs ? `<div class="chips set-tabs"><button class="chip ${setTab === 'moi' ? 'on' : ''}" data-stab="moi">👤 Moi</button><button class="chip ${setTab === 'club' ? 'on' : ''}" data-stab="club">🏟️ Le club</button></div>` : ''}
+      <div class="set-pane" ${tabs && setTab !== 'moi' ? 'hidden' : ''}>
       ${Auth.settingsSection()}
       ${Help.settingsSection()}
       <section class="card nav-pos-card">
@@ -20647,10 +20690,11 @@ var Views = (() => {
         <h2>${I.help}Installer l'appli sur le téléphone</h2>
         <ol class="steps-help"><li>Ouvre cette page dans <b>Safari</b> (iPhone) ou <b>Chrome</b> (Android).</li><li>Touche <b>Partager</b> (le carré avec une flèche) ou le menu <b>⋮</b>.</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li></ol>
       </section>`}
-      <h2 class="group-h">🏟️ Le club</h2>
+      </div><div class="set-pane" ${tabs && setTab !== 'club' ? 'hidden' : ''}>
       ${Cloud.settingsSection()}
       ${Auth.isAdmin() ? Onboard.card() : ''}
       ${Sources.card()}
+      <details class="fold"><summary>🛠️ Avancé <span class="muted small">(couleurs du tableau, fichiers, exemples, effacer)</span></summary>
       ${Auth.isAdmin() ? `<section class="card">
         <h2>${I.team}Tableau tactique</h2>
         <div class="lbl">Couleur de nos maillots</div>${bibs('home', c.homeBib)}
@@ -20673,6 +20717,7 @@ var Views = (() => {
         <p class="muted">${Cloud.ready() ? 'Efface les données de cet appareil seulement (elles restent sur le serveur du club et reviennent à la prochaine connexion).' : 'Les données sont enregistrées sur cet appareil uniquement. Pense à envoyer une copie avant d\'effacer.'}</p>
         <button class="btn danger" data-act="reset">${I.trash}<span>Effacer les données de cet appareil</span></button>
       </section>` : ''}
+      </details></div>
       <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="News.all()">Nouveautés</button> · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
@@ -20680,6 +20725,7 @@ var Views = (() => {
     root.onclick = async e => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.stab) { setTab = b.dataset.stab; return settings(root); }
       if (b.dataset.navpos) { App.setNavPos(b.dataset.navpos); return settings(root); }
       if (b.dataset.home) { c.homeBib = b.dataset.home; Store.save(); App.refreshChrome(); return settings(root); }
       if (b.dataset.away) { c.awayBib = b.dataset.away; Store.save(); return settings(root); }
@@ -21001,7 +21047,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 178, UPD = AppCfg.key('update-tried');
+  const BUILD = 179, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
