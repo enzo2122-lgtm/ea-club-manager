@@ -91,6 +91,7 @@ begin
     if not (p_team = any(ea_arr(st.data->'teamIds'))) then raise exception 'ADMIN'; end if;
   end if;
   if coalesce(p_new, 0) > 0 then
+    delete from guest_codes where club = c and team_id = p_team and player_id is null and created_at < now() - interval '60 days'; -- (2.75) the expired ones go
     if (select count(*) from guest_codes where club = c and team_id = p_team and player_id is null) + least(p_new, 10) > 50 then raise exception 'LIMITE'; end if;
     who := coalesce((select trim(coalesce(s.data->>'firstName', '') || ' ' || coalesce(s.data->>'lastName', '')) from items s where s.club = c and s.col = 'staff' and s.id = sid and not s.deleted), 'Responsable');
     for i in 1..least(p_new, 10) loop
@@ -99,6 +100,7 @@ begin
     end loop;
   end if;
   return (select coalesce(jsonb_agg(jsonb_build_object('code', g.code, 'at', g.created_at, 'by', g.created_by, 'used', g.used_at, 'player', g.player_id,
+      'expired', g.player_id is null and g.created_at < now() - interval '60 days',
       'name', (select ea_short(i.data) from items i where i.club = c and i.col = 'players' and i.id = g.player_id and not i.deleted),
       'status', case when g.player_id is null then null else coalesce((select case when i.data->>'guest' = 'pending' then 'pending' else 'ok' end from items i where i.club = c and i.col = 'players' and i.id = g.player_id and not i.deleted), 'gone') end)
       order by g.used_at nulls first, g.created_at), '[]'::jsonb) from guest_codes g where g.club = c and g.team_id = p_team);
@@ -111,6 +113,7 @@ begin
   if length(c) <> 8 then raise exception 'CODE_PERSO'; end if;
   select g1.* into g from guest_codes g1 join clubs cl on cl.id = g1.club and cl.status = 'active' where g1.code = c;
   if g.code is null or g.player_id is not null then raise exception 'CODE_PERSO'; end if;
+  if g.created_at < now() - interval '60 days' then raise exception 'CODE_EXPIRE'; end if; -- (2.75) an invitation not used within 60 days is dead
   select * into t from items where club = g.club and col = 'teams' and id = g.team_id and not deleted;
   if t.id is null then raise exception 'CODE_PERSO'; end if;
   if p_data is null then

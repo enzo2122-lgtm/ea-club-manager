@@ -8,7 +8,7 @@
   const hh = x => String(x || '').replace(':', 'h');
   const fmt = (d, o = { weekday: 'long', day: 'numeric', month: 'long' }) => d ? new Date(d + 'T12:00').toLocaleDateString('fr-FR', o) : '';
   let lead = null; // (2.04) rankings of the category, badges
-  let code = Member.current(), data = null, tips = []; // tips (1.65): the coach's suggestions for the child
+  let code = Member.current(), data = null, tips = [], prof = null; // tips (1.65): the coach's suggestions for the child; prof (2.75): photo, height and weight
   if (!code) { location.replace('moi.html' + location.hash); return; }
 
   let tt;
@@ -131,7 +131,7 @@
         { id: 'resultats', icon: '🏆', label: 'Résultats', html: `${Member.leaders(lead, kid())}${past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : ''}`, empty: 'Pas encore de résultat.' }, // (2.04) badges and rankings
         { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.97) the chat of the category, here too (under 16 the family opens this page)
         { id: 'coachs', icon: '📞', label: 'Coachs', html: '<div id="tkBox"></div>' + ((data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '<p class="tip">Les coachs de la catégorie ne sont pas encore indiqués.</p>') },
-        { id: 'moi', icon: '👤', label: 'Moi', html: `<div id="urgBox"></div><div id="csBox"></div><h2>Réglages</h2>${typeof I18n !== 'undefined' ? I18n.card() : ''}${Member.notifyCard('parents')}${Member.tabPosCard()}${Member.optoutCard(lead)}
+        { id: 'moi', icon: '👤', label: 'Moi', html: `${profCard()}<div id="urgBox"></div><div id="csBox"></div><h2>Réglages</h2>${typeof I18n !== 'undefined' ? I18n.card() : ''}${Member.notifyCard('parents')}${Member.tabPosCard()}${Member.optoutCard(lead)}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil ») pour la retrouver. Le code de ton enfant est personnel : ne le donne à personne. Une question ? Écris au coach.</p>
           ${Member.privacy()}` },
@@ -167,16 +167,32 @@
 
   // (2.01) everything asked at the same time, the page drawn twice; another child: nothing of the one before
   let loadTok = 0, lastLoad = 0;
+  // (2.75) the child's profile: his photo, his height and weight (the curves come with the measures), shared with the coach
+  function profCard() {
+    if (prof === null || typeof Profil === 'undefined') return '';
+    return `<h2>🧍 Profil de ${esc(kid())}</h2><div class="card prof-card">${Profil.photoHtml(prof, { note: `La photo de ${esc(kid())} : vue par les coachs et sur sa fiche.` })}
+      <div class="prof-row"><label>Taille (cm)<input id="pfH" inputmode="numeric" maxlength="3" value="${esc(prof.height || '')}" placeholder="135"></label><label>Poids (kg)<input id="pfW" inputmode="decimal" maxlength="5" value="${esc(prof.weight || '')}" placeholder="30"></label>
+        <button class="b yes on" data-profsave>Enregistrer</button></div>${Profil.growthHtml(prof)}
+      <p class="info small">Mesure ${esc(kid())} 2 ou 3 fois dans la saison : le coach suit sa croissance (un pic de croissance demande de ménager les charges).</p></div>`;
+  }
+  async function profSave() {
+    const w = String(($('#pfW') || {}).value || '').trim().replace(',', '.'), h = String(($('#pfH') || {}).value || '').trim().replace(',', '.');
+    if (w && !(+w >= 15 && +w <= 200)) return toast('Poids : entre 15 et 200 kg', true);
+    if (h && !(+h >= 80 && +h <= 230)) return toast('Taille : en centimètres (ex : 135)', true);
+    try { prof = await rpc('member_profile', { p_code: code, p_data: { weight: w, height: h } }) || {}; toast('Profil enregistré ✓'); render(); } catch (e) { toast(e.message, true); }
+  }
+  if (typeof Profil !== 'undefined') Profil.bind({ code: () => code, rpc, toast, done: pr => { prof = Object.assign(prof || {}, pr); render(); } });
   async function load(quiet) {
     const tok = ++loadTok, c = Member.current(); lastLoad = Date.now();
-    if (c !== code) { code = c; data = null; tips = []; lead = null; Object.keys(photoData).forEach(k => delete photoData[k]); Object.keys(photoAsk).forEach(k => delete photoAsk[k]); }
+    if (c !== code) { code = c; data = null; tips = []; lead = null; prof = null; Object.keys(photoData).forEach(k => delete photoData[k]); Object.keys(photoAsk).forEach(k => delete photoAsk[k]); }
     try {
       const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
       if (!Member.family(d)) { Member.remember(code, d); location.replace('joueurs.html' + location.hash); return; } // (2.07) no families' space above U15
       data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); if (data.guest === 'pending') return; loadPhotos(); // (2.67)
-      const [, t, ld] = await Promise.all([Member.replies(code, data), Member.tips(code), Injury.load(code).catch(() => null).then(() => rpc('member_leaders', { p_code: code })).catch(() => null)]);
+      const [, t, ld, pr] = await Promise.all([Member.replies(code, data), Member.tips(code), Injury.load(code).catch(() => null).then(() => rpc('member_leaders', { p_code: code })).catch(() => null),
+        rpc('member_profile', { p_code: code }).catch(() => undefined)]);
       if (tok !== loadTok) return;
-      tips = t || []; lead = ld || null; render(); loadPhotos();
+      tips = t || []; lead = ld || null; if (pr !== undefined) prof = pr || {}; render(); loadPhotos();
     }
     catch (e) {
       if (tok !== loadTok) return;
@@ -205,6 +221,7 @@
 
   document.addEventListener('click', e => {
     if (Member.onBar(e, () => load())) return;
+    if (e.target.closest('[data-profsave]')) { profSave(); return; }
     if (Injury.onClick(e, code, true, kid(), msg => { toast(msg); render(); loadPhotos(); })) return;
     if (e.target.closest('[data-perso]')) return Perso.open({ key: 'perso-' + ((data.me || {}).id || code), who: kid(), toast, send: text => rpc('member_message', { p_code: code, p_body: text, p_parent: true }) });
     const c = e.target.closest('[data-cal], [data-calall]');

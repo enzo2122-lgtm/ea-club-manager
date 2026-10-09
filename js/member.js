@@ -49,6 +49,7 @@ const Member = (() => {
       if (/SONDAGE_FINI/.test(m)) throw new Error('Ce sondage est terminé.');
       if (/PHOTOS_COACHS/.test(m)) throw new Error('Dans ce chat, seuls les coachs envoient des photos pour l\'instant.');
       if (/\bPHOTO\b/.test(m)) throw new Error('Cette photo ne passe pas : essaie avec une autre.');
+      if (/CODE_EXPIRE/.test(m)) throw new Error('Cette invitation a expiré (plus de 60 jours) : demande un nouveau code au coach.');
       if (/LIMITE_CHAT/.test(m)) throw new Error('Beaucoup de messages aujourd\'hui : réessaie demain.');
       if (/LIMITE/.test(m)) throw new Error('Tu as déjà envoyé 10 messages aujourd’hui : réessaie demain.');
       if (/EN_ATTENTE/.test(m)) { const e = new Error('Ta fiche n\'est pas encore validée par le coach.'); e.code = 'WAIT'; throw e; }
@@ -661,5 +662,5 @@ const Member = (() => {
   }
   // (2.29) the service worker is registered as soon as the page opens (offline copy, and what the stores check), not only with the notifications
   if (location.protocol !== 'file:' && 'serviceWorker' in navigator && !PREVIEW) navigator.serviceWorker.register('sw.js').catch(() => {});
-  return { pendingCard, bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, bar, onBar, pretty, clean, pageFor, list, crest, family };
+  return { pendingCard, bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, guestForm, bar, onBar, pretty, clean, pageFor, list, crest, family };
 })();

@@ -5,6 +5,13 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 133, date: '2026-10-09', title: 'Photo, mètre et carnet d\'invitations 📷📏🎟️', items: [
+      ['📷', "Espaces joueur et parents : une photo de profil, prise avec le téléphone (coupée en rond, toute petite). Le coach la voit sur la fiche du joueur."],
+      ['📏', "Les parents saisissent la taille et le poids de leur enfant ; joueurs et parents voient les courbes de croissance, les mêmes que le coach."],
+      ['🎟️', "Codes d'invitation : chaque code devient un lien unique (🔗 copier, 💬 WhatsApp) qui ouvre directement l'inscription ; une invitation jamais utilisée s'éteint au bout de 60 jours. Serveur : coller supabase/codes-invites-2.75.sql et supabase/profil-photo.sql."],
+      ['🎪', "Plateaux : la durée d'un match est demandée à la création de la journée (minutes justes) ; une équipe qui ne joue que des plateaux voit ses tuiles de bilan comptées sur ses plateaux, avec le nombre de journées."],
+      ['🚫', "Partage de photos aux parents : si une famille a refusé le droit à l'image dans l'appli, les noms sont rappelés avant l'envoi."],
+    ] },
     { n: 132, date: '2026-10-09', title: 'On arrête de déplacer la barre, on repeint le sol 🎨', items: [
       ['📱', "iPhone (appli installée) : la barre des onglets n'est plus déplacée (elle finissait coupée en bas). Le fond de la page sous la barre est peint en bleu marine : la bande en bas est de la couleur de la barre, quoi que fasse l'iPhone."],
     ] },

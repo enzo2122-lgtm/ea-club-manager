@@ -718,7 +718,7 @@ const Views = (() => {
       <div class="row2"><label class="fld"><span>Compétition</span><select id="mComp">${COMPS.map(c => `<option>${c}</option>`).join('')}</select></label>
       <label class="fld"><span>Équipe</span><select id="mTeam">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label></div>
       <div id="mDay" hidden><label class="fld"><span>🎪 Les autres adversaires de la journée (un par ligne, facultatif)</span><textarea id="mOpps" rows="3" placeholder="ex :\nFC Livry\nES Montreuil"></textarea></label>
-        <div class="row2"><label class="fld"><span>Minutes entre deux matchs</span><input id="mGap" type="number" min="0" max="120" value="20" inputmode="numeric"></label></div>
+        <div class="row2"><label class="fld"><span>Durée d'un match (min)</span><input id="mDur" type="number" min="5" max="90" value="15" inputmode="numeric"></label><label class="fld"><span>Minutes entre deux matchs</span><input id="mGap" type="number" min="0" max="120" value="20" inputmode="numeric"></label></div>
         <p class="muted small">Un match est créé pour chaque adversaire, le même jour : ils forment une journée de plateau (convocation commune, bilan de la journée dans les stats).</p></div>`,
       onOpen: r => { $$('#mHome .chip', r).forEach(b => b.onclick = () => { $$('#mHome .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); });
         const sync = () => { $('#mDay', r).hidden = !/plateau|tournoi/i.test($('#mComp', r).value); }; $('#mComp', r).onchange = sync; sync(); },
@@ -727,6 +727,8 @@ const Views = (() => {
         const base = { teamId: $('#mTeam', r).value, date: $('#mDate', r).value || today(), home: $('#mHome .on', r).dataset.v === '1', competition: $('#mComp', r).value, place: '', rdv: '', played: false, gf: 0, ga: 0, convoked: [], stats: {}, notes: '' };
         const day = /plateau|tournoi/i.test(base.competition) ? $('#mOpps', r).value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 11) : [];
         const gap = Math.max(0, Math.min(120, +$('#mGap', r).value || 0)), t0 = $('#mTime', r).value;
+        // (2.75) a day of plateau: short matches, their length is kept on each match (minutes, « tout le monde a joué tout le match »)
+        if (day.length || /plateau|tournoi/i.test(base.competition)) { const d = Math.max(5, Math.min(90, +$('#mDur', r).value || 0)); if (d) base.duration = d; }
         const at = i => { if (!t0 || !i) return t0; const [h, mi] = t0.split(':').map(Number), x = h * 60 + mi + i * gap; return `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
         const m = Store.upsert('matches', { ...base, id: Store.uid(), opponent: $('#mOpp', r).value.trim() || 'Adversaire', time: t0 });
         day.forEach((o, i) => Store.upsert('matches', { ...base, convoked: [], stats: {}, id: Store.uid(), opponent: o, time: at(i + 1) }));
@@ -1118,7 +1120,9 @@ const Views = (() => {
     const trs = S().trainings.filter(x => x.teamId === t.id && (x.presents || []).length);
     // (1.57) the cups (knock-out) apart: the tiles count the championship (or the friendlies), the cups have their own card
     // (2.66) the plateaux apart too (no ranking): one line per day, with its record
-    const isCupM = m => m.competition === 'Coupe', isPlat = m => /plateau/i.test(m.competition || ''), msL = ms.filter(m => !isCupM(m) && !isPlat(m));
+    const isCupM = m => m.competition === 'Coupe', isPlat = m => /plateau/i.test(m.competition || '');
+    // (2.75) a team that only plays plateaux (école de foot): the tiles count the plateau matches, without ranking points
+    let msL = ms.filter(m => !isCupM(m) && !isPlat(m)); const platOnly = !msL.length && ms.some(isPlat); if (platOnly) msL = ms.filter(isPlat);
     const dayCardStats = () => {
       const days = {}; ms.filter(Store.isDayComp).forEach(m => { (days[m.date] = days[m.date] || []).push(m); });
       const list = Object.entries(days).filter(([, d]) => d.length > 1 || isPlat(d[0])).sort((a, b) => b[0].localeCompare(a[0])); if (!list.length) return '';
@@ -1164,13 +1168,13 @@ const Views = (() => {
       ${Store.matchKind() === 'ami' ? '' : Season.leagueCard(t)}
       ${Season.advanced(t)}
       <div class="tiles">
-        <div class="tile"><b>${msL.length}</b><span>Matchs${Store.matchKind() === 'ami' ? '' : ' de championnat'}</span></div>
+        <div class="tile"><b>${msL.length}</b><span>Matchs${Store.matchKind() === 'ami' ? '' : platOnly ? ' de plateau' : ' de championnat'}</span></div>
         <div class="tile v"><b>${V}</b><span>Gagnés</span></div>
         <div class="tile n"><b>${N}</b><span>Nuls</span></div>
         <div class="tile d"><b>${D}</b><span>Perdus</span></div>
         <div class="tile"><b>${bp}</b><span>${Sport.W().Units} marqués</span></div>
         <div class="tile"><b>${bc}</b><span>${Sport.W().Units} encaissés</span></div>
-        <div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>
+        ${platOnly ? `<div class="tile"><b>${new Set(msL.map(m => m.date)).size}</b><span>Journées</span></div>` : `<div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>`}
       </div>
       ${cupCard()}
       ${dayCardStats()}

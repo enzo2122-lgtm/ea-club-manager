@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="Clubbo">
 <link rel="icon" href="icons/ea-logo.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="famille.css?v=175">
+<link rel="stylesheet" href="famille.css?v=176">
 <style>
 .b.cal { min-height: 40px; font-size: 15px; }
 .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin: 10px 0 4px; }
@@ -83,11 +83,11 @@
 <div id="langBox"></div>
 <p class="credit">Clubbo · créée par <b>Coach Enzo</b></p>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script src="js/config.js?v=175"></script>
-<script src="js/appcfg.js?v=175"></script>
-<script src="js/i18n.js?v=175"></script>
-<script src="js/sport.js?v=175"></script>
-<script src="js/member.js?v=175"></script>
+<script src="js/config.js?v=176"></script>
+<script src="js/appcfg.js?v=176"></script>
+<script src="js/i18n.js?v=176"></script>
+<script src="js/sport.js?v=176"></script>
+<script src="js/member.js?v=176"></script>
 <script>document.getElementById('langBox').innerHTML = I18n.card();</script>
 <script>
 (() => {
@@ -100,7 +100,10 @@
   if (c && !add) {
     page.innerHTML = '<p class="empty">Ouverture de ton espace…</p>';
     Member.rpc('member_view', { p_code: c }).then(d => { Member.remember(c, d); location.replace(Member.pageFor(d)); })
-      .catch(e => { if (e.code === 'CODE') Member.forget(c); Member.form(page, { error: e.message }); });
+      .catch(async e => {
+        // (2.75) an invitation link (moi.html#c=CODE with an invitation code): straight to the sign-up
+        if (e.code === 'CODE') { Member.forget(c); let g = null; try { g = await Member.rpc('member_guest', { p_code: c }); } catch (y) { if (/expir/i.test(y.message)) e = y; } if (g && g.guest) return Member.guestForm(page, c, g); }
+        Member.form(page, { error: e.message }); });
   } else Member.form(page);
 })();
 </script>
