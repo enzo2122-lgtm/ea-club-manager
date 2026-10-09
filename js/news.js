@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 131, date: '2026-10-09', title: 'La barre du bas, mesurée au mètre de maçon 🧱', items: [
+      ['📱', "iPhone (appli installée) : la barre des onglets est calée sur la hauteur physique de l'écran, la seule valeur qui ne change jamais. Plus de bande claire dessous, plus de barre cachée ou coupée, chat compris."],
+    ] },
+    { n: 130, date: '2026-10-09', title: 'La barre de gauche prend du galon 📐', items: [
+      ['🖥️', "Sur ordinateur, la barre de gauche affiche 9 pages (Planning, Vie du club, Résultats et stats et le Chat en plus) ; « Plus » ne garde que les outils et les réglages."],
+    ] },
     { n: 129, date: '2026-10-09', title: 'Fini le trampoline 🤸', items: [
       ['📱', "iPhone (appli installée, iOS 26) : quand on tirait la page au-delà du bord, tout rebondissait, barre comprise, et l'iPhone ne la remettait pas toujours en place. Le rebond est désactivé."],
     ] },

@@ -60,9 +60,14 @@ window.ScreenDiag = function () {
    the bottom bars are moved so that their bottom edge is the bottom of the visible area. Checked on every change and twice a second. */
 function placeBars() {
   const vv = window.visualViewport; if (!vv) return;
+  // (2.73) the only constant: the physical height of the screen (portrait). The page is drawn from the top of the screen; when iOS gives it
+  // 894 instead of 956, the bars fixed at the « bottom » stop 62 px too high: they are moved down by the difference. (The visual viewport
+  // and 100dvh/100lvh flip independently on iOS 26: not used.)
   const place = () => {
-    const dy = Math.round(vv.height + vv.offsetTop - innerHeight), t = dy ? 'translateY(' + dy + 'px)' : '';
-    document.querySelectorAll('.rail, .tabbar').forEach(b => { const cs = getComputedStyle(b); if (cs.position !== 'fixed' || cs.display === 'none' || cs.bottom !== '0px') return; if (b.style.transform !== t) b.style.transform = t; });
+    const portrait = innerHeight > innerWidth, dy = portrait ? Math.round(screen.height - innerHeight) : 0, t = dy > 0 && dy <= 120 ? 'translateY(' + dy + 'px)' : '';
+    let changed = false;
+    document.querySelectorAll('.rail, .tabbar').forEach(b => { const cs = getComputedStyle(b); if (cs.position !== 'fixed' || cs.display === 'none' || cs.bottom !== '0px') return; if (b.style.transform !== t) { b.style.transform = t; changed = true; } });
+    if (changed) setTimeout(() => window.dispatchEvent(new Event('resize')), 0); // the chat and the messages measure the bar to size themselves
   };
   ['resize', 'scroll'].forEach(e => vv.addEventListener(e, place));
   ['resize', 'orientationchange', 'pageshow', 'hashchange', 'focusout'].forEach(e => window.addEventListener(e, place));
@@ -78,7 +83,7 @@ function placeBars() {
   // announces (it flips between the screen and the screen minus the status bar, without warning): css rule « html.ios-app » in
   // app.css and member.js. The strip of 2.45 is no longer needed and it covered the bar at times: off (kept for the test page).
   if (ios && standalone) { const on = () => document.documentElement.classList.add('ios-app'); on(); document.addEventListener('DOMContentLoaded', on); placeBars(); }
-  // (2.71) the strip is back (under the bars, remeasured every second): the only thing that can paint the band iOS draws under the page
+  if (!window.__iosFillTest) return; // (2.73) the strip is off for good: the bars themselves go down to the screen (placeBars), with a navy tail under them
   const st = document.createElement('style'); st.id = 'iosFillCss';
   st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
     + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:1;pointer-events:none;background:var(--iosfill,#0e1d45)}'
@@ -3720,7 +3725,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.72';
+  const VERSION = '2.73';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16649,6 +16654,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 131, date: '2026-10-09', title: 'La barre du bas, mesurée au mètre de maçon 🧱', items: [
+      ['📱', "iPhone (appli installée) : la barre des onglets est calée sur la hauteur physique de l'écran, la seule valeur qui ne change jamais. Plus de bande claire dessous, plus de barre cachée ou coupée, chat compris."],
+    ] },
+    { n: 130, date: '2026-10-09', title: 'La barre de gauche prend du galon 📐', items: [
+      ['🖥️', "Sur ordinateur, la barre de gauche affiche 9 pages (Planning, Vie du club, Résultats et stats et le Chat en plus) ; « Plus » ne garde que les outils et les réglages."],
+    ] },
     { n: 129, date: '2026-10-09', title: 'Fini le trampoline 🤸', items: [
       ['📱', "iPhone (appli installée, iOS 26) : quand on tirait la page au-delà du bord, tout rebondissait, barre comprise, et l'iPhone ne la remettait pas toujours en place. Le rebond est désactivé."],
     ] },
@@ -20804,9 +20815,10 @@ var App = (() => {
   // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
     ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
-    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['terrain', 'Chrono et score', 'clock', 'Chrono'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['signalements', 'Signalements et idées', 'help', 'Signalements'], ['reglages', 'Réglages', 'settings'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['terrain', 'Chrono et score', 'clock', 'Chrono'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['signalements', 'Signalements et idées', 'help', 'Signalements'], ['reglages', 'Réglages', 'settings'],
   ];
-  const PHONE_MAIN = 5;
+  const PHONE_MAIN = 5, DESK_MAIN = 9; // (2.73) a phone shows 5 pages in the bar, a computer 9 in the sidebar; « Plus » holds the rest
+  const mainN = () => innerWidth > 760 ? DESK_MAIN : PHONE_MAIN;
   // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
   const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain']], ['Réglages et aide', ['signalements', 'reglages']]];
   const view = () => document.getElementById('view');
@@ -20864,11 +20876,11 @@ var App = (() => {
     tg.innerHTML = `${cur ? I[cur[2]] : I.layers}<span>${UI.esc(cur ? cur[3] || cur[1] : 'Menu')}</span><span aria-hidden="true">▾</span>`;
     rail.classList.remove('open');
     document.getElementById('nav').innerHTML = nav.map(([h, l, ic, short], i) =>
-      `<a href="#/${h}" class="${h === active ? 'on' : ''} ${i >= PHONE_MAIN ? 'more' : ''}" ${h === active ? 'aria-current="page"' : ''} aria-label="${l}">${I[ic]}<span class="lg">${l}</span><span class="sh">${short || l}</span></a>`).join('')
-      + `<button class="nav-more ${idx >= PHONE_MAIN ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
+      `<a href="#/${h}" class="${h === active ? 'on' : ''} ${i >= PHONE_MAIN ? 'more' : ''} ${i >= DESK_MAIN ? 'more-d' : ''}" ${h === active ? 'aria-current="page"' : ''} aria-label="${l}">${I[ic]}<span class="lg">${l}</span><span class="sh">${short || l}</span></a>`).join('')
+      + `<button class="nav-more ${idx >= mainN() ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
     document.getElementById('navMore').onclick = () => {
       const close = UI.modal({ title: 'Plus', noFocus: true,
-        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(PHONE_MAIN).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button><button class="more-item" data-morediag>📏<span>Mesurer l'écran</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
+        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(mainN()).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button><button class="more-item" data-morediag>📏<span>Mesurer l'écran</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
         onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; const nw = r.querySelector('[data-morenews]'); if (nw) nw.onclick = () => { close(); setTimeout(() => News.all(), 60); };
           const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; const dg = r.querySelector('[data-morediag]'); if (dg) dg.onclick = () => { close(); setTimeout(() => window.ScreenDiag && window.ScreenDiag(), 350); }; } }); // (1.67) the latest version in one tap
     };
@@ -20943,7 +20955,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 173, UPD = AppCfg.key('update-tried');
+  const BUILD = 174, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

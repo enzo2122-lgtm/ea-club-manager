@@ -58,9 +58,14 @@ window.ScreenDiag = function () {
    the bottom bars are moved so that their bottom edge is the bottom of the visible area. Checked on every change and twice a second. */
 function placeBars() {
   const vv = window.visualViewport; if (!vv) return;
+  // (2.73) the only constant: the physical height of the screen (portrait). The page is drawn from the top of the screen; when iOS gives it
+  // 894 instead of 956, the bars fixed at the « bottom » stop 62 px too high: they are moved down by the difference. (The visual viewport
+  // and 100dvh/100lvh flip independently on iOS 26: not used.)
   const place = () => {
-    const dy = Math.round(vv.height + vv.offsetTop - innerHeight), t = dy ? 'translateY(' + dy + 'px)' : '';
-    document.querySelectorAll('.rail, .tabbar').forEach(b => { const cs = getComputedStyle(b); if (cs.position !== 'fixed' || cs.display === 'none' || cs.bottom !== '0px') return; if (b.style.transform !== t) b.style.transform = t; });
+    const portrait = innerHeight > innerWidth, dy = portrait ? Math.round(screen.height - innerHeight) : 0, t = dy > 0 && dy <= 120 ? 'translateY(' + dy + 'px)' : '';
+    let changed = false;
+    document.querySelectorAll('.rail, .tabbar').forEach(b => { const cs = getComputedStyle(b); if (cs.position !== 'fixed' || cs.display === 'none' || cs.bottom !== '0px') return; if (b.style.transform !== t) { b.style.transform = t; changed = true; } });
+    if (changed) setTimeout(() => window.dispatchEvent(new Event('resize')), 0); // the chat and the messages measure the bar to size themselves
   };
   ['resize', 'scroll'].forEach(e => vv.addEventListener(e, place));
   ['resize', 'orientationchange', 'pageshow', 'hashchange', 'focusout'].forEach(e => window.addEventListener(e, place));
@@ -76,7 +81,7 @@ function placeBars() {
   // announces (it flips between the screen and the screen minus the status bar, without warning): css rule « html.ios-app » in
   // app.css and member.js. The strip of 2.45 is no longer needed and it covered the bar at times: off (kept for the test page).
   if (ios && standalone) { const on = () => document.documentElement.classList.add('ios-app'); on(); document.addEventListener('DOMContentLoaded', on); placeBars(); }
-  // (2.71) the strip is back (under the bars, remeasured every second): the only thing that can paint the band iOS draws under the page
+  if (!window.__iosFillTest) return; // (2.73) the strip is off for good: the bars themselves go down to the screen (placeBars), with a navy tail under them
   const st = document.createElement('style'); st.id = 'iosFillCss';
   st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
     + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:1;pointer-events:none;background:var(--iosfill,#0e1d45)}'
