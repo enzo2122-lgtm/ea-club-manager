@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 121, date: '2026-10-09', title: 'Tour complet de l\'appli ✅', items: [
+      ['📱', 'Le bouton « retour » du téléphone (Android) ferme la fenêtre ouverte (fiche, feuille, vidéo, photo, entraînement perso) au lieu de quitter la page ou l\'appli.'],
+      ['🛠️', 'Une fenêtre ouverte plusieurs fois ne lance plus ses boutons en double (ex. « Documents PDF » : le bilan se créait deux fois).'],
+      ['❓', '« Comment ça marche ? » sur les pages qui n\'en avaient pas : jeu, chat, signalements, travail athlétique, former des équipes, niveau, chrono et score, fiches urgence.'],
+      ['📄', 'PDF hors connexion : un message clair au lieu de « réessaie dans 2 secondes ».'],
+    ] },
     { n: 120, date: '2026-10-09', title: 'Messages : la conversation jusqu\'en bas 💬', items: [
       ['💬', 'Sur téléphone, une conversation des Messages descend jusqu\'à la barre du bas (ou au clavier) : plus de vide en dessous, plus de saut.'],
     ] },

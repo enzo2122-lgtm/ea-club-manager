@@ -98,3 +98,32 @@ window.ScreenDiag = function () {
     if (window.ResizeObserver) new ResizeObserver(() => soon(120)).observe(document.body); };
   watch();
 })();
+
+/* (2.65) The « back » button of the phone (Android, the app from the Play Store) closes the window open on top
+   (a window of the app, a sheet, the video, the photo…) instead of leaving the page or the app.
+   When such a window opens, one step is added to the history (same address); « back » takes it away and closes the window.
+   The window closed by its own button: the step stays, and the next « back » goes on by itself to the page before. */
+(() => {
+  const SEL = '#modal:not([hidden]), #psOverlay, .rs-back, .tf-view, .cx-view, .sh-back, .vp-back';
+  const CLOSERS = '[data-close], [data-x], [data-vpx], [data-tfclose], [data-ps="close"]';
+  let onGuard = false, guardHref = '';
+  const top = () => { const l = document.querySelectorAll(SEL); return l[l.length - 1] || null; };
+  const arm = () => {
+    if (onGuard || !top()) return;
+    try { history.pushState(Object.assign({}, history.state || {}, { bg: 1 }), '', location.href); onGuard = true; guardHref = location.href; } catch (e) {}
+  };
+  addEventListener('popstate', () => {
+    const was = onGuard; onGuard = !!(history.state && history.state.bg);
+    if (!was || onGuard || location.href !== guardHref) return; // not « back » from our step (a page change by the app, for example)
+    const t = top();
+    if (t) { const c = t.querySelector(CLOSERS); (c && c.offsetParent !== null ? c : t).click(); return; }
+    history.back();
+  });
+  const watch = () => {
+    if (!document.body) return setTimeout(watch, 50);
+    const mo = new MutationObserver(() => { if (!onGuard && top()) arm(); });
+    mo.observe(document.body, { childList: true });
+    const m = document.getElementById('modal'); if (m) mo.observe(m, { attributes: true, attributeFilter: ['hidden'] });
+  };
+  watch();
+})();

@@ -11,15 +11,21 @@ const UI = (() => {
   }
 
   // modal({title, body, actions:[{label, kind:'primary'|'danger'|'', onClick(close, root) -> false keeps it open}] , onOpen(root)})
+  // (2.65) the listeners a modal puts on the shared #modal element are removed when it closes or when another modal takes its place
+  //   (before, they piled up: opening the same window twice ran its buttons twice)
+  let modalLs = [];
+  const dropModalLs = root => { modalLs.forEach(([t, f, c]) => root.removeEventListener(t, f, c)); modalLs = []; };
   function modal(o) {
     const root = $('#modal');
+    dropModalLs(root);
     root.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mTitle">
       <div class="sheet-head"><h2 id="mTitle">${esc(o.title || '')}</h2><button class="icon-btn" data-close aria-label="Fermer">${I.x}</button></div>
       <div class="sheet-body">${o.body || ''}</div>
       ${o.actions && o.actions.length ? `<div class="sheet-foot">${o.actions.map((a, i) => `<button class="btn ${a.kind || ''}" data-i="${i}">${a.icon || ''}<span>${esc(a.label)}</span></button>`).join('')}</div>` : ''}
     </div>`;
     root.hidden = false;
-    const close = () => { root.hidden = true; root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
+    const mine = [];
+    const close = () => { root.hidden = true; root.innerHTML = ''; document.removeEventListener('keydown', onKey); mine.forEach(([t, f, c]) => root.removeEventListener(t, f, c)); };
     const onKey = e => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
     root.onclick = e => {
@@ -27,7 +33,10 @@ const UI = (() => {
       const b = e.target.closest('.sheet-foot [data-i]');
       if (b) { const a = o.actions[+b.dataset.i]; if (!a.onClick || a.onClick(close, root) !== false) close(); }
     };
-    if (o.onOpen) o.onOpen(root, close);
+    if (o.onOpen) {
+      root.addEventListener = function (t, f, c) { mine.push([t, f, c]); modalLs.push([t, f, c]); return EventTarget.prototype.addEventListener.call(this, t, f, c); };
+      try { o.onOpen(root, close); } finally { delete root.addEventListener; }
+    }
     const first = root.querySelector('input,select,textarea'); if (first && !o.noFocus && finePointer()) setTimeout(() => first.focus(), 60);
     return close;
   }
