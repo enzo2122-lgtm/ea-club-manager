@@ -68,3 +68,5 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 /* (2.15) iPhone : la couleur du club jusqu'aux bords arrondis de l'écran (sous la barre d'état et sous la barre d'accueil), jamais un rectangle blanc */
 html { background: var(--navy, #0e1d45); }
 body { min-height: 100dvh; }
+.lang-card .btns { display: flex; flex-wrap: wrap; gap: 6px; } .lang-card .b.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+#langBox { max-width: 720px; margin: 0 auto; padding: 0 16px; }

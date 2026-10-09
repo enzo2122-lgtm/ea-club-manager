@@ -2272,3 +2272,9 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .pc-sh { color: #2563eb; font-weight: 700; }
 .pc-reply { padding: 8px 10px; border-radius: 10px; background: #eff6ff; }
 .lv-share { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+
+/* (2.66) day of plateau / tournament */
+.day-list { margin: 6px 0 10px; padding-left: 22px; display: grid; gap: 4px; }
+.day-list li.on > a { font-weight: 700; }
+.day-list li a { text-decoration: none; color: inherit; }
+.day-card .btn { margin-top: 4px; }

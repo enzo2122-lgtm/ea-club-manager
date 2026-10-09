@@ -42,7 +42,14 @@ const Auth = (() => {
   const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
   // (2.61) « Observation » set by a responsable on a staff: he reads, he does not change anything (the server refuses too)
-  const readOnly = () => !!user && !realAdmin() && (user.access === 'read' || (Store.get('staff', user.id) || {}).access === 'read');
+  const accessOf = () => !user || realAdmin() ? '' : ((Store.get('staff', user.id) || {}).access || user.access || '');
+  const readOnly = () => accessOf() === 'read';
+  // (2.66) « Intendance » (kit) and « Référent médical » (med): they change only the players' sheets (equipment / health),
+  // the référent médical sees every category, the intendance only his own and only the pages it needs
+  const limited = () => { const a = accessOf(); return a === 'kit' || a === 'med' ? a : ''; };
+  const canWrite = col => !readOnly() && (!limited() || col === 'players');
+  const KIT_PAGES = ['equipements', 'entrainements', 'entrainement', 'matchs', 'match', 'messages', 'planning', 'club', 'stats', 'resultats', 'chat', 'reglages', 'signalements'];
+  const pageOk = name => limited() !== 'kit' || KIT_PAGES.includes(name);
   // a responsable looking at the app as a volunteer: only the volunteers' tasks and the club's events
   const volView = () => { const p = preview(); return !!p && p.role === 'benevole'; };
   // A category and its teams A / B go together: a coach of « U15 » also sees « U15 A » and « U15 B », and the other way round
@@ -55,7 +62,7 @@ const Auth = (() => {
   // What a dirigeant may see: a responsable sees every category, a coach only the ones chosen at his first connection
   // (the pitch planning and the club results stay common to everybody)
   // (3.70) a coach without any category sees no team (before, he saw the whole club): the responsable gives him his categories
-  const allTeams = () => !user || isAdmin();
+  const allTeams = () => !user || isAdmin() || limited() === 'med';
   const teams = () => allTeams() ? Store.state.teams : Store.state.teams.filter(t => myIds().includes(t.id));
   const sees = teamId => allTeams() || !teamId || myIds().includes(teamId);
   const seesPerson = p => allTeams() || [...(p.teamIds || []), ...((p.archived || {}).teams || [])].some(id => myIds().includes(id)) || (user && p.id === user.id); // (2.59) his former players too
@@ -608,5 +615,5 @@ const Auth = (() => {
     if (serverMode() && isAdmin()) Cloud.accountSet({ staff_id: staffId, delete: true }).catch(() => {});
   }
 
-  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, readOnly, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
+  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, readOnly, limited, canWrite, pageOk, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
 })();

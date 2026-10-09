@@ -212,7 +212,7 @@ const People = (() => {
         <label class="fld"><span>Prénom</span><input id="sFirst" value="${esc(p.firstName)}"></label></div>
         <div class="row2"><label class="fld"><span>Rôle</span><select id="sRole">${opt(ROLES, p.role)}</select></label>
         <label class="fld"><span>Club de cœur (son blason s'affiche dans les messages)</span><select id="sClub">${Clubs.options(p.club)}</select></label></div>
-        ${Auth.isAdmin() ? `<label class="fld"><span>Accès à l'appli</span><select id="sAccess"><option value="">Complet (il modifie ses catégories)</option><option value="read" ${p.access === 'read' ? 'selected' : ''}>👀 Observation : lecture seule (président, superviseur, parent bénévole…)</option></select></label>` : ''}
+        ${Auth.isAdmin() ? `<label class="fld"><span>Accès à l'appli</span><select id="sAccess"><option value="">Complet (il modifie ses catégories)</option><option value="read" ${p.access === 'read' ? 'selected' : ''}>👀 Observation : lecture seule (président, superviseur, parent bénévole…)</option><option value="kit" ${p.access === 'kit' ? 'selected' : ''}>🎽 Intendance : les équipements de ses catégories (tailles, dotations, numéros)</option><option value="med" ${p.access === 'med' ? 'selected' : ''}>🩺 Référent médical : blessures et fiches urgence de tout le club</option></select></label>` : ''}
         <label class="fld"><span>Petite phrase (drôle ou philosophique, à côté de son nom)</span><input id="sMotto" value="${esc(p.motto || '')}" maxlength="${UI.MOTTO_MAX}"></label>
         <div class="lbl">Catégories (plusieurs possibles)</div>${Auth.isAdmin() || isNew ? teamChips(p.teamIds) : `<p class="tip">🔒 ${esc(teamNames(p.teamIds) || 'Aucune catégorie')} · seul un responsable peut changer les catégories d'un dirigeant.</p>`}
         ${canPhone(p, isNew) ? `<div class="row2"><label class="fld"><span>Téléphone</span><input id="sTel" type="tel" inputmode="tel" value="${esc(p.phone || '')}"></label>
@@ -650,6 +650,7 @@ const People = (() => {
         ${Health.playerCard(p)}
         ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
         ${Urgent.card(p)}
+        ${Consent.card(p)}
         ${Level.card(p)}
         ${PCard.cards(p)}
         ${Progress.card(p)}
@@ -684,6 +685,7 @@ const People = (() => {
       if (Health.click(e, p, () => playerPage(root, id))) return;
       if (Level.click(e, p, () => playerPage(root, id))) return;
       if (Urgent.click(e, p, () => playerPage(root, id))) return;
+      if (Consent.click(e, p, () => playerPage(root, id))) return;
       if (e.target.closest('[data-pcact], [data-pcaff], [data-pctalk]')) { PCard.click(e, p, () => playerPage(root, id)); return; }
       if (Progress.click(e, p, () => playerPage(root, id))) return;
       if (Tips.click(e, p, () => playerPage(root, id))) return;

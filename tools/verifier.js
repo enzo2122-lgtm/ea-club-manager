@@ -33,7 +33,7 @@ for (const f of [...files.map(f => 'js/' + f), 'sw.js', 'build.js']) {
   }
   if (read('js/app.bundle.js') !== out.join('\n')) bad('bundle', 'js/app.bundle.js n\'est pas à jour : lance « node build.js »');
   const pages = ['moi.html', 'aide.html', 'joueurs.html', 'parents.html', 'decouvrir.html'].filter(p => fs.existsSync(path.join(ROOT, p))).map(read).join('\n');
-  files.filter(f => !order.includes(f) && f !== 'config.js' && !pages.includes('js/' + f)).forEach(f => notes.push(`js/${f} n'est utilisé par aucune page ni par l'appli`));
+  files.filter(f => !order.includes(f) && f !== 'config.js' && !/^lang-/.test(f) && !pages.includes('js/' + f)).forEach(f => notes.push(`js/${f} n'est utilisé par aucune page ni par l'appli`));
 }
 
 /* 3. Module.name: every name called must be returned by its module */

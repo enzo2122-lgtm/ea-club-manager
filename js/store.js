@@ -125,10 +125,10 @@ const Store = (() => {
   const get = (col, id) => state[col].find(x => x.id === id);
   // (2.61) a staff with « Observation (lecture seule) »: he sees everything he may see, he changes nothing
   let roT = 0;
-  const ro = () => typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly();
-  const roSay = () => { if (Date.now() - roT > 4000 && typeof UI !== 'undefined') { roT = Date.now(); UI.toast('👀 Accès en lecture seule : rien n\'est enregistré', 'err'); } };
+  const ro = col => typeof Auth !== 'undefined' && Auth.canWrite && !Auth.canWrite(col);
+  const roSay = () => { if (Date.now() - roT > 4000 && typeof UI !== 'undefined') { roT = Date.now(); UI.toast(Auth.limited() ? '🔒 Ton accès permet de modifier seulement les fiches des joueurs' : '👀 Accès en lecture seule : rien n\'est enregistré', 'err'); } };
   function upsert(col, item) {
-    if (ro()) { roSay(); return item; }
+    if (ro(col)) { roSay(); return item; }
     item.updatedAt = Date.now();
     // who changed a match or a session: he is not notified of his own change (club server)
     if ((col === 'matches' || col === 'trainings') && typeof Auth !== 'undefined' && Auth.current()) item.editedBy = Auth.current().id;
@@ -137,7 +137,7 @@ const Store = (() => {
     if (col === 'teams') sortTeams();
     save(); return item;
   }
-  function remove(col, id) { if (ro()) return roSay(); state[col] = state[col].filter(x => x.id !== id); save(); }
+  function remove(col, id) { if (ro(col)) return roSay(); state[col] = state[col].filter(x => x.id !== id); save(); }
 
   /* ---------- sharing ---------- */
   function pack(data) { return JSON.stringify({ app: 'raincy-coach', version: 1, exportedAt: new Date().toISOString(), data }, null, 1); }
@@ -223,12 +223,15 @@ const Store = (() => {
   // Friendly matches (amical, tournoi, préparation) are counted apart from the official ones (championnat, coupe, plateau):
   // results, goals, playing time and stats show one kind or the other (« Officiels » by default)
   const isFriendly = m => /amical|tournoi|pr[ée]pa|friendly/i.test((m && m.competition) || '');
+  // (2.66) a day of plateau / tournament: several short matches of a team on the same day (one « journée »)
+  const isDayComp = m => /plateau|tournoi/i.test((m && m.competition) || '');
+  const dayOf = m => !m || !isDayComp(m) ? [] : state.matches.filter(x => x.teamId === m.teamId && x.date === m.date && isDayComp(x) && !x.exempt).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')) || String(a.id).localeCompare(String(b.id)));
   const matchKind = () => (state && state.ui && state.ui.matchKind) || 'off';
   const kindOk = m => isFriendly(m) === (matchKind() === 'ami');
 
   return {
     load, closeDb, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
-    playersOf, rosterOf, helps, sameCat, numOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, matchKind, kindOk,
+    playersOf, rosterOf, helps, sameCat, numOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, isDayComp, dayOf, matchKind, kindOk,
     get state() { return state; }, on: f => listeners.add(f), off: f => listeners.delete(f),
   };
 })();

@@ -5,6 +5,13 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 122, date: '2026-10-09', title: 'Plateaux, intendance, autorisations, langues 🌍', items: [
+      ['🎪', 'Journée de plateau ou de tournoi : en créant le match, ajoute les autres adversaires (un par ligne) : un match par adversaire, le même jour. Sur chaque match : la liste de la journée, son bilan et « Mêmes convoqués pour les autres matchs ». Dans Résultats et stats : une ligne par journée, hors classement.'],
+      ['🎽', 'Équipements (Joueurs → Équipements) : tailles, numéro et ce que le club a donné à chaque joueur, le nombre de chaque taille pour commander, l\'export Excel.'],
+      ['🔐', 'Deux nouveaux accès pour un dirigeant (sa fiche → Accès) : « Intendance » (les équipements, les matchs et les séances de ses catégories) et « Référent médical » (blessures et fiches urgence de tout le club). Ils ne modifient que les fiches des joueurs.'],
+      ['✍️', 'Autorisations dans l\'appli, à la place du papier : droit à l\'image, soins d\'urgence, transport, partir seul, données. Les familles répondent dans leur espace (onglet « Moi ») ; toi, tu vois tout sur la fiche du joueur et dans Joueurs → Autorisations.'],
+      ['🌍', 'Espaces joueurs et parents en anglais, espagnol et portugais (onglet « Moi » → Langue), ou dans la langue du téléphone.'],
+    ] },
     { n: 121, date: '2026-10-09', title: 'Tour complet de l\'appli ✅', items: [
       ['📱', 'Le bouton « retour » du téléphone (Android) ferme la fenêtre ouverte (fiche, feuille, vidéo, photo, entraînement perso) au lieu de quitter la page ou l\'appli.'],
       ['🛠️', 'Une fenêtre ouverte plusieurs fois ne lance plus ses boutons en double (ex. « Documents PDF » : le bilan se créait deux fois).'],

@@ -917,10 +917,10 @@ var Store = (() => {
   const get = (col, id) => state[col].find(x => x.id === id);
   // (2.61) a staff with « Observation (lecture seule) »: he sees everything he may see, he changes nothing
   let roT = 0;
-  const ro = () => typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly();
-  const roSay = () => { if (Date.now() - roT > 4000 && typeof UI !== 'undefined') { roT = Date.now(); UI.toast('👀 Accès en lecture seule : rien n\'est enregistré', 'err'); } };
+  const ro = col => typeof Auth !== 'undefined' && Auth.canWrite && !Auth.canWrite(col);
+  const roSay = () => { if (Date.now() - roT > 4000 && typeof UI !== 'undefined') { roT = Date.now(); UI.toast(Auth.limited() ? '🔒 Ton accès permet de modifier seulement les fiches des joueurs' : '👀 Accès en lecture seule : rien n\'est enregistré', 'err'); } };
   function upsert(col, item) {
-    if (ro()) { roSay(); return item; }
+    if (ro(col)) { roSay(); return item; }
     item.updatedAt = Date.now();
     // who changed a match or a session: he is not notified of his own change (club server)
     if ((col === 'matches' || col === 'trainings') && typeof Auth !== 'undefined' && Auth.current()) item.editedBy = Auth.current().id;
@@ -929,7 +929,7 @@ var Store = (() => {
     if (col === 'teams') sortTeams();
     save(); return item;
   }
-  function remove(col, id) { if (ro()) return roSay(); state[col] = state[col].filter(x => x.id !== id); save(); }
+  function remove(col, id) { if (ro(col)) return roSay(); state[col] = state[col].filter(x => x.id !== id); save(); }
 
   /* ---------- sharing ---------- */
   function pack(data) { return JSON.stringify({ app: 'raincy-coach', version: 1, exportedAt: new Date().toISOString(), data }, null, 1); }
@@ -1015,12 +1015,15 @@ var Store = (() => {
   // Friendly matches (amical, tournoi, préparation) are counted apart from the official ones (championnat, coupe, plateau):
   // results, goals, playing time and stats show one kind or the other (« Officiels » by default)
   const isFriendly = m => /amical|tournoi|pr[ée]pa|friendly/i.test((m && m.competition) || '');
+  // (2.66) a day of plateau / tournament: several short matches of a team on the same day (one « journée »)
+  const isDayComp = m => /plateau|tournoi/i.test((m && m.competition) || '');
+  const dayOf = m => !m || !isDayComp(m) ? [] : state.matches.filter(x => x.teamId === m.teamId && x.date === m.date && isDayComp(x) && !x.exempt).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')) || String(a.id).localeCompare(String(b.id)));
   const matchKind = () => (state && state.ui && state.ui.matchKind) || 'off';
   const kindOk = m => isFriendly(m) === (matchKind() === 'ami');
 
   return {
     load, closeDb, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
-    playersOf, rosterOf, helps, sameCat, numOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, matchKind, kindOk,
+    playersOf, rosterOf, helps, sameCat, numOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, isDayComp, dayOf, matchKind, kindOk,
     get state() { return state; }, on: f => listeners.add(f), off: f => listeners.delete(f),
   };
 })();
@@ -1942,7 +1945,14 @@ var Auth = (() => {
   const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
   // (2.61) « Observation » set by a responsable on a staff: he reads, he does not change anything (the server refuses too)
-  const readOnly = () => !!user && !realAdmin() && (user.access === 'read' || (Store.get('staff', user.id) || {}).access === 'read');
+  const accessOf = () => !user || realAdmin() ? '' : ((Store.get('staff', user.id) || {}).access || user.access || '');
+  const readOnly = () => accessOf() === 'read';
+  // (2.66) « Intendance » (kit) and « Référent médical » (med): they change only the players' sheets (equipment / health),
+  // the référent médical sees every category, the intendance only his own and only the pages it needs
+  const limited = () => { const a = accessOf(); return a === 'kit' || a === 'med' ? a : ''; };
+  const canWrite = col => !readOnly() && (!limited() || col === 'players');
+  const KIT_PAGES = ['equipements', 'entrainements', 'entrainement', 'matchs', 'match', 'messages', 'planning', 'club', 'stats', 'resultats', 'chat', 'reglages', 'signalements'];
+  const pageOk = name => limited() !== 'kit' || KIT_PAGES.includes(name);
   // a responsable looking at the app as a volunteer: only the volunteers' tasks and the club's events
   const volView = () => { const p = preview(); return !!p && p.role === 'benevole'; };
   // A category and its teams A / B go together: a coach of « U15 » also sees « U15 A » and « U15 B », and the other way round
@@ -1955,7 +1965,7 @@ var Auth = (() => {
   // What a dirigeant may see: a responsable sees every category, a coach only the ones chosen at his first connection
   // (the pitch planning and the club results stay common to everybody)
   // (3.70) a coach without any category sees no team (before, he saw the whole club): the responsable gives him his categories
-  const allTeams = () => !user || isAdmin();
+  const allTeams = () => !user || isAdmin() || limited() === 'med';
   const teams = () => allTeams() ? Store.state.teams : Store.state.teams.filter(t => myIds().includes(t.id));
   const sees = teamId => allTeams() || !teamId || myIds().includes(teamId);
   const seesPerson = p => allTeams() || [...(p.teamIds || []), ...((p.archived || {}).teams || [])].some(id => myIds().includes(id)) || (user && p.id === user.id); // (2.59) his former players too
@@ -2508,7 +2518,7 @@ var Auth = (() => {
     if (serverMode() && isAdmin()) Cloud.accountSet({ staff_id: staffId, delete: true }).catch(() => {});
   }
 
-  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, readOnly, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
+  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, readOnly, limited, canWrite, pageOk, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
 })();
 
 ;
@@ -3688,7 +3698,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.65';
+  const VERSION = '2.66';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3802,6 +3812,8 @@ var Help = (() => {
     equilibre: ['Former des équipes', ['Choisis le nombre d\'équipes et le critère (niveau global, physique, vitesse, VMA…) : les équipes sont équilibrées, un gardien chacune.', 'Les affinités de la fiche joueur sont respectées (« jouer avec », « éviter »).', '« Remélanger » propose une autre répartition ; « Partager » l\'envoie sur WhatsApp.']],
     niveau: ['Niveau des joueurs', ['Chaque joueur noté de 1 à 5 sur 5 critères : technique, intelligence de jeu, physique, attitude, mental.', '« Noter l\'équipe » enchaîne les joueurs ; touche un titre de colonne pour trier.', 'Réservé aux coachs et aux responsables : jamais montré aux joueurs ni aux parents.']],
     terrain: ['Chrono et score', ['Chrono d\'exercice : effort, récup, répétitions et séries, avec des sons ; l\'écran reste allumé.', 'Score : 2 à 4 équipes aux couleurs des chasubles.', 'Test VMA : VAMEVAL, 45-15 ou 30-15 avec les bips ; touche un joueur quand il s\'arrête, puis « Enregistrer ».', 'Tournoi : tous contre tous, poules + finales ou élimination directe, le classement se fait seul.']],
+    equipements: ['Équipements', ['Pour chaque joueur : ses tailles (haut, bas, pointure), son numéro et ce que le club lui a donné (maillot, short, survêtement…, avec la date).', 'Touche un article sous un nom pour le cocher : il est noté « donné aujourd\'hui ». Touche le nom pour les tailles.', 'En haut : le nombre de chaque taille, pour passer la commande, et ce qui reste à donner.', '« Il leur manque quelque chose » : seulement les joueurs à servir. « Excel » : le tableau à envoyer au fournisseur.', 'Un responsable peut donner l\'accès « Intendance » à un dirigeant (fiche du dirigeant → Accès) : il voit alors cette page, les matchs, les séances et le planning de ses catégories.']],
+    autorisations: ['Autorisations', ['Pour chaque joueur, les réponses de la famille : droit à l\'image, soins d\'urgence, transport, partir seul, données.', '✅ oui · ❌ non (à respecter : pas de photo publiée, pas de covoiturage…) · – pas encore de réponse.', 'Les familles répondent dans leur espace, onglet « Moi » : chaque réponse garde le nom de qui a répondu et la date.', 'Une autorisation signée sur papier : fiche du joueur → Autorisations → « Noter une réponse papier ».']],
     urgences: ['Fiches urgence', ['Toute l\'équipe sur un écran : d\'abord ceux à connaître (allergies, traitements, conduite à tenir), puis les autres.', 'Touche un contact pour l\'appeler.', 'Les familles remplissent la fiche dans leur espace, onglet « Moi » ; tu peux aussi la remplir sur la page du joueur.']],
   };
   const pageKey = () => (location.hash || '#/').split('/')[1] || '';
@@ -4020,6 +4032,8 @@ var Cloud = (() => {
     MOT_DE_PASSE: 'Mot de passe incorrect.',
     BLOQUE: 'Trop d\'essais : attends 5 minutes avant de réessayer.',
     DEJA_INSCRIT: 'Ce dirigeant a déjà un mot de passe : connecte-toi, ou demande au responsable de le réinitialiser.',
+    ACCES_LIMITE: 'Ton accès permet de modifier seulement les fiches des joueurs.',
+    LECTURE_SEULE: 'Accès en lecture seule : rien n\'est enregistré.',
     ACCES_RETIRE: 'Ton accès à l\'appli du club a été retiré par un responsable.',
     SESSION: 'Ta connexion a expiré : reconnecte-toi.',
     DONNEES: 'Informations incomplètes.',
@@ -4296,14 +4310,16 @@ var Sync = (() => {
   async function push() {
     if (typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly()) return; // (2.61) observation: nothing goes to the server
     const H = meta().h, cur = current(), out = [], now = Date.now();
+    const only = typeof Auth !== 'undefined' && Auth.limited && Auth.limited() ? 'players' : ''; // (2.66) intendance / référent médical
     for (const [k, [col, x]] of Object.entries(cur)) {
+      if (only && col !== only) continue;
       if (fp(x) === H[k]) continue;
       if (col !== 'club') x.updatedAt = Math.max(now, (x.updatedAt || 0) + 1);
       // a copy taken now: what is typed or drawn while it travels stays "to send" (otherwise the server's echo would erase it)
       const snap = JSON.parse(JSON.stringify(x));
       out.push({ k, col, id: col === 'club' ? 'club' : x.id, x: snap, f: fp(snap), u: col === 'club' ? now : x.updatedAt });
     }
-    Object.keys(H).forEach(k => { if (!cur[k]) out.push({ k, col: k.slice(0, k.indexOf('/')), id: k.slice(k.indexOf('/') + 1), del: true, u: now }); });
+    Object.keys(H).forEach(k => { if (!cur[k] && (!only || k.startsWith(only + '/'))) out.push({ k, col: k.slice(0, k.indexOf('/')), id: k.slice(k.indexOf('/') + 1), del: true, u: now }); });
     if (!out.length) return 0;
     let batch = [], size = 0;
     const send = async () => {
@@ -5406,7 +5422,7 @@ var People = (() => {
         <label class="fld"><span>Prénom</span><input id="sFirst" value="${esc(p.firstName)}"></label></div>
         <div class="row2"><label class="fld"><span>Rôle</span><select id="sRole">${opt(ROLES, p.role)}</select></label>
         <label class="fld"><span>Club de cœur (son blason s'affiche dans les messages)</span><select id="sClub">${Clubs.options(p.club)}</select></label></div>
-        ${Auth.isAdmin() ? `<label class="fld"><span>Accès à l'appli</span><select id="sAccess"><option value="">Complet (il modifie ses catégories)</option><option value="read" ${p.access === 'read' ? 'selected' : ''}>👀 Observation : lecture seule (président, superviseur, parent bénévole…)</option></select></label>` : ''}
+        ${Auth.isAdmin() ? `<label class="fld"><span>Accès à l'appli</span><select id="sAccess"><option value="">Complet (il modifie ses catégories)</option><option value="read" ${p.access === 'read' ? 'selected' : ''}>👀 Observation : lecture seule (président, superviseur, parent bénévole…)</option><option value="kit" ${p.access === 'kit' ? 'selected' : ''}>🎽 Intendance : les équipements de ses catégories (tailles, dotations, numéros)</option><option value="med" ${p.access === 'med' ? 'selected' : ''}>🩺 Référent médical : blessures et fiches urgence de tout le club</option></select></label>` : ''}
         <label class="fld"><span>Petite phrase (drôle ou philosophique, à côté de son nom)</span><input id="sMotto" value="${esc(p.motto || '')}" maxlength="${UI.MOTTO_MAX}"></label>
         <div class="lbl">Catégories (plusieurs possibles)</div>${Auth.isAdmin() || isNew ? teamChips(p.teamIds) : `<p class="tip">🔒 ${esc(teamNames(p.teamIds) || 'Aucune catégorie')} · seul un responsable peut changer les catégories d'un dirigeant.</p>`}
         ${canPhone(p, isNew) ? `<div class="row2"><label class="fld"><span>Téléphone</span><input id="sTel" type="tel" inputmode="tel" value="${esc(p.phone || '')}"></label>
@@ -5844,6 +5860,7 @@ var People = (() => {
         ${Health.playerCard(p)}
         ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
         ${Urgent.card(p)}
+        ${Consent.card(p)}
         ${Level.card(p)}
         ${PCard.cards(p)}
         ${Progress.card(p)}
@@ -5878,6 +5895,7 @@ var People = (() => {
       if (Health.click(e, p, () => playerPage(root, id))) return;
       if (Level.click(e, p, () => playerPage(root, id))) return;
       if (Urgent.click(e, p, () => playerPage(root, id))) return;
+      if (Consent.click(e, p, () => playerPage(root, id))) return;
       if (e.target.closest('[data-pcact], [data-pcaff], [data-pctalk]')) { PCard.click(e, p, () => playerPage(root, id)); return; }
       if (Progress.click(e, p, () => playerPage(root, id))) return;
       if (Tips.click(e, p, () => playerPage(root, id))) return;
@@ -13259,6 +13277,212 @@ var Urgent = (() => {
 })();
 
 ;
+/* ===== consent.js ===== */
+/* Consent (2.66): the authorisations of a player, given in the app by the family (or the adult player) instead of on paper:
+   image rights, emergency care, transport by the coaches or other parents, going home alone, the club keeping the data.
+   Each answer keeps who gave it and when. Families: « Moi » tab of the players' and parents' pages. Coaches: player's page,
+   and the table of a team (#/autorisations). A coach may also note an answer given on paper. */
+var Consent = (() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ITEMS = [
+    ['photo', '📸', 'Droit à l\'image', 'Le club peut publier des photos et vidéos où l\'on voit le joueur (site, réseaux, journal du club).'],
+    ['care', '🚑', 'Soins d\'urgence', 'En cas d\'urgence, les éducateurs peuvent appeler les secours et faire soigner le joueur, si on ne peut pas joindre la famille à temps.'],
+    ['transport', '🚗', 'Transport', 'Le joueur peut monter dans la voiture d\'un éducateur ou d\'un autre parent pour aller aux matchs et en revenir.'],
+    ['alone', '🚶', 'Partir seul', 'Le joueur peut rentrer seul après l\'entraînement ou le match.'],
+    ['data', '🔒', 'Données dans l\'appli', 'Le club garde dans l\'appli les informations utiles à l\'activité (contacts, présence, matchs, fiche urgence), comme expliqué dans la page Confidentialité.']];
+  const KEYS = ITEMS.map(x => x[0]);
+  const fdate = at => { const d = new Date(at); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); };
+  const clean = c => { const o = {}; if (!c || typeof c !== 'object') return o;
+    KEYS.forEach(k => { const x = c[k]; if (x && typeof x === 'object' && typeof x.v === 'boolean') o[k] = { v: x.v, at: x.at || '', by: String(x.by || '').slice(0, 60) }; }); return o; };
+  const answered = c => KEYS.filter(k => c && c[k]).length;
+  const mark = x => !x ? '<span class="cs-q" title="Pas de réponse">–</span>' : x.v ? '<span class="cs-y" title="Oui">✅</span>' : '<span class="cs-n" title="Non">❌</span>';
+
+  const CSS = '.cs-card .cs-row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line,#e5e7eb)}.cs-card .cs-row:first-of-type{border-top:0}'
+    + '.cs-row .cs-ic{font-size:20px;line-height:1.2}.cs-row .cs-txt{flex:1;min-width:0}.cs-row .cs-txt b{display:block}.cs-row .cs-txt p{margin:2px 0 0;font-size:13px;color:#6b7280}'
+    + '.cs-row .cs-by{font-size:12px;color:#6b7280;margin-top:3px}.cs-yn{display:flex;gap:6px;flex-shrink:0}.cs-yn button{min-width:52px}'
+    + '.cs-yn button.cs-on-y{background:#16a34a;color:#fff;border-color:#16a34a}.cs-yn button.cs-on-n{background:#dc2626;color:#fff;border-color:#dc2626}'
+    + '.cs-sign{display:flex;flex-direction:column;gap:4px;margin-top:10px}.cs-sign input{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;font:inherit;font-size:16px;background:#fff;color:#111}'
+    + '.cs-y,.cs-n,.cs-q{font-weight:800}.cs-q{color:#9ca3af}.cs-tbl td,.cs-tbl th{text-align:center;padding-left:6px;padding-right:6px}.cs-tbl td:first-child,.cs-tbl th:first-child{text-align:left}';
+  function css() { if (document.getElementById('csCss')) return; const s = document.createElement('style'); s.id = 'csCss'; s.textContent = CSS; document.head.appendChild(s); }
+
+  // the list with yes / no (family: buttons; coach: read, or buttons in his modal)
+  function rows(c, o = {}) {
+    return ITEMS.filter(([k]) => !(o.adult && k === 'alone')).map(([k, ic, l, d]) => { const x = c[k];
+      return `<div class="cs-row"><span class="cs-ic">${ic}</span><div class="cs-txt"><b>${esc(l)}</b><p>${esc(d)}</p>${x && x.at ? `<div class="cs-by">${x.v ? 'Oui' : 'Non'} · ${esc(fdate(x.at))}${x.by ? ' · ' + esc(x.by) : ''}</div>` : ''}</div>
+        ${o.edit ? `<div class="cs-yn"><button type="button" class="${o.btn || 'b'} ${x && x.v ? 'cs-on-y' : ''}" data-cs="${k}:1">Oui</button><button type="button" class="${o.btn || 'b'} ${x && !x.v ? 'cs-on-n' : ''}" data-cs="${k}:0">Non</button></div>` : `<div class="cs-yn">${mark(x)}</div>`}</div>`; }).join('');
+  }
+
+  /* ---------- the family (o: key, load, save(answers), toast, who, adult, intro) ---------- */
+  let memo = { key: null, c: null, at: 0, busy: false };
+  function mount(el, o) {
+    if (!el) return; css();
+    const key = o.key || 'x';
+    if (memo.key !== key) memo = { key, c: null, at: 0, busy: false };
+    const draw = () => {
+      const c = memo.c, n = c ? answered(c) : 0, tot = ITEMS.length - (o.adult ? 1 : 0);
+      el.innerHTML = `<div class="card cs-card"><h3>✍️ Autorisations ${c ? `<small class="muted">· ${n}/${tot}</small>` : ''}</h3>
+        <p class="info">${esc(o.intro || 'Tes réponses remplacent les autorisations sur papier. Tu peux les changer quand tu veux ; le club voit la date et le nom de qui a répondu.')}</p>
+        ${c == null ? '<p class="urg-none">Chargement…</p>' : o.view ? rows(c, { adult: o.adult }) : `${rows(c, { edit: true, adult: o.adult })}
+        <label class="cs-sign"><span><b>Ton nom</b> (il est noté avec chaque réponse)</span><input id="csWho" maxlength="60" value="${esc(memo.who != null ? memo.who : (o.who || ''))}" placeholder="ex : Karim B. (papa)" autocomplete="off"></label>`}</div>`;
+    };
+    el.oninput = e => { if (e.target.id === 'csWho') memo.who = e.target.value; };
+    el.onclick = async e => {
+      const b = e.target.closest('[data-cs]'); if (!b || memo.busy || !memo.c) return;
+      const [k, v] = b.dataset.cs.split(':'), who = String(memo.who != null ? memo.who : (o.who || '')).trim();
+      if (!who) { (o.toast || alert)('Écris d\'abord ton nom, en bas', true); const i = el.querySelector('#csWho'); if (i) i.focus(); return; }
+      memo.busy = true;
+      try { memo.c = clean(await o.save({ [k]: { v: v === '1', by: who } })); memo.at = Date.now(); draw(); (o.toast || (() => {}))('Réponse enregistrée ✓'); }
+      catch (err) { (o.toast || alert)((err && err.message) || 'Pas enregistrée, réessaie.', true); }
+      memo.busy = false;
+    };
+    draw();
+    if (memo.c == null || Date.now() - memo.at > 60000)
+      Promise.resolve().then(() => o.load()).then(r => { if (memo.key !== key) return; memo.c = clean(r); memo.at = Date.now(); if (document.body.contains(el)) draw(); })
+        .catch(() => { if (memo.c == null) { memo.c = {}; if (document.body.contains(el)) draw(); } });
+  }
+
+  /* ---------- the coach: card on the player's page, modal to note a paper answer, the table of a team ---------- */
+  const adultOf = p => { if (!p || !p.birth) return false; const b = new Date(p.birth), n = new Date(); return (n - b) / 31557600000 >= 18; };
+  function card(p) {
+    css(); const c = clean(p.consent), tot = ITEMS.length - (adultOf(p) ? 1 : 0);
+    return `<section class="card cs-card"><h2>✍️ Autorisations <span class="muted small">· ${answered(c)}/${tot}</span></h2>
+      ${answered(c) ? rows(c, { adult: adultOf(p) }) : '<p class="muted">Pas encore de réponse. La famille répond dans son espace (onglet « Moi »), ou tu notes ici une autorisation donnée sur papier.</p>'}
+      <div class="urg-acts"><button class="btn small" data-cscoach>📝 Noter une réponse papier</button>${(p.teamIds || [])[0] ? `<a class="btn small" href="#/autorisations/${esc(p.teamIds[0])}">✍️ Toute l'équipe</a>` : ''}</div></section>`;
+  }
+  function click(e, p, redraw) {
+    if (!e.target.closest('[data-cscoach]')) return false;
+    const c = clean(p.consent);
+    UI.modal({ title: `✍️ Autorisations · ${Store.fullName(p)}`, noFocus: true, body: `<p class="muted small">Pour une autorisation signée sur papier : la réponse est notée « papier » avec ton nom et la date du jour.</p>${rows(c, { edit: true, btn: 'btn small', adult: adultOf(p) })}`,
+      onOpen: r => r.addEventListener('click', ev => { const b = ev.target.closest('[data-cs]'); if (!b) return; const [k, v] = b.dataset.cs.split(':');
+        b.parentNode.querySelectorAll('button').forEach(x => x.classList.remove('cs-on-y', 'cs-on-n')); b.classList.add(v === '1' ? 'cs-on-y' : 'cs-on-n'); b.dataset.picked = '1';
+        b.parentNode.querySelectorAll('button').forEach(x => { if (x !== b) delete x.dataset.picked; }); }),
+      actions: [{ label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (close, root) => {
+        const me = Auth.current(), by = `papier · noté par ${me ? Store.shortName(Store.get('staff', me.id) || me) : 'un coach'}`, at = new Date().toISOString();
+        root.querySelectorAll('[data-picked="1"]').forEach(b => { const [k, v] = b.dataset.cs.split(':'); c[k] = { v: v === '1', at, by }; });
+        if (answered(c)) p.consent = c; else delete p.consent;
+        Store.upsert('players', p); UI.toast('Autorisations enregistrées ✓'); setTimeout(redraw, 0); } }] });
+    return true;
+  }
+  // #/autorisations/teamId: who said yes / no / nothing, for each authorisation
+  function page(root, teamId) {
+    css();
+    const teams = Auth.teams() || [], cur = teamId || (Store.state.ui || {}).teamId, t = (cur && Auth.sees(cur) && Store.get('teams', cur)) || teams[0];
+    if (!t) { root.innerHTML = '<p class="muted">Aucune équipe.</p>'; return; }
+    const ps = Store.playersOf(t.id).filter(p => !p.archived).slice().sort(Store.byName);
+    const count = k => ({ y: ps.filter(p => (clean(p.consent)[k] || {}).v === true).length, n: ps.filter(p => (clean(p.consent)[k] || {}).v === false).length });
+    root.innerHTML = `<header class="page-head"><div><h1>✍️ Autorisations · ${esc(t.name)}</h1><p class="sub">${ps.filter(p => answered(clean(p.consent))).length}/${ps.length} familles ont répondu</p></div>
+      <div class="head-actions"><button class="btn" data-act="back">${I.back}<span>Retour</span></button>${teams.length > 1 ? `<select class="cs-sel" aria-label="Équipe">${teams.map(x => `<option value="${esc(x.id)}" ${x.id === t.id ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select>` : ''}</div></header>
+      <p class="muted small">Les familles répondent dans leur espace (onglet « Moi »). ❌ = la famille a dit non : à respecter (photos à ne pas publier, pas de covoiturage…).</p>
+      <div class="tiles">${ITEMS.map(([k, ic, l]) => { const c = count(k); return `<div class="tile ${c.n ? 'd' : ''}"><b>${c.y}/${ps.length}</b><span>${ic} ${esc(l)}${c.n ? ` · ${c.n} non` : ''}</span></div>`; }).join('')}</div>
+      <div class="table-wrap"><table class="tbl cs-tbl"><thead><tr><th>Joueur</th>${ITEMS.map(([k, ic, l]) => `<th title="${esc(l)}">${ic}</th>`).join('')}</tr></thead>
+        <tbody>${ps.map(p => { const c = clean(p.consent); return `<tr><td><a href="#/joueur/${esc(p.id)}">${esc(Store.fullName(p))}</a></td>${ITEMS.map(([k]) => `<td>${k === 'alone' && adultOf(p) ? '' : mark(c[k])}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>
+      <p class="muted small">${ITEMS.map(([, ic, l]) => `${ic} ${esc(l)}`).join(' · ')}</p>`;
+    root.onclick = e => { if (e.target.closest('[data-act="back"]')) history.length > 1 ? history.back() : (location.hash = '#/equipes'); };
+    const sel = root.querySelector('.cs-sel'); if (sel) sel.onchange = () => { location.hash = '#/autorisations/' + sel.value; };
+  }
+  // a player whose family said no to the photos (to warn before sharing a picture)
+  const noPhoto = p => (clean(p && p.consent).photo || {}).v === false;
+  return { ITEMS, clean, answered, mount, card, click, page, noPhoto };
+})();
+
+;
+/* ===== kit.js ===== */
+/* Kit (2.66): the equipment of the players (« intendance »).
+   For each player: his sizes (top, bottom, shoes) and what the club gave him (jersey, shorts, tracksuit, bag…, with the date).
+   The page sums up the sizes to order and who still waits for something. Coaches, responsables and the « Intendance » access fill it. */
+var Kit = (() => {
+  const { esc, toast, modal } = UI;
+  const S = () => Store.state;
+  const ITEMS0 = ['Maillot', 'Short', 'Chaussettes', 'Survêtement', 'Sac', 'K-way'];
+  const SIZES = ['6 ans', '8 ans', '10 ans', '12 ans', '14 ans', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+  const items = () => (Array.isArray(S().club.kitItems) && S().club.kitItems.length ? S().club.kitItems : ITEMS0);
+  const kitOf = p => p.kit || {};
+  const fd = d => UI.fmtDate(d, { day: 'numeric', month: 'short' });
+  const sizeOpts = (cur, ph) => `<option value="">${ph}</option>${SIZES.map(s => `<option ${s === cur ? 'selected' : ''}>${s}</option>`).join('')}`;
+  let only = 'all'; // all / missing
+
+  function css() {
+    if (document.getElementById('kitCss')) return;
+    const st = document.createElement('style'); st.id = 'kitCss';
+    st.textContent = `.kit-sum{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.kit-sum div{background:var(--surface2,rgba(0,0,0,.04));border-radius:10px;padding:8px 10px}
+      .kit-sum b{display:block;font-size:.95rem}.kit-sum span{font-size:.85rem;color:var(--muted)}
+      .kit-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 0;border-top:1px solid var(--line)}.kit-row:first-of-type{border-top:0}
+      .kit-name{flex:1 1 160px;min-width:0}.kit-name b{display:block}.kit-name small{color:var(--muted)}
+      .kit-chips{display:flex;flex-wrap:wrap;gap:5px;flex:2 1 260px}.kit-chips .chip{padding:5px 9px;font-size:.82rem}
+      .kit-chips .chip.on::before{content:'✓ '}`;
+    document.head.appendChild(st);
+  }
+
+  function edit(p, done) {
+    const k = kitOf(p);
+    modal({ title: `🎽 ${Store.fullName(p)}`, body: `
+      <div class="row3"><label class="fld"><span>Taille haut (maillot)</span><select id="kTop">${sizeOpts(k.top, '–')}</select></label>
+        <label class="fld"><span>Taille bas (short)</span><select id="kBot">${sizeOpts(k.bottom, '–')}</select></label>
+        <label class="fld"><span>Pointure</span><input id="kShoe" inputmode="numeric" maxlength="4" value="${esc(k.shoe || '')}" placeholder="ex : 38"></label></div>
+      <label class="fld"><span>Numéro de maillot</span><input id="kNum" inputmode="numeric" maxlength="3" value="${esc(p.number || '')}"></label>
+      <div class="lbl">Ce qui lui a été donné</div>
+      <div class="chips" id="kGot">${items().map(i => `<button type="button" class="chip ${(k.got || {})[i] ? 'on' : ''}" data-it="${esc(i)}">${esc(i)}${(k.got || {})[i] ? ' · ' + esc(fd(k.got[i])) : ''}</button>`).join('')}</div>
+      <label class="fld"><span>Note (à rendre, à changer, flocage…)</span><input id="kNote" maxlength="120" value="${esc(k.note || '')}"></label>`,
+      onOpen: r => r.querySelectorAll('#kGot [data-it]').forEach(b => b.onclick = () => b.classList.toggle('on')),
+      actions: [{ label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
+        const got = Object.assign({}, k.got || {}), v = id => r.querySelector('#' + id).value.trim();
+        r.querySelectorAll('#kGot [data-it]').forEach(b => { const i = b.dataset.it; if (b.classList.contains('on')) got[i] = got[i] || UI.today(); else delete got[i]; });
+        p.kit = { top: v('kTop'), bottom: v('kBot'), shoe: v('kShoe'), got, note: v('kNote') };
+        Object.keys(p.kit).forEach(x => { if (p.kit[x] === '' || (x === 'got' && !Object.keys(got).length)) delete p.kit[x]; });
+        p.number = v('kNum');
+        Store.upsert('players', p); toast('Enregistré'); done && done();
+      } }] });
+  }
+
+  function csv(t, ps) {
+    const head = ['Joueur', 'N°', 'Taille haut', 'Taille bas', 'Pointure', ...items(), 'Note'];
+    const rows = ps.map(p => { const k = kitOf(p); return [Store.fullName(p), p.number || '', k.top || '', k.bottom || '', k.shoe || '', ...items().map(i => (k.got || {})[i] || ''), k.note || '']; });
+    const q = x => /[;"\n]/.test(String(x)) ? '"' + String(x).replace(/"/g, '""') + '"' : String(x);
+    const txt = '﻿' + [head, ...rows].map(r => r.map(q).join(';')).join('\n');
+    return Exporter.deliver(new Blob([txt], { type: 'text/csv' }), `equipements-${String(t.name).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`);
+  }
+
+  // #/equipements/teamId
+  function page(root, teamId) {
+    css();
+    const teams = Auth.teams() || [], cur = teamId || (S().ui || {}).teamId, t = (cur && Auth.sees(cur) && Store.get('teams', cur)) || teams[0];
+    if (!t) { root.innerHTML = '<header class="page-head"><div><h1>🎽 Équipements</h1></div></header><p class="muted">Aucune catégorie ouverte pour toi : demande au responsable du club.</p>'; return; }
+    S().ui.teamId = t.id;
+    const ps = Store.playersOf(t.id).filter(p => !p.archived).slice().sort(Store.byName), IT = items();
+    const miss = p => IT.filter(i => !(kitOf(p).got || {})[i]);
+    const count = (key) => { const o = {}; ps.forEach(p => { const v = kitOf(p)[key]; if (v) o[v] = (o[v] || 0) + 1; }); return Object.entries(o).sort((a, b) => SIZES.indexOf(a[0]) - SIZES.indexOf(b[0]) || a[0].localeCompare(b[0], 'fr', { numeric: true })); };
+    const noSize = ps.filter(p => !kitOf(p).top).length, list = only === 'missing' ? ps.filter(p => miss(p).length) : ps;
+    const sum = (l, ic, key) => { const c = count(key); return `<div><b>${ic} ${l}</b><span>${c.length ? c.map(([s, n]) => `${esc(s)} × ${n}`).join(' · ') : '–'}</span></div>`; };
+    root.innerHTML = `<header class="page-head"><div><h1>🎽 Équipements · ${esc(t.name)}</h1><p class="sub">${ps.length} joueurs · ${ps.filter(p => !miss(p).length).length} équipés de tout</p></div>
+      <div class="head-actions">${teams.length > 1 ? `<select class="kit-sel" aria-label="Catégorie">${teams.map(x => `<option value="${esc(x.id)}" ${x.id === t.id ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select>` : ''}
+        <button class="btn" data-kit="csv">${I.download}<span>Excel</span></button>${Auth.isAdmin() ? '<button class="btn" data-kit="items">⚙️<span>Liste des articles</span></button>' : ''}</div></header>
+      <section class="card"><h2>🧾 Les tailles (pour commander)</h2><div class="kit-sum">${sum('Haut', '👕', 'top')}${sum('Bas', '🩳', 'bottom')}${sum('Pointure', '👟', 'shoe')}
+        ${IT.map(i => { const n = ps.filter(p => !(kitOf(p).got || {})[i]).length; return `<div><b>${esc(i)}</b><span>${n ? `${n} à donner` : '✅ tous servis'}</span></div>`; }).join('')}</div>
+        ${noSize ? `<p class="muted small">${noSize} joueur${noSize > 1 ? 's' : ''} sans taille notée.</p>` : ''}</section>
+      <section class="card"><div class="row-head"><h2>👥 Les joueurs</h2><div class="chips"><button class="chip ${only === 'all' ? 'on' : ''}" data-kitonly="all">Tous</button><button class="chip ${only === 'missing' ? 'on' : ''}" data-kitonly="missing">Il leur manque quelque chose</button></div></div>
+        <p class="muted small">Touche un article pour le cocher (donné aujourd'hui), ou le nom pour les tailles et le numéro.</p>
+        ${list.length ? list.map(p => { const k = kitOf(p); return `<div class="kit-row"><button class="linkish kit-name" data-kitp="${esc(p.id)}"><b>${p.number ? esc(p.number) + '. ' : ''}${esc(Store.fullName(p))}</b>
+          <small>${[k.top && '👕 ' + k.top, k.bottom && '🩳 ' + k.bottom, k.shoe && '👟 ' + k.shoe].filter(Boolean).map(esc).join(' · ') || 'Tailles à noter'}${k.note ? ' · 📝 ' + esc(k.note) : ''}</small></button>
+          <div class="kit-chips">${IT.map(i => `<button class="chip ${(k.got || {})[i] ? 'on' : ''}" data-kitgot="${esc(p.id)}" data-it="${esc(i)}" title="${(k.got || {})[i] ? 'Donné le ' + esc(fd(k.got[i])) : 'Pas encore donné'}">${esc(i)}</button>`).join('')}</div></div>`; }).join('')
+        : `<p class="muted">${only === 'missing' ? '✅ Tout le monde a tout.' : 'Pas de joueur dans cette catégorie.'}</p>`}</section>`;
+    const redraw = () => page(root, t.id);
+    const sel = root.querySelector('.kit-sel'); if (sel) sel.onchange = () => { location.hash = '#/equipements/' + sel.value; };
+    root.onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.kitonly) { only = b.dataset.kitonly; return redraw(); }
+      if (b.dataset.kitp) { const p = Store.get('players', b.dataset.kitp); if (p) edit(p, redraw); return; }
+      if (b.dataset.kitgot) { const p = Store.get('players', b.dataset.kitgot); if (!p) return; const k = p.kit = Object.assign({}, p.kit), got = k.got = Object.assign({}, k.got), i = b.dataset.it;
+        if (got[i]) delete got[i]; else got[i] = UI.today(); if (!Object.keys(got).length) delete k.got; Store.upsert('players', p); return redraw(); }
+      if (b.dataset.kit === 'csv') return csv(t, ps);
+      if (b.dataset.kit === 'items') return modal({ title: '⚙️ Articles donnés par le club', body: `<label class="fld"><span>Un article par ligne</span><textarea id="kItems" rows="7">${esc(IT.join('\n'))}</textarea></label>`,
+        actions: [{ label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => { const l = [...new Set(r.querySelector('#kItems').value.split('\n').map(x => x.trim().slice(0, 30)).filter(Boolean))].slice(0, 12);
+          S().club.kitItems = l.length ? l : ITEMS0; Store.save(); toast('Liste enregistrée'); redraw(); } }] });
+    };
+  }
+  return { page, items, kitOf };
+})();
+
+;
 /* ===== teamdocs.js ===== */
 /* TeamDocs (2.60): the documents of a team, in PDF.
    - the sheets of the whole squad (one player after the other: identity, positions, contacts, emergency, season, tests, level);
@@ -16383,6 +16607,13 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 122, date: '2026-10-09', title: 'Plateaux, intendance, autorisations, langues 🌍', items: [
+      ['🎪', 'Journée de plateau ou de tournoi : en créant le match, ajoute les autres adversaires (un par ligne) : un match par adversaire, le même jour. Sur chaque match : la liste de la journée, son bilan et « Mêmes convoqués pour les autres matchs ». Dans Résultats et stats : une ligne par journée, hors classement.'],
+      ['🎽', 'Équipements (Joueurs → Équipements) : tailles, numéro et ce que le club a donné à chaque joueur, le nombre de chaque taille pour commander, l\'export Excel.'],
+      ['🔐', 'Deux nouveaux accès pour un dirigeant (sa fiche → Accès) : « Intendance » (les équipements, les matchs et les séances de ses catégories) et « Référent médical » (blessures et fiches urgence de tout le club). Ils ne modifient que les fiches des joueurs.'],
+      ['✍️', 'Autorisations dans l\'appli, à la place du papier : droit à l\'image, soins d\'urgence, transport, partir seul, données. Les familles répondent dans leur espace (onglet « Moi ») ; toi, tu vois tout sur la fiche du joueur et dans Joueurs → Autorisations.'],
+      ['🌍', 'Espaces joueurs et parents en anglais, espagnol et portugais (onglet « Moi » → Langue), ou dans la langue du téléphone.'],
+    ] },
     { n: 121, date: '2026-10-09', title: 'Tour complet de l\'appli ✅', items: [
       ['📱', 'Le bouton « retour » du téléphone (Android) ferme la fenêtre ouverte (fiche, feuille, vidéo, photo, entraînement perso) au lieu de quitter la page ou l\'appli.'],
       ['🛠️', 'Une fenêtre ouverte plusieurs fois ne lance plus ses boutons en double (ex. « Documents PDF » : le bilan se créait deux fois).'],
@@ -19157,6 +19388,20 @@ var Views = (() => {
   const result = m => !m.played ? null : m.gf > m.ga ? 'V' : m.gf < m.ga ? 'D' : 'N';
   const resPill = m => { const r = result(m); return r ? `<span class="res-smiley" aria-hidden="true">${Ratings.smiley(m)}</span><span class="res res-${r}">${r === 'V' ? 'Gagné' : r === 'D' ? 'Perdu' : 'Nul'}</span>` : ''; };
   const scoreTxt = m => m.home ? `${m.gf} – ${m.ga}` : `${m.ga} – ${m.gf}`;
+  // (2.66) the matches of the same day of plateau / tournament: the list, the record of the day, the same convocation for all
+  function dayTotals(day) {
+    const pl = day.filter(x => x.played), r = k => pl.filter(x => result(x) === k).length;
+    return { n: day.length, played: pl.length, V: r('V'), N: r('N'), D: r('D'), gf: pl.reduce((a, x) => a + (+x.gf || 0), 0), ga: pl.reduce((a, x) => a + (+x.ga || 0), 0),
+      players: new Set(day.flatMap(x => x.convoked || [])).size };
+  }
+  function dayCard(m) {
+    const day = Store.dayOf(m); if (day.length < 2) return '';
+    const T = dayTotals(day), others = day.filter(x => x.id !== m.id), same = others.every(x => JSON.stringify([...(x.convoked || [])].sort()) === JSON.stringify([...(m.convoked || [])].sort()));
+    return `<section class="card day-card"><h2>🎪 Journée de ${/tournoi/i.test(m.competition) ? 'tournoi' : 'plateau'} · ${T.n} matchs</h2>
+      <ol class="day-list">${day.map(x => `<li class="${x.id === m.id ? 'on' : ''}"><a href="#/match/${x.id}">${x.time ? `<span class="muted">${esc(x.time.replace(':', 'h'))}</span> ` : ''}${esc(x.opponent || '?')}</a>${x.played ? ` <b>${esc(scoreTxt(x))}</b> ${resPill(x)}` : ''}</li>`).join('')}</ol>
+      ${T.played ? `<p class="small">Bilan de la journée : <b>${T.V}</b> gagné${T.V > 1 ? 's' : ''}, <b>${T.N}</b> nul${T.N > 1 ? 's' : ''}, <b>${T.D}</b> perdu${T.D > 1 ? 's' : ''} · ${T.gf} ${Sport.W().units} marqués, ${T.ga} encaissés</p>` : ''}
+      ${(m.convoked || []).length && !same ? `<button class="btn" data-act="dayconv">📋<span>Mêmes convoqués pour les ${others.length} autres matchs</span></button>` : (m.convoked || []).length ? '<p class="muted small">✅ Les mêmes joueurs sont convoqués à tous les matchs de la journée.</p>' : '<p class="muted small">Convoque les joueurs ici, puis reprends-les pour toute la journée en un geste.</p>'}</section>`;
+  }
   const opp = m => `${Clubs.oppLogo(m.opponent)}${esc(m.opponent || '?')}`; // (1.40) with its crest when known
   const matchTitle = m => m.exempt ? `${esc(S().club.name)} <i>exempt · pas de match</i>` : m.home ? `${esc(S().club.name)} <i>contre</i> ${opp(m)}` : `${opp(m)} <i>contre</i> ${esc(S().club.name)}`;
   // « U13 · Raincy – Aulnaysienne » : our category, then the two teams in the order of the score (home first)
@@ -19326,7 +19571,7 @@ var Views = (() => {
     const nextTr = trainings.filter(t => t.date >= now).sort((a, b) => a.date.localeCompare(b.date))[0];
     const last = matches.filter(m => m.played).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
     const schemas = S().schemas.filter(s => Auth.sees(s.teamId)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 4);
-    root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${hero(now)}
+    root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${Auth.limited() === 'med' ? '<div class="ro-note">🩺 <b>Accès référent médical</b> : tu vois toutes les catégories du club. Tu modifies seulement les fiches des joueurs (blessures, fiche urgence). <a href="#/infirmerie">Infirmerie</a> · <a href="#/urgences">Fiches urgence</a></div>' : ''}${hero(now)}
       ${serverBanner()}
       ${teamSwitch()}
       ${setupCard()}
@@ -19388,6 +19633,8 @@ var Views = (() => {
        <a class="btn" href="#/progression">📈<span>Progression</span></a>
        <a class="btn" href="#/niveau">📊<span>Niveau des joueurs</span></a>
        <a class="btn" href="#/urgences">🚑<span>Fiches urgence</span></a>
+       <a class="btn" href="#/equipements">🎽<span>Équipements</span></a>
+       <a class="btn" href="#/autorisations">✍️<span>Autorisations</span></a>
        <a class="btn" href="#/tests">🏃<span>Tests physiques</span></a>
        <a class="btn" href="#/athle">⚡<span>Travail athlétique</span></a>
        <a class="btn" href="#/equilibre">👥<span>Former des équipes</span></a>
@@ -19790,11 +20037,21 @@ var Views = (() => {
       <div class="row2"><label class="fld"><span>Date</span><input type="date" id="mDate" value="${today()}"></label><label class="fld"><span>Coup d'envoi</span><input type="time" id="mTime" value="10:00"></label></div>
       <div class="chips" id="mHome"><button class="chip on" data-v="1">Domicile</button><button class="chip" data-v="0">Extérieur</button></div>
       <div class="row2"><label class="fld"><span>Compétition</span><select id="mComp">${COMPS.map(c => `<option>${c}</option>`).join('')}</select></label>
-      <label class="fld"><span>Équipe</span><select id="mTeam">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label></div>`,
-      onOpen: r => $$('#mHome .chip', r).forEach(b => b.onclick = () => { $$('#mHome .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); }),
+      <label class="fld"><span>Équipe</span><select id="mTeam">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label></div>
+      <div id="mDay" hidden><label class="fld"><span>🎪 Les autres adversaires de la journée (un par ligne, facultatif)</span><textarea id="mOpps" rows="3" placeholder="ex :\nFC Livry\nES Montreuil"></textarea></label>
+        <div class="row2"><label class="fld"><span>Minutes entre deux matchs</span><input id="mGap" type="number" min="0" max="120" value="20" inputmode="numeric"></label></div>
+        <p class="muted small">Un match est créé pour chaque adversaire, le même jour : ils forment une journée de plateau (convocation commune, bilan de la journée dans les stats).</p></div>`,
+      onOpen: r => { $$('#mHome .chip', r).forEach(b => b.onclick = () => { $$('#mHome .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+        const sync = () => { $('#mDay', r).hidden = !/plateau|tournoi/i.test($('#mComp', r).value); }; $('#mComp', r).onchange = sync; sync(); },
       actions: [{ label: 'Annuler' }, { label: 'Créer', kind: 'primary', onClick: (c, r) => {
         if (!S().teams.length) { toast('Crée d\'abord une équipe', 'err'); return false; }
-        const m = Store.upsert('matches', { id: Store.uid(), teamId: $('#mTeam', r).value, opponent: $('#mOpp', r).value.trim() || 'Adversaire', date: $('#mDate', r).value || today(), time: $('#mTime', r).value, home: $('#mHome .on', r).dataset.v === '1', competition: $('#mComp', r).value, place: '', rdv: '', played: false, gf: 0, ga: 0, convoked: [], stats: {}, notes: '' });
+        const base = { teamId: $('#mTeam', r).value, date: $('#mDate', r).value || today(), home: $('#mHome .on', r).dataset.v === '1', competition: $('#mComp', r).value, place: '', rdv: '', played: false, gf: 0, ga: 0, convoked: [], stats: {}, notes: '' };
+        const day = /plateau|tournoi/i.test(base.competition) ? $('#mOpps', r).value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 11) : [];
+        const gap = Math.max(0, Math.min(120, +$('#mGap', r).value || 0)), t0 = $('#mTime', r).value;
+        const at = i => { if (!t0 || !i) return t0; const [h, mi] = t0.split(':').map(Number), x = h * 60 + mi + i * gap; return `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+        const m = Store.upsert('matches', { ...base, id: Store.uid(), opponent: $('#mOpp', r).value.trim() || 'Adversaire', time: t0 });
+        day.forEach((o, i) => Store.upsert('matches', { ...base, convoked: [], stats: {}, id: Store.uid(), opponent: o, time: at(i + 1) }));
+        if (day.length) toast(`🎪 Journée créée : ${day.length + 1} matchs`);
         location.hash = '#/match/' + m.id;
       } }] });
   }
@@ -19803,7 +20060,7 @@ var Views = (() => {
     const t = teamOf(m.teamId), conv = (t ? Store.rosterOf(t.id) : []).filter(p => (m.convoked || []).includes(p.id)), club = S().club.name || 'Le club';
     const hh = x => String(x || '').replace(':', 'h'), me = Auth.current();
     return [`${Sport.W().icon} *${club}${t ? ' · ' + t.name : ''}*`, `*Convocation – ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}*`, '',
-      `Match ${m.home ? 'à domicile' : 'à l\'extérieur'} contre *${m.opponent || '?'}*${m.competition ? ' (' + m.competition + ')' : ''}`,
+      ...(Store.dayOf(m).length > 1 ? [`*${m.competition}* ${m.home ? 'à domicile' : 'à l\'extérieur'} : ${Store.dayOf(m).length} matchs`, ...Store.dayOf(m).map(x => `• ${x.time ? hh(x.time) + ' ' : ''}contre ${x.opponent || '?'}`)] : [`Match ${m.home ? 'à domicile' : 'à l\'extérieur'} contre *${m.opponent || '?'}*${m.competition ? ' (' + m.competition + ')' : ''}`]),
       m.place || m.home ? `📍 ${m.place || S().club.fieldName || 'Stade du club'}` : '',
       m.rdv || m.time ? `🕘 ${m.rdv ? 'Rendez-vous ' + hh(m.rdv) : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? 'coup d\'envoi ' + hh(m.time) : ''}` : '🕘 Horaire à confirmer', '',
       `*Joueurs convoqués (${conv.length}) :*`, ...conv.map((p, i) => `${i + 1}. ${p.firstName || ''} ${p.lastName || ''}`.trim()), '',
@@ -19978,6 +20235,7 @@ var Views = (() => {
         ${(() => { const f = !m.played && Season.formOf(t, m.opponent); return f && f.length ? `<section class="card opp-form"><h2>🔎 ${Clubs.oppLogo(m.opponent)}${esc(m.opponent)} : sa forme du moment</h2>
           <div class="form-dots">${f.map(({ r, x }) => `<span class="fd ${r}" title="${esc(`${x.home} ${x.hs} - ${x.as} ${x.away}`)}">${r}</span>`).join('')}</div>
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
+        ${dayCard(m)}
         ${briefCard(m, t)}
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) || suspOf(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${suspFlag(p, m.date)}${mutKind(p) && mutKind(p) !== 'contrat' ? '<i class="mut-tag">M</i>' : ''}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
@@ -20006,6 +20264,7 @@ var Views = (() => {
         <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
         </div>
         <div ${panel('apres')}>
+        ${m.played ? dayCard(m) : ''}
         ${m.played && !m.exempt ? `<section class="card fix-card"><div><h2>✏️ Une erreur dans ce match ?</h2><p class="muted small">Score, ${Sport.W().scorers}, passeurs, temps de jeu et cartons sur un seul écran. ${(() => { const c = FixMatch.check(m).issues || []; return c.length ? ` <b class="ans-no">⚠️ ${esc(c[0].t)}${c.length > 1 ? ` (+${c.length - 1})` : ''}</b>` : ''; })()} La correction est gardée, même après un import AssistCoachAI ou de la feuille FFF.${m.handFix ? ` <b>Corrigé le ${esc(fmtDate(new Date(m.handFix.at).toISOString().slice(0, 10), { day: 'numeric', month: 'short' }))}.</b>` : ''}</p></div><button class="btn primary" data-act="fix">✏️<span>Corriger le match</span></button></section>` : ''}
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${m.played && !m.exempt ? `<section class="card share-card"><div><h2>📣 Réseaux sociaux</h2><p class="muted small">Une image du résultat aux couleurs du club, prête pour Instagram, Facebook, WhatsApp, X…</p></div><button class="btn primary" data-act="shareres">📣<span>Partager le résultat</span></button></section>` : ''}
@@ -20067,6 +20326,7 @@ var Views = (() => {
       if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       if (b.dataset.unsusp) { const [pid, mid] = b.dataset.unsusp.split(':'), pl = Store.get('players', pid); if (pl) { pl.suspDone = [...new Set([...(pl.suspDone || []), mid])].slice(-10); Store.upsert('players', pl); toast(`${Store.shortName(pl)} n'est plus marqué suspendu`); } return render(); }
       if (b.dataset.act === 'lineupcopy') return copyLineup(m);
+      if (b.dataset.act === 'dayconv') { const o = Store.dayOf(m).filter(x => x.id !== m.id); o.forEach(x => { x.convoked = [...(m.convoked || [])]; if (m.captain && !x.captain) x.captain = m.captain; Store.upsert('matches', x); }); toast(`📋 Convoqués repris pour ${o.length} match${o.length > 1 ? 's' : ''}`); return render(); }
       if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
         try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
@@ -20178,7 +20438,17 @@ var Views = (() => {
     const ms0 = S().matches.filter(m => m.teamId === t.id && m.played), ms = ms0.filter(Store.kindOk).sort((a, b) => b.date.localeCompare(a.date));
     const trs = S().trainings.filter(x => x.teamId === t.id && (x.presents || []).length);
     // (1.57) the cups (knock-out) apart: the tiles count the championship (or the friendlies), the cups have their own card
-    const isCupM = m => m.competition === 'Coupe', msL = ms.filter(m => !isCupM(m));
+    // (2.66) the plateaux apart too (no ranking): one line per day, with its record
+    const isCupM = m => m.competition === 'Coupe', isPlat = m => /plateau/i.test(m.competition || ''), msL = ms.filter(m => !isCupM(m) && !isPlat(m));
+    const dayCardStats = () => {
+      const days = {}; ms.filter(Store.isDayComp).forEach(m => { (days[m.date] = days[m.date] || []).push(m); });
+      const list = Object.entries(days).filter(([, d]) => d.length > 1 || isPlat(d[0])).sort((a, b) => b[0].localeCompare(a[0])); if (!list.length) return '';
+      const all = dayTotals(list.flatMap(([, d]) => d));
+      return `<section class="card day-card"><h2>🎪 Journées de plateau et tournois <span class="muted small">· ${list.length} journée${list.length > 1 ? 's' : ''}, ${all.n} matchs, hors classement</span></h2>
+        <p class="small">En tout : <b>${all.V}</b> gagné${all.V > 1 ? 's' : ''}, <b>${all.N}</b> nul${all.N > 1 ? 's' : ''}, <b>${all.D}</b> perdu${all.D > 1 ? 's' : ''} · ${all.gf} ${Sport.W().units} marqués, ${all.ga} encaissés</p>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Journée</th><th>Matchs</th><th>G-N-P</th><th>${Sport.W().Units}</th><th>Joueurs</th></tr></thead><tbody>${list.map(([d, day]) => { const T = dayTotals(day); day.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
+          return `<tr><td>${esc(fmtDate(d))}</td><td><a href="#/match/${day[0].id}">${esc(day[0].competition)}${day[0].place ? ' · ' + esc(day[0].place) : ''}</a><div class="muted small">${day.map(x => esc(x.opponent || '?') + (x.played ? ' ' + esc(scoreTxt(x)) : '')).join(' · ')}</div></td><td class="num">${T.n}</td><td class="num">${T.V}-${T.N}-${T.D}</td><td class="num">${T.gf} – ${T.ga}</td><td class="num">${T.players || '–'}</td></tr>`; }).join('')}</tbody></table></div></section>`;
+    };
     const V = msL.filter(m => result(m) === 'V').length, N = msL.filter(m => result(m) === 'N').length, D = msL.filter(m => result(m) === 'D').length;
     const bp = msL.reduce((a, m) => a + (+m.gf || 0), 0), bc = msL.reduce((a, m) => a + (+m.ga || 0), 0);
     const cupCard = () => {
@@ -20224,6 +20494,7 @@ var Views = (() => {
         <div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>
       </div>
       ${cupCard()}
+      ${dayCardStats()}
       ${(() => { const low = People.lowPlaytime(t.id); return low.length ? `<section class="card playtime-card"><h2>⏱️ Temps de jeu à surveiller</h2><p class="muted small">Joueurs qui ont joué moins de la moitié de la moyenne de l'équipe (${low[0].avg} min) sur les matchs où le temps de jeu est noté.</p><ul class="alerts">${low.map(x => `<li><a href="#/joueur/${x.p.id}"><b>${esc(pName(x.p))}</b></a> : ${x.min} min${x.conv ? ` · ${x.conv} convocation${x.conv > 1 ? 's' : ''}` : ' · jamais convoqué'}</li>`).join('')}</ul></section>` : ''; })()}
       <h2 class="section">Joueurs</h2>
       <div class="table-wrap"><table class="tbl">
@@ -20520,6 +20791,7 @@ var App = (() => {
     const pv = Auth.preview();
     // a volunteer: only what he uses on match days
     const nav = pv && pv.role === 'benevole' ? [['benevoles', 'Bénévoles', 'team'], NAV[6]]
+      : Auth.limited() === 'kit' ? [['equipements', 'Équipements', 'team', 'Équip.'], ...NAV.filter(n => Auth.pageOk(n[0]))]
       : Auth.isAdmin() ? [...NAV.slice(0, -1), ['gestion', 'Gestion du club', 'shield', 'Gestion'], NAV[NAV.length - 1]] : NAV;
     const idx = nav.findIndex(n => n[0] === active);
     document.body.classList.toggle('nav-top', navPos() === 'haut');
@@ -20552,10 +20824,11 @@ var App = (() => {
     if (name === 'connexion') { history.replaceState(null, '', '#/'); route(); return Auth.connectServer(); }
     const pvw = Auth.preview();
     if (pvw && pvw.role === 'benevole' && !['benevoles', 'club'].includes(name)) { location.hash = '#/benevoles'; return; }
+    if (!Auth.pageOk(name)) { location.hash = '#/equipements'; return; } // (2.66) intendance: its pages only
     document.body.dataset.page = name;
     const full = name === 'schema' || name === 'tableau';
     document.body.classList.toggle('editing', full);
-    const navKey = { niveau: 'equipes', urgences: 'equipes', equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
+    const navKey = { niveau: 'equipes', urgences: 'equipes', autorisations: 'equipes', equipements: Auth.limited() === 'kit' ? 'equipements' : 'equipes', equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
     renderNav(navKey);
     Quick.fab();
     // Whiteboard: a blank board, never saved (id = format of the pitch)
@@ -20570,7 +20843,7 @@ var App = (() => {
       planning: r => Planning.page(r), jeu: r => Views.game(r), chat: (r, x) => Views.chat(r, x), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x), signalements: r => Help.inbox(r),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
-      tests: (r, x) => Tests.page(r, x), athle: (r, x) => Athle.page(r, x), equilibre: (r, x) => Balance.page(r, x), niveau: (r, x) => Level.page(r, x), terrain: (r, x) => Terrain.page(r, x), urgences: (r, x) => Urgent.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
+      tests: (r, x) => Tests.page(r, x), athle: (r, x) => Athle.page(r, x), equilibre: (r, x) => Balance.page(r, x), niveau: (r, x) => Level.page(r, x), terrain: (r, x) => Terrain.page(r, x), urgences: (r, x) => Urgent.page(r, x), equipements: (r, x) => Kit.page(r, x), autorisations: (r, x) => Consent.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
     if (!keep) Help.visit();
     fn(root, id);
     Help.guideInto(root);
@@ -20607,7 +20880,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 166, UPD = AppCfg.key('update-tried');
+  const BUILD = 167, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
