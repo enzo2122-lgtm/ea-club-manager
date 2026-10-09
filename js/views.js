@@ -67,6 +67,20 @@ const Views = (() => {
   const result = m => !m.played ? null : m.gf > m.ga ? 'V' : m.gf < m.ga ? 'D' : 'N';
   const resPill = m => { const r = result(m); return r ? `<span class="res-smiley" aria-hidden="true">${Ratings.smiley(m)}</span><span class="res res-${r}">${r === 'V' ? 'Gagné' : r === 'D' ? 'Perdu' : 'Nul'}</span>` : ''; };
   const scoreTxt = m => m.home ? `${m.gf} – ${m.ga}` : `${m.ga} – ${m.gf}`;
+  // (2.66) the matches of the same day of plateau / tournament: the list, the record of the day, the same convocation for all
+  function dayTotals(day) {
+    const pl = day.filter(x => x.played), r = k => pl.filter(x => result(x) === k).length;
+    return { n: day.length, played: pl.length, V: r('V'), N: r('N'), D: r('D'), gf: pl.reduce((a, x) => a + (+x.gf || 0), 0), ga: pl.reduce((a, x) => a + (+x.ga || 0), 0),
+      players: new Set(day.flatMap(x => x.convoked || [])).size };
+  }
+  function dayCard(m) {
+    const day = Store.dayOf(m); if (day.length < 2) return '';
+    const T = dayTotals(day), others = day.filter(x => x.id !== m.id), same = others.every(x => JSON.stringify([...(x.convoked || [])].sort()) === JSON.stringify([...(m.convoked || [])].sort()));
+    return `<section class="card day-card"><h2>🎪 Journée de ${/tournoi/i.test(m.competition) ? 'tournoi' : 'plateau'} · ${T.n} matchs</h2>
+      <ol class="day-list">${day.map(x => `<li class="${x.id === m.id ? 'on' : ''}"><a href="#/match/${x.id}">${x.time ? `<span class="muted">${esc(x.time.replace(':', 'h'))}</span> ` : ''}${esc(x.opponent || '?')}</a>${x.played ? ` <b>${esc(scoreTxt(x))}</b> ${resPill(x)}` : ''}</li>`).join('')}</ol>
+      ${T.played ? `<p class="small">Bilan de la journée : <b>${T.V}</b> gagné${T.V > 1 ? 's' : ''}, <b>${T.N}</b> nul${T.N > 1 ? 's' : ''}, <b>${T.D}</b> perdu${T.D > 1 ? 's' : ''} · ${T.gf} ${Sport.W().units} marqués, ${T.ga} encaissés</p>` : ''}
+      ${(m.convoked || []).length && !same ? `<button class="btn" data-act="dayconv">📋<span>Mêmes convoqués pour les ${others.length} autres matchs</span></button>` : (m.convoked || []).length ? '<p class="muted small">✅ Les mêmes joueurs sont convoqués à tous les matchs de la journée.</p>' : '<p class="muted small">Convoque les joueurs ici, puis reprends-les pour toute la journée en un geste.</p>'}</section>`;
+  }
   const opp = m => `${Clubs.oppLogo(m.opponent)}${esc(m.opponent || '?')}`; // (1.40) with its crest when known
   const matchTitle = m => m.exempt ? `${esc(S().club.name)} <i>exempt · pas de match</i>` : m.home ? `${esc(S().club.name)} <i>contre</i> ${opp(m)}` : `${opp(m)} <i>contre</i> ${esc(S().club.name)}`;
   // « U13 · Raincy – Aulnaysienne » : our category, then the two teams in the order of the score (home first)
@@ -236,7 +250,7 @@ const Views = (() => {
     const nextTr = trainings.filter(t => t.date >= now).sort((a, b) => a.date.localeCompare(b.date))[0];
     const last = matches.filter(m => m.played).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
     const schemas = S().schemas.filter(s => Auth.sees(s.teamId)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 4);
-    root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${hero(now)}
+    root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${Auth.limited() === 'med' ? '<div class="ro-note">🩺 <b>Accès référent médical</b> : tu vois toutes les catégories du club. Tu modifies seulement les fiches des joueurs (blessures, fiche urgence). <a href="#/infirmerie">Infirmerie</a> · <a href="#/urgences">Fiches urgence</a></div>' : ''}${hero(now)}
       ${serverBanner()}
       ${teamSwitch()}
       ${setupCard()}
@@ -298,6 +312,8 @@ const Views = (() => {
        <a class="btn" href="#/progression">📈<span>Progression</span></a>
        <a class="btn" href="#/niveau">📊<span>Niveau des joueurs</span></a>
        <a class="btn" href="#/urgences">🚑<span>Fiches urgence</span></a>
+       <a class="btn" href="#/equipements">🎽<span>Équipements</span></a>
+       <a class="btn" href="#/autorisations">✍️<span>Autorisations</span></a>
        <a class="btn" href="#/tests">🏃<span>Tests physiques</span></a>
        <a class="btn" href="#/athle">⚡<span>Travail athlétique</span></a>
        <a class="btn" href="#/equilibre">👥<span>Former des équipes</span></a>
@@ -700,11 +716,21 @@ const Views = (() => {
       <div class="row2"><label class="fld"><span>Date</span><input type="date" id="mDate" value="${today()}"></label><label class="fld"><span>Coup d'envoi</span><input type="time" id="mTime" value="10:00"></label></div>
       <div class="chips" id="mHome"><button class="chip on" data-v="1">Domicile</button><button class="chip" data-v="0">Extérieur</button></div>
       <div class="row2"><label class="fld"><span>Compétition</span><select id="mComp">${COMPS.map(c => `<option>${c}</option>`).join('')}</select></label>
-      <label class="fld"><span>Équipe</span><select id="mTeam">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label></div>`,
-      onOpen: r => $$('#mHome .chip', r).forEach(b => b.onclick = () => { $$('#mHome .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); }),
+      <label class="fld"><span>Équipe</span><select id="mTeam">${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label></div>
+      <div id="mDay" hidden><label class="fld"><span>🎪 Les autres adversaires de la journée (un par ligne, facultatif)</span><textarea id="mOpps" rows="3" placeholder="ex :\nFC Livry\nES Montreuil"></textarea></label>
+        <div class="row2"><label class="fld"><span>Minutes entre deux matchs</span><input id="mGap" type="number" min="0" max="120" value="20" inputmode="numeric"></label></div>
+        <p class="muted small">Un match est créé pour chaque adversaire, le même jour : ils forment une journée de plateau (convocation commune, bilan de la journée dans les stats).</p></div>`,
+      onOpen: r => { $$('#mHome .chip', r).forEach(b => b.onclick = () => { $$('#mHome .chip', r).forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+        const sync = () => { $('#mDay', r).hidden = !/plateau|tournoi/i.test($('#mComp', r).value); }; $('#mComp', r).onchange = sync; sync(); },
       actions: [{ label: 'Annuler' }, { label: 'Créer', kind: 'primary', onClick: (c, r) => {
         if (!S().teams.length) { toast('Crée d\'abord une équipe', 'err'); return false; }
-        const m = Store.upsert('matches', { id: Store.uid(), teamId: $('#mTeam', r).value, opponent: $('#mOpp', r).value.trim() || 'Adversaire', date: $('#mDate', r).value || today(), time: $('#mTime', r).value, home: $('#mHome .on', r).dataset.v === '1', competition: $('#mComp', r).value, place: '', rdv: '', played: false, gf: 0, ga: 0, convoked: [], stats: {}, notes: '' });
+        const base = { teamId: $('#mTeam', r).value, date: $('#mDate', r).value || today(), home: $('#mHome .on', r).dataset.v === '1', competition: $('#mComp', r).value, place: '', rdv: '', played: false, gf: 0, ga: 0, convoked: [], stats: {}, notes: '' };
+        const day = /plateau|tournoi/i.test(base.competition) ? $('#mOpps', r).value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 11) : [];
+        const gap = Math.max(0, Math.min(120, +$('#mGap', r).value || 0)), t0 = $('#mTime', r).value;
+        const at = i => { if (!t0 || !i) return t0; const [h, mi] = t0.split(':').map(Number), x = h * 60 + mi + i * gap; return `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+        const m = Store.upsert('matches', { ...base, id: Store.uid(), opponent: $('#mOpp', r).value.trim() || 'Adversaire', time: t0 });
+        day.forEach((o, i) => Store.upsert('matches', { ...base, convoked: [], stats: {}, id: Store.uid(), opponent: o, time: at(i + 1) }));
+        if (day.length) toast(`🎪 Journée créée : ${day.length + 1} matchs`);
         location.hash = '#/match/' + m.id;
       } }] });
   }
@@ -713,7 +739,7 @@ const Views = (() => {
     const t = teamOf(m.teamId), conv = (t ? Store.rosterOf(t.id) : []).filter(p => (m.convoked || []).includes(p.id)), club = S().club.name || 'Le club';
     const hh = x => String(x || '').replace(':', 'h'), me = Auth.current();
     return [`${Sport.W().icon} *${club}${t ? ' · ' + t.name : ''}*`, `*Convocation – ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}*`, '',
-      `Match ${m.home ? 'à domicile' : 'à l\'extérieur'} contre *${m.opponent || '?'}*${m.competition ? ' (' + m.competition + ')' : ''}`,
+      ...(Store.dayOf(m).length > 1 ? [`*${m.competition}* ${m.home ? 'à domicile' : 'à l\'extérieur'} : ${Store.dayOf(m).length} matchs`, ...Store.dayOf(m).map(x => `• ${x.time ? hh(x.time) + ' ' : ''}contre ${x.opponent || '?'}`)] : [`Match ${m.home ? 'à domicile' : 'à l\'extérieur'} contre *${m.opponent || '?'}*${m.competition ? ' (' + m.competition + ')' : ''}`]),
       m.place || m.home ? `📍 ${m.place || S().club.fieldName || 'Stade du club'}` : '',
       m.rdv || m.time ? `🕘 ${m.rdv ? 'Rendez-vous ' + hh(m.rdv) : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? 'coup d\'envoi ' + hh(m.time) : ''}` : '🕘 Horaire à confirmer', '',
       `*Joueurs convoqués (${conv.length}) :*`, ...conv.map((p, i) => `${i + 1}. ${p.firstName || ''} ${p.lastName || ''}`.trim()), '',
@@ -888,6 +914,7 @@ const Views = (() => {
         ${(() => { const f = !m.played && Season.formOf(t, m.opponent); return f && f.length ? `<section class="card opp-form"><h2>🔎 ${Clubs.oppLogo(m.opponent)}${esc(m.opponent)} : sa forme du moment</h2>
           <div class="form-dots">${f.map(({ r, x }) => `<span class="fd ${r}" title="${esc(`${x.home} ${x.hs} - ${x.as} ${x.away}`)}">${r}</span>`).join('')}</div>
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
+        ${dayCard(m)}
         ${briefCard(m, t)}
         <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) || suspOf(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${suspFlag(p, m.date)}${mutKind(p) && mutKind(p) !== 'contrat' ? '<i class="mut-tag">M</i>' : ''}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
@@ -916,6 +943,7 @@ const Views = (() => {
         <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
         </div>
         <div ${panel('apres')}>
+        ${m.played ? dayCard(m) : ''}
         ${m.played && !m.exempt ? `<section class="card fix-card"><div><h2>✏️ Une erreur dans ce match ?</h2><p class="muted small">Score, ${Sport.W().scorers}, passeurs, temps de jeu et cartons sur un seul écran. ${(() => { const c = FixMatch.check(m).issues || []; return c.length ? ` <b class="ans-no">⚠️ ${esc(c[0].t)}${c.length > 1 ? ` (+${c.length - 1})` : ''}</b>` : ''; })()} La correction est gardée, même après un import AssistCoachAI ou de la feuille FFF.${m.handFix ? ` <b>Corrigé le ${esc(fmtDate(new Date(m.handFix.at).toISOString().slice(0, 10), { day: 'numeric', month: 'short' }))}.</b>` : ''}</p></div><button class="btn primary" data-act="fix">✏️<span>Corriger le match</span></button></section>` : ''}
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${m.played && !m.exempt ? `<section class="card share-card"><div><h2>📣 Réseaux sociaux</h2><p class="muted small">Une image du résultat aux couleurs du club, prête pour Instagram, Facebook, WhatsApp, X…</p></div><button class="btn primary" data-act="shareres">📣<span>Partager le résultat</span></button></section>` : ''}
@@ -977,6 +1005,7 @@ const Views = (() => {
       if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       if (b.dataset.unsusp) { const [pid, mid] = b.dataset.unsusp.split(':'), pl = Store.get('players', pid); if (pl) { pl.suspDone = [...new Set([...(pl.suspDone || []), mid])].slice(-10); Store.upsert('players', pl); toast(`${Store.shortName(pl)} n'est plus marqué suspendu`); } return render(); }
       if (b.dataset.act === 'lineupcopy') return copyLineup(m);
+      if (b.dataset.act === 'dayconv') { const o = Store.dayOf(m).filter(x => x.id !== m.id); o.forEach(x => { x.convoked = [...(m.convoked || [])]; if (m.captain && !x.captain) x.captain = m.captain; Store.upsert('matches', x); }); toast(`📋 Convoqués repris pour ${o.length} match${o.length > 1 ? 's' : ''}`); return render(); }
       if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
         try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
@@ -1088,7 +1117,17 @@ const Views = (() => {
     const ms0 = S().matches.filter(m => m.teamId === t.id && m.played), ms = ms0.filter(Store.kindOk).sort((a, b) => b.date.localeCompare(a.date));
     const trs = S().trainings.filter(x => x.teamId === t.id && (x.presents || []).length);
     // (1.57) the cups (knock-out) apart: the tiles count the championship (or the friendlies), the cups have their own card
-    const isCupM = m => m.competition === 'Coupe', msL = ms.filter(m => !isCupM(m));
+    // (2.66) the plateaux apart too (no ranking): one line per day, with its record
+    const isCupM = m => m.competition === 'Coupe', isPlat = m => /plateau/i.test(m.competition || ''), msL = ms.filter(m => !isCupM(m) && !isPlat(m));
+    const dayCardStats = () => {
+      const days = {}; ms.filter(Store.isDayComp).forEach(m => { (days[m.date] = days[m.date] || []).push(m); });
+      const list = Object.entries(days).filter(([, d]) => d.length > 1 || isPlat(d[0])).sort((a, b) => b[0].localeCompare(a[0])); if (!list.length) return '';
+      const all = dayTotals(list.flatMap(([, d]) => d));
+      return `<section class="card day-card"><h2>🎪 Journées de plateau et tournois <span class="muted small">· ${list.length} journée${list.length > 1 ? 's' : ''}, ${all.n} matchs, hors classement</span></h2>
+        <p class="small">En tout : <b>${all.V}</b> gagné${all.V > 1 ? 's' : ''}, <b>${all.N}</b> nul${all.N > 1 ? 's' : ''}, <b>${all.D}</b> perdu${all.D > 1 ? 's' : ''} · ${all.gf} ${Sport.W().units} marqués, ${all.ga} encaissés</p>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Journée</th><th>Matchs</th><th>G-N-P</th><th>${Sport.W().Units}</th><th>Joueurs</th></tr></thead><tbody>${list.map(([d, day]) => { const T = dayTotals(day); day.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
+          return `<tr><td>${esc(fmtDate(d))}</td><td><a href="#/match/${day[0].id}">${esc(day[0].competition)}${day[0].place ? ' · ' + esc(day[0].place) : ''}</a><div class="muted small">${day.map(x => esc(x.opponent || '?') + (x.played ? ' ' + esc(scoreTxt(x)) : '')).join(' · ')}</div></td><td class="num">${T.n}</td><td class="num">${T.V}-${T.N}-${T.D}</td><td class="num">${T.gf} – ${T.ga}</td><td class="num">${T.players || '–'}</td></tr>`; }).join('')}</tbody></table></div></section>`;
+    };
     const V = msL.filter(m => result(m) === 'V').length, N = msL.filter(m => result(m) === 'N').length, D = msL.filter(m => result(m) === 'D').length;
     const bp = msL.reduce((a, m) => a + (+m.gf || 0), 0), bc = msL.reduce((a, m) => a + (+m.ga || 0), 0);
     const cupCard = () => {
@@ -1134,6 +1173,7 @@ const Views = (() => {
         <div class="tile"><b>${Sport.leaguePts(V, N, D)}</b><span>Points au classement</span></div>
       </div>
       ${cupCard()}
+      ${dayCardStats()}
       ${(() => { const low = People.lowPlaytime(t.id); return low.length ? `<section class="card playtime-card"><h2>⏱️ Temps de jeu à surveiller</h2><p class="muted small">Joueurs qui ont joué moins de la moitié de la moyenne de l'équipe (${low[0].avg} min) sur les matchs où le temps de jeu est noté.</p><ul class="alerts">${low.map(x => `<li><a href="#/joueur/${x.p.id}"><b>${esc(pName(x.p))}</b></a> : ${x.min} min${x.conv ? ` · ${x.conv} convocation${x.conv > 1 ? 's' : ''}` : ' · jamais convoqué'}</li>`).join('')}</ul></section>` : ''; })()}
       <h2 class="section">Joueurs</h2>
       <div class="table-wrap"><table class="tbl">

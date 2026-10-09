@@ -2,7 +2,7 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.65';
+  const VERSION = '2.66';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -116,6 +116,8 @@ const Help = (() => {
     equilibre: ['Former des équipes', ['Choisis le nombre d\'équipes et le critère (niveau global, physique, vitesse, VMA…) : les équipes sont équilibrées, un gardien chacune.', 'Les affinités de la fiche joueur sont respectées (« jouer avec », « éviter »).', '« Remélanger » propose une autre répartition ; « Partager » l\'envoie sur WhatsApp.']],
     niveau: ['Niveau des joueurs', ['Chaque joueur noté de 1 à 5 sur 5 critères : technique, intelligence de jeu, physique, attitude, mental.', '« Noter l\'équipe » enchaîne les joueurs ; touche un titre de colonne pour trier.', 'Réservé aux coachs et aux responsables : jamais montré aux joueurs ni aux parents.']],
     terrain: ['Chrono et score', ['Chrono d\'exercice : effort, récup, répétitions et séries, avec des sons ; l\'écran reste allumé.', 'Score : 2 à 4 équipes aux couleurs des chasubles.', 'Test VMA : VAMEVAL, 45-15 ou 30-15 avec les bips ; touche un joueur quand il s\'arrête, puis « Enregistrer ».', 'Tournoi : tous contre tous, poules + finales ou élimination directe, le classement se fait seul.']],
+    equipements: ['Équipements', ['Pour chaque joueur : ses tailles (haut, bas, pointure), son numéro et ce que le club lui a donné (maillot, short, survêtement…, avec la date).', 'Touche un article sous un nom pour le cocher : il est noté « donné aujourd\'hui ». Touche le nom pour les tailles.', 'En haut : le nombre de chaque taille, pour passer la commande, et ce qui reste à donner.', '« Il leur manque quelque chose » : seulement les joueurs à servir. « Excel » : le tableau à envoyer au fournisseur.', 'Un responsable peut donner l\'accès « Intendance » à un dirigeant (fiche du dirigeant → Accès) : il voit alors cette page, les matchs, les séances et le planning de ses catégories.']],
+    autorisations: ['Autorisations', ['Pour chaque joueur, les réponses de la famille : droit à l\'image, soins d\'urgence, transport, partir seul, données.', '✅ oui · ❌ non (à respecter : pas de photo publiée, pas de covoiturage…) · – pas encore de réponse.', 'Les familles répondent dans leur espace, onglet « Moi » : chaque réponse garde le nom de qui a répondu et la date.', 'Une autorisation signée sur papier : fiche du joueur → Autorisations → « Noter une réponse papier ».']],
     urgences: ['Fiches urgence', ['Toute l\'équipe sur un écran : d\'abord ceux à connaître (allergies, traitements, conduite à tenir), puis les autres.', 'Touche un contact pour l\'appeler.', 'Les familles remplissent la fiche dans leur espace, onglet « Moi » ; tu peux aussi la remplir sur la page du joueur.']],
   };
   const pageKey = () => (location.hash || '#/').split('/')[1] || '';

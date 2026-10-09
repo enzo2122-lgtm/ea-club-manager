@@ -31,6 +31,8 @@ const Cloud = (() => {
     MOT_DE_PASSE: 'Mot de passe incorrect.',
     BLOQUE: 'Trop d\'essais : attends 5 minutes avant de réessayer.',
     DEJA_INSCRIT: 'Ce dirigeant a déjà un mot de passe : connecte-toi, ou demande au responsable de le réinitialiser.',
+    ACCES_LIMITE: 'Ton accès permet de modifier seulement les fiches des joueurs.',
+    LECTURE_SEULE: 'Accès en lecture seule : rien n\'est enregistré.',
     ACCES_RETIRE: 'Ton accès à l\'appli du club a été retiré par un responsable.',
     SESSION: 'Ta connexion a expiré : reconnecte-toi.',
     DONNEES: 'Informations incomplètes.',

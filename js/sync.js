@@ -83,14 +83,16 @@ const Sync = (() => {
   async function push() {
     if (typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly()) return; // (2.61) observation: nothing goes to the server
     const H = meta().h, cur = current(), out = [], now = Date.now();
+    const only = typeof Auth !== 'undefined' && Auth.limited && Auth.limited() ? 'players' : ''; // (2.66) intendance / référent médical
     for (const [k, [col, x]] of Object.entries(cur)) {
+      if (only && col !== only) continue;
       if (fp(x) === H[k]) continue;
       if (col !== 'club') x.updatedAt = Math.max(now, (x.updatedAt || 0) + 1);
       // a copy taken now: what is typed or drawn while it travels stays "to send" (otherwise the server's echo would erase it)
       const snap = JSON.parse(JSON.stringify(x));
       out.push({ k, col, id: col === 'club' ? 'club' : x.id, x: snap, f: fp(snap), u: col === 'club' ? now : x.updatedAt });
     }
-    Object.keys(H).forEach(k => { if (!cur[k]) out.push({ k, col: k.slice(0, k.indexOf('/')), id: k.slice(k.indexOf('/') + 1), del: true, u: now }); });
+    Object.keys(H).forEach(k => { if (!cur[k] && (!only || k.startsWith(only + '/'))) out.push({ k, col: k.slice(0, k.indexOf('/')), id: k.slice(k.indexOf('/') + 1), del: true, u: now }); });
     if (!out.length) return 0;
     let batch = [], size = 0;
     const send = async () => {
