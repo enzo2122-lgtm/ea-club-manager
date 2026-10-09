@@ -45,8 +45,6 @@ body.editing main#view { padding: 0; max-width: none; height: 100dvh; }
   .shell { grid-template-columns: minmax(0, 1fr); }
   .rail { position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: auto; z-index: 20; flex-direction: row; padding: 4px 4px calc(env(safe-area-inset-bottom) + 4px); border-right: 0; border-top: 3px solid var(--bordeaux); }
   #nav a.on { box-shadow: inset 0 3px 0 var(--gold); }
-  /* (2.69) iPhone, app installed: the bar sits at the bottom of the SCREEN (100lvh), whatever height iOS gives the page (100dvh) */
-  html.ios-app body:not(.nav-top):not(.editing) .rail { bottom: calc(100dvh - 100lvh); }
   .brand { display: none; }
   #nav { flex-direction: row; width: 100%; justify-content: space-between; }
   #nav a { flex: 1; padding: 6px 0; font-size: 10px; min-width: 0; }

@@ -55,6 +55,20 @@ window.ScreenDiag = function () {
    is drawn from the top: the bars fixed at the bottom are cut at 894, and the last 62 px show the page under them (the « white band »).
    What is in the page itself is drawn there (not what is fixed): a strip of the colour of the bottom bar, glued to the bottom of the
    screen (« sticky », in the page), carries the bar down to the edge. Measured on the phone: nothing changes where there is no gap. */
+/* (2.70) iOS 26/27, app installed: the height iOS gives the page (innerHeight, 100dvh, 100lvh…) does not match what is drawn on the
+   screen, and it changes with the keyboard and the pages. The only reliable thing is the visual viewport (what is really visible):
+   the bottom bars are moved so that their bottom edge is the bottom of the visible area. Checked on every change and twice a second. */
+function placeBars() {
+  const vv = window.visualViewport; if (!vv) return;
+  const place = () => {
+    const dy = Math.round(vv.height + vv.offsetTop - innerHeight), t = dy ? 'translateY(' + dy + 'px)' : '';
+    document.querySelectorAll('.rail, .tabbar').forEach(b => { const cs = getComputedStyle(b); if (cs.position !== 'fixed' || cs.display === 'none' || cs.bottom !== '0px') return; if (b.style.transform !== t) b.style.transform = t; });
+  };
+  ['resize', 'scroll'].forEach(e => vv.addEventListener(e, place));
+  ['resize', 'orientationchange', 'pageshow', 'hashchange', 'focusout'].forEach(e => window.addEventListener(e, place));
+  setInterval(place, 500);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place); else place();
+}
 (function iosFill() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   const ios = /iP(hone|od|ad)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -63,7 +77,7 @@ window.ScreenDiag = function () {
   // (2.69) the installed app on iOS: the bottom bars are placed from the real height of the screen (100lvh), not from the height iOS
   // announces (it flips between the screen and the screen minus the status bar, without warning): css rule « html.ios-app » in
   // app.css and member.js. The strip of 2.45 is no longer needed and it covered the bar at times: off (kept for the test page).
-  if (ios && standalone) { const on = () => document.documentElement.classList.add('ios-app'); on(); document.addEventListener('DOMContentLoaded', on); }
+  if (ios && standalone) { const on = () => document.documentElement.classList.add('ios-app'); on(); document.addEventListener('DOMContentLoaded', on); placeBars(); }
   if (!window.__iosFillTest) return;
   const st = document.createElement('style'); st.id = 'iosFillCss';
   st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
@@ -3706,7 +3720,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.69';
+  const VERSION = '2.70';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16635,6 +16649,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 127, date: '2026-10-09', title: 'iOS 26, on te voit venir 👀', items: [
+      ['📱', "iPhone (appli installée, iOS 26 et 27) : la barre des onglets est placée d'après la zone réellement affichée par le téléphone, vérifiée deux fois par seconde. Fini la barre coupée en bas ou la bande claire dessous."],
+    ] },
     { n: 126, date: '2026-10-09', title: 'La barre du bas, vissée au sol 🔩', items: [
       ['📱', "iPhone (appli installée) : la barre des onglets est maintenant calée sur la hauteur réelle de l'écran, plus sur celle que l'iPhone annonce (il change d'avis sans prévenir). Plus de bande claire dessous, plus de barre cachée. L'ancienne rustine est retirée."],
     ] },
@@ -20920,7 +20937,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 170, UPD = AppCfg.key('update-tried');
+  const BUILD = 171, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

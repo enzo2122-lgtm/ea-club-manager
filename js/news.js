@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 127, date: '2026-10-09', title: 'iOS 26, on te voit venir 👀', items: [
+      ['📱', "iPhone (appli installée, iOS 26 et 27) : la barre des onglets est placée d'après la zone réellement affichée par le téléphone, vérifiée deux fois par seconde. Fini la barre coupée en bas ou la bande claire dessous."],
+    ] },
     { n: 126, date: '2026-10-09', title: 'La barre du bas, vissée au sol 🔩', items: [
       ['📱', "iPhone (appli installée) : la barre des onglets est maintenant calée sur la hauteur réelle de l'écran, plus sur celle que l'iPhone annonce (il change d'avis sans prévenir). Plus de bande claire dessous, plus de barre cachée. L'ancienne rustine est retirée."],
     ] },
