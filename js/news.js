@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 129, date: '2026-10-09', title: 'Fini le trampoline 🤸', items: [
+      ['📱', "iPhone (appli installée, iOS 26) : quand on tirait la page au-delà du bord, tout rebondissait, barre comprise, et l'iPhone ne la remettait pas toujours en place. Le rebond est désactivé."],
+    ] },
     { n: 128, date: '2026-10-09', title: 'Le bouche-trou reprend du service 🧱', items: [
       ['📱', "iPhone (appli installée) : la bande claire qui revenait sous la barre sur certaines pages est de nouveau comblée par un bloc bleu dans la page, cette fois bien sous la barre et remesuré chaque seconde."],
     ] },

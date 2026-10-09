@@ -3720,7 +3720,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.71';
+  const VERSION = '2.72';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16649,6 +16649,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 129, date: '2026-10-09', title: 'Fini le trampoline 🤸', items: [
+      ['📱', "iPhone (appli installée, iOS 26) : quand on tirait la page au-delà du bord, tout rebondissait, barre comprise, et l'iPhone ne la remettait pas toujours en place. Le rebond est désactivé."],
+    ] },
     { n: 128, date: '2026-10-09', title: 'Le bouche-trou reprend du service 🧱', items: [
       ['📱', "iPhone (appli installée) : la bande claire qui revenait sous la barre sur certaines pages est de nouveau comblée par un bloc bleu dans la page, cette fois bien sous la barre et remesuré chaque seconde."],
     ] },
@@ -20940,7 +20943,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 172, UPD = AppCfg.key('update-tried');
+  const BUILD = 173, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

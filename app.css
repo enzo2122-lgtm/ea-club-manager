@@ -2283,3 +2283,6 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 .day-list li.on > a { font-weight: 700; }
 .day-list li a { text-decoration: none; color: inherit; }
 .day-card .btn { margin-top: 4px; }
+
+/* (2.72) iPhone, app installed (iOS 26): the whole page, bars included, bounced when pulled past its ends and iOS did not always put it back: no bounce */
+html.ios-app, html.ios-app body { overscroll-behavior: none; }

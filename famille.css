@@ -70,3 +70,6 @@ html { background: var(--navy, #0e1d45); }
 body { min-height: 100dvh; }
 .lang-card .btns { display: flex; flex-wrap: wrap; gap: 6px; } .lang-card .b.on { background: var(--brand); color: #fff; border-color: var(--brand); }
 #langBox { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+
+/* (2.72) iPhone, app installed (iOS 26): no bounce of the page (the bar moved with it) */
+html.ios-app, html.ios-app body { overscroll-behavior: none; }
