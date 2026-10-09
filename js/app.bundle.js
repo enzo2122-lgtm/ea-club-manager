@@ -3730,7 +3730,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.81';
+  const VERSION = '2.82';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3889,7 +3889,7 @@ var Help = (() => {
       q.onclick = e => { e.preventDefault(); e.stopPropagation(); q.remove(); guideOpen[key] = true; guideInto(root); };
       h.appendChild(q); return;
     }
-    const el = document.createElement('details'); el.className = 'card page-guide'; el.open = true;
+    const el = document.createElement('details'); el.className = 'card page-guide'; el.open = false; // (2.82) one closed line, opened by whoever wants it
     el.innerHTML = `<summary><span class="pg-ic">💡</span><b>Comment ça marche ?</b><span class="muted small">${esc(p[0])}</span></summary>
       <ol>${p[1].map(t => `<li>${esc(t.replace(/^\d\.\s*/, ''))}</li>`).join('')}</ol>
       <div class="pg-vote"><span>Cette page t'aide ?</span>${['up', 'down'].map(v => `<button type="button" class="btn soft ${myVote(key) === v ? 'on' : ''}" data-pg="${v}" aria-label="${v === 'up' ? 'Oui' : 'Non'}">${v === 'up' ? '👍' : '👎'}</button>`).join('')}</div>
@@ -16695,6 +16695,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 140, date: '2026-10-09', title: 'Encore plus discret 🤫', items: [
+      ['💡', "La carte « Comment ça marche ? » arrive pliée, sur une seule ligne : tu l'ouvres si tu veux."],
+    ] },
     { n: 139, date: '2026-10-09', title: "Chut 🤫", items: [
       ['🤫', "Les nouveautés ne s'affichent plus en grand à chaque mise à jour : une petite ligne sur l'accueil, « Voir » si ça t'intéresse, ✕ sinon."],
     ] },
@@ -21137,7 +21140,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 182, UPD = AppCfg.key('update-tried');
+  const BUILD = 183, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 140, date: '2026-10-09', title: 'Encore plus discret 🤫', items: [
+      ['💡', "La carte « Comment ça marche ? » arrive pliée, sur une seule ligne : tu l'ouvres si tu veux."],
+    ] },
     { n: 139, date: '2026-10-09', title: "Chut 🤫", items: [
       ['🤫', "Les nouveautés ne s'affichent plus en grand à chaque mise à jour : une petite ligne sur l'accueil, « Voir » si ça t'intéresse, ✕ sinon."],
     ] },
