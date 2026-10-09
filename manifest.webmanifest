@@ -10,8 +10,72 @@
   "background_color": "#0e1d45",
   "theme_color": "#0e1d45",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "./",
+  "categories": [
+    "sports",
+    "productivity"
+  ],
+  "dir": "ltr",
+  "screenshots": [
+    {
+      "src": "store/1-accueil.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "L'accueil du coach : la semaine, les matchs, les séances"
+    },
+    {
+      "src": "store/2-matchs.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Les matchs du club : agenda et résultats"
+    },
+    {
+      "src": "store/3-seances.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Les séances : exercices, durées, présences"
+    },
+    {
+      "src": "store/4-joueurs.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "L'effectif du club : fiches, postes, catégories"
+    },
+    {
+      "src": "store/5-match.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Un match : brief d'avant-match, convocation, compo, direct"
+    }
   ]
 }
