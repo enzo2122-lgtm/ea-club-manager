@@ -3730,7 +3730,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.80';
+  const VERSION = '2.81';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16695,6 +16695,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 139, date: '2026-10-09', title: "Chut 🤫", items: [
+      ['🤫', "Les nouveautés ne s'affichent plus en grand à chaque mise à jour : une petite ligne sur l'accueil, « Voir » si ça t'intéresse, ✕ sinon."],
+    ] },
     { n: 138, date: '2026-10-09', title: "Sous le capot et dans le miroir 🔧🪞", items: [
       ['🌗', "Apparence : Auto, Clair ou Sombre, dans Réglages → Moi. Pour les soirs d'entraînement sous les projecteurs."],
       ['☰', "Convocations et présences : en plus des puces, une vue « Liste » avec de grandes lignes, faite pour le pouce."],
@@ -17314,15 +17317,20 @@ var News = (() => {
   // (1.81) a bénévole or a referee (not a coach): only what is new, short (no bug fixed, no detail)
   const FIX = /^(🐛|🐞|🔧|🩹|🛠️)$/, fixText = /corrig|r[ée]par|bug|plantait|ne marchait/i;
   const brief = list => list.map(e => Object.assign({}, e, { items: e.items.filter(([ic, tx]) => !FIX.test(ic) && !fixText.test(tx)).slice(0, 2).map(([ic, tx]) => [ic, String(tx).split(/[.:(]/)[0]]) })).filter(e => e.items.length).slice(0, 3);
+  // (2.81) no big window any more: the news wait in a small line on the home page (« Voir » opens them, ✕ closes)
+  let pending = [];
   function check() {
     const s = seen();
     const fresh = s ? LIST.filter(e => e.n > s) : LIST.slice(0, 2);
-    setSeen(latest());
-    const pv = Auth.preview(), list = pv && pv.role !== 'coach' ? brief(fresh) : fresh;
-    if (list.length) setTimeout(() => show(list), 700);
+    const pv = Auth.preview(); pending = pv && pv.role !== 'coach' ? brief(fresh) : fresh;
+    if (!pending.length) return;
+    const tc = document.querySelector('#view .today-card'); if (tc && !document.querySelector('.news-pill')) tc.insertAdjacentHTML('beforebegin', pill());
   }
+  const pill = () => pending.length ? `<div class="news-pill"><span>🎉 Nouveautés de la version ${esc(typeof Help !== 'undefined' ? Help.VERSION : '')}</span><button type="button" class="btn small" onclick="News.open()">Voir</button><button type="button" class="np-x" aria-label="Fermer" onclick="News.dismiss()">✕</button></div>` : '';
+  function dismiss() { pending = []; setSeen(latest()); document.querySelectorAll('.news-pill').forEach(e => e.remove()); }
+  function open() { const l = pending.length ? pending : LIST.slice(0, 1); dismiss(); show(l); }
   const all = () => show(LIST, '📰 Les nouveautés');
-  return { check, all, LIST };
+  return { check, all, pill, open, dismiss, LIST };
 })();
 
 ;
@@ -19764,6 +19772,7 @@ var Views = (() => {
     root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${Auth.limited() === 'med' ? '<div class="ro-note">🩺 <b>Accès référent médical</b> : tu vois toutes les catégories du club. Tu modifies seulement les fiches des joueurs (blessures, fiche urgence). <a href="#/infirmerie">Infirmerie</a> · <a href="#/urgences">Fiches urgence</a></div>' : ''}${hero(now)}
       ${serverBanner()}
       ${teamSwitch()}
+      ${typeof News !== 'undefined' ? News.pill() : ''}
       ${todayCard(next, nextTr, now)}
       ${setupCard()}
       ${birthdayCard()}
@@ -21128,7 +21137,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 181, UPD = AppCfg.key('update-tried');
+  const BUILD = 182, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

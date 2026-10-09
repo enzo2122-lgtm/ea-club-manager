@@ -279,6 +279,7 @@ const Views = (() => {
     root.innerHTML = `${Auth.readOnly() ? '<div class="ro-note">👀 <b>Accès en observation</b> : tu vois les catégories qui te sont ouvertes, sans rien modifier. Pour changer quelque chose, demande au responsable du club.</div>' : ''}${Auth.limited() === 'med' ? '<div class="ro-note">🩺 <b>Accès référent médical</b> : tu vois toutes les catégories du club. Tu modifies seulement les fiches des joueurs (blessures, fiche urgence). <a href="#/infirmerie">Infirmerie</a> · <a href="#/urgences">Fiches urgence</a></div>' : ''}${hero(now)}
       ${serverBanner()}
       ${teamSwitch()}
+      ${typeof News !== 'undefined' ? News.pill() : ''}
       ${todayCard(next, nextTr, now)}
       ${setupCard()}
       ${birthdayCard()}

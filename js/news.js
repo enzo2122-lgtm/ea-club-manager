@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 139, date: '2026-10-09', title: "Chut 🤫", items: [
+      ['🤫', "Les nouveautés ne s'affichent plus en grand à chaque mise à jour : une petite ligne sur l'accueil, « Voir » si ça t'intéresse, ✕ sinon."],
+    ] },
     { n: 138, date: '2026-10-09', title: "Sous le capot et dans le miroir 🔧🪞", items: [
       ['🌗', "Apparence : Auto, Clair ou Sombre, dans Réglages → Moi. Pour les soirs d'entraînement sous les projecteurs."],
       ['☰', "Convocations et présences : en plus des puces, une vue « Liste » avec de grandes lignes, faite pour le pouce."],
@@ -624,13 +627,18 @@ const News = (() => {
   // (1.81) a bénévole or a referee (not a coach): only what is new, short (no bug fixed, no detail)
   const FIX = /^(🐛|🐞|🔧|🩹|🛠️)$/, fixText = /corrig|r[ée]par|bug|plantait|ne marchait/i;
   const brief = list => list.map(e => Object.assign({}, e, { items: e.items.filter(([ic, tx]) => !FIX.test(ic) && !fixText.test(tx)).slice(0, 2).map(([ic, tx]) => [ic, String(tx).split(/[.:(]/)[0]]) })).filter(e => e.items.length).slice(0, 3);
+  // (2.81) no big window any more: the news wait in a small line on the home page (« Voir » opens them, ✕ closes)
+  let pending = [];
   function check() {
     const s = seen();
     const fresh = s ? LIST.filter(e => e.n > s) : LIST.slice(0, 2);
-    setSeen(latest());
-    const pv = Auth.preview(), list = pv && pv.role !== 'coach' ? brief(fresh) : fresh;
-    if (list.length) setTimeout(() => show(list), 700);
+    const pv = Auth.preview(); pending = pv && pv.role !== 'coach' ? brief(fresh) : fresh;
+    if (!pending.length) return;
+    const tc = document.querySelector('#view .today-card'); if (tc && !document.querySelector('.news-pill')) tc.insertAdjacentHTML('beforebegin', pill());
   }
+  const pill = () => pending.length ? `<div class="news-pill"><span>🎉 Nouveautés de la version ${esc(typeof Help !== 'undefined' ? Help.VERSION : '')}</span><button type="button" class="btn small" onclick="News.open()">Voir</button><button type="button" class="np-x" aria-label="Fermer" onclick="News.dismiss()">✕</button></div>` : '';
+  function dismiss() { pending = []; setSeen(latest()); document.querySelectorAll('.news-pill').forEach(e => e.remove()); }
+  function open() { const l = pending.length ? pending : LIST.slice(0, 1); dismiss(); show(l); }
   const all = () => show(LIST, '📰 Les nouveautés');
-  return { check, all, LIST };
+  return { check, all, pill, open, dismiss, LIST };
 })();
