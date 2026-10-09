@@ -58,6 +58,11 @@ window.ScreenDiag = function () {
   const ios = /iP(hone|od|ad)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   if (!(ios && standalone) && !window.__iosFillTest) return;
+  // (2.69) the installed app on iOS: the bottom bars are placed from the real height of the screen (100lvh), not from the height iOS
+  // announces (it flips between the screen and the screen minus the status bar, without warning): css rule « html.ios-app » in
+  // app.css and member.js. The strip of 2.45 is no longer needed and it covered the bar at times: off (kept for the test page).
+  if (ios && standalone) { const on = () => document.documentElement.classList.add('ios-app'); on(); document.addEventListener('DOMContentLoaded', on); }
+  if (!window.__iosFillTest) return;
   const st = document.createElement('style'); st.id = 'iosFillCss';
   st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
     + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:1;pointer-events:none;background:var(--iosfill,#0e1d45)}'

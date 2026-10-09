@@ -60,6 +60,11 @@ window.ScreenDiag = function () {
   const ios = /iP(hone|od|ad)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   if (!(ios && standalone) && !window.__iosFillTest) return;
+  // (2.69) the installed app on iOS: the bottom bars are placed from the real height of the screen (100lvh), not from the height iOS
+  // announces (it flips between the screen and the screen minus the status bar, without warning): css rule « html.ios-app » in
+  // app.css and member.js. The strip of 2.45 is no longer needed and it covered the bar at times: off (kept for the test page).
+  if (ios && standalone) { const on = () => document.documentElement.classList.add('ios-app'); on(); document.addEventListener('DOMContentLoaded', on); }
+  if (!window.__iosFillTest) return;
   const st = document.createElement('style'); st.id = 'iosFillCss';
   st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
     + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:1;pointer-events:none;background:var(--iosfill,#0e1d45)}'
@@ -3701,7 +3706,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.68';
+  const VERSION = '2.69';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16630,6 +16635,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 126, date: '2026-10-09', title: 'La barre du bas, vissée au sol 🔩', items: [
+      ['📱', "iPhone (appli installée) : la barre des onglets est maintenant calée sur la hauteur réelle de l'écran, plus sur celle que l'iPhone annonce (il change d'avis sans prévenir). Plus de bande claire dessous, plus de barre cachée. L'ancienne rustine est retirée."],
+    ] },
+    { n: 125, date: '2026-10-09', title: 'Le mètre ruban passe chez les joueurs 📏', items: [
+      ['📏', "Espaces joueur et parents : onglet Moi → « Mesurer l'écran », pour envoyer au coach les mesures quand la barre du bas fait des siennes sur iPhone."],
+    ] },
     { n: 124, date: '2026-10-09', title: 'La barre du bas arrête de jouer à cache-cache 🙈', items: [
       ['📱', "iPhone (appli installée) : la barre des onglets ne se retrouve plus cachée sous une bande bleue, ni au-dessus d'une bande claire. L'écran est remesuré chaque seconde, et la bande de remplissage reste sous la barre."],
     ] },
@@ -20909,7 +20920,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 169, UPD = AppCfg.key('update-tried');
+  const BUILD = 170, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

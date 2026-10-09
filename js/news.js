@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 126, date: '2026-10-09', title: 'La barre du bas, vissée au sol 🔩', items: [
+      ['📱', "iPhone (appli installée) : la barre des onglets est maintenant calée sur la hauteur réelle de l'écran, plus sur celle que l'iPhone annonce (il change d'avis sans prévenir). Plus de bande claire dessous, plus de barre cachée. L'ancienne rustine est retirée."],
+    ] },
+    { n: 125, date: '2026-10-09', title: 'Le mètre ruban passe chez les joueurs 📏', items: [
+      ['📏', "Espaces joueur et parents : onglet Moi → « Mesurer l'écran », pour envoyer au coach les mesures quand la barre du bas fait des siennes sur iPhone."],
+    ] },
     { n: 124, date: '2026-10-09', title: 'La barre du bas arrête de jouer à cache-cache 🙈', items: [
       ['📱', "iPhone (appli installée) : la barre des onglets ne se retrouve plus cachée sous une bande bleue, ni au-dessus d'une bande claire. L'écran est remesuré chaque seconde, et la bande de remplissage reste sous la barre."],
     ] },
