@@ -34,7 +34,7 @@ const Gestion = (() => {
     root.innerHTML = `<header class="page-head"><div><h1>🏛️ Gestion du club</h1><p class="sub">${esc(S().club.name || 'Le club')} · ${pl(S().teams.length, 'catégorie')} · ${pl(S().players.length, 'joueur')} · ${pl(S().staff.length, 'dirigeant')}</p></div>
       <div class="head-actions"><button class="btn primary" data-g="roles">🔀<span>Mes rôles</span></button></div></header>
       <section class="card"><h2>À faire</h2>${t.length ? `<div class="list">${t.map(([ic, txt, href]) => `<a class="list-item" href="${href}"><span class="li-main"><b>${ic} ${esc(txt)}</b></span>${I.back.replace('<svg', '<svg style="transform:rotate(180deg)"')}</a>`).join('')}</div>` : '<p class="muted">Rien d\'urgent : tout est en ordre pour les deux semaines à venir. 👍</p>'}</section>
-      ${group('👥 Les personnes', [tile('#/joueurs', '⚽', 'Joueurs', pl(S().players.length, 'licencié')), tile('#/dirigeants', '🧢', 'Dirigeants et comptes', pl(S().staff.length, 'dirigeant')),
+      ${group('👥 Les personnes', [tile('#/joueurs', '⚽', 'Joueurs', pl(S().players.length, 'licencié')), tile('#/dirigeants', '🧢', 'Dirigeants et comptes', pl(S().staff.length, 'dirigeant')), tile('', '➕', 'Ajouter un éducateur', 'Sa fiche, puis son lien pour entrer', 'newstaff'),
         tile('#/codes', '🔑', 'Codes personnels', 'Familles et joueurs : codes, QR, relances'), tile('#/licences', '🧾', 'Licences et cotisations', 'Suivi des dossiers'),
         tile('#/arbitres', '🟨', 'Arbitres', pl(nRef, 'arbitre') + ' du club'), tile('#/benevoles', '🙋', 'Bénévoles', 'Tâches des jours de match')])}
       ${group('🏟️ L\'organisation', [tile('#/equipes', '👕', 'Catégories et équipes', pl(S().teams.length, 'catégorie')), tile('#/encadrement', '📋', 'Qui encadre ?', 'Éducateurs par catégorie'),
@@ -48,6 +48,7 @@ const Gestion = (() => {
       const b = e.target.closest('[data-g]'); if (!b) return;
       const g = b.dataset.g;
       if (g === 'roles') return Roles.open();
+      if (g === 'newstaff') return People.editStaff(null, { onSave: () => page(root) });
       if (g === 'backup') return President.backupDialog();
       if (g === 'announce') return announce();
       if (g === 'import') return UI.modal({ title: 'Importer', body: '<p class="muted small">Depuis une photo, une capture d\'écran, un PDF, un fichier Excel / CSV ou un texte copié. Tu vérifies le tableau avant d\'importer : rien n\'est créé en double.</p>',

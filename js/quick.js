@@ -31,13 +31,18 @@ const Quick = (() => {
     return S().matches.filter(m => !m.exempt && is(m) && m.date >= now && m.date <= end && (!m.played || m.date === now))
       .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))[0];
   }
+  // (2.77) on Séances, Matchs, Joueurs and Schémas the button goes straight to the point; elsewhere it asks
   function menu() {
+    const h = location.hash, direct = h === '#/entrainements' ? () => trainingChoice() : h === '#/matchs' ? () => Views.newMatch() : h === '#/schemas' ? () => Views.newSchema()
+      : /^#\/(joueurs|equipe\/)/.test(h) ? () => { const b = document.querySelector('main [data-act="new"], main [data-newplayer]'); if (b) b.click(); else location.hash = '#/joueurs'; } : null;
+    if (direct) return direct();
     const soon = matchSoon();
     const items = [
       ['training', '📝', 'Une séance', 'Générer ou écrire une séance'],
       ['match', ball(), 'Un match', 'Date, adversaire, convocation'],
       ['schema', '✏️', 'Un exercice', 'Dessiner sur le terrain'],
       ['message', '💬', 'Un message', 'Aux coachs, aux parents'],
+      ...(Auth.isAdmin() ? [['staff', '🧢', 'Un éducateur', 'Sa fiche, puis son lien pour entrer']] : []),
       ['search', '🔎', 'Chercher', 'Un joueur, une séance, un match…'],
       ...(soon ? [['matchday', '🏟️', 'Jour de match', esc(matchName(soon))]] : []),
     ];
@@ -51,6 +56,7 @@ const Quick = (() => {
           else if (k === 'match') Views.newMatch();
           else if (k === 'schema') Views.newSchema();
           else if (k === 'message') location.hash = '#/messages';
+          else if (k === 'staff') People.editStaff(null, { onSave: () => { if (['#/dirigeants', '#/gestion'].includes(location.hash) || location.hash.startsWith('#/equipe/')) window.dispatchEvent(new HashChangeEvent('hashchange')); } });
           else if (k === 'search') search();
           else if (k === 'matchday') location.hash = '#/jourj/' + soon.id;
         }, 30);

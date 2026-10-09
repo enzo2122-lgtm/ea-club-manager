@@ -2290,3 +2290,10 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 html.ios-app, html.ios-app body { overscroll-behavior: none; }
 /* (2.74) iPhone, app installed: iOS cuts what is fixed at the bottom at the height it announces and draws the canvas (html background) under it: navy under the bottom bar, so the band is the colour of the bar */
 @media (max-width: 760px) { html.ios-app:has(body:not(.nav-top):not(.editing)) { background: var(--navy); } html.ios-app:has(body:not(.nav-top):not(.editing)) body { background: var(--bg); min-height: 100%; } }
+
+/* (2.77) a player whose licence is still pending (or certificate missing): orange, everywhere he appears */
+.chip:has(.lic-warn) { background: #fff3e0; border-color: #f59e0b; color: #7c2d12; }
+.chip.on:has(.lic-warn) { background: #f59e0b; border-color: #d97706; color: #fff; }
+.person:has(.lic-warn) .person-main { background: #fff7ed; }
+.lic-legend { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.tr-more { margin-top: 8px; }

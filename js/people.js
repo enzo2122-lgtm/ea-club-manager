@@ -72,7 +72,7 @@ const People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
         ${p.photo ? PCard.photo(p, 'pc-row') : `<span class="pnum">${esc(p.number || '')}</span>`}
-        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.guest === 'pending' ? '🆕 ' : p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
+        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.guest === 'pending' ? '🆕 ' : p.trial ? '🧪 ' : ''}${(() => { const pb = ClubAdmin.problem(p); return pb ? `<span class="lic-warn" title="${esc(pb)}">⏳</span>` : ''; })()}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
       </button>${ab}
@@ -207,7 +207,7 @@ const People = (() => {
     const isNew = !p;
     p = p || { id: Store.uid(), lastName: '', firstName: '', role: 'Éducateur', phone: '', email: '', notes: '', teamIds: opts.teamId ? [opts.teamId] : [] };
     modal({
-      title: isNew ? 'Nouveau dirigeant' : name(p),
+      title: isNew ? 'Nouvel éducateur ou dirigeant' : name(p),
       body: `<div class="row2"><label class="fld"><span>Nom</span><input id="sLast" value="${esc(p.lastName)}" autocapitalize="characters"></label>
         <label class="fld"><span>Prénom</span><input id="sFirst" value="${esc(p.firstName)}"></label></div>
         <div class="row2"><label class="fld"><span>Rôle</span><select id="sRole">${opt(ROLES, p.role)}</select></label>
@@ -291,7 +291,7 @@ const People = (() => {
       </section>
       <section class="card">
         <div class="row-head"><h2>${I.whistle}Encadrement (${st.length})</h2>
-          <button class="btn" data-newstaff>${I.plus}<span>Nouveau dirigeant</span></button></div>
+          <button class="btn" data-newstaff>${I.plus}<span>Ajouter un éducateur</span></button></div>
         ${Auth.isAdmin() ? addSelect('staff', t.id, 'Ajouter un dirigeant existant…') : ''}
         <div class="people">${st.map(p => staffRow(p, Auth.isAdmin() ? t.id : null)).join('') || '<p class="muted">Aucun dirigeant pour cette catégorie.</p>'}</div>
       </section>`;
@@ -329,7 +329,7 @@ const People = (() => {
     root.innerHTML = `<header class="page-head"><div><h1>${isP ? 'Joueurs' : 'Dirigeants'}</h1><p class="sub">${list.length} sur ${all.length} · ${Auth.isAdmin() ? 'tout le club' : 'mes catégories'}</p></div>
       <div class="head-actions"><a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a>
       <button class="btn" data-act="paste">${I.paste}<span>Coller une liste</span></button>
-      <button class="btn primary" data-act="new">${I.plus}<span>${isP ? 'Nouveau joueur' : 'Nouveau dirigeant'}</span></button></div></header>
+      <button class="btn primary" data-act="new">${I.plus}<span>${isP ? 'Nouveau joueur' : 'Ajouter un éducateur'}</span></button></div></header>
       <div class="filters">
         <label class="search">${I.search}<input id="q" type="search" placeholder="Chercher un nom" value="${esc(ui[key + 'Q'] || '')}"></label>
         ${isP ? `<select id="post" aria-label="Poste"><option value="">Tous les postes</option>${TYPES.map(([t]) => `<optgroup label="${esc(LINES.find(x => x[0] === t)[1])}"><option value="${t}" ${pf === t ? 'selected' : ''}>${esc(LINES.find(x => x[0] === t)[1])} (tous)</option>${subsOf(t).map(x => `<option value="${x[0]}" ${pf === x[0] ? 'selected' : ''}>${esc(x[2] + ' · ' + x[1])}</option>`).join('')}</optgroup>`).join('')}<option value="-" ${pf === '-' ? 'selected' : ''}>Poste non renseigné</option></select>` : ''}

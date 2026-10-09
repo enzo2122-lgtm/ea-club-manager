@@ -10,7 +10,7 @@ const Views = (() => {
   const pName = Store.fullName;
   const pLabel = p => `${p.number ? p.number + ' · ' : ''}${pName(p)}`;
   // name on a roster chip, with the positions in short (« DC/LD »)
-  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⚠️</span>` : ''}${p.trial ? '<span title="À l\'essai">🧪</span>' : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
+  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⏳</span>` : ''}${p.trial ? '<span title="À l\'essai">🧪</span>' : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
   // The team's own players (all of its category when nobody is put in the team yet, e.g. « Seniors A »)
   const squad = teamId => { const own = Store.playersOf(teamId); return own.length ? own : Store.rosterOf(teamId); };
   // Chips of a team's players, then « Autres joueurs de la catégorie » (a team A / B can call up any player of its category)
@@ -122,13 +122,15 @@ const Views = (() => {
     $$('[data-teamsel]', root).forEach(s => s.onchange = () => { S().ui.teamId = s.value; Store.save(); rerender(); });
   }
   // (2.03) on a phone, a header with more than 3 buttons keeps the first 2, the others go in a « ⋯ » menu (instead of 3 or 4 lines of buttons)
+  // (2.77) on every screen: a phone keeps 1 button (the main one), a computer 3; the rest waits in the « ⋯ » menu
   function compactActions(actions) {
-    if (!actions || !window.matchMedia || !matchMedia('(max-width: 760px)').matches) return actions;
+    if (!actions) return actions;
+    const phone = window.matchMedia && matchMedia('(max-width: 760px)').matches, max = phone ? 1 : 3;
     const t = document.createElement('template'); t.innerHTML = actions; const kids = [...t.content.children];
-    if (kids.length <= 3) return actions;
-    // the main button (« Nouvel entraînement »…, often the last one) always stays in sight, then the first others, 2 in all
-    const keep = new Set(kids.filter(k => k.classList.contains('primary')).slice(0, 2));
-    for (const k of kids) { if (keep.size >= 2) break; keep.add(k); }
+    if (kids.length <= max + 1) return actions;
+    // the main button (« Nouvel entraînement »…, often the last one) always stays in sight, then the first others
+    const keep = new Set(kids.filter(k => k.classList.contains('primary')).slice(0, max));
+    for (const k of kids) { if (keep.size >= max) break; keep.add(k); }
     const shown = kids.filter(k => keep.has(k)), rest = kids.filter(k => !keep.has(k));
     return `<details class="more-acts"><summary class="btn" aria-label="Plus d'actions">⋯</summary><div class="more-pop">${rest.map(k => k.outerHTML).join('')}</div></details>` + shown.map(k => k.outerHTML).join('');
   }
@@ -529,15 +531,17 @@ const Views = (() => {
       const tm = teamOf(tr.teamId), total = tr.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
       if (tr.model) return renderModel(total);
       root.innerHTML = `${header(`<input class="h1-input" id="trTitle" value="${esc(tr.title)}" aria-label="Thème">`, `${total} min au total`,
-        `<button class="btn" data-act="share">${I.share}<span>Envoyer</span></button><button class="btn primary" data-act="pdf">${I.pdf}<span>PDF</span></button>`)}
+        `<button class="btn primary" data-act="pdf">${I.pdf}<span>PDF</span></button><button class="btn" data-act="share">${I.share}<span>Envoyer</span></button><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button>`)}
         <section class="card">
           <div class="row3">
             <label class="fld"><span>Date</span><input type="date" id="trDate" value="${esc(tr.date)}"></label>
             <label class="fld"><span>Heure</span><input type="time" id="trTime" value="${esc(tr.time || '')}"></label>
             <label class="fld"><span>Équipe</span><select id="trTeam"><option value="">Aucune</option>${Auth.teams().map(x => `<option value="${x.id}" ${x.id === tr.teamId ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
           </div>
+          <details class="fold tr-more" ${tr.group || tr.goal ? 'open' : ''}><summary>Objectif, groupe d'entraînement <span class="muted small">(facultatif)</span></summary>
           <label class="fld"><span>Groupe d'entraînement (les joueurs le voient quand il y a plusieurs séances le même jour)</span><input id="trGroup" maxlength="40" value="${esc(tr.group || '')}" placeholder="${esc(trGroup(Object.assign({}, tr, { group: '' })) || 'ex : Groupe Gianni')}"></label>
           <label class="fld"><span>Objectif de la séance</span><textarea id="trGoal" rows="2" placeholder="ex : jouer vers l'avant après la récupération">${esc(tr.goal || '')}</textarea></label>
+          </details>
         </section>
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
@@ -557,7 +561,7 @@ const Views = (() => {
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('training:' + tr.id, 'Photos et vidéos de la séance')}
         </details>
-        <div class="danger-zone"><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button></div>`;
+`;
       const box = $('#rateBox', root); if (box) Ratings.bind(box, tr, save);
       gagesInto($('#gageBox', root), tr);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
@@ -876,6 +880,15 @@ const Views = (() => {
       textOf: o => `${{ V: '✅ Victoire', N: '🟰 Match nul', D: '❌ Défaite' }[r]} · ${cat}${m.competition ? ' · ' + m.competition : ''}\n${h} ${hs} – ${as} ${a}${o.on && scorers().length ? '\n⚽ ' + scorers().join(', ') : ''}\n${tag}` });
   }
   let matchGen = 0; // (2.02) the match page shown last
+  // (2.77) the one button that matters now: convoke → compo → follow live (the day) → score and notes
+  const momentBtn = (m, t, conv, lineup) => {
+    if (m.exempt) return '';
+    if (m.played) return `<button class="btn primary" data-mtab="apres">🏁<span>Score et notes</span></button>`;
+    if (m.date === today()) return `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>`;
+    if (!conv.length) return `<button class="btn primary" data-mtab="avant">📣<span>Convoquer</span></button>`;
+    if (!lineup) return `<button class="btn primary" data-mtab="compo">🧩<span>Faire la compo</span></button>`;
+    return `<button class="btn primary" data-mtab="avant">📣<span>Convocation</span></button>`;
+  };
   function match(root, id) {
     const m = Store.get('matches', id); if (!m) return (location.hash = '#/matchs');
     if (!Auth.sees(m.teamId)) return matchView(root, m);
@@ -897,7 +910,7 @@ const Views = (() => {
       const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
       const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
-        `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button>`)}
+        momentBtn(m, t, conv, lineup) + `${!m.exempt && !(m.played && m.summarySent) && m.date !== today() ? `<a class="btn" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button>`)}
         <div class="m-sum ${side(m)}"><span>${sum}</span><button class="btn soft" data-editm>${I.edit}<span>${editOpen ? 'Fermer' : 'Modifier'}</span></button></div>
         <section class="card ${side(m)} m-edit" ${editOpen ? '' : 'hidden'}>
           <div class="row3">
@@ -971,7 +984,7 @@ const Views = (() => {
         ${Media.placeholder('match:' + m.id, 'Photos et vidéos du match')}
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
         </div>
-        <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button></div>`;
+`;
       Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m); EvFeed.mount($('#evFeed', root), m.id);
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
       Media.mount(root); Library.mountDocs($('#docsBox', root), m, save);

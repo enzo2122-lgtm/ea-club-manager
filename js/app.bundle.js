@@ -2430,7 +2430,7 @@ var Auth = (() => {
     return me + `<section class="card"><h2>${I.team}Comptes des dirigeants</h2>
       <p class="muted">« Retirer l'accès » déconnecte un dirigeant de partout et l'empêche de se réinscrire. Un responsable peut aussi réinitialiser le mot de passe d'un dirigeant (il en recréera un avec « Première connexion ») et changer ses catégories. 🔒 : catégories choisies à la première connexion, verrouillées pour l'éducateur.</p>
       <div class="acc-list" id="accList">${serverMode() ? '<p class="muted">Chargement des comptes…</p>' : accRows(null)}</div>
-      ${serverMode() ? `<button class="btn primary" data-cloud="invite">${I.share}<span>Inviter les éducateurs</span></button>` : `<button class="btn" data-auth="recovery">${I.rotate}<span>Nouveau code de secours</span></button>`}</section>`;
+      <button class="btn primary" data-auth="newstaff">${I.plus}<span>Ajouter un éducateur</span></button> ${serverMode() ? `<button class="btn" data-cloud="invite">${I.share}<span>Inviter les éducateurs (lien du club)</span></button>` : `<button class="btn" data-auth="recovery">${I.rotate}<span>Nouveau code de secours</span></button>`}</section>`;
   }
   let serverAcc = null;
   function accRows(list) {
@@ -2457,6 +2457,7 @@ var Auth = (() => {
     if (b.dataset.auth === 'mottoIdea') { const inp = document.getElementById('myMotto'); if (inp) { inp.value = UI.mottoIdea(inp.value); saveMotto(inp.value); } return; }
     if (b.dataset.auth === 'logout') { try { sessionStorage.removeItem(PREVIEW); localStorage.removeItem(PREVIEW); } catch (e) {} return logout(); }
     if (b.dataset.auth === 'preview') return Roles.open();
+    if (b.dataset.auth === 'newstaff') return People.editStaff(null, { onSave: () => rerender && rerender() });
     if (b.dataset.auth === 'absence') return ClubAdmin.absenceDialog(user.id, () => { user = Store.get('staff', user.id) || user; rerender && rerender(); });
     if (b.dataset.auth === 'stopPreview') return stopPreview();
     if (b.dataset.auth === 'pw') return modal({ title: 'Changer mon mot de passe', body: `<label class="fld"><span>Mot de passe actuel</span><input id="old" type="password" autocomplete="current-password"></label>${pwFields('Nouveau mot de passe')}`,
@@ -3716,7 +3717,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.76';
+  const VERSION = '2.77';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -3851,7 +3852,7 @@ var Help = (() => {
   const GUIDE_KEY = 'guide-seen', guideOpen = {};
   const seen = () => { try { return JSON.parse(localStorage.getItem(GUIDE_KEY)) || {}; } catch (e) { return {}; } };
   const setSeen = (k, n) => { const s = seen(); s[k] = n; try { localStorage.setItem(GUIDE_KEY, JSON.stringify(s)); } catch (e) {} };
-  function visit() { const k = pageKey(), n = seen()[k] || 0; if (n < 9) setSeen(k, n + 1); guideOpen[k] = (seen()[k] || 0) <= 1; }
+  function visit() { const k = pageKey(), n = seen()[k] || 0; if (n < 9) setSeen(k, n + 1); guideOpen[k] = (seen()[k] || 0) <= 0; } // (2.77) first visit only
   /* (3.67) « Cette page t'aide ? » : one vote per person and per page, kept with the club's messages (the responsables see the totals) */
   const voteId = key => 'avis-' + ((Auth.current() || {}).id || 'x') + '-' + (key || 'accueil');
   const myVote = key => { const r = Store.get('reports', voteId(key)); return r ? r.value : ''; };
@@ -5301,7 +5302,7 @@ var People = (() => {
     return `<div class="person">
       <button class="person-main" data-person="${p.id}" data-kind="player">
         ${p.photo ? PCard.photo(p, 'pc-row') : `<span class="pnum">${esc(p.number || '')}</span>`}
-        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.guest === 'pending' ? '🆕 ' : p.trial ? '🧪 ' : ''}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
+        <span class="pmain"><b>${p.archived ? '📦 ' : ''}${p.guest === 'pending' ? '🆕 ' : p.trial ? '🧪 ' : ''}${(() => { const pb = ClubAdmin.problem(p); return pb ? `<span class="lic-warn" title="${esc(pb)}">⏳</span>` : ''; })()}${esc(name(p))}</b><span class="muted">${esc(sub) || '&nbsp;'}</span></span>
         ${teamId ? pctBadge(attendance(p, teamId)) : ''}
         ${phonesOf(p).length ? `<span class="has-tel" title="Téléphone renseigné">${I.phone}</span>` : ''}
       </button>${ab}
@@ -5436,7 +5437,7 @@ var People = (() => {
     const isNew = !p;
     p = p || { id: Store.uid(), lastName: '', firstName: '', role: 'Éducateur', phone: '', email: '', notes: '', teamIds: opts.teamId ? [opts.teamId] : [] };
     modal({
-      title: isNew ? 'Nouveau dirigeant' : name(p),
+      title: isNew ? 'Nouvel éducateur ou dirigeant' : name(p),
       body: `<div class="row2"><label class="fld"><span>Nom</span><input id="sLast" value="${esc(p.lastName)}" autocapitalize="characters"></label>
         <label class="fld"><span>Prénom</span><input id="sFirst" value="${esc(p.firstName)}"></label></div>
         <div class="row2"><label class="fld"><span>Rôle</span><select id="sRole">${opt(ROLES, p.role)}</select></label>
@@ -5520,7 +5521,7 @@ var People = (() => {
       </section>
       <section class="card">
         <div class="row-head"><h2>${I.whistle}Encadrement (${st.length})</h2>
-          <button class="btn" data-newstaff>${I.plus}<span>Nouveau dirigeant</span></button></div>
+          <button class="btn" data-newstaff>${I.plus}<span>Ajouter un éducateur</span></button></div>
         ${Auth.isAdmin() ? addSelect('staff', t.id, 'Ajouter un dirigeant existant…') : ''}
         <div class="people">${st.map(p => staffRow(p, Auth.isAdmin() ? t.id : null)).join('') || '<p class="muted">Aucun dirigeant pour cette catégorie.</p>'}</div>
       </section>`;
@@ -5558,7 +5559,7 @@ var People = (() => {
     root.innerHTML = `<header class="page-head"><div><h1>${isP ? 'Joueurs' : 'Dirigeants'}</h1><p class="sub">${list.length} sur ${all.length} · ${Auth.isAdmin() ? 'tout le club' : 'mes catégories'}</p></div>
       <div class="head-actions"><a class="btn" href="#/equipes">${I.back}<span>Équipes</span></a>
       <button class="btn" data-act="paste">${I.paste}<span>Coller une liste</span></button>
-      <button class="btn primary" data-act="new">${I.plus}<span>${isP ? 'Nouveau joueur' : 'Nouveau dirigeant'}</span></button></div></header>
+      <button class="btn primary" data-act="new">${I.plus}<span>${isP ? 'Nouveau joueur' : 'Ajouter un éducateur'}</span></button></div></header>
       <div class="filters">
         <label class="search">${I.search}<input id="q" type="search" placeholder="Chercher un nom" value="${esc(ui[key + 'Q'] || '')}"></label>
         ${isP ? `<select id="post" aria-label="Poste"><option value="">Tous les postes</option>${TYPES.map(([t]) => `<optgroup label="${esc(LINES.find(x => x[0] === t)[1])}"><option value="${t}" ${pf === t ? 'selected' : ''}>${esc(LINES.find(x => x[0] === t)[1])} (tous)</option>${subsOf(t).map(x => `<option value="${x[0]}" ${pf === x[0] ? 'selected' : ''}>${esc(x[2] + ' · ' + x[1])}</option>`).join('')}</optgroup>`).join('')}<option value="-" ${pf === '-' ? 'selected' : ''}>Poste non renseigné</option></select>` : ''}
@@ -12051,7 +12052,7 @@ var Gestion = (() => {
     root.innerHTML = `<header class="page-head"><div><h1>🏛️ Gestion du club</h1><p class="sub">${esc(S().club.name || 'Le club')} · ${pl(S().teams.length, 'catégorie')} · ${pl(S().players.length, 'joueur')} · ${pl(S().staff.length, 'dirigeant')}</p></div>
       <div class="head-actions"><button class="btn primary" data-g="roles">🔀<span>Mes rôles</span></button></div></header>
       <section class="card"><h2>À faire</h2>${t.length ? `<div class="list">${t.map(([ic, txt, href]) => `<a class="list-item" href="${href}"><span class="li-main"><b>${ic} ${esc(txt)}</b></span>${I.back.replace('<svg', '<svg style="transform:rotate(180deg)"')}</a>`).join('')}</div>` : '<p class="muted">Rien d\'urgent : tout est en ordre pour les deux semaines à venir. 👍</p>'}</section>
-      ${group('👥 Les personnes', [tile('#/joueurs', '⚽', 'Joueurs', pl(S().players.length, 'licencié')), tile('#/dirigeants', '🧢', 'Dirigeants et comptes', pl(S().staff.length, 'dirigeant')),
+      ${group('👥 Les personnes', [tile('#/joueurs', '⚽', 'Joueurs', pl(S().players.length, 'licencié')), tile('#/dirigeants', '🧢', 'Dirigeants et comptes', pl(S().staff.length, 'dirigeant')), tile('', '➕', 'Ajouter un éducateur', 'Sa fiche, puis son lien pour entrer', 'newstaff'),
         tile('#/codes', '🔑', 'Codes personnels', 'Familles et joueurs : codes, QR, relances'), tile('#/licences', '🧾', 'Licences et cotisations', 'Suivi des dossiers'),
         tile('#/arbitres', '🟨', 'Arbitres', pl(nRef, 'arbitre') + ' du club'), tile('#/benevoles', '🙋', 'Bénévoles', 'Tâches des jours de match')])}
       ${group('🏟️ L\'organisation', [tile('#/equipes', '👕', 'Catégories et équipes', pl(S().teams.length, 'catégorie')), tile('#/encadrement', '📋', 'Qui encadre ?', 'Éducateurs par catégorie'),
@@ -12065,6 +12066,7 @@ var Gestion = (() => {
       const b = e.target.closest('[data-g]'); if (!b) return;
       const g = b.dataset.g;
       if (g === 'roles') return Roles.open();
+      if (g === 'newstaff') return People.editStaff(null, { onSave: () => page(root) });
       if (g === 'backup') return President.backupDialog();
       if (g === 'announce') return announce();
       if (g === 'import') return UI.modal({ title: 'Importer', body: '<p class="muted small">Depuis une photo, une capture d\'écran, un PDF, un fichier Excel / CSV ou un texte copié. Tu vérifies le tableau avant d\'importer : rien n\'est créé en double.</p>',
@@ -16342,13 +16344,18 @@ var Quick = (() => {
     return S().matches.filter(m => !m.exempt && is(m) && m.date >= now && m.date <= end && (!m.played || m.date === now))
       .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))[0];
   }
+  // (2.77) on Séances, Matchs, Joueurs and Schémas the button goes straight to the point; elsewhere it asks
   function menu() {
+    const h = location.hash, direct = h === '#/entrainements' ? () => trainingChoice() : h === '#/matchs' ? () => Views.newMatch() : h === '#/schemas' ? () => Views.newSchema()
+      : /^#\/(joueurs|equipe\/)/.test(h) ? () => { const b = document.querySelector('main [data-act="new"], main [data-newplayer]'); if (b) b.click(); else location.hash = '#/joueurs'; } : null;
+    if (direct) return direct();
     const soon = matchSoon();
     const items = [
       ['training', '📝', 'Une séance', 'Générer ou écrire une séance'],
       ['match', ball(), 'Un match', 'Date, adversaire, convocation'],
       ['schema', '✏️', 'Un exercice', 'Dessiner sur le terrain'],
       ['message', '💬', 'Un message', 'Aux coachs, aux parents'],
+      ...(Auth.isAdmin() ? [['staff', '🧢', 'Un éducateur', 'Sa fiche, puis son lien pour entrer']] : []),
       ['search', '🔎', 'Chercher', 'Un joueur, une séance, un match…'],
       ...(soon ? [['matchday', '🏟️', 'Jour de match', esc(matchName(soon))]] : []),
     ];
@@ -16362,6 +16369,7 @@ var Quick = (() => {
           else if (k === 'match') Views.newMatch();
           else if (k === 'schema') Views.newSchema();
           else if (k === 'message') location.hash = '#/messages';
+          else if (k === 'staff') People.editStaff(null, { onSave: () => { if (['#/dirigeants', '#/gestion'].includes(location.hash) || location.hash.startsWith('#/equipe/')) window.dispatchEvent(new HashChangeEvent('hashchange')); } });
           else if (k === 'search') search();
           else if (k === 'matchday') location.hash = '#/jourj/' + soon.id;
         }, 30);
@@ -19426,7 +19434,7 @@ var Views = (() => {
   const pName = Store.fullName;
   const pLabel = p => `${p.number ? p.number + ' · ' : ''}${pName(p)}`;
   // name on a roster chip, with the positions in short (« DC/LD »)
-  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⚠️</span>` : ''}${p.trial ? '<span title="À l\'essai">🧪</span>' : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
+  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⏳</span>` : ''}${p.trial ? '<span title="À l\'essai">🧪</span>' : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
   // The team's own players (all of its category when nobody is put in the team yet, e.g. « Seniors A »)
   const squad = teamId => { const own = Store.playersOf(teamId); return own.length ? own : Store.rosterOf(teamId); };
   // Chips of a team's players, then « Autres joueurs de la catégorie » (a team A / B can call up any player of its category)
@@ -19538,13 +19546,15 @@ var Views = (() => {
     $$('[data-teamsel]', root).forEach(s => s.onchange = () => { S().ui.teamId = s.value; Store.save(); rerender(); });
   }
   // (2.03) on a phone, a header with more than 3 buttons keeps the first 2, the others go in a « ⋯ » menu (instead of 3 or 4 lines of buttons)
+  // (2.77) on every screen: a phone keeps 1 button (the main one), a computer 3; the rest waits in the « ⋯ » menu
   function compactActions(actions) {
-    if (!actions || !window.matchMedia || !matchMedia('(max-width: 760px)').matches) return actions;
+    if (!actions) return actions;
+    const phone = window.matchMedia && matchMedia('(max-width: 760px)').matches, max = phone ? 1 : 3;
     const t = document.createElement('template'); t.innerHTML = actions; const kids = [...t.content.children];
-    if (kids.length <= 3) return actions;
-    // the main button (« Nouvel entraînement »…, often the last one) always stays in sight, then the first others, 2 in all
-    const keep = new Set(kids.filter(k => k.classList.contains('primary')).slice(0, 2));
-    for (const k of kids) { if (keep.size >= 2) break; keep.add(k); }
+    if (kids.length <= max + 1) return actions;
+    // the main button (« Nouvel entraînement »…, often the last one) always stays in sight, then the first others
+    const keep = new Set(kids.filter(k => k.classList.contains('primary')).slice(0, max));
+    for (const k of kids) { if (keep.size >= max) break; keep.add(k); }
     const shown = kids.filter(k => keep.has(k)), rest = kids.filter(k => !keep.has(k));
     return `<details class="more-acts"><summary class="btn" aria-label="Plus d'actions">⋯</summary><div class="more-pop">${rest.map(k => k.outerHTML).join('')}</div></details>` + shown.map(k => k.outerHTML).join('');
   }
@@ -19945,15 +19955,17 @@ var Views = (() => {
       const tm = teamOf(tr.teamId), total = tr.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
       if (tr.model) return renderModel(total);
       root.innerHTML = `${header(`<input class="h1-input" id="trTitle" value="${esc(tr.title)}" aria-label="Thème">`, `${total} min au total`,
-        `<button class="btn" data-act="share">${I.share}<span>Envoyer</span></button><button class="btn primary" data-act="pdf">${I.pdf}<span>PDF</span></button>`)}
+        `<button class="btn primary" data-act="pdf">${I.pdf}<span>PDF</span></button><button class="btn" data-act="share">${I.share}<span>Envoyer</span></button><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button>`)}
         <section class="card">
           <div class="row3">
             <label class="fld"><span>Date</span><input type="date" id="trDate" value="${esc(tr.date)}"></label>
             <label class="fld"><span>Heure</span><input type="time" id="trTime" value="${esc(tr.time || '')}"></label>
             <label class="fld"><span>Équipe</span><select id="trTeam"><option value="">Aucune</option>${Auth.teams().map(x => `<option value="${x.id}" ${x.id === tr.teamId ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
           </div>
+          <details class="fold tr-more" ${tr.group || tr.goal ? 'open' : ''}><summary>Objectif, groupe d'entraînement <span class="muted small">(facultatif)</span></summary>
           <label class="fld"><span>Groupe d'entraînement (les joueurs le voient quand il y a plusieurs séances le même jour)</span><input id="trGroup" maxlength="40" value="${esc(tr.group || '')}" placeholder="${esc(trGroup(Object.assign({}, tr, { group: '' })) || 'ex : Groupe Gianni')}"></label>
           <label class="fld"><span>Objectif de la séance</span><textarea id="trGoal" rows="2" placeholder="ex : jouer vers l'avant après la récupération">${esc(tr.goal || '')}</textarea></label>
+          </details>
         </section>
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
@@ -19973,7 +19985,7 @@ var Views = (() => {
         <div id="docsBox">${Library.docsPlaceholder()}</div>
         ${Media.placeholder('training:' + tr.id, 'Photos et vidéos de la séance')}
         </details>
-        <div class="danger-zone"><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button></div>`;
+`;
       const box = $('#rateBox', root); if (box) Ratings.bind(box, tr, save);
       gagesInto($('#gageBox', root), tr);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
@@ -20292,6 +20304,15 @@ var Views = (() => {
       textOf: o => `${{ V: '✅ Victoire', N: '🟰 Match nul', D: '❌ Défaite' }[r]} · ${cat}${m.competition ? ' · ' + m.competition : ''}\n${h} ${hs} – ${as} ${a}${o.on && scorers().length ? '\n⚽ ' + scorers().join(', ') : ''}\n${tag}` });
   }
   let matchGen = 0; // (2.02) the match page shown last
+  // (2.77) the one button that matters now: convoke → compo → follow live (the day) → score and notes
+  const momentBtn = (m, t, conv, lineup) => {
+    if (m.exempt) return '';
+    if (m.played) return `<button class="btn primary" data-mtab="apres">🏁<span>Score et notes</span></button>`;
+    if (m.date === today()) return `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>`;
+    if (!conv.length) return `<button class="btn primary" data-mtab="avant">📣<span>Convoquer</span></button>`;
+    if (!lineup) return `<button class="btn primary" data-mtab="compo">🧩<span>Faire la compo</span></button>`;
+    return `<button class="btn primary" data-mtab="avant">📣<span>Convocation</span></button>`;
+  };
   function match(root, id) {
     const m = Store.get('matches', id); if (!m) return (location.hash = '#/matchs');
     if (!Auth.sees(m.teamId)) return matchView(root, m);
@@ -20313,7 +20334,7 @@ var Views = (() => {
       const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
       const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
-        `${!m.exempt && !(m.played && m.summarySent) ? `<a class="btn primary" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button>`)}
+        momentBtn(m, t, conv, lineup) + `${!m.exempt && !(m.played && m.summarySent) && m.date !== today() ? `<a class="btn" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button>`)}
         <div class="m-sum ${side(m)}"><span>${sum}</span><button class="btn soft" data-editm>${I.edit}<span>${editOpen ? 'Fermer' : 'Modifier'}</span></button></div>
         <section class="card ${side(m)} m-edit" ${editOpen ? '' : 'hidden'}>
           <div class="row3">
@@ -20387,7 +20408,7 @@ var Views = (() => {
         ${Media.placeholder('match:' + m.id, 'Photos et vidéos du match')}
         ${Cloud.ready() ? '<div id="parentPhotos"></div>' : ''}
         </div>
-        <div class="danger-zone"><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button></div>`;
+`;
       Parents.mountMatch(root, m, conv); Rooms.matchBox($('#roomsBox', root), m); EvFeed.mount($('#evFeed', root), m.id);
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
       Media.mount(root); Library.mountDocs($('#docsBox', root), m, save);
@@ -20980,7 +21001,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 177, UPD = AppCfg.key('update-tried');
+  const BUILD = 178, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
