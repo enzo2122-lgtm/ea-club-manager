@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 141, date: '2026-10-09', title: "Des têtes, une image, un mois 📸", items: [
+      ['📸', "Les joueurs qui ont une photo l'ont aussi dans les convocations et les présences (surtout en vue Liste)."],
+      ['🖼️', "Séance : « Image pour WhatsApp » dans le menu ⋯ fabrique une belle carte de la séance, à poster dans le groupe."],
+      ['📅', "Résultats et stats : une carte « Les 30 derniers jours » (présence, bilan, buts, temps de jeu, buteurs) pour la réunion avec les parents."],
+    ] },
     { n: 140, date: '2026-10-09', title: 'Encore plus discret 🤫', items: [
       ['💡', "La carte « Comment ça marche ? » arrive pliée, sur une seule ligne : tu l'ouvres si tu veux."],
     ] },

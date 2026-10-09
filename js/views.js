@@ -10,7 +10,7 @@ const Views = (() => {
   const pName = Store.fullName;
   const pLabel = p => `${p.number ? p.number + ' · ' : ''}${pName(p)}`;
   // name on a roster chip, with the positions in short (« DC/LD »)
-  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⏳</span>` : ''}${p.trial ? '<span title="À l\'essai">🧪</span>' : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
+  const chipLabel = p => { const pb = ClubAdmin.problem(p); return `${typeof PCard !== 'undefined' ? PCard.photo(p, 'chip-ph') : ''}${pb ? `<span class="lic-warn" title="${esc(pb)}" aria-label="${esc(pb)}">⏳</span>` : ''}${p.trial ? '<span title="À l\'essai">🧪</span>' : ''}${esc(pLabel(p))}${People.postsLabel(p, true) ? ` <i class="post-tag">${esc(People.postsLabel(p, true))}</i>` : ''}`; };
   // The team's own players (all of its category when nobody is put in the team yet, e.g. « Seniors A »)
   const squad = teamId => { const own = Store.playersOf(teamId); return own.length ? own : Store.rosterOf(teamId); };
   // Chips of a team's players, then « Autres joueurs de la catégorie » (a team A / B can call up any player of its category)
@@ -561,7 +561,7 @@ const Views = (() => {
       const tm = teamOf(tr.teamId), total = tr.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
       if (tr.model) return renderModel(total);
       root.innerHTML = `${header(`<input class="h1-input" id="trTitle" value="${esc(tr.title)}" aria-label="Thème">`, `${total} min au total`,
-        `<button class="btn primary" data-act="pdf">${I.pdf}<span>PDF</span></button><button class="btn" data-act="share">${I.share}<span>Envoyer</span></button><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button>`)}
+        `<button class="btn primary" data-act="pdf">${I.pdf}<span>PDF</span></button><button class="btn" data-act="share">${I.share}<span>Envoyer</span></button><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="img">🖼️<span>Image pour WhatsApp</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button>`)}
         <section class="card">
           <div class="row3">
             <label class="fld"><span>Date</span><input type="date" id="trDate" value="${esc(tr.date)}"></label>
@@ -694,6 +694,7 @@ const Views = (() => {
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'share': return shareTraining(tr);
+        case 'img': return trainingImage(tr);
         case 'dup': return copyTraining(tr, 'dup');
         case 'use': return copyTraining(tr, 'use');
         case 'model': {
@@ -1206,9 +1207,31 @@ const Views = (() => {
       return { p, post: People.postsLabel(p, true), played, g, a: as, pr, min, yc, rc, cards: yc + rc * 3, rate:trs.length ? Math.round(pr / trs.length * 100) : null, nm: Ratings.average(p.id, 'match') || 0, nt: Ratings.average(p.id, 'training') || 0 };
     }).filter(r => ownIds.has(r.p.id) || !ownIds.size || r.played || r.pr).sort((a, b) => sortKey === 'post' ? People.sortPlayers([a.p, b.p], 'post')[0] === a.p ? -1 : 1 : sortKey === 'name' ? Store.byName(a.p, b.p) : sortKey === 'num' ? (+a.p.number || 99) - (+b.p.number || 99) : (b[sortKey] || 0) - (a[sortKey] || 0));
     const th = (k, l) => `<th><button class="th ${sortKey === k ? 'on' : ''}" data-sort="${k}">${l}</button></th>`;
+    // (2.83) the last 30 days of the category in one card, for the meeting with the parents
+    const monthCard = () => {
+      const from = addDays(today(), -30), roster = Store.rosterOf(t.id);
+      const mTr = S().trainings.filter(x => x.teamId === t.id && !x.model && x.date >= from && x.date <= today() && (x.presents || []).length);
+      const mMs = ms0.filter(m => m.date >= from).sort((a, b) => a.date.localeCompare(b.date));
+      if (!mTr.length && !mMs.length) return '';
+      const att = mTr.length ? Math.round(mTr.reduce((a, x) => a + x.presents.filter(id => roster.some(p => p.id === id)).length, 0) / mTr.length) : 0;
+      const pct = mTr.length && roster.length ? Math.round(att / roster.length * 100) : null;
+      const V = mMs.filter(m => result(m) === 'V').length, N = mMs.filter(m => result(m) === 'N').length, D = mMs.filter(m => result(m) === 'D').length;
+      const gf = mMs.reduce((a, m) => a + (+m.gf || 0), 0), ga = mMs.reduce((a, m) => a + (+m.ga || 0), 0);
+      const per = roster.map(p => ({ p, g: mMs.reduce((a, m) => a + (((m.stats || {})[p.id] || {}).g || 0), 0), min: mMs.reduce((a, m) => a + (+((m.minutes || {})[p.id]) || 0), 0), pres: mTr.filter(x => x.presents.includes(p.id)).length }));
+      const scorers = per.filter(r => r.g).sort((a, b) => b.g - a.g).slice(0, 5), most = per.filter(r => r.min).sort((a, b) => b.min - a.min).slice(0, 3), least = per.filter(r => !most.includes(r) && (r.min || mMs.some(m => (m.convoked || []).includes(r.p.id)))).sort((a, b) => a.min - b.min).slice(0, 3);
+      const absent = per.filter(r => mTr.length >= 2 && r.pres <= mTr.length / 2).sort((a, b) => a.pres - b.pres).slice(0, 6);
+      const tile = (v, l) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`;
+      return `<section class="card month-card"><h2>📅 Les 30 derniers jours <span class="muted small">· depuis le ${esc(fmtDate(from))}</span></h2>
+        <div class="tiles">${tile(mTr.length, 'séance' + (mTr.length > 1 ? 's' : ''))}${tile(pct == null ? '–' : pct + ' %', 'présence (' + att + ' en moyenne)')}${tile(mMs.length ? `${V}-${N}-${D}` : '–', 'gagnés · nuls · perdus')}${tile(mMs.length ? `${gf} - ${ga}` : '–', Sport.W().unitsLabel || 'buts pour · contre')}</div>
+        ${scorers.length ? `<p class="small">⚽ <b>Buteurs :</b> ${scorers.map(r => `${esc(Store.shortName(r.p))} (${r.g})`).join(' · ')}</p>` : ''}
+        ${most.length ? `<p class="small">⏱️ <b>Le plus de temps de jeu :</b> ${most.map(r => `${esc(Store.shortName(r.p))} (${r.min}')`).join(' · ')}${least.length ? ` · <b>le moins :</b> ${least.map(r => `${esc(Store.shortName(r.p))} (${r.min}')`).join(' · ')}` : ''}</p>` : ''}
+        ${absent.length ? `<p class="small">🪑 <b>Souvent absents aux séances :</b> ${absent.map(r => `${esc(Store.shortName(r.p))} (${r.pres}/${mTr.length})`).join(' · ')}</p>` : ''}
+      </section>`;
+    };
     root.innerHTML = `${header('Résultats et stats', esc(t.name), `<a class="btn" href="#/bilan/${t.id}">🏆<span>Bilan de saison</span></a><button class="btn" data-act="excel">${I.download}<span>Excel</span></button>`)}
       ${Results.seg('team')}
       ${teamSwitch()}
+      ${monthCard()}
       ${UI.kindSeg({ off: ms0.filter(m => m.played && !Store.isFriendly(m)).length, ami: ms0.filter(m => m.played && Store.isFriendly(m)).length })}
       ${!ms0.length ? `<section class="card"><h2>📭 Aucun match joué pour l'instant</h2><p class="muted small">Les statistiques se remplissent avec les matchs marqués « joué ». Pour reprendre ceux d'AssistCoachAI (buts, passes, minutes) et de la FFF (scores, classement, cartons, remplacements), lance les favoris de ${Auth.isAdmin() ? '<a href="#/reglages">Réglages → Le club</a>' : 'Réglages → Le club (administrateur du club)'} sur ton ordinateur. Tu peux aussi saisir un score dans la page d'un match.</p></section>` : ''}
       ${Sport.isFoot() ? (() => { const has = Object.keys(t.fffTables || {}).length, at = +S().club.fffAutoAt ? new Date(+S().club.fffAutoAt).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
@@ -1323,6 +1346,34 @@ const Views = (() => {
     try { await Exporter.loadPdf().catch(() => {}); const r = await fn(b.progress); if (r === 'downloaded') toast('Fichier enregistré dans Téléchargements'); }
     catch (err) { console.error(err); toast(err.message || 'Export impossible', 'err'); }
     finally { b.done(); }
+  }
+  // (2.83) the session as one picture (1080 × 1350), to post in the group: title, date, team, the exercises and their minutes
+  async function trainingImage(tr) {
+    const W = 1080, Hh = 1350, c = document.createElement('canvas'); c.width = W; c.height = Hh; const x = c.getContext('2d');
+    const club = S().club.name || AppCfg.name, team = (teamOf(tr.teamId) || {}).name || '', exs = (tr.exercises || []).filter(e => e.title || e.duration), total = exs.reduce((a, e) => a + (+e.duration || 0), 0);
+    const wrap = (txt, maxW, font) => { x.font = font; const words = String(txt || '').split(/\s+/), lines = []; let line = ''; for (const w of words) { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; } if (line) lines.push(line); return lines; };
+    const g = x.createLinearGradient(0, 0, W, Hh); g.addColorStop(0, '#0e1d45'); g.addColorStop(1, '#182b5e'); x.fillStyle = g; x.fillRect(0, 0, W, Hh);
+    x.fillStyle = '#c9a45c'; x.fillRect(0, 0, W, 14);
+    x.fillStyle = '#e2c27d'; x.font = '700 34px system-ui, sans-serif'; x.fillText((club + (team ? ' · ' + team : '')).toUpperCase(), 64, 100);
+    let y = 150; x.fillStyle = '#fff'; for (const l of wrap(tr.title || 'Séance', W - 128, '900 76px system-ui, sans-serif').slice(0, 3)) { x.fillText(l, 64, y + 60); y += 86; }
+    x.fillStyle = 'rgba(255,255,255,.85)'; x.font = '600 38px system-ui, sans-serif';
+    x.fillText(`${fmtDate(tr.date, { weekday: 'long', day: 'numeric', month: 'long' })}${tr.time ? ' · ' + tr.time.replace(':', 'h') : ''}${total ? ' · ' + total + ' min' : ''}`, 64, y + 40); y += 110;
+    if (tr.goal) { x.fillStyle = '#e2c27d'; for (const l of wrap('🎯 ' + tr.goal, W - 128, '600 34px system-ui, sans-serif').slice(0, 2)) { x.fillText(l, 64, y); y += 46; } y += 20; }
+    const rowH = Math.min(118, Math.floor((Hh - y - 120) / Math.max(1, exs.length)));
+    exs.forEach((e, i) => {
+      x.fillStyle = 'rgba(255,255,255,.08)'; x.beginPath(); x.roundRect(64, y, W - 128, rowH - 12, 18); x.fill();
+      x.fillStyle = '#c9a45c'; x.beginPath(); x.arc(64 + 46, y + (rowH - 12) / 2, 26, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#0e1d45'; x.font = '900 30px system-ui, sans-serif'; x.textAlign = 'center'; x.fillText(String(i + 1), 64 + 46, y + (rowH - 12) / 2 + 11); x.textAlign = 'left';
+      x.fillStyle = '#fff'; const lines = wrap(e.title || 'Exercice', W - 128 - 110 - 150, `700 ${rowH > 90 ? 36 : 30}px system-ui, sans-serif`).slice(0, rowH > 90 ? 2 : 1);
+      lines.forEach((l, k) => x.fillText(l, 64 + 100, y + (rowH - 12) / 2 + (lines.length === 2 ? -6 + k * 40 : 12)));
+      if (+e.duration) { x.fillStyle = '#e2c27d'; x.font = '800 34px system-ui, sans-serif'; x.textAlign = 'right'; x.fillText(e.duration + ' min', W - 64 - 24, y + (rowH - 12) / 2 + 12); x.textAlign = 'left'; }
+      y += rowH;
+    });
+    x.fillStyle = 'rgba(255,255,255,.55)'; x.font = '600 28px system-ui, sans-serif'; x.fillText(`Préparée avec ${AppCfg.name}`, 64, Hh - 50);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png')), name = `seance-${(tr.date || '')}.png`, file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: tr.title || 'Séance' }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('Image enregistrée dans Téléchargements');
   }
   // (3.74) a session sent by WhatsApp, SMS, mail…: a link that opens the app (the file stays possible)
   async function shareTraining(tr) {
