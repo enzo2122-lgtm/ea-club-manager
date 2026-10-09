@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 124, date: '2026-10-09', title: 'La barre du bas arrête de jouer à cache-cache 🙈', items: [
+      ['📱', "iPhone (appli installée) : la barre des onglets ne se retrouve plus cachée sous une bande bleue, ni au-dessus d'une bande claire. L'écran est remesuré chaque seconde, et la bande de remplissage reste sous la barre."],
+    ] },
     { n: 123, date: '2026-10-09', title: "Le ticket d'entrée pour venir essayer 🎟️", items: [
       ['🎟️', "Codes d'invitation (Codes personnels → « 10 codes ») : un joueur sans licence s'inscrit lui-même avec son code (prénom, nom, date de naissance). Tant que le coach n'a pas validé sa fiche (Joueurs → ✅ Valider), il ne voit que le nom du club et sa catégorie : pas de chat, pas de séances."],
     ] },

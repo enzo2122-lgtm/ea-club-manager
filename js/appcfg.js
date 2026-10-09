@@ -60,7 +60,7 @@ window.ScreenDiag = function () {
   if (!(ios && standalone) && !window.__iosFillTest) return;
   const st = document.createElement('style'); st.id = 'iosFillCss';
   st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
-    + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:19;pointer-events:none;background:var(--iosfill,#0e1d45)}'
+    + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:1;pointer-events:none;background:var(--iosfill,#0e1d45)}'
     + '@media (max-width:760px){html.ios-gap body:not(.nav-top):not(.editing) .rail{padding-bottom:12px}}html.ios-gap body:not(.tabs-top) .tabbar{padding-bottom:12px}';
   const typing = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
   const probe = css => { const d = document.createElement('div'); d.style.cssText = 'position:absolute;left:0;top:0;width:1px;visibility:hidden;pointer-events:none;' + css; document.documentElement.appendChild(d); const h = d.offsetHeight; d.remove(); return h; };
@@ -97,6 +97,9 @@ window.ScreenDiag = function () {
   const watch = () => { if (!document.body) return setTimeout(watch, 50); new MutationObserver(() => soon(60)).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true });
     if (window.ResizeObserver) new ResizeObserver(() => soon(120)).observe(document.body); };
   watch();
+  // (2.68) iOS 18 flips innerHeight between 894 and 956 without always firing an event (after the keyboard, a change of page):
+  // measured again every second, and the strip stays UNDER the bars (z-index 1) — it used to cover the players' tab bar
+  let seenH = 0; setInterval(() => { if (innerHeight !== seenH) { seenH = innerHeight; soon(0); } }, 1000);
 })();
 
 /* (2.65) The « back » button of the phone (Android, the app from the Play Store) closes the window open on top
