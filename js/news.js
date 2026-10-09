@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 128, date: '2026-10-09', title: 'Le bouche-trou reprend du service 🧱', items: [
+      ['📱', "iPhone (appli installée) : la bande claire qui revenait sous la barre sur certaines pages est de nouveau comblée par un bloc bleu dans la page, cette fois bien sous la barre et remesuré chaque seconde."],
+    ] },
     { n: 127, date: '2026-10-09', title: 'iOS 26, on te voit venir 👀', items: [
       ['📱', "iPhone (appli installée, iOS 26 et 27) : la barre des onglets est placée d'après la zone réellement affichée par le téléphone, vérifiée deux fois par seconde. Fini la barre coupée en bas ou la bande claire dessous."],
     ] },

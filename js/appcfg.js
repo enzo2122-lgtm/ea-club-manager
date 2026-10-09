@@ -76,7 +76,7 @@ function placeBars() {
   // announces (it flips between the screen and the screen minus the status bar, without warning): css rule « html.ios-app » in
   // app.css and member.js. The strip of 2.45 is no longer needed and it covered the bar at times: off (kept for the test page).
   if (ios && standalone) { const on = () => document.documentElement.classList.add('ios-app'); on(); document.addEventListener('DOMContentLoaded', on); placeBars(); }
-  if (!window.__iosFillTest) return;
+  // (2.71) the strip is back (under the bars, remeasured every second): the only thing that can paint the band iOS draws under the page
   const st = document.createElement('style'); st.id = 'iosFillCss';
   st.textContent = 'html.ios-gap body{min-height:100lvh}#iosFill{display:none}'
     + 'html.ios-gap #iosFill{display:block;position:sticky;bottom:calc(-1 * var(--iosgap,0px));height:var(--iosgap,0px);margin-top:calc(-1 * var(--iosgap,0px));z-index:1;pointer-events:none;background:var(--iosfill,#0e1d45)}'
