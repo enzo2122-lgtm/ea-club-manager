@@ -524,16 +524,18 @@ const Views = (() => {
     $$('[data-use]', root).forEach(b => b.onclick = () => copyTraining(Store.get('trainings', b.dataset.use), 'use'));
   }
   // A session copied for a category and a date (from a template session, or « Dupliquer » towards another category)
+  // (2.79) the next day with the same weekday as a session (this week's Tuesday for last Tuesday's session)
+  const nextSameDay = d => { const wd = new Date(d + 'T12:00').getDay(), t0 = today(); for (let i = 0; i < 7; i++) { const c = addDays(t0, i); if (new Date(c + 'T12:00').getDay() === wd) return c; } return t0; };
   function copyTraining(tr, how) {
     const t = how === 'use' ? activeTeam() : tr.teamId;
-    modal({ title: how === 'use' ? `Utiliser « ${tr.title} »` : 'Dupliquer la séance', body: `
+    modal({ title: how === 'use' ? `Utiliser « ${tr.title} »` : how === 'again' ? 'Reprendre la séance' : 'Dupliquer la séance', body: `
       <label class="fld"><span>Pour la catégorie</span><select id="cpTeam"><option value="">Aucune</option>${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
-      <div class="row2"><label class="fld"><span>Date</span><input type="date" id="cpDate" value="${today()}"></label><label class="fld"><span>Heure</span><input type="time" id="cpTime" value="${esc(tr.time || '18:00')}"></label></div>
+      <div class="row2"><label class="fld"><span>Date</span><input type="date" id="cpDate" value="${how === 'again' ? nextSameDay(tr.date) : today()}"></label><label class="fld"><span>Heure</span><input type="time" id="cpTime" value="${esc(tr.time || '18:00')}"></label></div>
       <p class="muted small">Les exercices, consignes et schémas${how === 'use' ? ' et documents' : ''} sont copiés. Les présences et les notes repartent à zéro.</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Créer la séance', kind: 'primary', onClick: (c, r) => {
         const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); delete n.model; delete n.ratings; if (how !== 'use') delete n.docIds;
         Object.assign(n, { teamId: $('#cpTeam', r).value || null, date: $('#cpDate', r).value || today(), time: $('#cpTime', r).value, presents: [], staffIds: [] });
-        if (how !== 'use') n.title = tr.title + (n.teamId === tr.teamId ? ' (copie)' : '');
+        if (how === 'dup') n.title = tr.title + (n.teamId === tr.teamId ? ' (copie)' : '');
         n.exercises.forEach(x => x.id = Store.uid()); Store.upsert('trainings', n); toast('Séance créée'); location.hash = '#/entrainement/' + n.id;
       } }] });
   }
@@ -906,6 +908,8 @@ const Views = (() => {
       textOf: o => `${{ V: '✅ Victoire', N: '🟰 Match nul', D: '❌ Défaite' }[r]} · ${cat}${m.competition ? ' · ' + m.competition : ''}\n${h} ${hs} – ${as} ${a}${o.on && scorers().length ? '\n⚽ ' + scorers().join(', ') : ''}\n${tag}` });
   }
   let matchGen = 0; // (2.02) the match page shown last
+  // (2.79) the last match of the same team with a convocation: its squad can be taken again
+  const lastConv = m => S().matches.filter(x => x.id !== m.id && x.teamId === m.teamId && (x.convoked || []).length && x.date <= m.date).sort((a, b) => b.date.localeCompare(a.date))[0];
   // (2.77) the one button that matters now: convoke → compo → follow live (the day) → score and notes
   const momentBtn = (m, t, conv, lineup) => {
     if (m.exempt) return '';
@@ -957,7 +961,7 @@ const Views = (() => {
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
         ${dayCard(m)}
         ${briefCard(m, t)}
-        <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
+        <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${!conv.length && !m.played && lastConv(m) ? `<button class="btn soft" data-act="sameconv">🔁<span>Comme au dernier match</span></button>` : ''}${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${(m.absents || []).length ? `<span class="muted small">⚠️ ${m.absents.length} absent${m.absents.length > 1 ? 's' : ''} le jour J</span>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) || suspOf(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${suspFlag(p, m.date)}${mutKind(p) && mutKind(p) !== 'contrat' ? '<i class="mut-tag">M</i>' : ''}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
         ${t ? guestSelect(t.id) : ''}
         ${!m.played && t ? (() => { const su = Store.rosterOf(t.id).filter(p => suspOf(p, m.date)); return su.length ? `<p class="small susp-line">🟥 <b>Suspendu${su.length > 1 ? 's' : ''} ?</b> Carton rouge à son dernier match : ${su.map(p => { const x = suspOf(p, m.date); return `<b>${esc(Store.shortName(p))}</b> (${esc(fmtDate(x.date, { day: 'numeric', month: 'short' }))}) <button class="linkish" data-unsusp="${p.id}:${x.id}">lever</button>`; }).join(' · ')}. Vérifie la sanction (nombre de matchs) sur Footclubs.</p>` : ''; })() : ''}
@@ -1049,6 +1053,7 @@ const Views = (() => {
       if (b.dataset.act === 'dayconv') { const o = Store.dayOf(m).filter(x => x.id !== m.id); o.forEach(x => { x.convoked = [...(m.convoked || [])]; if (m.captain && !x.captain) x.captain = m.captain; Store.upsert('matches', x); }); toast(`📋 Convoqués repris pour ${o.length} match${o.length > 1 ? 's' : ''}`); return render(); }
       if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
         try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
+      if (b.dataset.act === 'sameconv') { const prev = lastConv(m); if (!prev) return; const ids = new Set(Store.rosterOf(m.teamId).map(p => p.id)); m.convoked = prev.convoked.filter(id => ids.has(id)); save(); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
@@ -1252,9 +1257,9 @@ const Views = (() => {
         <ol class="steps-help"><li>Ouvre cette page dans <b>Safari</b> (iPhone) ou <b>Chrome</b> (Android).</li><li>Touche <b>Partager</b> (le carré avec une flèche) ou le menu <b>⋮</b>.</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li></ol>
       </section>`}
       </div><div class="set-pane" ${tabs && setTab !== 'club' ? 'hidden' : ''}>
-      ${Cloud.settingsSection()}
+      ${tabs ? Cloud.settingsSection() : ''}
       ${Auth.isAdmin() ? Onboard.card() : ''}
-      ${Sources.card()}
+      ${tabs ? Sources.card() : ''}
       <details class="fold"><summary>🛠️ Avancé <span class="muted small">(couleurs du tableau, fichiers, exemples, effacer)</span></summary>
       ${Auth.isAdmin() ? `<section class="card">
         <h2>${I.team}Tableau tactique</h2>
@@ -1458,5 +1463,5 @@ const Views = (() => {
       react: (c, id, e) => Cloud.chatReact(tk, id, e), mute: on => Cloud.chatMute(on),
       photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
   }
-  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat };
+  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat, copyTraining, lastConv };
 })();

@@ -5,6 +5,17 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 137, date: '2026-10-09', title: "Moins de gestes, plus de terrain 🏃", items: [
+      ['🔁', "Convocation en un geste : « Comme au dernier match » reprend la même équipe, tu ajustes et tu envoies."],
+      ['📝', "Le + sur Séances propose « Reprendre la dernière séance » : même catégorie, même jour de la semaine, tout est prêt."],
+      ['✅', "Jour de match : la liste des convoqués devient la feuille de présence. Touche un absent, c'est noté."],
+      ['⏰', "La veille d'un match, le coach est prévenu si la convocation n'est pas partie (et déjà, s'il manque des réponses)."],
+      ['📋', "Gestion du club, « À faire » : s'ajoutent les convocations pas envoyées et les joueurs sans licence validée."],
+      ['🔑', "Un éducateur peut entrer avec un code dit à l'oral, sans lien : Première connexion → tape le code."],
+      ['📅', "Côté joueurs et parents : le prochain rendez-vous (séance ou match) tout en haut, avec Présent / Absent."],
+      ['🔔', "Sur Android, la relance de la veille se répond depuis la notification : Présent ou Absent, sans ouvrir l'appli."],
+      ['📴', "Sans réseau au bord du terrain, un bandeau le dit : tes changements partiront quand le réseau reviendra."],
+    ] },
     { n: 136, date: '2026-10-09', title: "L'accueil va droit au but 🎯", items: [
       ['📅', "En haut de l'accueil : ton prochain rendez-vous (séance ou match) et le seul bouton qui compte. Le reste (raccourcis, planning, résultats, schémas) se plie et se déplie, et l'appli s'en souvient."],
       ['⚙️', "Réglages en deux onglets pour les responsables : Moi, Le club. Les réglages rares (couleurs du tableau, fichiers, exemples, effacer) attendent sous « Avancé »."],

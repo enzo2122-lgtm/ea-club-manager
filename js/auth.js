@@ -288,7 +288,7 @@ const Auth = (() => {
       ${clubField(lastClub())}${nameFields(n.ln, n.fn)}
       <label class="fld"><span>Mot de passe</span><input id="pw" type="password" autocomplete="current-password"></label>${keepBox}
       <button class="btn primary wide" id="go">Se connecter</button>
-      <div class="lock-links"><button class="btn wide" id="first">${I.plus}<span>Première connexion (lien d'invitation)</span></button>
+      <div class="lock-links"><button class="btn wide" id="first">${I.plus}<span>Première connexion (lien ou code éducateur)</span></button>
       ${AppCfg.fixed ? '' : `<button class="btn wide" id="create">${I.whistle}<span>Créer mon club</span></button>
       ${!Store.state.staff.length ? '<button class="btn wide" id="demo">👀<span>Essayer avec un club de démonstration</span></button>' : ''}
       <a class="btn wide link" href="decouvrir.html">Découvrir Clubbo</a>`}
@@ -336,13 +336,13 @@ const Auth = (() => {
     if (hasAccess()) return pickScreen();
     const el = frame(`<p class="lead"><b>Première connexion</b></p>
       <p>Ouvre le <b>lien d'invitation</b> envoyé par le responsable de ton club (WhatsApp, SMS, e-mail) : tu pourras choisir ton nom et créer ton mot de passe.</p>
-      <label class="fld"><span>Ou colle le lien d'invitation ici</span><input id="inv" placeholder="https://…#rejoindre=…" autocapitalize="off" autocorrect="off"></label>
+      <label class="fld"><span>Ou colle le lien, ou tape le code éducateur</span><input id="inv" placeholder="https://…#rejoindre=… ou le code" autocapitalize="off" autocorrect="off"></label>
       <button class="btn primary wide" id="useInv">Continuer</button>
       <div class="lock-links">${AppCfg.fixed ? '' : `<button class="btn wide" id="create">${I.whistle}<span>Je suis responsable : créer mon club</span></button>`}
       <button class="btn wide link" id="back">Retour</button></div>`);
     $('#useInv', el).onclick = () => {
-      const v = $('#inv', el).value.trim(), m = v.match(/rejoindre=([A-Za-z0-9]+)/) || v.match(/^([A-Za-z0-9]{8,})$/);
-      if (!m) return toast('Colle le lien reçu du responsable', 'err');
+      const v = $('#inv', el).value.trim(), m = v.match(/rejoindre=([A-Za-z0-9]+)/) || v.replace(/[\s-]/g, '').match(/^([A-Za-z0-9]{6,})$/);
+      if (!m) return toast('Colle le lien reçu du responsable, ou tape le code éducateur', 'err');
       setInvite(m[1]); pickScreen();
     };
     const cr = $('#create', el); if (cr) cr.onclick = () => createClubScreen();

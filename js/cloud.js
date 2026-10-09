@@ -196,6 +196,7 @@ const Cloud = (() => {
     Store.state.ui.invited = true; Store.save();
     modal({ title: 'Inviter les éducateurs', body: `<p>Envoie ce lien aux dirigeants (WhatsApp, SMS, e-mail). En l'ouvrant, chacun choisit son nom et crée son mot de passe. Ensuite, ils se connectent partout avec le <b>code du club</b> (<b>${esc(clubSlug())}</b>), leur <b>nom, prénom et mot de passe</b>.</p>
       <label class="fld"><span>Lien d'invitation</span><input id="invLink" value="${esc(link)}" readonly></label>
+      <p>À l'oral (réunion, bord du terrain) : le <b>code éducateur</b> <b class="cr-code">${esc(code)}</b>. Sur « Première connexion », il le tape à la place du lien.</p>
       <p class="muted small">Garde ce lien dans le groupe des éducateurs : il donne accès aux données du club. « Nouveau lien » annule l'ancien.</p>`,
       onOpen: r => { const i = $('#invLink', r); i.onclick = () => i.select(); },
       actions: [{ label: 'Nouveau lien', onClick: () => { setTimeout(() => shareInvite(true), 60); } },

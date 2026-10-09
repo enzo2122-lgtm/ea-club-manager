@@ -11,6 +11,9 @@ const App = (() => {
   const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain']], ['Réglages et aide', ['signalements', 'reglages']]];
   const view = () => document.getElementById('view');
 
+  // (2.79) no network (the pitch, the gym): say it, the changes leave when it comes back
+  const netState = () => document.body.classList.toggle('offline', !navigator.onLine);
+  window.addEventListener('online', netState); window.addEventListener('offline', netState); setTimeout(netState, 0);
   function refreshChrome() {
     const c = Store.state.club;
     // Banner while a responsable looks at the app as a coach
@@ -143,7 +146,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 179, UPD = AppCfg.key('update-tried');
+  const BUILD = 180, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

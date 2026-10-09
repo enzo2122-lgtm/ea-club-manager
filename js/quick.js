@@ -63,14 +63,18 @@ const Quick = (() => {
       }) });
   }
   // a session: generated in one tap, or written by hand
+  // (2.79) the last session of my categories, to take again this week
+  const lastTr = () => S().trainings.filter(t => !t.model && mine()(t) && (t.exercises || []).length).sort((a, b) => b.date.localeCompare(a.date))[0];
   function trainingChoice() {
+    const lt = lastTr();
     const close = modal({ title: 'Une séance', noFocus: true,
       body: `<div class="quick-menu">
+        ${lt ? `<button class="quick-item" data-t="last"><b>🔁</b><span>Reprendre la dernière séance</span><small>${esc(lt.title || 'Entraînement')} · ${esc(teamName(lt.teamId))} · même jour de la semaine</small></button>` : ''}
         <button class="quick-item" data-t="gen"><b>✨</b><span>Générer une séance</span><small>Un thème, une durée : c'est prêt</small></button>
         <button class="quick-item" data-t="sys"><b>🧩</b><span>Par système de jeu</span><small>Des séances toutes faites</small></button>
         <button class="quick-item" data-t="new"><b>✍️</b><span>L'écrire moi-même</span><small>Un thème, une date, puis les exercices</small></button></div>`,
       onOpen: r => $$('[data-t]', r).forEach(x => x.onclick = () => { close(); setTimeout(() => {
-        if (x.dataset.t === 'gen') Exos.generator(); else if (x.dataset.t === 'sys') location.hash = '#/systemes'; else Views.newTraining(); }, 30); }) });
+        if (x.dataset.t === 'last') Views.copyTraining(lt, 'again'); else if (x.dataset.t === 'gen') Exos.generator(); else if (x.dataset.t === 'sys') location.hash = '#/systemes'; else Views.newTraining(); }, 30); }) });
   }
 
   /* ---------- search ---------- */
@@ -158,7 +162,8 @@ const Quick = (() => {
       ${step(1, conv.length && m.convSent, 'Les convoqués', `
         ${t ? `<div class="chips md-conv">${roster.map(p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''}" data-conv="${p.id}">${esc(Store.shortName(p))}</button>`).join('') || '<span class="muted">Aucun joueur dans cette équipe.</span>'}</div>` : '<p class="muted">Choisis l\'équipe sur la fiche du match.</p>'}
         <p class="muted small">Touche un prénom pour le convoquer (${conv.length} convoqué${conv.length > 1 ? 's' : ''}).${m.convSent ? ' Convocation envoyée ✓' : ''}</p>
-        ${conv.length ? `<button class="btn primary" data-md="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}`)}
+        ${conv.length ? `<button class="btn primary" data-md="convoc">${I.share}<span>Envoyer la convocation</span></button>` : Views.lastConv(m) ? `<button class="btn soft" data-md="sameconv">🔁<span>Comme au dernier match</span></button>` : ''}
+        ${conv.length && m.date <= UI.today() ? `<p class="muted small md-who-t"><b>Qui est là ?</b> Touche un absent · ${conv.length - (m.absents || []).length} présent${conv.length - (m.absents || []).length > 1 ? 's' : ''}</p><div class="chips md-who">${conv.map(p => `<button class="chip ${(m.absents || []).includes(p.id) ? 'abs' : 'on'}" data-abs="${p.id}">${(m.absents || []).includes(p.id) ? '✗ ' : '✓ '}${esc(Store.shortName(p))}</button>`).join('')}</div>` : ''}`)}
       ${step(2, !!lineup, 'La composition', lineup ? `<a href="#/schema/${lineup.id}" class="thumb md-thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier</span></a>`
         : `<p class="muted small">Les convoqués sont placés tout seuls selon leur poste.</p><button class="btn primary" data-md="lineup">${I.formation}<span>Faire la composition</span></button>`)}
       ${step(3, d.causerie, 'La causerie', `<p class="muted small">${d.causerie ? 'Prête : l\'objectif et les clés du match sont écrits.' : 'Un objectif et 3 clés, en 5 minutes.'}</p>
@@ -171,6 +176,8 @@ const Quick = (() => {
     root.onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.conv) { const c = m.convoked = m.convoked || [], i = c.indexOf(b.dataset.conv); i < 0 ? c.push(b.dataset.conv) : c.splice(i, 1); Store.upsert('matches', m); return redraw(); }
+      if (b.dataset.abs) { const a = m.absents = m.absents || [], i = a.indexOf(b.dataset.abs); i < 0 ? a.push(b.dataset.abs) : a.splice(i, 1); Store.upsert('matches', m); return redraw(); }
+      if (b.dataset.md === 'sameconv') { const prev = Views.lastConv(m); if (!prev) return; const ids = new Set(roster.map(p => p.id)); m.convoked = prev.convoked.filter(x => ids.has(x)); Store.upsert('matches', m); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return redraw(); }
       if (b.dataset.md === 'convoc') { m.convSent = Date.now(); Store.upsert('matches', m); Views.sendConvocation(m); return; }
       if (b.dataset.md === 'lineup') return Views.makeLineup(m);
       if (b.dataset.md === 'talk') return Prepa.show(m);

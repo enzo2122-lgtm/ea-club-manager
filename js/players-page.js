@@ -222,10 +222,13 @@
     if (data.guest === 'pending') { $('#page').innerHTML = Member.bar(data, 'joueurs') + Member.pendingCard(data, 'joueurs'); const b = $('[data-reload]'); if (b) b.onclick = () => load(); return; }
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now && !m.exempt), past = ms.filter(m => m.played).reverse();
     const my = season(), prog = Member.programme(data.trainings, data.matches, trRow);
+    // (2.79) the next rendez-vous (session or match) on top of the home, with Présent / Absent
+    const nt = (data.trainings || []).filter(t => t.date >= now).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))[0], nm = up[0];
+    const rdv = nt && (!nm || nt.date < nm.date || (nt.date === nm.date && (nt.time || '') < (nm.time || ''))) ? `<h2>📅 Prochain rendez-vous</h2><div class="card">${trRow(nt)}</div>` : nm ? `<h2>📅 Prochain rendez-vous</h2>${nextCard(nm)}` : '';
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${wbCard(now)}<div id="afBox"></div>${Injury.card('', Injury.events(data))}<div id="abBox"></div>${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${rdv}${wbCard(now)}<div id="afBox"></div>${Injury.card('', Injury.events(data))}<div id="abBox"></div>${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },

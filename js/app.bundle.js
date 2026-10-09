@@ -2209,7 +2209,7 @@ var Auth = (() => {
       ${clubField(lastClub())}${nameFields(n.ln, n.fn)}
       <label class="fld"><span>Mot de passe</span><input id="pw" type="password" autocomplete="current-password"></label>${keepBox}
       <button class="btn primary wide" id="go">Se connecter</button>
-      <div class="lock-links"><button class="btn wide" id="first">${I.plus}<span>Première connexion (lien d'invitation)</span></button>
+      <div class="lock-links"><button class="btn wide" id="first">${I.plus}<span>Première connexion (lien ou code éducateur)</span></button>
       ${AppCfg.fixed ? '' : `<button class="btn wide" id="create">${I.whistle}<span>Créer mon club</span></button>
       ${!Store.state.staff.length ? '<button class="btn wide" id="demo">👀<span>Essayer avec un club de démonstration</span></button>' : ''}
       <a class="btn wide link" href="decouvrir.html">Découvrir Clubbo</a>`}
@@ -2257,13 +2257,13 @@ var Auth = (() => {
     if (hasAccess()) return pickScreen();
     const el = frame(`<p class="lead"><b>Première connexion</b></p>
       <p>Ouvre le <b>lien d'invitation</b> envoyé par le responsable de ton club (WhatsApp, SMS, e-mail) : tu pourras choisir ton nom et créer ton mot de passe.</p>
-      <label class="fld"><span>Ou colle le lien d'invitation ici</span><input id="inv" placeholder="https://…#rejoindre=…" autocapitalize="off" autocorrect="off"></label>
+      <label class="fld"><span>Ou colle le lien, ou tape le code éducateur</span><input id="inv" placeholder="https://…#rejoindre=… ou le code" autocapitalize="off" autocorrect="off"></label>
       <button class="btn primary wide" id="useInv">Continuer</button>
       <div class="lock-links">${AppCfg.fixed ? '' : `<button class="btn wide" id="create">${I.whistle}<span>Je suis responsable : créer mon club</span></button>`}
       <button class="btn wide link" id="back">Retour</button></div>`);
     $('#useInv', el).onclick = () => {
-      const v = $('#inv', el).value.trim(), m = v.match(/rejoindre=([A-Za-z0-9]+)/) || v.match(/^([A-Za-z0-9]{8,})$/);
-      if (!m) return toast('Colle le lien reçu du responsable', 'err');
+      const v = $('#inv', el).value.trim(), m = v.match(/rejoindre=([A-Za-z0-9]+)/) || v.replace(/[\s-]/g, '').match(/^([A-Za-z0-9]{6,})$/);
+      if (!m) return toast('Colle le lien reçu du responsable, ou tape le code éducateur', 'err');
       setInvite(m[1]); pickScreen();
     };
     const cr = $('#create', el); if (cr) cr.onclick = () => createClubScreen();
@@ -3717,7 +3717,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.78';
+  const VERSION = '2.79';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4216,6 +4216,7 @@ var Cloud = (() => {
     Store.state.ui.invited = true; Store.save();
     modal({ title: 'Inviter les éducateurs', body: `<p>Envoie ce lien aux dirigeants (WhatsApp, SMS, e-mail). En l'ouvrant, chacun choisit son nom et crée son mot de passe. Ensuite, ils se connectent partout avec le <b>code du club</b> (<b>${esc(clubSlug())}</b>), leur <b>nom, prénom et mot de passe</b>.</p>
       <label class="fld"><span>Lien d'invitation</span><input id="invLink" value="${esc(link)}" readonly></label>
+      <p>À l'oral (réunion, bord du terrain) : le <b>code éducateur</b> <b class="cr-code">${esc(code)}</b>. Sur « Première connexion », il le tape à la place du lien.</p>
       <p class="muted small">Garde ce lien dans le groupe des éducateurs : il donne accès aux données du club. « Nouveau lien » annule l'ancien.</p>`,
       onOpen: r => { const i = $('#invLink', r); i.onclick = () => i.select(); },
       actions: [{ label: 'Nouveau lien', onClick: () => { setTimeout(() => shareInvite(true), 60); } },
@@ -12035,10 +12036,14 @@ var Gestion = (() => {
     const noCoach = S().teams.filter(t => !Store.staffOf(t.id).length);
     const noScore = S().matches.filter(m => !m.played && !m.exempt && m.date < now && m.date >= People.seasonFrom());
     const noConv = next.filter(m => m.date <= addDays(4) && !(m.convoked || []).length);
+    const noSent = next.filter(m => m.date <= addDays(4) && (m.convoked || []).length && !m.convSent); // (2.79)
+    const lic = S().players.filter(p => !p.archived && ClubAdmin.problem(p));
     return [
       noRef.length && ['🟨', `${pl(noRef.length, 'match officiel', 'matchs officiels')} à domicile sans arbitre du club`, '#/arbitres'],
       volFree && ['🙋', `${pl(volFree, 'place')} de bénévole à prendre (2 semaines)`, '#/benevoles'],
       noConv.length && ['📋', `${pl(noConv.length, 'match', 'matchs')} dans 4 jours sans convocation`, '#/matchs'],
+      noSent.length && ['📣', `${pl(noSent.length, 'convocation')} dans 4 jours pas encore envoyée${noSent.length > 1 ? 's' : ''}`, '#/matchs'],
+      lic.length && ['⏳', `${pl(lic.length, 'joueur')} sans licence validée (ou certificat manquant)`, '#/licences'],
       noCoach.length && ['🧢', `${pl(noCoach.length, 'catégorie')} sans éducateur : ${noCoach.slice(0, 5).map(t => t.name).join(', ')}`, '#/encadrement'],
       noScore.length && ['⚽', `${pl(noScore.length, 'match', 'matchs')} passé${noScore.length > 1 ? 's' : ''} sans score`, '#/resultats'],
     ].filter(Boolean);
@@ -16376,14 +16381,18 @@ var Quick = (() => {
       }) });
   }
   // a session: generated in one tap, or written by hand
+  // (2.79) the last session of my categories, to take again this week
+  const lastTr = () => S().trainings.filter(t => !t.model && mine()(t) && (t.exercises || []).length).sort((a, b) => b.date.localeCompare(a.date))[0];
   function trainingChoice() {
+    const lt = lastTr();
     const close = modal({ title: 'Une séance', noFocus: true,
       body: `<div class="quick-menu">
+        ${lt ? `<button class="quick-item" data-t="last"><b>🔁</b><span>Reprendre la dernière séance</span><small>${esc(lt.title || 'Entraînement')} · ${esc(teamName(lt.teamId))} · même jour de la semaine</small></button>` : ''}
         <button class="quick-item" data-t="gen"><b>✨</b><span>Générer une séance</span><small>Un thème, une durée : c'est prêt</small></button>
         <button class="quick-item" data-t="sys"><b>🧩</b><span>Par système de jeu</span><small>Des séances toutes faites</small></button>
         <button class="quick-item" data-t="new"><b>✍️</b><span>L'écrire moi-même</span><small>Un thème, une date, puis les exercices</small></button></div>`,
       onOpen: r => $$('[data-t]', r).forEach(x => x.onclick = () => { close(); setTimeout(() => {
-        if (x.dataset.t === 'gen') Exos.generator(); else if (x.dataset.t === 'sys') location.hash = '#/systemes'; else Views.newTraining(); }, 30); }) });
+        if (x.dataset.t === 'last') Views.copyTraining(lt, 'again'); else if (x.dataset.t === 'gen') Exos.generator(); else if (x.dataset.t === 'sys') location.hash = '#/systemes'; else Views.newTraining(); }, 30); }) });
   }
 
   /* ---------- search ---------- */
@@ -16471,7 +16480,8 @@ var Quick = (() => {
       ${step(1, conv.length && m.convSent, 'Les convoqués', `
         ${t ? `<div class="chips md-conv">${roster.map(p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''}" data-conv="${p.id}">${esc(Store.shortName(p))}</button>`).join('') || '<span class="muted">Aucun joueur dans cette équipe.</span>'}</div>` : '<p class="muted">Choisis l\'équipe sur la fiche du match.</p>'}
         <p class="muted small">Touche un prénom pour le convoquer (${conv.length} convoqué${conv.length > 1 ? 's' : ''}).${m.convSent ? ' Convocation envoyée ✓' : ''}</p>
-        ${conv.length ? `<button class="btn primary" data-md="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}`)}
+        ${conv.length ? `<button class="btn primary" data-md="convoc">${I.share}<span>Envoyer la convocation</span></button>` : Views.lastConv(m) ? `<button class="btn soft" data-md="sameconv">🔁<span>Comme au dernier match</span></button>` : ''}
+        ${conv.length && m.date <= UI.today() ? `<p class="muted small md-who-t"><b>Qui est là ?</b> Touche un absent · ${conv.length - (m.absents || []).length} présent${conv.length - (m.absents || []).length > 1 ? 's' : ''}</p><div class="chips md-who">${conv.map(p => `<button class="chip ${(m.absents || []).includes(p.id) ? 'abs' : 'on'}" data-abs="${p.id}">${(m.absents || []).includes(p.id) ? '✗ ' : '✓ '}${esc(Store.shortName(p))}</button>`).join('')}</div>` : ''}`)}
       ${step(2, !!lineup, 'La composition', lineup ? `<a href="#/schema/${lineup.id}" class="thumb md-thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier</span></a>`
         : `<p class="muted small">Les convoqués sont placés tout seuls selon leur poste.</p><button class="btn primary" data-md="lineup">${I.formation}<span>Faire la composition</span></button>`)}
       ${step(3, d.causerie, 'La causerie', `<p class="muted small">${d.causerie ? 'Prête : l\'objectif et les clés du match sont écrits.' : 'Un objectif et 3 clés, en 5 minutes.'}</p>
@@ -16484,6 +16494,8 @@ var Quick = (() => {
     root.onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.conv) { const c = m.convoked = m.convoked || [], i = c.indexOf(b.dataset.conv); i < 0 ? c.push(b.dataset.conv) : c.splice(i, 1); Store.upsert('matches', m); return redraw(); }
+      if (b.dataset.abs) { const a = m.absents = m.absents || [], i = a.indexOf(b.dataset.abs); i < 0 ? a.push(b.dataset.abs) : a.splice(i, 1); Store.upsert('matches', m); return redraw(); }
+      if (b.dataset.md === 'sameconv') { const prev = Views.lastConv(m); if (!prev) return; const ids = new Set(roster.map(p => p.id)); m.convoked = prev.convoked.filter(x => ids.has(x)); Store.upsert('matches', m); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return redraw(); }
       if (b.dataset.md === 'convoc') { m.convSent = Date.now(); Store.upsert('matches', m); Views.sendConvocation(m); return; }
       if (b.dataset.md === 'lineup') return Views.makeLineup(m);
       if (b.dataset.md === 'talk') return Prepa.show(m);
@@ -16670,6 +16682,17 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 137, date: '2026-10-09', title: "Moins de gestes, plus de terrain 🏃", items: [
+      ['🔁', "Convocation en un geste : « Comme au dernier match » reprend la même équipe, tu ajustes et tu envoies."],
+      ['📝', "Le + sur Séances propose « Reprendre la dernière séance » : même catégorie, même jour de la semaine, tout est prêt."],
+      ['✅', "Jour de match : la liste des convoqués devient la feuille de présence. Touche un absent, c'est noté."],
+      ['⏰', "La veille d'un match, le coach est prévenu si la convocation n'est pas partie (et déjà, s'il manque des réponses)."],
+      ['📋', "Gestion du club, « À faire » : s'ajoutent les convocations pas envoyées et les joueurs sans licence validée."],
+      ['🔑', "Un éducateur peut entrer avec un code dit à l'oral, sans lien : Première connexion → tape le code."],
+      ['📅', "Côté joueurs et parents : le prochain rendez-vous (séance ou match) tout en haut, avec Présent / Absent."],
+      ['🔔', "Sur Android, la relance de la veille se répond depuis la notification : Présent ou Absent, sans ouvrir l'appli."],
+      ['📴', "Sans réseau au bord du terrain, un bandeau le dit : tes changements partiront quand le réseau reviendra."],
+    ] },
     { n: 136, date: '2026-10-09', title: "L'accueil va droit au but 🎯", items: [
       ['📅', "En haut de l'accueil : ton prochain rendez-vous (séance ou match) et le seul bouton qui compte. Le reste (raccourcis, planning, résultats, schémas) se plie et se déplie, et l'appli s'en souvient."],
       ['⚙️', "Réglages en deux onglets pour les responsables : Moi, Le club. Les réglages rares (couleurs du tableau, fichiers, exemples, effacer) attendent sous « Avancé »."],
@@ -19963,16 +19986,18 @@ var Views = (() => {
     $$('[data-use]', root).forEach(b => b.onclick = () => copyTraining(Store.get('trainings', b.dataset.use), 'use'));
   }
   // A session copied for a category and a date (from a template session, or « Dupliquer » towards another category)
+  // (2.79) the next day with the same weekday as a session (this week's Tuesday for last Tuesday's session)
+  const nextSameDay = d => { const wd = new Date(d + 'T12:00').getDay(), t0 = today(); for (let i = 0; i < 7; i++) { const c = addDays(t0, i); if (new Date(c + 'T12:00').getDay() === wd) return c; } return t0; };
   function copyTraining(tr, how) {
     const t = how === 'use' ? activeTeam() : tr.teamId;
-    modal({ title: how === 'use' ? `Utiliser « ${tr.title} »` : 'Dupliquer la séance', body: `
+    modal({ title: how === 'use' ? `Utiliser « ${tr.title} »` : how === 'again' ? 'Reprendre la séance' : 'Dupliquer la séance', body: `
       <label class="fld"><span>Pour la catégorie</span><select id="cpTeam"><option value="">Aucune</option>${Auth.teams().map(x => `<option value="${x.id}" ${x.id === t ? 'selected' : ''}>${esc(Store.teamLabel(x))}</option>`).join('')}</select></label>
-      <div class="row2"><label class="fld"><span>Date</span><input type="date" id="cpDate" value="${today()}"></label><label class="fld"><span>Heure</span><input type="time" id="cpTime" value="${esc(tr.time || '18:00')}"></label></div>
+      <div class="row2"><label class="fld"><span>Date</span><input type="date" id="cpDate" value="${how === 'again' ? nextSameDay(tr.date) : today()}"></label><label class="fld"><span>Heure</span><input type="time" id="cpTime" value="${esc(tr.time || '18:00')}"></label></div>
       <p class="muted small">Les exercices, consignes et schémas${how === 'use' ? ' et documents' : ''} sont copiés. Les présences et les notes repartent à zéro.</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Créer la séance', kind: 'primary', onClick: (c, r) => {
         const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); delete n.model; delete n.ratings; if (how !== 'use') delete n.docIds;
         Object.assign(n, { teamId: $('#cpTeam', r).value || null, date: $('#cpDate', r).value || today(), time: $('#cpTime', r).value, presents: [], staffIds: [] });
-        if (how !== 'use') n.title = tr.title + (n.teamId === tr.teamId ? ' (copie)' : '');
+        if (how === 'dup') n.title = tr.title + (n.teamId === tr.teamId ? ' (copie)' : '');
         n.exercises.forEach(x => x.id = Store.uid()); Store.upsert('trainings', n); toast('Séance créée'); location.hash = '#/entrainement/' + n.id;
       } }] });
   }
@@ -20345,6 +20370,8 @@ var Views = (() => {
       textOf: o => `${{ V: '✅ Victoire', N: '🟰 Match nul', D: '❌ Défaite' }[r]} · ${cat}${m.competition ? ' · ' + m.competition : ''}\n${h} ${hs} – ${as} ${a}${o.on && scorers().length ? '\n⚽ ' + scorers().join(', ') : ''}\n${tag}` });
   }
   let matchGen = 0; // (2.02) the match page shown last
+  // (2.79) the last match of the same team with a convocation: its squad can be taken again
+  const lastConv = m => S().matches.filter(x => x.id !== m.id && x.teamId === m.teamId && (x.convoked || []).length && x.date <= m.date).sort((a, b) => b.date.localeCompare(a.date))[0];
   // (2.77) the one button that matters now: convoke → compo → follow live (the day) → score and notes
   const momentBtn = (m, t, conv, lineup) => {
     if (m.exempt) return '';
@@ -20396,7 +20423,7 @@ var Views = (() => {
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
         ${dayCard(m)}
         ${briefCard(m, t)}
-        <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
+        <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${!conv.length && !m.played && lastConv(m) ? `<button class="btn soft" data-act="sameconv">🔁<span>Comme au dernier match</span></button>` : ''}${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${(m.absents || []).length ? `<span class="muted small">⚠️ ${m.absents.length} absent${m.absents.length > 1 ? 's' : ''} le jour J</span>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) || suspOf(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${suspFlag(p, m.date)}${mutKind(p) && mutKind(p) !== 'contrat' ? '<i class="mut-tag">M</i>' : ''}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
         ${t ? guestSelect(t.id) : ''}
         ${!m.played && t ? (() => { const su = Store.rosterOf(t.id).filter(p => suspOf(p, m.date)); return su.length ? `<p class="small susp-line">🟥 <b>Suspendu${su.length > 1 ? 's' : ''} ?</b> Carton rouge à son dernier match : ${su.map(p => { const x = suspOf(p, m.date); return `<b>${esc(Store.shortName(p))}</b> (${esc(fmtDate(x.date, { day: 'numeric', month: 'short' }))}) <button class="linkish" data-unsusp="${p.id}:${x.id}">lever</button>`; }).join(' · ')}. Vérifie la sanction (nombre de matchs) sur Footclubs.</p>` : ''; })() : ''}
@@ -20488,6 +20515,7 @@ var Views = (() => {
       if (b.dataset.act === 'dayconv') { const o = Store.dayOf(m).filter(x => x.id !== m.id); o.forEach(x => { x.convoked = [...(m.convoked || [])]; if (m.captain && !x.captain) x.captain = m.captain; Store.upsert('matches', x); }); toast(`📋 Convoqués repris pour ${o.length} match${o.length > 1 ? 's' : ''}`); return render(); }
       if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
         try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
+      if (b.dataset.act === 'sameconv') { const prev = lastConv(m); if (!prev) return; const ids = new Set(Store.rosterOf(m.teamId).map(p => p.id)); m.convoked = prev.convoked.filter(id => ids.has(id)); save(); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
@@ -20691,9 +20719,9 @@ var Views = (() => {
         <ol class="steps-help"><li>Ouvre cette page dans <b>Safari</b> (iPhone) ou <b>Chrome</b> (Android).</li><li>Touche <b>Partager</b> (le carré avec une flèche) ou le menu <b>⋮</b>.</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li></ol>
       </section>`}
       </div><div class="set-pane" ${tabs && setTab !== 'club' ? 'hidden' : ''}>
-      ${Cloud.settingsSection()}
+      ${tabs ? Cloud.settingsSection() : ''}
       ${Auth.isAdmin() ? Onboard.card() : ''}
-      ${Sources.card()}
+      ${tabs ? Sources.card() : ''}
       <details class="fold"><summary>🛠️ Avancé <span class="muted small">(couleurs du tableau, fichiers, exemples, effacer)</span></summary>
       ${Auth.isAdmin() ? `<section class="card">
         <h2>${I.team}Tableau tactique</h2>
@@ -20897,7 +20925,7 @@ var Views = (() => {
       react: (c, id, e) => Cloud.chatReact(tk, id, e), mute: on => Cloud.chatMute(on),
       photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
   }
-  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat };
+  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat, copyTraining, lastConv };
 })();
 
 ;
@@ -20915,6 +20943,9 @@ var App = (() => {
   const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain']], ['Réglages et aide', ['signalements', 'reglages']]];
   const view = () => document.getElementById('view');
 
+  // (2.79) no network (the pitch, the gym): say it, the changes leave when it comes back
+  const netState = () => document.body.classList.toggle('offline', !navigator.onLine);
+  window.addEventListener('online', netState); window.addEventListener('offline', netState); setTimeout(netState, 0);
   function refreshChrome() {
     const c = Store.state.club;
     // Banner while a responsable looks at the app as a coach
@@ -21047,7 +21078,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 179, UPD = AppCfg.key('update-tried');
+  const BUILD = 180, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

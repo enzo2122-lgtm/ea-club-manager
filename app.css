@@ -2305,3 +2305,8 @@ html.ios-app, html.ios-app body { overscroll-behavior: none; }
 .set-tabs { margin: 0 0 14px; }
 .set-pane[hidden] { display: none; }
 .chips:has(.chip .lic-warn)::after, .people:has(.lic-warn)::after { content: '⏳ en orange : licence pas encore validée (ou certificat manquant)'; display: block; flex-basis: 100%; width: 100%; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* (2.79) match day: who is there (an absent is crossed out); the offline banner */
+.md-who-t { margin: 12px 0 6px; }
+.chip.abs { background: #fee2e2; border-color: #ef4444; color: #7f1d1d; text-decoration: line-through; }
+body.offline::before { content: '📴 Hors connexion : tes changements partiront quand le réseau reviendra'; position: fixed; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 8px); z-index: 60; background: #7c2d12; color: #fff; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,.3); max-width: calc(100vw - 32px); text-align: center; pointer-events: none; }

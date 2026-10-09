@@ -1,5 +1,5 @@
 /* Service worker: keeps the app working without internet. Bump VERSION after each update. */
-const VERSION = 'ea-club-manager-v179';
+const VERSION = 'ea-club-manager-v180';
 const JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
@@ -100,14 +100,31 @@ self.addEventListener('push', e => {
       const chat = /^chat:/.test(n.tag || '');
       await self.registration.showNotification((n.title || (typeof CLUB_SERVER !== 'undefined' && CLUB_SERVER.app) || 'Clubbo') + (chat && count > 1 ? ` · ${count} messages` : ''), {
         body: (n.body || '') + (!chat && count > 1 ? ` (+${count - 1})` : ''), tag: n.tag || undefined, renotify: !!n.tag,
-        icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: n.url || '#/', count } });
+        icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: n.url || '#/', count, match: /^relance:/.test(n.tag || '') ? n.tag.slice(8) : '' },
+        // (2.79) the reminder of the day before: answer from the notification itself (Android; iPhone shows no buttons)
+        actions: /^relance:/.test(n.tag || '') ? [{ action: 'oui', title: '✅ Présent' }, { action: 'non', title: '❌ Absent' }] : [] });
     }
     await setBadge();
   })());
 });
 self.addEventListener('notificationclose', e => { e.waitUntil(setBadge()); });
+// (2.79) Présent / Absent touched on the reminder: the answer goes to the club's server, identified by this phone's subscription
+async function answerFromNotif(matchId, status) {
+  const c = typeof CLUB_SERVER !== 'undefined' ? CLUB_SERVER : null, sub = await self.registration.pushManager.getSubscription();
+  if (!c || !sub || !matchId) return false;
+  const headers = { apikey: c.key, 'Content-Type': 'application/json' };
+  if (!String(c.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + c.key;
+  const r = await fetch(c.url.replace(/\/+$/, '') + '/rest/v1/rpc/member_answer_push', { method: 'POST', headers, body: JSON.stringify({ p_endpoint: sub.endpoint, p_match: matchId, p_status: status }) });
+  return r.ok;
+}
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  if (e.action === 'oui' || e.action === 'non') {
+    const id = e.notification.data && e.notification.data.match;
+    e.waitUntil(answerFromNotif(id, e.action).then(ok => self.registration.showNotification(ok ? (e.action === 'oui' ? '✅ C\'est noté : présent' : '❌ C\'est noté : absent') : 'Réponse non envoyée',
+      { body: ok ? 'Le coach le voit tout de suite.' : 'Ouvre l\'appli pour répondre.', icon: 'icons/icon-192.png', tag: 'rep:' + id, data: { url: '#/' } })).then(setBadge));
+    return;
+  }
   const url = new URL('./' + ((e.notification.data && e.notification.data.url) || '#/'), self.registration.scope).href, path = url.split('#')[0];
   e.waitUntil(setBadge().then(() => clients.matchAll({ type: 'window', includeUncontrolled: true })).then(ws => {
     // the page of the notification (players', parents' or coaches' app) already open: it goes there; another page of the club: it opens the right one

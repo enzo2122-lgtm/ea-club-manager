@@ -17,10 +17,14 @@ const Gestion = (() => {
     const noCoach = S().teams.filter(t => !Store.staffOf(t.id).length);
     const noScore = S().matches.filter(m => !m.played && !m.exempt && m.date < now && m.date >= People.seasonFrom());
     const noConv = next.filter(m => m.date <= addDays(4) && !(m.convoked || []).length);
+    const noSent = next.filter(m => m.date <= addDays(4) && (m.convoked || []).length && !m.convSent); // (2.79)
+    const lic = S().players.filter(p => !p.archived && ClubAdmin.problem(p));
     return [
       noRef.length && ['🟨', `${pl(noRef.length, 'match officiel', 'matchs officiels')} à domicile sans arbitre du club`, '#/arbitres'],
       volFree && ['🙋', `${pl(volFree, 'place')} de bénévole à prendre (2 semaines)`, '#/benevoles'],
       noConv.length && ['📋', `${pl(noConv.length, 'match', 'matchs')} dans 4 jours sans convocation`, '#/matchs'],
+      noSent.length && ['📣', `${pl(noSent.length, 'convocation')} dans 4 jours pas encore envoyée${noSent.length > 1 ? 's' : ''}`, '#/matchs'],
+      lic.length && ['⏳', `${pl(lic.length, 'joueur')} sans licence validée (ou certificat manquant)`, '#/licences'],
       noCoach.length && ['🧢', `${pl(noCoach.length, 'catégorie')} sans éducateur : ${noCoach.slice(0, 5).map(t => t.name).join(', ')}`, '#/encadrement'],
       noScore.length && ['⚽', `${pl(noScore.length, 'match', 'matchs')} passé${noScore.length > 1 ? 's' : ''} sans score`, '#/resultats'],
     ].filter(Boolean);
