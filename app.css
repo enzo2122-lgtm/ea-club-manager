@@ -2339,3 +2339,11 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 /* (2.90) the number list in « Qui joue où ? » */
 .slot-num { width: 64px; min-height: 42px; border-radius: 999px; border: 1px solid var(--line); background: var(--navy); color: #fff; font-weight: 800; text-align: center; padding: 0 6px; }
 .bench-line .chip.small .slot-num { min-height: 28px; width: 58px; font-size: 13px; margin-left: -8px; }
+
+/* (2.92) the composition picture: a hot spot per player, the line in « Qui joue où ? » flashes */
+.lineup-wrap { position: relative; display: inline-block; max-width: 100%; }
+.lineup-wrap .thumb { display: block; }
+.lu-hot { position: absolute; transform: translate(-50%, -50%); aspect-ratio: 1; min-width: 26px; border-radius: 50%; border: 0; background: transparent; cursor: pointer; padding: 0; }
+.lu-hot:hover, .lu-hot:focus-visible { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--gold); outline: none; }
+.slot.flash { animation: slotFlash 1.6s ease-out; border-radius: 999px; }
+@keyframes slotFlash { 0%, 40% { box-shadow: 0 0 0 4px var(--gold); } 100% { box-shadow: 0 0 0 0 transparent; } }

@@ -889,6 +889,21 @@ const Views = (() => {
       ${(() => { const placed = new Set(slots.map(o => o.playerId).filter(Boolean)), bench = players.filter(p => !placed.has(p.id)); // (2.85) the convoked players without a position: the bench
         return `<p class="small bench-line">🪑 <b>Remplaçants (${bench.length})</b> : ${bench.length ? bench.map(p => `<span class="chip small">${numSel(p, m, `data-bnum="${p.id}"`, Store.numOf(p, m))} ${esc(Store.shortName(p))}</span>`).join(' ') : '<span class="muted">aucun, tous les convoqués ont un poste</span>'}</p>`; })()}</section>`;
   }
+  // (2.92) the drawing follows « Qui joue où ? »: every placed player shows his number of the match
+  function syncLabels(sc, m) {
+    let dirty = false;
+    sc.objects.forEach(o => { if (o.type !== 'player' || !o.playerId) return; const p = Store.get('players', o.playerId); if (!p) return;
+      const n = Store.numOf(p, m), lab = n ? String(n) : (o.post || o.label || ''), nm = Store.shortName(p);
+      if (o.label !== lab) { o.label = lab; dirty = true; } if (o.name !== nm) { o.name = nm; dirty = true; } });
+    if (dirty) Store.upsert('schemas', sc);
+    return sc;
+  }
+  // (2.92) a hot spot on each player of the picture: touching it opens his line in « Qui joue où ? »
+  function lineupHot(sc) {
+    const st = (sc.steps || [])[0] || { pos: {} }, cam = Board.camera(sc, 480, 312), r = Board.tokenR(sc.field) * cam.s;
+    return sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]).map(o => { const [x, y] = cam.toS(st.pos[o.id]);
+      return `<button type="button" class="lu-hot" data-hot="${o.id}" style="left:${(x / 480 * 100).toFixed(2)}%;top:${(y / 312 * 100).toFixed(2)}%;width:${(r * 2.4 / 480 * 100).toFixed(2)}%" aria-label="${esc(o.name || o.label || 'Joueur')}"></button>`; }).join('');
+  }
   function setSlot(sc, slotId, pid, m) {
     const o = sc.objects.find(x => x.id === slotId); if (!o) return;
     if (!o.post && o.label && !/^\d+$/.test(o.label)) o.post = o.label; // the position (« DC », « MOC »…) is kept when a number takes its place
@@ -984,7 +999,7 @@ const Views = (() => {
         </div>
         <div ${panel('compo')}>
         <h2 class="section">Composition</h2>
-        <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><div class="chips"><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>${m.played ? '' : `<button class="btn soft" data-act="lineupredo">🗑️<span>Refaire la composition</span></button>`}</div>`
+        <section class="card lineup">${lineup ? `<div class="lineup-wrap"><a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(syncLabels(lineup, m))}"></a>${lineupHot(lineup)}</div><p class="muted small">Touche un joueur sur le dessin pour changer son poste ou son numéro ; glisse-les sur le terrain avec « Modifier la composition ».</p><div class="chips"><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>${m.played ? '' : `<button class="btn soft" data-act="lineupredo">🗑️<span>Refaire la composition</span></button>`}</div>`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><div class="chips"><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>${lastLineup(m) ? `<button class="btn" data-act="lineupcopy">♻️<span>Reprendre la compo du ${esc(fmtDate(lastLineup(m).m.date, { day: 'numeric', month: 'short' }))}</span></button>` : ''}</div>`}</section>
         ${conv.length && !m.exempt ? `<section class="card capt-card"><label class="fld"><span>©️ Capitaine</span><select data-capt><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label>
           <label class="fld"><span>Vice-capitaine</span><select data-capt2><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain2 === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label></section>` : ''}
@@ -1068,6 +1083,7 @@ const Views = (() => {
       if (b.dataset.act === 'dayconv') { const o = Store.dayOf(m).filter(x => x.id !== m.id); o.forEach(x => { x.convoked = [...(m.convoked || [])]; if (m.captain && !x.captain) x.captain = m.captain; Store.upsert('matches', x); }); toast(`📋 Convoqués repris pour ${o.length} match${o.length > 1 ? 's' : ''}`); return render(); }
       if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
         try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
+      if (b.dataset.hot) { const sel = root.querySelector(`[data-slot="${b.dataset.hot}"]`); if (!sel) return; const lab = sel.closest('.slot'); lab.scrollIntoView({ behavior: 'smooth', block: 'center' }); lab.classList.add('flash'); setTimeout(() => lab.classList.remove('flash'), 1600); setTimeout(() => { try { sel.focus(); if (sel.showPicker) sel.showPicker(); } catch (e) {} }, 350); return; }
       if (b.dataset.act === 'sameconv') { const prev = lastConv(m); if (!prev) return; const ids = new Set(Store.rosterOf(m.teamId).map(p => p.id)); m.convoked = prev.convoked.filter(id => ids.has(id)); save(); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }

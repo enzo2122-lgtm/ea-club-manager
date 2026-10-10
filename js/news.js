@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 150, date: '2026-10-10', title: 'Le dessin et la liste ne font qu\'un 🔗', items: [
+      ['🔗', "Compo : le dessin suit « Qui joue où ? » (noms et numéros), et toucher un joueur sur le dessin ouvre sa ligne dans la liste."],
+    ] },
     { n: 149, date: '2026-10-10', title: 'La synchro ne perd plus rien 🧷', items: [
       ['🧷', "Deux écrans qui touchent le même match, la même séance ou le même joueur : les changements des deux sont gardés, champ par champ (plus de version qui écrase l'autre)."],
       ['⚡', "L'appli se met à jour toutes les 15 secondes quand elle est à l'écran, tout de suite quand tu y reviens, et envoie ce qui reste juste avant de se fermer."],
