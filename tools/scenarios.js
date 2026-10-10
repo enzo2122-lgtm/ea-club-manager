@@ -64,8 +64,9 @@ const SCENARIOS = [
   ['Préparation du match : PDF complet (toutes les parties)', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0]; must(m, 'aucun match à venir');
     m.prep = { talk: { objective: 'Gagner', keys: ['Presser', 'Courir', 'Parler'], hook: 'Allez' }, day: { warmMin: 25 } };
-    m.lineupId = null; m.acLineup = { starters: (m.convoked || []).slice(0, 7), bench: [] }; Store.upsert('matches', m);
-    window.__lbl = []; const mk = Exporter.pdfDoc; Exporter.pdfDoc = c => { const d = mk(c), l = d.label; d.label = x => { window.__lbl.push(x); return l.call(d, x); }; return d; };
+    m.lineupId = null; m.acLineup = { starters: (m.convoked || []).slice(0, 7), bench: [] }; m.numbers = { [m.convoked[0]]: 42 }; Store.upsert('matches', m);
+    window.__rows = []; const tb = Exporter.pdfDoc;
+    window.__lbl = []; const mk = Exporter.pdfDoc; Exporter.pdfDoc = c => { const d = mk(c), l = d.label, tt = d.table; d.label = x => { window.__lbl.push(x); return l.call(d, x); }; d.table = (h, r, w) => { window.__rows.push(...r); return tt.call(d, h, r, w); }; return d; };
     Exporter.deliver = async (b) => { window.__pdf = b; return 'shared'; }; await go('#/matchs'); await go('#/prepa/' + m.id);
     if (!window.jspdf) { const sc = document.createElement('script'); sc.src = '/node_modules/jspdf/dist/jspdf.umd.min.js'; document.head.appendChild(sc); await wait(1500); } // hors ligne : copie locale si elle existe
     let t = '';
@@ -75,6 +76,7 @@ const SCENARIOS = [
       t = text('#toast'); if (!/se prépare/.test(t)) break; await wait(2500);
     }
     must(!/impossible/i.test(t), t); must(window.__lbl.some(x => /^(Remplaçants|Joueurs convoqués)/.test(x)), 'pas de liste des joueurs dans le PDF');
+    must(window.__rows.some(r => r[0] === '42'), 'numéro du match absent du PDF');
     return 'PDF créé · ' + window.__lbl.filter(x => /Titulaires|Remplaçants|convoqués/.test(x)).join(' · ');`],
   ['Accueil : prochain rendez-vous et menu', `
     guide(); must($('.today-card'), 'pas de carte « Prochain rendez-vous »');
