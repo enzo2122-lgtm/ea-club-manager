@@ -1,0 +1,81 @@
+/* (3.15) The looks: the football world in the page heads only (the club, the stadium at night, the pitch, the nets),
+   the colours of one's favourite club on the buttons and the stripe, and a sporty type for the titles.
+   Shared by the coaches' app (index.html) and the players' / families' pages. Light: no picture, a few masks in SVG. */
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/barlow-condensed-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/barlow-condensed-latin-700-normal.woff2) format("woff2"); }
+:root {
+  --display: "Barlow Condensed", "Arial Narrow", var(--round, system-ui), sans-serif;
+  /* the lines of a pitch (halfway line, centre circle, the penalty area's arc), a football, a goal net: masks, so they take any colour */
+  --m-pitch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 140' fill='none' stroke='%23000' stroke-width='2.5'%3E%3Cpath d='M60 0v140'/%3E%3Ccircle cx='60' cy='70' r='34'/%3E%3Ccircle cx='60' cy='70' r='3' fill='%23000'/%3E%3Cpath d='M240 22h-62v96h62M240 46h-24v48h24'/%3E%3Cpath d='M178 48a26 26 0 0 0 0 44'/%3E%3C/svg%3E");
+  --m-net: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none' stroke='%23000' stroke-width='1.1'%3E%3Cpath d='M0 0l18 18M18 0L0 18'/%3E%3C/svg%3E");
+  --m-ball: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='29' fill='none' stroke='%23000' stroke-width='3'/%3E%3Cpath d='M32 21l10.5 7.6-4 12.4h-13l-4-12.4z'/%3E%3Cpath d='M32 21V5M42.5 28.6l14-5M38.5 41l8.5 13M25.5 41L17 54M21.5 28.6l-14-5' stroke='%23000' stroke-width='3'/%3E%3C/svg%3E");
+}
+h1, h2 { font-family: var(--display); letter-spacing: .005em; }
+h1 { font-weight: 700; }
+h2 { font-weight: 700; }
+.tile b, .score, .pnum, .lv-score, .res-big { font-family: var(--display); font-variant-numeric: tabular-nums; }
+
+/* ---------- the head of a page (coaches) and the header (players / families) ---------- */
+.page-head, header.top { position: relative; isolation: isolate; overflow: hidden; }
+.page-head { padding: 18px 20px 16px; border-radius: 18px; background: var(--head-bg, var(--surface)); color: var(--head-ink, var(--ink)); border: 1px solid var(--line); }
+.page-head h1 { font-size: clamp(32px, 4.6vw, 44px); line-height: 1; }
+.page-head .sub, .page-head h1 i { color: var(--head-muted, var(--muted)); }
+/* the stripe of the colours: the club's, or one's favourite club's */
+.page-head::before, header.top::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 5px; z-index: 1;
+  background: linear-gradient(90deg, var(--heart, var(--accent, var(--brand))) 0 62%, var(--heart2, var(--gold, #c9a45c)) 62% 100%); }
+.page-head::after, header.top::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.page-head > *, header.top > * { position: relative; }
+[data-heart] { --accent: var(--heart); --brand: var(--heart); }
+
+/* le club: the colours of the club, the lines of the pitch on the right */
+[data-look="club"] .page-head::after { background: var(--heart, var(--accent)); opacity: .09; -webkit-mask: var(--m-pitch) no-repeat right -20px center / auto 150%; mask: var(--m-pitch) no-repeat right -20px center / auto 150%; }
+[data-look="club"] header.top::after { background: #fff; opacity: .1; -webkit-mask: var(--m-pitch) no-repeat right -20px center / auto 160%; mask: var(--m-pitch) no-repeat right -20px center / auto 160%; }
+
+/* le stade: a match evening, the floodlights, the stands at the bottom */
+[data-look="stade"] .page-head, [data-look="stade"] header.top { --head-ink: #fff; --head-muted: rgba(255,255,255,.74); border-color: transparent; color: #fff;
+  background: radial-gradient(ellipse 30% 70% at 6% -10%, rgba(255,250,215,.42), transparent 70%), radial-gradient(ellipse 30% 70% at 94% -10%, rgba(255,250,215,.42), transparent 70%), linear-gradient(180deg, #0a1330, #17285a); }
+[data-look="stade"] .page-head::after, [data-look="stade"] header.top::after { inset: auto 0 0 0; height: 36%;
+  background: radial-gradient(circle, rgba(255,255,255,.22) 1.3px, transparent 1.9px) 0 0 / 9px 7px, linear-gradient(to top, rgba(255,255,255,.08), transparent);
+  clip-path: polygon(0 100%, 0 38%, 12% 38%, 12% 18%, 88% 18%, 88% 38%, 100% 38%, 100% 100%); }
+
+/* la pelouse: mown in stripes, the white lines */
+[data-look="pelouse"] .page-head, [data-look="pelouse"] header.top { --head-ink: #fff; --head-muted: rgba(255,255,255,.82); border-color: transparent; color: #fff;
+  background: repeating-linear-gradient(90deg, #2d7647 0 54px, #276a3f 54px 108px); }
+[data-look="pelouse"] .page-head::after, [data-look="pelouse"] header.top::after { background: #fff; opacity: .3; -webkit-mask: var(--m-pitch) no-repeat right -20px center / auto 150%; mask: var(--m-pitch) no-repeat right -20px center / auto 150%; }
+
+/* les filets: light, the net of the goal, a yellow card and a red card in the corner */
+[data-look="filet"] .page-head, [data-look="filet"] header.top { --head-ink: var(--ink); --head-muted: var(--muted); color: var(--ink); background: var(--surface); }
+[data-look="filet"] header.top { --muted: #5d6275; }
+[data-look="filet"] .page-head::after, [data-look="filet"] header.top::after { background: var(--ink); opacity: .08; -webkit-mask: var(--m-net) repeat 0 0 / 18px 18px; mask: var(--m-net) repeat 0 0 / 18px 18px;
+  -webkit-mask-image: var(--m-net), linear-gradient(90deg, transparent 35%, #000); -webkit-mask-composite: source-in; mask-image: var(--m-net), linear-gradient(90deg, transparent 35%, #000); mask-composite: intersect; }
+[data-look="filet"] .page-head > div:first-child::after { content: ""; position: absolute; top: -6px; right: -10px; width: 16px; height: 22px; border-radius: 3px; background: #f2c300; transform: rotate(12deg); box-shadow: 9px 3px 0 -1px #d62839; opacity: .9; }
+@media (max-width: 760px) { [data-look="filet"] .page-head > div:first-child::after { display: none; } }
+
+/* the buttons on a dark head */
+[data-look="stade"] .page-head .btn:not(.primary), [data-look="pelouse"] .page-head .btn:not(.primary) { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.28); }
+[data-look="stade"] .page-head .seg, [data-look="pelouse"] .page-head .seg { background: rgba(255,255,255,.12); }
+
+/* a football in the empty places */
+.empty::before { content: ""; display: block; width: 40px; height: 40px; margin: 0 auto 10px; background: var(--muted); opacity: .35; -webkit-mask: var(--m-ball) no-repeat center / contain; mask: var(--m-ball) no-repeat center / contain; }
+
+/* ---------- the settings card ---------- */
+.look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 10px 0 14px; }
+.look-pick { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 8px 8px 10px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.look-pick.on { border-color: var(--heart, var(--accent, var(--brand))); }
+.look-pick b { font-family: var(--display); font-size: 18px; } .look-pick small { color: var(--muted); font-size: 12.5px; line-height: 1.3; }
+.look-prev { position: relative; display: block; height: 54px; border-radius: 9px; overflow: hidden; margin-bottom: 4px; border: 1px solid var(--line); }
+.look-prev i { position: absolute; inset: 0; }
+.look-club { background: var(--surface2, #f7f4f2); } .look-club i { background: var(--heart, var(--accent, var(--brand))); opacity: .3; -webkit-mask: var(--m-pitch) no-repeat center / auto 120%; mask: var(--m-pitch) no-repeat center / auto 120%; }
+.look-stade { background: radial-gradient(ellipse 35% 80% at 10% -10%, rgba(255,250,215,.5), transparent 70%), radial-gradient(ellipse 35% 80% at 90% -10%, rgba(255,250,215,.5), transparent 70%), linear-gradient(#0a1330, #17285a); }
+.look-stade i { top: auto; height: 50%; background: radial-gradient(circle, rgba(255,255,255,.3) 1px, transparent 1.6px) 0 0 / 6px 5px; clip-path: polygon(0 100%, 0 40%, 14% 40%, 14% 15%, 86% 15%, 86% 40%, 100% 40%, 100% 100%); }
+.look-pelouse { background: repeating-linear-gradient(90deg, #2d7647 0 18px, #276a3f 18px 36px); } .look-pelouse i { background: #fff; opacity: .45; -webkit-mask: var(--m-pitch) no-repeat center / auto 120%; mask: var(--m-pitch) no-repeat center / auto 120%; }
+.look-filet { background: var(--surface, #fff); } .look-filet i { background: var(--ink); opacity: .14; -webkit-mask: var(--m-net) repeat 0 0 / 12px 12px; mask: var(--m-net) repeat 0 0 / 12px 12px; }
+.heart-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.heart { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer; }
+.heart.on { border-color: var(--ink); font-weight: 700; }
+.heart-sw { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--accent, var(--brand, #8c1024)) 0 55%, var(--gold, #c9a45c) 55% 100%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.post-ic { margin-left: 6px; font-size: .8em; }
+
+@media (max-width: 600px) { .page-head { padding: 14px 14px 12px; border-radius: 14px; } .page-head h1 { font-size: 32px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+.avatar-post { position: absolute; right: -6px; bottom: -4px; font-size: 15px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); text-transform: none; }

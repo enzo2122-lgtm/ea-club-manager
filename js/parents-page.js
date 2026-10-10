@@ -115,7 +115,7 @@
     const d = new Date(), now = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const club = (data.club && data.club.name) || 'Le club';
     document.title = `${kid()} · ${club} · Parents`;
-    $('#club').textContent = `${club} · Espace parents`; $('#team').textContent = data.team || 'Équipe';
+    $('#club').textContent = `${club} · Espace parents`; $('#team').textContent = (data.team || 'Équipe') + (Theme.icon() ? ' ' + Theme.icon() : '');
     // (2.67) signed up with an invitation code, not yet validated by the coach: the waiting page only
     if (data.guest === 'pending') { $('#page').innerHTML = Member.bar(data, 'parents') + Member.pendingCard(data, 'parents'); const b = $('[data-reload]'); if (b) b.onclick = () => load(); return; }
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now), past = ms.filter(m => m.played || m.date < now).reverse().slice(0, 8);
@@ -131,7 +131,7 @@
         { id: 'resultats', icon: '🏆', label: 'Résultats', html: `${Member.leaders(lead, kid())}${past.length ? `<h2>Derniers résultats</h2>${past.map(matchCard).join('')}` : ''}`, empty: 'Pas encore de résultat.' }, // (2.04) badges and rankings
         { id: 'chat', icon: '🗨️', label: 'Chat', html: '<div id="chatBox"></div>' }, // (1.97) the chat of the category, here too (under 16 the family opens this page)
         { id: 'coachs', icon: '📞', label: 'Coachs', html: '<div id="tkBox"></div>' + ((data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : '<p class="tip">Les coachs de la catégorie ne sont pas encore indiqués.</p>') },
-        { id: 'moi', icon: '👤', label: 'Moi', html: `${profCard()}<div id="urgBox"></div><div id="csBox"></div><h2>Réglages</h2>${typeof I18n !== 'undefined' ? I18n.card() : ''}${Member.notifyCard('parents')}${Member.tabPosCard()}${Member.optoutCard(lead)}
+        { id: 'moi', icon: '👤', label: 'Moi', html: `${profCard()}<div id="urgBox"></div><div id="csBox"></div>${Theme.card('Ma page')}<h2>Réglages</h2>${typeof I18n !== 'undefined' ? I18n.card() : ''}${Member.notifyCard('parents')}${Member.tabPosCard()}${Member.optoutCard(lead)}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil ») pour la retrouver. Le code de ton enfant est personnel : ne le donne à personne. Une question ? Écris au coach.</p>
           ${Member.privacy()}` },
@@ -186,7 +186,7 @@
     const tok = ++loadTok, c = Member.current(); lastLoad = Date.now();
     if (c !== code) { code = c; data = null; tips = []; lead = null; prof = null; Object.keys(photoData).forEach(k => delete photoData[k]); Object.keys(photoAsk).forEach(k => delete photoAsk[k]); }
     try {
-      const [d, cv] = await Promise.all([rpc('member_view', { p_code: code }), Member.convocs(code)]); if (tok !== loadTok) return; Member.applyConvocs(d, cv); // (3.13) the convocations sent in the app
+      const [d, cv] = await Promise.all([rpc('member_view', { p_code: code }), Member.convocs(code)]); if (tok !== loadTok) return; Member.applyConvocs(d, cv); // (3.13) the convocations sent in the app Theme.use(code); Theme.live(null, () => { const y = window.scrollY; render(); window.scrollTo(0, y); }); // (3.15) this code's look
       if (!Member.family(d)) { Member.remember(code, d); location.replace('joueurs.html' + location.hash); return; } // (2.07) no families' space above U15
       data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render(); if (data.guest === 'pending') return; loadPhotos(); // (2.67)
       const [, t, ld, pr] = await Promise.all([Member.replies(code, data), Member.tips(code), Injury.load(code).catch(() => null).then(() => rpc('member_leaders', { p_code: code })).catch(() => null),

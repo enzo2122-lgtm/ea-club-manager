@@ -24,7 +24,7 @@ if (!version || !build) fail('club/fabrication.json : « version » et « build 
 
 // 2. the code of Clubbo (the club keeps its config, icons, manifests, privacy page and notes)
 const read = p => fs.readFileSync(path.join(SRC, p), 'utf8').replace(/\r\n/g, '\n');
-const COPY = ['index.html', 'confidentialite.html', 'moi.html', 'aide.html', 'joueurs.html', 'parents.html', 'app.css', 'famille.css', 'sw.js', 'build.js', 'tools/verifier.js', 'tools/serveur.js', 'tools/verif.html',
+const COPY = ['index.html', 'confidentialite.html', 'moi.html', 'aide.html', 'joueurs.html', 'parents.html', 'app.css', 'famille.css', 'theme.css', 'sw.js', 'build.js', 'tools/verifier.js', 'tools/serveur.js', 'tools/verif.html',
   ...fs.readdirSync(path.join(SRC, 'js')).filter(f => f.endsWith('.js') && f !== 'config.js' && f !== 'app.bundle.js').map(f => 'js/' + f)];
 const out = {};
 COPY.forEach(p => { out[p] = read(p); });
@@ -56,6 +56,8 @@ out['js/help.js'] = out['js/help.js'].replace(/const VERSION = '[^']*';/, `const
 // 5. written in the club's folder, then the bundle and the check
 for (const [p, s] of Object.entries(out)) { fs.mkdirSync(path.dirname(path.join(DST, p)), { recursive: true }); fs.writeFileSync(path.join(DST, p), s); }
 if (IMGS.length) { fs.mkdirSync(path.join(DST, 'img'), { recursive: true }); IMGS.forEach(f => fs.copyFileSync(path.join(SRC, 'img', f), path.join(DST, 'img', f))); }
+// (3.15) the fonts (Barlow Condensed, SIL Open Font License), copied as they are
+if (fs.existsSync(path.join(SRC, 'fonts'))) { fs.mkdirSync(path.join(DST, 'fonts'), { recursive: true }); fs.readdirSync(path.join(SRC, 'fonts')).forEach(f => fs.copyFileSync(path.join(SRC, 'fonts', f), path.join(DST, 'fonts', f))); }
 gone.forEach(p => fs.unlinkSync(path.join(DST, p)));
 // the club's own pages (privacy…) take the same version
 fs.readdirSync(DST).filter(f => f.endsWith('.html') && !out[f]).forEach(f => { const p = path.join(DST, f), s = fs.readFileSync(p, 'utf8'); fs.writeFileSync(p, s.replace(/\?v=\d+"/g, `?v=${build}"`)); });

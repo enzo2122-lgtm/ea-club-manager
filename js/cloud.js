@@ -37,7 +37,7 @@ const Cloud = (() => {
     SESSION: 'Ta connexion a expiré : reconnecte-toi.',
     FICHIER_TYPE: 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).',
     FICHIER_POIDS: 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.',
-    FICHIER_ABSENT: 'Fichier introuvable (effacé après 90 jours ?).',
+    FICHIER_ABSENT: 'Fichier introuvable : les vidéos s\'effacent après 3 jours, le reste après 90 jours.',
     CRENEAU_AUTEUR: 'Seul le coach qui a réservé ce créneau, ou un responsable, peut le libérer.',
     RESPONSABLE: 'Réservé à un responsable du club.',
     DONNEES: 'Informations incomplètes.',

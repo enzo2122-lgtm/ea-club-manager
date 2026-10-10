@@ -88,3 +88,8 @@ html.ios-app:has(body.has-tabs:not(.tabs-top)) { background: var(--navy); } html
 .convoc .cv-squad li { padding: 2px 0; break-inside: avoid; }
 .convoc .cv-squad li b { display: inline-block; min-width: 1.6em; color: var(--muted); }
 .convoc .cv-squad li.me { font-weight: 700; color: var(--brand); }
+/* (3.15) a hand on match days (players' space too) */
+.vol-card > summary { cursor: pointer; }
+.vol { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.vol-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 0; }
+.vol-row .vt { font-weight: 700; min-width: 170px; } .vol-row .vt b { font-size: 13px; color: var(--no, #b91c1c); } .vol-row .vt b.ok { color: var(--yes, #15803d); }

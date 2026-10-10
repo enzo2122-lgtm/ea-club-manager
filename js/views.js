@@ -863,13 +863,9 @@ const Views = (() => {
         { label: 'Copier', icon: I.copy, onClick: (c, r) => { sent('copie', r); navigator.clipboard.writeText($('#convTxt', r).value).then(() => toast('Convocation copiée')).catch(() => toast('Sélectionne le texte et copie-le')); return false; } }] });
   }
   // (3.13) the convocation is in each convoked player's space (joueurs / parents page): a notification on the phones that have them on
-  async function notifyConvoked(m) {
-    const t = teamOf(m.teamId), ids = (m.convoked || []).slice(), hh = x => String(x || '').replace(':', 'h');
-    const title = `📣 Convocation${t ? ' · ' + t.name : ''}`, body = `Match ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}, ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}${m.rdv ? ' · rendez-vous ' + hh(m.rdv) : m.time ? ' · ' + hh(m.time) : ''}. Réponds présent ou absent dans l'appli.`;
-    try { const res = await Cloud.memberNote(ids, title, body), n = ((res && res.sent) || []).length;
-      toast(`Convocation envoyée dans l'appli · ${n} notifié${n > 1 ? 's' : ''}${ids.length - n ? ` (${ids.length - n} sans notifications : ils la verront en ouvrant l'appli)` : ''}`); }
-    catch (e) { toast('Convocation envoyée dans l\'appli (notification impossible : ' + (e.message || e) + ')'); }
-  }
+  // (3.15) the club server sends the notification itself when the convocation is sent (one only, not two)
+  function notifyConvoked(m) { const n = (m.convoked || []).length; toast(`Convocation envoyée dans l'appli à ${n} convoqué${n > 1 ? 's' : ''}`); }
+
   // Playing time of each convoked player (minutes); the season total is on the player's page and in Stats
   function minutesCard(m, conv) {
     const mins = m.minutes || {}, full = People.matchLength(m), total = conv.reduce((a, p) => a + (+mins[p.id] || 0), 0);
@@ -1628,6 +1624,7 @@ const Views = (() => {
       ${tabs ? `<div class="chips set-tabs"><button class="chip ${setTab === 'moi' ? 'on' : ''}" data-stab="moi">👤 Moi</button><button class="chip ${setTab === 'club' ? 'on' : ''}" data-stab="club">🏟️ Le club</button></div>` : ''}
       <div class="set-pane" ${tabs && setTab !== 'moi' ? 'hidden' : ''}>
       ${Auth.settingsSection()}
+      ${Theme.card('Ma page', { heartNote: 'Les couleurs viennent de ton club de cœur, choisi juste au-dessus dans « Mon compte ».' })}
       ${Help.settingsSection()}
       <section class="card">
         <h2>🖨️ Impression</h2>
@@ -1682,6 +1679,7 @@ const Views = (() => {
       <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="News.all()">Nouveautés</button> · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
+    Theme.bind(root, v => { const me = Auth.current(), st = me && Store.get('staff', me.id); if (st) { st.look = v; Store.upsert('staff', st); } App.refreshChrome && App.refreshChrome(); }, () => { const y = window.scrollY; settings(root); window.scrollTo(0, y); }); // (3.15)
     root.onchange = e => { if (e.target.id === 'devMode') { const me = Auth.current(), st = me && Store.get('staff', me.id); if (!st) return toast('Ta fiche de dirigeant est introuvable', 'err'); st.dev = e.target.checked || undefined; Store.upsert('staff', st); toast(e.target.checked ? 'Outils développeur : Plus → Développeur' : 'Outils développeur cachés'); App.refreshChrome && App.refreshChrome(); return; }
       if (e.target.dataset.notifpref || e.target.dataset.famnotif) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
     root.onclick = async e => {

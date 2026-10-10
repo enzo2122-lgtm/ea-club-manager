@@ -213,11 +213,32 @@
   });
   // (2.07) U15 and younger: the chat of the category is the parents' one (parents' page); the players' chat from U16
   const chatOk = () => String((data && data.team) || '').split(' · ').filter(Boolean).some(t => !AppCfg.family(t));
+  /* ---------- (3.15) a hand on match days: the players can help too (buvette, touche, table…), in one tap, under their own name ---------- */
+  const VOL = [{ key: 'buvette', icon: '🥤', label: 'Buvette', need: 2, when: 'home' }, { key: 'touche', icon: '🚩', label: 'Arbitre de touche', need: 1, when: 'all' },
+    { key: 'delegue', icon: '📋', label: 'Délégué', need: 1, when: 'home' }, { key: 'table', icon: '🧾', label: 'Table de marque / FMI', need: 1, when: 'home' },
+    { key: 'lavage', icon: '🧺', label: 'Lavage des maillots', need: 1, when: 'all' }];
+  const volTasks = m => ((data.volTasks && data.volTasks.length) ? data.volTasks : VOL).filter(t => t.on !== false && (t.when === 'all' || (t.when === 'home' && m.home) || (t.when === 'away' && !m.home)));
+  function volCard(up) {
+    const l = up.filter(m => !m.played && !m.exempt && m.open && volTasks(m).some(t => ((m.vol || {})[t.key] || []).length < t.need || ((m.vol || {})[t.key] || []).some(x => x.mine))).slice(0, 2);
+    if (!l.length) return '';
+    return `<details class="card vol-card"><summary><b>🙋 Donner un coup de main</b> <span class="info small">· le club a besoin de bras les jours de match</span></summary>${l.map(m => `<div class="vol" data-m="${esc(m.id)}"><p class="info"><b>${esc(fmt(m.date))}</b> · ${title(m)}</p>
+      ${volTasks(m).map(t => { const ppl = (m.vol || {})[t.key] || [], mine = ppl.some(x => x.mine);
+        return `<div class="vol-row"><span class="vt">${t.icon} ${esc(t.label)} <b class="${ppl.length >= t.need ? 'ok' : ''}">${ppl.length}/${t.need}</b></span>
+          ${mine ? `<button class="b small" data-vol="${esc(t.key)}" data-rm="1">Me retirer</button>` : ppl.length < t.need ? `<button class="b small yes on" data-vol="${esc(t.key)}" data-label="${esc(t.label)}">J'aide</button>` : '<span class="info small">complet ✓</span>'}</div>`; }).join('')}</div>`).join('')}</details>`;
+  }
+  const volBusy = new Set();
+  async function volunteer(matchId, task, label, remove) {
+    const key = matchId + ':' + task; if (volBusy.has(key)) return; volBusy.add(key);
+    const nm = ((data.me && (data.me.firstName || data.me.name)) || 'Joueur') + ' (joueur)';
+    try { const lst = await rpc('member_volunteer', { p_code: code, p_match: matchId, p_task: task, p_label: label || '', p_name: nm, p_remove: !!remove });
+      const m = data.matches.find(x => x.id === matchId); m.vol = Object.assign({}, m.vol || {}, { [task]: lst || [] }); render(); toast(remove ? 'Tu es retiré.' : 'Merci pour ton aide ! 🙏'); }
+    catch (e) { toast(e.message, true); } finally { volBusy.delete(key); }
+  }
   function render() {
     if ($('#pfW')) readProf();
     const now = today();
     document.title = `${(data.me || {}).name || 'Joueur'} · ${club()}`;
-    $('#club').textContent = `${club()} · Espace joueur`; $('#team').textContent = data.team || 'Équipe';
+    $('#club').textContent = `${club()} · Espace joueur`; $('#team').textContent = (data.team || 'Équipe') + (Theme.icon() ? ' ' + Theme.icon() : '');
     // (2.67) signed up with an invitation code, not yet validated by the coach: the waiting page only
     if (data.guest === 'pending') { $('#page').innerHTML = Member.bar(data, 'joueurs') + Member.pendingCard(data, 'joueurs'); const b = $('[data-reload]'); if (b) b.onclick = () => load(); return; }
     const ms = data.matches || [], up = ms.filter(m => !m.played && m.date >= now && !m.exempt), past = ms.filter(m => m.played).reverse();
@@ -228,7 +249,7 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${Member.convocsHtml(data, { date: d => fmt(d), hh, title, who: 'Tu es', today: now })}${rdv}${wbCard(now)}<div id="afBox"></div>${Injury.card('', Injury.events(data))}<div id="abBox"></div>${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${Member.convocsHtml(data, { date: d => fmt(d), hh, title, who: 'Tu es', today: now })}${rdv}${wbCard(now)}<div id="afBox"></div>${Injury.card('', Injury.events(data))}<div id="abBox"></div>${homeVideos()}${volCard(up)}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
@@ -239,7 +260,7 @@
         { id: 'videos', icon: '🎬', label: 'Vidéos', html: videosTab() },
         { id: 'pronos', icon: '🎯', label: 'Pronos', html: '<div class="card" id="gameBox"></div>' },
         { id: 'coachs', icon: '💬', label: 'Coach', html: `${msgCard()}<div id="tkBox"></div>${(data.coaches || []).length ? `<h2>Les coachs</h2><div class="card">${data.coaches.map(c => `<div class="tr"><span class="d">${esc(c.name)}</span><span>${c.role ? esc(c.role) + ' · ' : ''}<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}">📞 ${esc(c.phone)}</a></span></div>`).join('')}</div>` : ''}`, empty: 'Les coachs de la catégorie ne sont pas encore indiqués.' },
-        { id: 'moi', icon: '👤', label: 'Moi', html: `${profileCard()}<div id="urgBox"></div><div id="csBox"></div><h2>Réglages</h2>${typeof I18n !== 'undefined' ? I18n.card() : ''}${Member.notifyCard('joueurs')}${Member.tabPosCard()}${Member.optoutCard(lead)}
+        { id: 'moi', icon: '👤', label: 'Moi', html: `${profileCard()}<div id="urgBox"></div><div id="csBox"></div>${Theme.card('Ma page')}<h2>Réglages</h2>${typeof I18n !== 'undefined' ? I18n.card() : ''}${Member.notifyCard('joueurs')}${Member.tabPosCard()}${Member.optoutCard(lead)}
           ${Member.updateCard()}
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
           ${Member.privacy()}` },
@@ -282,7 +303,7 @@
     const tok = ++loadTok, c = Member.current(); lastLoad = Date.now();
     if (c !== code) { code = c; data = null; extra = null; lead = null; tips = []; vids = []; prof = null; draft = null; msgDraft = ''; wbNote = ''; Object.keys(wbVals).forEach(k => delete wbVals[k]); Object.keys(sess).forEach(k => delete sess[k]); }
     try {
-      const [d, cv] = await Promise.all([rpc('member_view', { p_code: code }), Member.convocs(code)]); if (tok !== loadTok) return; Member.applyConvocs(d, cv); // (3.13) the convocations sent in the app
+      const [d, cv] = await Promise.all([rpc('member_view', { p_code: code }), Member.convocs(code)]); if (tok !== loadTok) return; Member.applyConvocs(d, cv); // (3.13) the convocations sent in the app Theme.use(code); Theme.live(null, () => { const y = window.scrollY; render(); window.scrollTo(0, y); }); // (3.15) this code's look
       data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render();
       if (data.guest === 'pending') return; // (2.67) nothing else is open before the coach validates
       const soft = p => p.catch(() => undefined); // a club server not yet updated: that part stays empty
@@ -326,6 +347,7 @@
   document.addEventListener('click', e => {
     if (Member.onBar(e, () => load())) return;
     if (VPlayer.onClick(e)) return;
+    const vb = e.target.closest('[data-vol]'); if (vb && vb.closest('[data-m]')) { volunteer(vb.closest('[data-m]').dataset.m, vb.dataset.vol, vb.dataset.label, !!vb.dataset.rm); return; }
     if (Injury.onClick(e, code, false, '', msg => { toast(msg); render(); })) return;
     const mk = e.target.closest('[data-mk]'); if (mk) { msgKind = mk.dataset.mk; render(); const ta = $('#msgBody'); if (ta) ta.focus(); return; }
     if (e.target.closest('[data-msgsend]')) { only('msgsend', msgSend); return; }

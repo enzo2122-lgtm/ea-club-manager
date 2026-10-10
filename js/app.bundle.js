@@ -152,6 +152,87 @@ function placeBars() {
 })();
 
 ;
+/* ===== theme.js ===== */
+/* (3.15) Each person's look: a theme (the club, the stadium at night, the pitch, the nets), the colours of his favourite club,
+   and his position (it suggests a theme and shows its little sign). Kept on this phone; the coaches' choice also travels with
+   their dirigeant card (Store), so it follows them on another device. The decoration stays in the page heads: the rest of
+   the page is unchanged, quick to read. Shared by the coaches' app (bundle) and the players' / families' pages. */
+var Theme = (() => {
+  const LOOKS = [
+    ['club', 'Le club', 'Ses couleurs et les lignes du terrain'],
+    ['stade', 'Le stade', 'Soir de match, tribunes et projecteurs'],
+    ['pelouse', 'La pelouse', 'L\'herbe tondue en bandes'],
+    ['filet', 'Les filets', 'Clair, le filet de la cage'],
+  ];
+  // [id, label, main colour (buttons, readable on white), second colour (the stripe)]
+  const HEARTS = [['', 'Mon club', '', ''], ['paris', 'Paris', '#004170', '#da291c'], ['marseille', 'Marseille', '#0a7fb5', '#7fd0f0'], ['lyon', 'Lyon', '#1d4f9c', '#da1c2b'],
+    ['lens', 'Lens', '#b30d27', '#f2c300'], ['saintetienne', 'Saint-Étienne', '#00703a', '#7fd6a2'], ['nantes', 'Nantes', '#00703a', '#ffe100'], ['lille', 'Lille', '#c8102e', '#1d2b5c'],
+    ['barcelone', 'Barcelone', '#a50044', '#004d98'], ['madrid', 'Madrid', '#4b2483', '#d9c7ff'], ['turin', 'Turin', '#1f1f1f', '#bdbdbd'], ['liverpool', 'Liverpool', '#c8102e', '#00a398']];
+  const POSTS = [['', 'Pas de poste', ''], ['gk', '🧤 Gardien', 'filet'], ['def', '🛡️ Défenseur', 'pelouse'], ['mil', '🎯 Milieu', 'pelouse'], ['att', '⚽ Attaquant', 'stade'],
+    ['coach', '📋 Coach', 'club'], ['fan', '📣 Supporter', 'stade']];
+  let scope = '';
+  const KEY = () => (typeof AppCfg !== 'undefined' ? AppCfg.key('look') : 'look') + (scope ? ':' + scope : '');
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function get() { try { const v = JSON.parse(localStorage.getItem(KEY()) || 'null'); if (v && typeof v === 'object') return { t: v.t || 'club', h: v.h || '', p: v.p || '', chosen: !!v.chosen }; } catch (e) {} return { t: 'club', h: '', p: '', chosen: false }; }
+  function apply(v = get()) {
+    const d = document.documentElement, h = HEARTS.find(x => x[0] === v.h);
+    d.dataset.look = LOOKS.some(x => x[0] === v.t) ? v.t : 'club';
+    if (h && h[2]) { d.dataset.heart = h[0]; d.style.setProperty('--heart', h[2]); d.style.setProperty('--heart2', h[3]); }
+    else { delete d.dataset.heart; d.style.removeProperty('--heart'); d.style.removeProperty('--heart2'); }
+    return v;
+  }
+  function set(v, onSaved) { try { localStorage.setItem(KEY(), JSON.stringify(v)); } catch (e) {} apply(v); if (onSaved) onSaved(v); }
+  // the sign of one's position (in the header), or nothing
+  const icon = (v = get()) => { const p = POSTS.find(x => x[0] === v.p); return p && p[0] ? p[1].split(' ')[0] : ''; };
+  // a scope: one look per personal code on the players' / families' pages (a parent of two children may want two)
+  function use(s, fromCard) { scope = s || ''; let v = get(); if (fromCard && fromCard.t && !localStorage.getItem(KEY())) { v = fromCard; try { localStorage.setItem(KEY(), JSON.stringify(v)); } catch (e) {} } return apply(v); }
+  // the settings card: themes as small previews, the club of one's heart, one's position
+  function card(title = 'Mon apparence', opts = {}) {
+    const v = get();
+    return `<section class="card look-card" id="lookCard"><h2>🎨 ${esc(title)}</h2>
+      <p class="muted small">Pour toi seulement, sur ce téléphone. Le contenu ne change pas.</p>
+      <div class="look-grid" role="radiogroup" aria-label="Thème">${LOOKS.map(([k, l, d]) => `<button type="button" class="look-pick ${v.t === k ? 'on' : ''}" role="radio" aria-checked="${v.t === k}" data-look="${k}">
+        <span class="look-prev look-${k}"><i></i></span><b>${esc(l)}</b><small>${esc(d)}</small></button>`).join('')}</div>
+      ${opts.heartNote ? `<p class="muted small">${esc(opts.heartNote)}</p>` : ''}<div class="lbl" ${opts.heartNote ? 'hidden' : ''}>Mon club de cœur</div>
+      <div class="heart-row" ${opts.heartNote ? 'hidden' : ''}>${HEARTS.map(([k, l, a, b]) => `<button type="button" class="heart ${v.h === k ? 'on' : ''}" data-heart="${k}" aria-pressed="${v.h === k}" title="${esc(l)}">
+        <span class="heart-sw" style="${a ? `background:linear-gradient(135deg,${a} 0 55%,${b} 55% 100%)` : ''}"></span><span>${esc(l)}</span></button>`).join('')}</div>
+      <label class="fld"><span>Mon poste</span><select id="lookPost">${POSTS.map(([k, l]) => `<option value="${k}" ${v.p === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+      <p class="muted small" id="lookTip">${v.p && POSTS.find(x => x[0] === v.p)[2] && POSTS.find(x => x[0] === v.p)[2] !== v.t ? `Pour ton poste, essaie « ${esc(LOOKS.find(x => x[0] === POSTS.find(y => y[0] === v.p)[2])[1])} ».` : ''}</p></section>`;
+  }
+  // the card's hands (call after the card is in the page); onSaved(v) to keep it elsewhere too, redraw() to show the change
+  function bind(root, onSaved, redraw) {
+    const box = root.querySelector('#lookCard'); if (!box) return;
+    const again = () => { if (redraw) redraw(); else { const n = document.createElement('div'); n.innerHTML = card(); box.replaceWith(n.firstElementChild); bind(root, onSaved); } };
+    box.onclick = e => {
+      const l = e.target.closest('[data-look]'), h = e.target.closest('[data-heart]'); if (!l && !h) return;
+      const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); again();
+    };
+    const sel = box.querySelector('#lookPost'); if (sel) sel.onchange = () => { const v = get(), p = POSTS.find(x => x[0] === sel.value); v.p = sel.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); again(); };
+  }
+  const lum = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return 1; const n = parseInt(m[1], 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(x => { x /= 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+  // the coaches' favourite club (chosen in « Mon compte »): its colours on their page, the darker one on the buttons (readable on white)
+  function fromClub(c1, c2) {
+    const d = document.documentElement; if (!c1 || get().h) return;
+    const [a, b] = lum(c1) <= lum(c2) ? [c1, c2] : [c2, c1];
+    if (lum(a) > .3) { d.style.setProperty('--heart2', a); return; } // two light colours: only the stripe
+    d.dataset.heart = 'club'; d.style.setProperty('--heart', a); d.style.setProperty('--heart2', b);
+  }
+  // the pages that redraw themselves often (players / families): one listener for good, whatever the redraws
+  let liveOn = false;
+  function live(onSaved, redraw) {
+    if (liveOn) return; liveOn = true;
+    document.addEventListener('click', e => {
+      const box = e.target.closest('#lookCard'); if (!box) return;
+      const l = e.target.closest('[data-look]'), h = e.target.closest('[data-heart]'); if (!l && !h) return;
+      const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); redraw && redraw();
+    });
+    document.addEventListener('change', e => { if (e.target.id !== 'lookPost') return; const v = get(), p = POSTS.find(x => x[0] === e.target.value); v.p = e.target.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); redraw && redraw(); });
+  }
+  apply();
+  return { LOOKS, HEARTS, POSTS, get, set, apply, use, card, bind, live, icon, fromClub };
+})();
+
+;
 /* ===== sport.js ===== */
 /* Sport: what changes from one sport to another. The club chooses its sport when it is created (club.sport);
    the app then takes from here the playing formats and their courts, the positions, the age categories, the way to score,
@@ -3863,7 +3944,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.14';
+  const VERSION = '3.15';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4203,7 +4284,7 @@ var Cloud = (() => {
     SESSION: 'Ta connexion a expiré : reconnecte-toi.',
     FICHIER_TYPE: 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).',
     FICHIER_POIDS: 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.',
-    FICHIER_ABSENT: 'Fichier introuvable (effacé après 90 jours ?).',
+    FICHIER_ABSENT: 'Fichier introuvable : les vidéos s\'effacent après 3 jours, le reste après 90 jours.',
     CRENEAU_AUTEUR: 'Seul le coach qui a réservé ce créneau, ou un responsable, peut le libérer.',
     RESPONSABLE: 'Réservé à un responsable du club.',
     DONNEES: 'Informations incomplètes.',
@@ -5480,7 +5561,7 @@ var People = (() => {
   const S = () => Store.state;
   const POS = [['', '–'], ['GB', 'Gardien'], ['DEF', 'Défenseur'], ['MIL', 'Milieu'], ['ATT', 'Attaquant']];
   const SUBCATS = ['Senior', 'Senior U20', 'Vétéran', 'U6', 'U7', 'U8', 'U9', 'U10', 'U11', 'U12', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19'];
-  const ROLES = ['Éducateur', 'Éducateur adjoint', 'Responsable de catégorie', 'Dirigeant', 'Accompagnateur', 'Entraîneur des gardiens', 'Arbitre du club', 'Arbitre bénévole', 'Intendant', 'Président', 'Vice-président', 'Secrétaire', 'Trésorier', 'Autre'];
+  const ROLES = ['Éducateur', 'Éducateur adjoint', 'Responsable de catégorie', 'Dirigeant', 'Accompagnateur', 'Entraîneur des gardiens', 'Arbitre du club', 'Arbitre bénévole', 'Intendant', 'Président', 'Vice-président', 'Secrétaire', 'Trésorier', 'Trésorière', 'Trésorière · Secrétaire', 'Autre'];
   const RELS = ['Mère', 'Père', 'Tuteur', 'Autre'];
   // Which category (team) gathers each licence sub-category
   // Footclubs sub-category → category of the club (no U18 / U19 / U20 at the club: those players are in Seniors)
@@ -17129,6 +17210,13 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 174, date: '2026-10-10', title: 'Ta page, ton style ⚽', items: [
+      ['🎨', "Ma page (Réglages, ou « Moi » dans l'espace joueur / parents) : 4 thèmes, Le club, Le stade, La pelouse, Les filets. Ton poste choisit le thème qui lui va, et les couleurs de ton club de cœur colorent ta page. Pour toi seulement."],
+      ['🔤', "Nouvelle police pour les titres, des terrains, filets et tribunes dans les bandeaux, un ballon quand une liste est vide."],
+      ['🙋', "Coup de main les jours de match : les joueurs peuvent aussi s'inscrire (buvette, touche, table…), depuis leur accueil."],
+      ['🔕', "Moins de notifications : jamais deux fois la même, le chat groupé, 3 notifications ordinaires par jour au plus et rien la nuit. Convocations, annulations et changements passent toujours."],
+      ['🎬', "Les vidéos envoyées dans les chats s'effacent après 3 jours."],
+    ] },
     { n: 173, date: '2026-10-10', title: 'Fichiers, journal, licences et plannings rangés 🗂️', items: [
       ['📎', "Chats des catégories et messagerie du club : joins un PDF, une vidéo (50 Mo au plus), une photo en taille réelle, un Word, un Excel… Touche-le pour l'ouvrir. Gardés 90 jours."],
       ['📜', "Journal des modifications (Gestion → Journal) : qui a ajouté, modifié ou supprimé quoi, avec la date et l'heure. Pour les responsables."],
@@ -18504,7 +18592,7 @@ var Chat = (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ERR = [[/MOT_INTERDIT/, 'Pas envoyé : un mot grossier ou insultant n\'est pas accepté ici. Reformule gentiment 🙂'],
     [/TROP_VITE/, 'Doucement : attends une seconde entre deux messages.'], [/CHAT_FERME/, 'Les coachs ont mis le chat en lecture seule pour l\'instant.'],
-    [/FICHIER_TYPE/, 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).'], [/FICHIER_POIDS/, 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.'], [/FICHIER_ABSENT/, 'Fichier introuvable (effacé après 90 jours ?).'],
+    [/FICHIER_TYPE/, 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).'], [/FICHIER_POIDS/, 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.'], [/FICHIER_ABSENT/, 'Fichier introuvable : les vidéos s\'effacent après 3 jours, le reste après 90 jours.'],
     [/LIMITE_CHAT/, 'Beaucoup de messages aujourd\'hui : réessaie demain.'], [/PHOTOS_COACHS/, 'Dans ce chat, seuls les coachs envoient des photos pour l\'instant.'], [/\bPHOTO\b/, 'Cette photo ne passe pas : essaie avec une autre.'], [/SONDAGE_FINI/, 'Ce sondage est terminé.']];
   const nice = e => { const m = String((e && ((e.code || '') + ' ' + (e.message || ''))) || ''); const x = ERR.find(([r]) => r.test(m)); return x ? x[1] : (e && e.message) || 'Le serveur ne répond pas.'; };
   const EMOJI = ['👍', '⚽', '🔥', '💪', '😂', '👏', '🙏', '❤️', '😅', '🏆', '🥅', '✅'];
@@ -18718,7 +18806,7 @@ var Chat = (() => {
   }
   /* ---------- (3.14) attachments: PDF, videos (50 Mo), documents, photos in full size ----------
      The file goes to the club server in pieces of 3 Mo (begin → put × n), then the message carries [[pj:id|name|mime|size]].
-     Read back piece by piece when touched; kept 90 days, like the photos. */
+     Read back piece by piece when touched; kept 90 days, the videos 3 days (3.15). */
   const MB = 1048576, PART = 3 * MB;
   const ATT_RE = /\[\[pj:([0-9a-f-]{36})\|([^|\]]{0,120})\|([^|\]]{0,80})\|(\d{1,10})\]\]/g;
   const attLimit = mime => /^video\//.test(mime) ? 50 * MB : 20 * MB;
@@ -18748,7 +18836,7 @@ var Chat = (() => {
   const attBlobs = new Map();
   async function attFetch(api, a, progress) {
     if (attBlobs.has(a.id)) return attBlobs.get(a.id);
-    const first = await api.get(a.id, 0); if (!first || !first.data) throw new Error('Fichier introuvable (effacé après 90 jours ?)');
+    const first = await api.get(a.id, 0); if (!first || !first.data) throw new Error('Fichier introuvable (les vidéos s\'effacent après 3 jours, le reste après 90 jours)');
     const parts = +first.parts || 1, chunks = [first.data]; progress && progress(1 / parts);
     for (let n = 1; n < parts; n++) { const r = await api.get(a.id, n); chunks.push(r.data); progress && progress((n + 1) / parts); }
     const bytes = chunks.map(c => Uint8Array.from(atob(c), ch => ch.charCodeAt(0)));
@@ -20994,13 +21082,9 @@ var Views = (() => {
         { label: 'Copier', icon: I.copy, onClick: (c, r) => { sent('copie', r); navigator.clipboard.writeText($('#convTxt', r).value).then(() => toast('Convocation copiée')).catch(() => toast('Sélectionne le texte et copie-le')); return false; } }] });
   }
   // (3.13) the convocation is in each convoked player's space (joueurs / parents page): a notification on the phones that have them on
-  async function notifyConvoked(m) {
-    const t = teamOf(m.teamId), ids = (m.convoked || []).slice(), hh = x => String(x || '').replace(':', 'h');
-    const title = `📣 Convocation${t ? ' · ' + t.name : ''}`, body = `Match ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}, ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}${m.rdv ? ' · rendez-vous ' + hh(m.rdv) : m.time ? ' · ' + hh(m.time) : ''}. Réponds présent ou absent dans l'appli.`;
-    try { const res = await Cloud.memberNote(ids, title, body), n = ((res && res.sent) || []).length;
-      toast(`Convocation envoyée dans l'appli · ${n} notifié${n > 1 ? 's' : ''}${ids.length - n ? ` (${ids.length - n} sans notifications : ils la verront en ouvrant l'appli)` : ''}`); }
-    catch (e) { toast('Convocation envoyée dans l\'appli (notification impossible : ' + (e.message || e) + ')'); }
-  }
+  // (3.15) the club server sends the notification itself when the convocation is sent (one only, not two)
+  function notifyConvoked(m) { const n = (m.convoked || []).length; toast(`Convocation envoyée dans l'appli à ${n} convoqué${n > 1 ? 's' : ''}`); }
+
   // Playing time of each convoked player (minutes); the season total is on the player's page and in Stats
   function minutesCard(m, conv) {
     const mins = m.minutes || {}, full = People.matchLength(m), total = conv.reduce((a, p) => a + (+mins[p.id] || 0), 0);
@@ -21759,6 +21843,7 @@ var Views = (() => {
       ${tabs ? `<div class="chips set-tabs"><button class="chip ${setTab === 'moi' ? 'on' : ''}" data-stab="moi">👤 Moi</button><button class="chip ${setTab === 'club' ? 'on' : ''}" data-stab="club">🏟️ Le club</button></div>` : ''}
       <div class="set-pane" ${tabs && setTab !== 'moi' ? 'hidden' : ''}>
       ${Auth.settingsSection()}
+      ${Theme.card('Ma page', { heartNote: 'Les couleurs viennent de ton club de cœur, choisi juste au-dessus dans « Mon compte ».' })}
       ${Help.settingsSection()}
       <section class="card">
         <h2>🖨️ Impression</h2>
@@ -21813,6 +21898,7 @@ var Views = (() => {
       <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="News.all()">Nouveautés</button> · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
+    Theme.bind(root, v => { const me = Auth.current(), st = me && Store.get('staff', me.id); if (st) { st.look = v; Store.upsert('staff', st); } App.refreshChrome && App.refreshChrome(); }, () => { const y = window.scrollY; settings(root); window.scrollTo(0, y); }); // (3.15)
     root.onchange = e => { if (e.target.id === 'devMode') { const me = Auth.current(), st = me && Store.get('staff', me.id); if (!st) return toast('Ta fiche de dirigeant est introuvable', 'err'); st.dev = e.target.checked || undefined; Store.upsert('staff', st); toast(e.target.checked ? 'Outils développeur : Plus → Développeur' : 'Outils développeur cachés'); App.refreshChrome && App.refreshChrome(); return; }
       if (e.target.dataset.notifpref || e.target.dataset.famnotif) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
     root.onclick = async e => {
@@ -22066,6 +22152,7 @@ var App = (() => {
     UI.modal({ title: '🩺 Diagnostic', body: `<textarea rows="14" readonly style="font:12px monospace;width:100%">${UI.esc(txt)}</textarea>`, actions: [{ label: 'Fermer' }, { label: 'Copier', kind: 'primary', onClick: () => { navigator.clipboard.writeText(txt).then(() => UI.toast('Copié')).catch(() => UI.toast('Sélectionne et copie')); return false; } }] });
   }
   function refreshChrome() {
+    { const me = Auth.current(), st = me && Store.get('staff', me.id); if (st && st.look && !localStorage.getItem(AppCfg.key('look'))) Theme.use('', st.look); Theme.apply(); const fc = me && me.club && Clubs.LIST[me.club]; if (fc) Theme.fromClub(fc[2], fc[3]); } // (3.15) one's look, from another device
     const c = Store.state.club;
     // Banner while a responsable looks at the app as a coach
     let bar = document.getElementById('previewBar'); const pv = Auth.preview();
@@ -22085,7 +22172,7 @@ var App = (() => {
     // The connected coach: his initials with his favourite club's crest, and « Coach Prénom » (opens Mon compte)
     const coach = u ? Messages.coachName(u) : '', first = coach.replace(/^Coach /, '');
     ru.innerHTML = u ? `<a class="ru-me" href="#/reglages" title="Mon compte">
-        <span class="avatar" aria-hidden="true">${UI.esc((first[0] || '') + ((u.lastName || '')[0] || ''))}${u.club ? `<span class="avatar-club">${Clubs.crest(u.club, 18, () => refreshChrome())}</span>` : ''}</span>
+        <span class="avatar" aria-hidden="true">${UI.esc((first[0] || '') + ((u.lastName || '')[0] || ''))}${Theme.icon() ? `<span class="avatar-post">${Theme.icon()}</span>` : ''}${u.club ? `<span class="avatar-club">${Clubs.crest(u.club, 18, () => refreshChrome())}</span>` : ''}</span>
         <span class="ru-name">${UI.esc(coach)}</span></a>${Auth.realAdmin() ? '<button class="ru-out" id="rolesBtn" title="Mes rôles">🔀 Rôles</button>' : ''}<button class="ru-out" id="logoutBtn">Sortir</button>` : '';
     const rb = document.getElementById('rolesBtn'); if (rb) rb.onclick = () => Roles.open();
     const lo = document.getElementById('logoutBtn'); if (lo) lo.onclick = () => Auth.logout();
@@ -22197,7 +22284,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 215, UPD = AppCfg.key('update-tried');
+  const BUILD = 216, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

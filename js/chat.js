@@ -7,7 +7,7 @@ const Chat = (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ERR = [[/MOT_INTERDIT/, 'Pas envoyé : un mot grossier ou insultant n\'est pas accepté ici. Reformule gentiment 🙂'],
     [/TROP_VITE/, 'Doucement : attends une seconde entre deux messages.'], [/CHAT_FERME/, 'Les coachs ont mis le chat en lecture seule pour l\'instant.'],
-    [/FICHIER_TYPE/, 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).'], [/FICHIER_POIDS/, 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.'], [/FICHIER_ABSENT/, 'Fichier introuvable (effacé après 90 jours ?).'],
+    [/FICHIER_TYPE/, 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).'], [/FICHIER_POIDS/, 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.'], [/FICHIER_ABSENT/, 'Fichier introuvable : les vidéos s\'effacent après 3 jours, le reste après 90 jours.'],
     [/LIMITE_CHAT/, 'Beaucoup de messages aujourd\'hui : réessaie demain.'], [/PHOTOS_COACHS/, 'Dans ce chat, seuls les coachs envoient des photos pour l\'instant.'], [/\bPHOTO\b/, 'Cette photo ne passe pas : essaie avec une autre.'], [/SONDAGE_FINI/, 'Ce sondage est terminé.']];
   const nice = e => { const m = String((e && ((e.code || '') + ' ' + (e.message || ''))) || ''); const x = ERR.find(([r]) => r.test(m)); return x ? x[1] : (e && e.message) || 'Le serveur ne répond pas.'; };
   const EMOJI = ['👍', '⚽', '🔥', '💪', '😂', '👏', '🙏', '❤️', '😅', '🏆', '🥅', '✅'];
@@ -221,7 +221,7 @@ const Chat = (() => {
   }
   /* ---------- (3.14) attachments: PDF, videos (50 Mo), documents, photos in full size ----------
      The file goes to the club server in pieces of 3 Mo (begin → put × n), then the message carries [[pj:id|name|mime|size]].
-     Read back piece by piece when touched; kept 90 days, like the photos. */
+     Read back piece by piece when touched; kept 90 days, the videos 3 days (3.15). */
   const MB = 1048576, PART = 3 * MB;
   const ATT_RE = /\[\[pj:([0-9a-f-]{36})\|([^|\]]{0,120})\|([^|\]]{0,80})\|(\d{1,10})\]\]/g;
   const attLimit = mime => /^video\//.test(mime) ? 50 * MB : 20 * MB;
@@ -251,7 +251,7 @@ const Chat = (() => {
   const attBlobs = new Map();
   async function attFetch(api, a, progress) {
     if (attBlobs.has(a.id)) return attBlobs.get(a.id);
-    const first = await api.get(a.id, 0); if (!first || !first.data) throw new Error('Fichier introuvable (effacé après 90 jours ?)');
+    const first = await api.get(a.id, 0); if (!first || !first.data) throw new Error('Fichier introuvable (les vidéos s\'effacent après 3 jours, le reste après 90 jours)');
     const parts = +first.parts || 1, chunks = [first.data]; progress && progress(1 / parts);
     for (let n = 1; n < parts; n++) { const r = await api.get(a.id, n); chunks.push(r.data); progress && progress((n + 1) / parts); }
     const bytes = chunks.map(c => Uint8Array.from(atob(c), ch => ch.charCodeAt(0)));

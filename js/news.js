@@ -5,6 +5,13 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 174, date: '2026-10-10', title: 'Ta page, ton style ⚽', items: [
+      ['🎨', "Ma page (Réglages, ou « Moi » dans l'espace joueur / parents) : 4 thèmes, Le club, Le stade, La pelouse, Les filets. Ton poste choisit le thème qui lui va, et les couleurs de ton club de cœur colorent ta page. Pour toi seulement."],
+      ['🔤', "Nouvelle police pour les titres, des terrains, filets et tribunes dans les bandeaux, un ballon quand une liste est vide."],
+      ['🙋', "Coup de main les jours de match : les joueurs peuvent aussi s'inscrire (buvette, touche, table…), depuis leur accueil."],
+      ['🔕', "Moins de notifications : jamais deux fois la même, le chat groupé, 3 notifications ordinaires par jour au plus et rien la nuit. Convocations, annulations et changements passent toujours."],
+      ['🎬', "Les vidéos envoyées dans les chats s'effacent après 3 jours."],
+    ] },
     { n: 173, date: '2026-10-10', title: 'Fichiers, journal, licences et plannings rangés 🗂️', items: [
       ['📎', "Chats des catégories et messagerie du club : joins un PDF, une vidéo (50 Mo au plus), une photo en taille réelle, un Word, un Excel… Touche-le pour l'ouvrir. Gardés 90 jours."],
       ['📜', "Journal des modifications (Gestion → Journal) : qui a ajouté, modifié ou supprimé quoi, avec la date et l'heure. Pour les responsables."],
