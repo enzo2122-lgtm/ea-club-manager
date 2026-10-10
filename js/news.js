@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 148, date: '2026-10-10', title: 'Les numéros, au bon endroit 👕', items: [
+      ['👕', "Compo : le numéro de maillot se choisit directement dans « Qui joue où ? » (liste de 1 à 99, pour les titulaires et les remplaçants). La carte « Numéros du match » disparaît."],
+    ] },
     { n: 147, date: '2026-10-10', title: 'Droit à l\'erreur 🗑️', items: [
       ['🗑️', "Compo d'un match : « Refaire la composition » jette le schéma (les convoqués restent) pour en faire une nouvelle."],
     ] },

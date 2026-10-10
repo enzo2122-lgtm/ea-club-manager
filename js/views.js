@@ -873,7 +873,9 @@ const Views = (() => {
         return `<label class="num-cell ${dup.has(n) ? 'dup' : ''} ${mine ? 'own' : ''}"><input type="number" min="0" max="99" inputmode="numeric" data-mnum="${p.id}" value="${esc(n)}" placeholder="–" aria-label="Numéro de ${esc(Store.shortName(p))}"><span>${esc(Store.shortName(p))}${mine && p.number ? ` <i>(hab. ${esc(p.number)})</i>` : ''}</span></label>`; }).join('')}</div>
       ${own ? '<button class="btn soft small" data-act="numreset">↩️ Remettre les numéros habituels</button>' : ''}</section>`;
   }
-  function slotsCard(sc, conv) {
+  // (2.90) the shirt number of the match, 1 to 99 (« — » = the usual one on his card)
+  const numSel = (p, m, attr, cur) => `<select class="slot-num" ${attr} aria-label="Numéro"><option value="">—</option>${Array.from({ length: 99 }, (_, i) => i + 1).map(n => `<option value="${n}" ${String(cur) === String(n) ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+  function slotsCard(sc, conv, m) {
     const st = (sc.steps || [])[0] || { pos: {} };
     const slots = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id])
       .sort((a, b) => (b.gk - a.gk) || (st.pos[a.id][0] - st.pos[b.id][0]) || (st.pos[a.id][1] - st.pos[b.id][1]));
@@ -882,17 +884,17 @@ const Views = (() => {
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
     return `<section class="card slots-card"><h2>👕 Qui joue où ?</h2>
       <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur déjà placé disparaît des autres listes.</p>
-      <div class="slots">${slots.map((o, i) => { const t = taken(o); return `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}">${o.gk ? '🧤' : esc(o.post || o.label || String(i + 1))}</span>
+      <div class="slots">${slots.map((o, i) => { const t = taken(o), pl = o.playerId && Store.get('players', o.playerId), cur = pl ? Store.numOf(pl, m) : (/^\d+$/.test(o.label || '') ? o.label : ''); return `<label class="slot">${o.gk ? '<span class="slot-tag gk">🧤</span>' : ''}${numSel(pl, m, `data-snum="${o.id}"`, cur)}
         <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`; }).join('')}</div>
       ${(() => { const placed = new Set(slots.map(o => o.playerId).filter(Boolean)), bench = players.filter(p => !placed.has(p.id)); // (2.85) the convoked players without a position: the bench
-        return `<p class="small bench-line">🪑 <b>Remplaçants (${bench.length})</b> : ${bench.length ? bench.map(p => `<span class="chip small">${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</span>`).join(' ') : '<span class="muted">aucun, tous les convoqués ont un poste</span>'}</p>`; })()}</section>`;
+        return `<p class="small bench-line">🪑 <b>Remplaçants (${bench.length})</b> : ${bench.length ? bench.map(p => `<span class="chip small">${numSel(p, m, `data-bnum="${p.id}"`, Store.numOf(p, m))} ${esc(Store.shortName(p))}</span>`).join(' ') : '<span class="muted">aucun, tous les convoqués ont un poste</span>'}</p>`; })()}</section>`;
   }
-  function setSlot(sc, slotId, pid) {
+  function setSlot(sc, slotId, pid, m) {
     const o = sc.objects.find(x => x.id === slotId); if (!o) return;
     if (!o.post && o.label && !/^\d+$/.test(o.label)) o.post = o.label; // the position (« DC », « MOC »…) is kept when a number takes its place
     if (pid) sc.objects.forEach(x => { if (x !== o && x.playerId === pid) { delete x.playerId; x.name = ''; x.label = x.post || ''; } });
     const p = pid && Store.get('players', pid);
-    if (p) { o.playerId = p.id; o.name = Store.shortName(p); o.label = p.number ? String(p.number) : (o.post || o.label); }
+    if (p) { const n = Store.numOf(p, m); o.playerId = p.id; o.name = Store.shortName(p); o.label = n ? String(n) : (o.post || o.label); }
     else { delete o.playerId; o.name = ''; o.label = o.post || o.label; }
     sc.overlays = Object.assign({}, sc.overlays, { names: true });
     Store.upsert('schemas', sc);
@@ -986,8 +988,7 @@ const Views = (() => {
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><div class="chips"><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>${lastLineup(m) ? `<button class="btn" data-act="lineupcopy">♻️<span>Reprendre la compo du ${esc(fmtDate(lastLineup(m).m.date, { day: 'numeric', month: 'short' }))}</span></button>` : ''}</div>`}</section>
         ${conv.length && !m.exempt ? `<section class="card capt-card"><label class="fld"><span>©️ Capitaine</span><select data-capt><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label>
           <label class="fld"><span>Vice-capitaine</span><select data-capt2><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain2 === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label></section>` : ''}
-        ${lineup ? slotsCard(lineup, conv) : ''}
-        ${conv.length && !m.exempt ? `<details class="fold"><summary>👕 Numéros du match <span class="muted small">(seulement si un joueur change de maillot)</span></summary>${numbersCard(m, conv)}</details>` : ''}
+        ${lineup ? slotsCard(lineup, conv, m) : ''}
         </div>
         <div ${panel('pendant')}>
         ${!m.exempt ? Live.card(m) : '<p class="muted">Pas de match cette semaine (exempt).</p>'}
@@ -1037,7 +1038,15 @@ const Views = (() => {
     };
     root.onchange = e => {
       if (e.target.dataset.f === 'teamId') { m.teamId = e.target.value; m.teamManual = true; save(); toast('Match rangé dans ' + (teamOf(m.teamId) || {}).name); return render(); }
-      if (e.target.dataset.slot) { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (sc) { setSlot(sc, e.target.dataset.slot, e.target.value); toast(e.target.value ? 'Placé sur le schéma ✓' : 'Poste libéré'); render(); } return; }
+      if (e.target.dataset.slot) { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (sc) { setSlot(sc, e.target.dataset.slot, e.target.value, m); toast(e.target.value ? 'Placé sur le schéma ✓' : 'Poste libéré'); render(); } return; }
+      // (2.90) the number chosen in « Qui joue où ? »: for this match (and on the drawing); « — » gives back the usual one
+      if (e.target.dataset.snum || e.target.dataset.bnum) {
+        const sc = m.lineupId && Store.get('schemas', m.lineupId), o = sc && e.target.dataset.snum ? sc.objects.find(x => x.id === e.target.dataset.snum) : null;
+        const pid = o ? o.playerId : e.target.dataset.bnum, p = pid && Store.get('players', pid), v = e.target.value;
+        if (p) { m.numbers = Object.assign({}, m.numbers); if (v === '' || String(p.number ?? '') === v) delete m.numbers[pid]; else m.numbers[pid] = +v; if (!Object.keys(m.numbers).length) delete m.numbers; }
+        if (o) { const n = p ? Store.numOf(p, m) : v; o.label = n ? String(n) : (o.post || o.label); Store.upsert('schemas', sc); }
+        save(); return render();
+      }
       if (e.target.id === 'mPlayed') { const before = Ratings.result(m); m.played = e.target.checked; matchTabs[m.id] = 'apres'; save(); render(); return cheer(before); }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { m.staffIds = [...new Set([...(m.staffIds || []), e.target.value])]; save(); return render(); }
       if (e.target.hasAttribute('data-addconv') && e.target.value) { m.convoked = [...new Set([...(m.convoked || []), e.target.value])]; save(); return render(); }

@@ -2335,3 +2335,7 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 /* (2.85) the bench under « Qui joue où ? » */
 .bench-line { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .bench-line .chip.small { min-height: 30px; padding: 0 10px; font-size: 13.5px; cursor: default; }
+
+/* (2.90) the number list in « Qui joue où ? » */
+.slot-num { width: 64px; min-height: 42px; border-radius: 999px; border: 1px solid var(--line); background: var(--navy); color: #fff; font-weight: 800; text-align: center; padding: 0 6px; }
+.bench-line .chip.small .slot-num { min-height: 28px; width: 58px; font-size: 13px; margin-left: -8px; }
