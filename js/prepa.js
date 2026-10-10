@@ -137,6 +137,7 @@ const Prepa = (() => {
       if (b.dataset.pa === 'lineup') { location.hash = '#/match/' + m.id; return; }
       if (b.dataset.pa === 'halftimer') return halfTimer();
       if (b.dataset.pa === 'resetwarm') { p.day = Object.assign(p.day || {}, { warm: {} }); save(true); return page(root, id, step); }
+      if (b.dataset.pa === 'allwarm') { const w = {}; WARM().forEach((x, i) => w[i] = true); p.day = Object.assign(p.day || {}, { warm: w }); save(true); return page(root, id, step); }
     };
   }
 
@@ -234,7 +235,7 @@ const Prepa = (() => {
       ${tl.length ? `<ol class="prep-tl">${tl.map(([t, l]) => `<li><b>${hm(t)}</b><span>${l}</span></li>`).join('')}</ol>` : '<p class="muted">Indique l\'heure du coup d\'envoi sur la page du match pour avoir le déroulé.</p>'}
       <label class="fld inline"><span>Échauffement</span><select data-p="day.warmMin" data-redraw="1">${[15, 20, 25, 30].map(n => `<option value="${n}" ${+(dy.warmMin || 25) === n ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
       <p class="muted small">20 à 25 minutes suffisent chez les adultes (moins pour les jeunes) : plus long, les joueurs arrivent fatigués au coup d'envoi.</p></section>
-      <section class="card"><div class="row-head"><h2>🏃 L'échauffement</h2><button class="linkish" data-pa="resetwarm">Tout décocher</button></div>
+      <section class="card"><div class="row-head"><h2>🏃 L'échauffement</h2>${Object.values(warm).some(Boolean) ? '<button class="linkish" data-pa="resetwarm">Tout décocher</button>' : '<button class="linkish" data-pa="allwarm">Tout cocher</button>'}</div>
       <div class="prep-checks">${WARM().map(([l, n], i) => `<label class="prep-check"><input type="checkbox" data-p="day.warm.${i}" ${warm[i] ? 'checked' : ''}><span><b>${Math.max(1, Math.round(n * +(dy.warmMin || 25) / 25))} min</b> · ${esc(l)}</span></label>`).join('')}</div>
       <label class="fld"><span>Notes d'échauffement</span>${area('day.warmNotes', dy.warmNotes, 'ex : gardien avec l\'entraîneur des gardiens à part', 2)}</label></section>
       <section class="card"><h2>🎒 Le matériel</h2>

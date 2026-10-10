@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 145, date: '2026-10-10', title: 'Cocher, décocher 🐛', items: [
+      ['🐛', "Préparation du match, échauffement : le lien dit « Tout cocher » quand rien n'est coché, « Tout décocher » sinon."],
+    ] },
     { n: 144, date: '2026-10-10', title: 'Menu du responsable allégé 🧹', items: [
       ['🧹', "Pour les responsables, « Jeu des pronos » et « Chrono et score » quittent le menu : ils restent pour les coachs (et par le mode Coach des rôles)."],
     ] },

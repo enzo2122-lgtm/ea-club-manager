@@ -3730,7 +3730,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.86';
+  const VERSION = '2.87';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8128,6 +8128,7 @@ var Prepa = (() => {
       if (b.dataset.pa === 'lineup') { location.hash = '#/match/' + m.id; return; }
       if (b.dataset.pa === 'halftimer') return halfTimer();
       if (b.dataset.pa === 'resetwarm') { p.day = Object.assign(p.day || {}, { warm: {} }); save(true); return page(root, id, step); }
+      if (b.dataset.pa === 'allwarm') { const w = {}; WARM().forEach((x, i) => w[i] = true); p.day = Object.assign(p.day || {}, { warm: w }); save(true); return page(root, id, step); }
     };
   }
 
@@ -8225,7 +8226,7 @@ var Prepa = (() => {
       ${tl.length ? `<ol class="prep-tl">${tl.map(([t, l]) => `<li><b>${hm(t)}</b><span>${l}</span></li>`).join('')}</ol>` : '<p class="muted">Indique l\'heure du coup d\'envoi sur la page du match pour avoir le déroulé.</p>'}
       <label class="fld inline"><span>Échauffement</span><select data-p="day.warmMin" data-redraw="1">${[15, 20, 25, 30].map(n => `<option value="${n}" ${+(dy.warmMin || 25) === n ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
       <p class="muted small">20 à 25 minutes suffisent chez les adultes (moins pour les jeunes) : plus long, les joueurs arrivent fatigués au coup d'envoi.</p></section>
-      <section class="card"><div class="row-head"><h2>🏃 L'échauffement</h2><button class="linkish" data-pa="resetwarm">Tout décocher</button></div>
+      <section class="card"><div class="row-head"><h2>🏃 L'échauffement</h2>${Object.values(warm).some(Boolean) ? '<button class="linkish" data-pa="resetwarm">Tout décocher</button>' : '<button class="linkish" data-pa="allwarm">Tout cocher</button>'}</div>
       <div class="prep-checks">${WARM().map(([l, n], i) => `<label class="prep-check"><input type="checkbox" data-p="day.warm.${i}" ${warm[i] ? 'checked' : ''}><span><b>${Math.max(1, Math.round(n * +(dy.warmMin || 25) / 25))} min</b> · ${esc(l)}</span></label>`).join('')}</div>
       <label class="fld"><span>Notes d'échauffement</span>${area('day.warmNotes', dy.warmNotes, 'ex : gardien avec l\'entraîneur des gardiens à part', 2)}</label></section>
       <section class="card"><h2>🎒 Le matériel</h2>
@@ -16720,6 +16721,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 145, date: '2026-10-10', title: 'Cocher, décocher 🐛', items: [
+      ['🐛', "Préparation du match, échauffement : le lien dit « Tout cocher » quand rien n'est coché, « Tout décocher » sinon."],
+    ] },
     { n: 144, date: '2026-10-10', title: 'Menu du responsable allégé 🧹', items: [
       ['🧹', "Pour les responsables, « Jeu des pronos » et « Chrono et score » quittent le menu : ils restent pour les coachs (et par le mode Coach des rôles)."],
     ] },
@@ -21233,7 +21237,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 187, UPD = AppCfg.key('update-tried');
+  const BUILD = 188, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
