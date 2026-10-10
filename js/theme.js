@@ -22,8 +22,9 @@ const Theme = (() => {
   function apply(v = get()) {
     const d = document.documentElement, h = HEARTS.find(x => x[0] === v.h);
     d.dataset.look = LOOKS.some(x => x[0] === v.t) ? v.t : 'club';
+    delete d.dataset.heart; d.style.removeProperty('--heart'); d.style.removeProperty('--heart2');
     if (h && h[2]) { d.dataset.heart = h[0]; d.style.setProperty('--heart', h[2]); d.style.setProperty('--heart2', h[3]); }
-    else { delete d.dataset.heart; d.style.removeProperty('--heart'); d.style.removeProperty('--heart2'); }
+    else if (/^c:/.test(v.h || '') && typeof Clubs !== 'undefined' && Clubs.LIST[v.h.slice(2)]) { const c = Clubs.LIST[v.h.slice(2)]; colors(c[2], c[3]); } // (3.20) a club of the big list
     return v;
   }
   function set(v, onSaved) { try { localStorage.setItem(KEY(), JSON.stringify(v)); } catch (e) {} apply(v); if (onSaved) onSaved(v); }
@@ -39,7 +40,8 @@ const Theme = (() => {
       <div class="look-grid" role="radiogroup" aria-label="Thème">${LOOKS.map(([k, l, d]) => `<button type="button" class="look-pick ${v.t === k ? 'on' : ''}" role="radio" aria-checked="${v.t === k}" data-look="${k}">
         <span class="look-prev look-${k}"><i></i></span><b>${esc(l)}</b><small>${esc(d)}</small></button>`).join('')}</div>
       ${opts.heartNote ? `<p class="muted small">${esc(opts.heartNote)}</p>` : ''}<div class="lbl" ${opts.heartNote ? 'hidden' : ''}>Mon club de cœur</div>
-      <div class="heart-row" ${opts.heartNote ? 'hidden' : ''}>${HEARTS.map(([k, l, a, b]) => `<button type="button" class="heart ${v.h === k ? 'on' : ''}" data-heart="${k}" aria-pressed="${v.h === k}" title="${esc(l)}">
+      ${!opts.heartNote && typeof Clubs !== 'undefined' && Clubs.groups ? `<label class="fld"><span class="sr-only">Mon club de cœur</span><select id="lookHeart"><option value="">Les couleurs de mon club</option>${Clubs.groups().map(([c, l]) => `<optgroup label="${esc(c)}">${l.map(k => `<option value="c:${k}" ${v.h === 'c:' + k ? 'selected' : ''}>${esc(Clubs.LIST[k][0])}</option>`).join('')}</optgroup>`).join('')}</select></label>` : ''}
+      <div class="heart-row" ${opts.heartNote || typeof Clubs !== 'undefined' ? 'hidden' : ''}>${HEARTS.map(([k, l, a, b]) => `<button type="button" class="heart ${v.h === k ? 'on' : ''}" data-heart="${k}" aria-pressed="${v.h === k}" title="${esc(l)}">
         <span class="heart-sw" style="${a ? `background:linear-gradient(135deg,${a} 0 55%,${b} 55% 100%)` : ''}"></span><span>${esc(l)}</span></button>`).join('')}</div>
       <label class="fld"><span>Mon poste</span><select id="lookPost">${POSTS.map(([k, l]) => `<option value="${k}" ${v.p === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
       <p class="muted small" id="lookTip">${v.p && POSTS.find(x => x[0] === v.p)[2] && POSTS.find(x => x[0] === v.p)[2] !== v.t ? `Pour ton poste, essaie « ${esc(LOOKS.find(x => x[0] === POSTS.find(y => y[0] === v.p)[2])[1])} ».` : ''}</p></section>`;
@@ -53,12 +55,14 @@ const Theme = (() => {
       const l = e.target.closest('.look-pick[data-look]'), h = e.target.closest('.heart[data-heart]'); if (!l && !h) return;
       const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); again();
     };
+    const hs = box.querySelector('#lookHeart'); if (hs) hs.onchange = () => { const v = get(); v.h = hs.value; set(v, onSaved); again(); };
     const sel = box.querySelector('#lookPost'); if (sel) sel.onchange = () => { const v = get(), p = POSTS.find(x => x[0] === sel.value); v.p = sel.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); again(); };
   }
   const lum = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return 1; const n = parseInt(m[1], 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(x => { x /= 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
   // the coaches' favourite club (chosen in « Mon compte »): its colours on their page, the darker one on the buttons (readable on white)
-  function fromClub(c1, c2) {
-    const d = document.documentElement; if (!c1 || get().h) return;
+  function fromClub(c1, c2) { if (!c1 || get().h) return; colors(c1, c2); }
+  function colors(c1, c2) {
+    const d = document.documentElement;
     const [a, b] = lum(c1) <= lum(c2) ? [c1, c2] : [c2, c1];
     if (lum(a) > .3) { d.style.setProperty('--heart2', a); return; } // two light colours: only the stripe
     d.dataset.heart = 'club'; d.style.setProperty('--heart', a); d.style.setProperty('--heart2', b);
@@ -72,7 +76,7 @@ const Theme = (() => {
       const l = e.target.closest('.look-pick[data-look]'), h = e.target.closest('.heart[data-heart]'); if (!l && !h) return;
       const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); redraw && redraw();
     });
-    document.addEventListener('change', e => { if (e.target.id !== 'lookPost') return; const v = get(), p = POSTS.find(x => x[0] === e.target.value); v.p = e.target.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); redraw && redraw(); });
+    document.addEventListener('change', e => { if (e.target.id === 'lookHeart') { const v = get(); v.h = e.target.value; set(v, onSaved); redraw && redraw(); return; } if (e.target.id !== 'lookPost') return; const v = get(), p = POSTS.find(x => x[0] === e.target.value); v.p = e.target.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); redraw && redraw(); });
   }
   apply();
   return { LOOKS, HEARTS, POSTS, get, set, apply, use, card, bind, live, icon, fromClub };

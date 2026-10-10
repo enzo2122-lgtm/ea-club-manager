@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 179, date: '2026-10-10', title: 'Vestiaires comme le terrain, et 100 clubs de cœur 🚿⚽', items: [
+      ['🚿', "Planning des vestiaires : la même présentation que le terrain. En Semaine, les 7 jours côte à côte avec les heures, chaque vestiaire dans son couloir (1, 2, K1, K2). En Jour, un vestiaire par colonne. Touche un jour pour l'ouvrir."],
+      ['⚽', "Plus de 100 clubs de cœur, rangés par pays : France, Angleterre, Espagne, Italie, Allemagne, et les autres. Les joueurs et les parents les ont aussi dans « Ma page »."],
+    ] },
     { n: 178, date: '2026-10-10', title: 'Les petits soucis réglés 🔧', items: [
       ['🐛', "Les menus « ⋯ » s'ouvrent à nouveau (ils étaient cachés par le bandeau depuis les thèmes)."],
       ['🐛', "Ma page : « Mon poste » s'ouvre normalement (toucher la carte la redessinait)."],

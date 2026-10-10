@@ -1,10 +1,10 @@
 /* Service worker: keeps the app working without internet. Bump VERSION after each update. */
-const VERSION = 'ea-club-manager-v220';
+const VERSION = 'ea-club-manager-v221';
 const JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
   'js/config.js', 'js/appcfg.js', 'js/app.bundle.js', 'confidentialite.html', 'moi.html', 'aide.html', 'js/helper.js', 'joueurs.html', 'parents.html', 'famille.webmanifest', 'famille.css', 'js/member.js', 'js/perso.js', 'js/players-page.js', 'js/game.js', 'js/chat.js', 'js/share.js', 'js/parents-page.js', 'js/vplayer.js', 'js/bodymap.js', 'js/injury.js', 'js/urgent.js', 'js/consent.js', 'js/profil.js', 'js/i18n.js', 'js/lang-en.js', 'js/lang-es.js', 'js/lang-pt.js', 'js/absence.js', 'js/after.js', 'js/talks.js', 'img/corps-face.jpg', 'decouvrir.html',
-  'fonts/barlow-condensed-latin-600-normal.woff2', 'fonts/barlow-condensed-latin-700-normal.woff2', 'js/theme.js', 'theme.css',
+  'fonts/barlow-condensed-latin-600-normal.woff2', 'fonts/barlow-condensed-latin-700-normal.woff2', 'js/theme.js', 'js/clubs.js', 'theme.css',
   'icons/ea-logo.png', 'icons/ea-logo.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 self.addEventListener('install', e => {
