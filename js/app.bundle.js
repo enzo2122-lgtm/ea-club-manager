@@ -3855,7 +3855,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.07';
+  const VERSION = '3.08';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8558,6 +8558,18 @@ var Prepa = (() => {
         setTimeout(async () => { const b = UI.busy('Création du PDF…'); try { const res = await pdf(m, parts); if (res === 'downloaded') toast('PDF enregistré dans Téléchargements'); } catch (e) { console.error(e); toast('PDF impossible : ' + (e.message || e), 'err'); } finally { b.done(); } }, 60);
       } }] });
   }
+  // (3.08) who starts and who is on the bench: the players placed on the composition, else the AssistCoachAI line-up; the bench = the other convoked players
+  const postOf = x => { const k = (x.posts || [])[0] || x.pos || ''; const f = (Sport.POSTS || []).find(q => q[0] === k); return f ? f[1] : k; };
+  function squad(m, lineup) {
+    const absent = new Set(m.absents || []), get = id => Store.get('players', id), conv = (m.convoked || []).filter(id => !absent.has(id)).map(get).filter(Boolean);
+    let ids = []; const gks = new Set();
+    if (lineup) { (lineup.objects || []).forEach(o => { if (o.gk && o.playerId) gks.add(o.playerId); }); const st = (lineup.steps || [])[0] || { pos: {} }; ids = (lineup.objects || []).filter(o => o.type === 'player' && !o.bench && o.playerId && st.pos && st.pos[o.id]).sort((a, b) => (b.gk ? 1 : 0) - (a.gk ? 1 : 0)).map(o => o.playerId); }
+    if (!ids.length && m.acLineup) ids = m.acLineup.starters || [];
+    ids = [...new Set(ids)].filter(id => !absent.has(id));
+    const byNum = (a, b) => (+a.number || 99) - (+b.number || 99) || Store.byName(a, b), gk = x => gks.has(x.id) || /^(GB|G)$/.test((x.posts || [])[0] || x.pos || '') ? 0 : 1;
+    const starters = ids.map(get).filter(Boolean).sort((a, b) => gk(a) - gk(b) || byNum(a, b));
+    return { starters, bench: conv.filter(x => !ids.includes(x.id)).sort(byNum) };
+  }
   async function pdf(m, parts) {
     const club = S().club, D = Exporter.pdfDoc(club), doc = D.doc, L = Exporter.latin;
     const pp = P(m), t = pp.talk || {}, o = pp.opp || {}, pl = pp.plan || {}, dy = pp.day || {}, half = pp.half || {}, af = pp.after || {};
@@ -8603,6 +8615,13 @@ var Prepa = (() => {
       const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = pl.captain && Store.get('players', pl.captain);
       if (lineup) { await Board.ensureBg(lineup); D.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); D.image(Exporter.frameCanvas(lineup, 0, 0, { w: 1500, h: 980, names: true, homeBib: club.homeBib }), D.CW * .85); }
       else if (cap) { D.label('Capitaine'); D.para(Store.fullName(cap)); }
+      { // (3.08) the list of names under the drawing: the starters, then the substitutes
+        const sq = squad(m, lineup), withPost = [...sq.starters, ...sq.bench].some(x => postOf(x));
+        const row = x => [x.number ? String(x.number) : '', Store.fullName(x) + (cap && cap.id === x.id ? ' (C)' : ''), ...(withPost ? [postOf(x)] : [])];
+        const tab = list => D.table(['N°', 'Joueur', ...(withPost ? ['Poste'] : [])], list.map(row), withPost ? [.12, .63, .25] : [.12, .88]);
+        if (sq.starters.length) { D.label(`Titulaires (${sq.starters.length})`); tab(sq.starters); }
+        if (sq.bench.length) { D.label(sq.starters.length ? `Remplaçants (${sq.bench.length})` : `Joueurs convoqués (${sq.bench.length})`); tab(sq.bench); }
+      }
       if (MOMENTS.some(([k]) => lines(pl[k]).length)) { D.h2('Les 4 moments du match'); MOM().forEach(([k, l]) => text(l.replace(/^\S+\s/, ''), pl[k])); }
       const cpa = [['Corners pour nous', pl.cpaFor], ['Corners contre nous', pl.cpaAgainst], ['Coups francs', pl.freeKicks], ['Penalty', pl.penalty]].filter(([, v]) => v);
       if (cpa.length) { D.h2('Coups de pied arrêtés'); cpa.forEach(([l, v]) => text(l, v)); }
@@ -16944,6 +16963,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 167, date: '2026-10-10', title: 'Toute l\'équipe sur le papier 📋', items: [
+      ['📄', "PDF de la préparation : sous la composition, la liste des titulaires puis celle des remplaçants, avec numéros (et postes s'ils sont renseignés). Le gardien en tête, le capitaine marqué (C), les absents retirés. Sans composition faite : la liste des convoqués."],
+    ] },
     { n: 166, date: '2026-10-10', title: 'Le PDF de la prépa sort enfin 🖨️', items: [
       ['🐛', "Préparation du match : « Créer le PDF » répondait « PDF impossible ». Deux choses portaient le même nom dans le code et se marchaient dessus. Démêlées : le PDF complet (affiche, causerie, adversaire, semaine, jour J, mi-temps, après-match) se crée à nouveau."],
     ] },
@@ -21872,7 +21894,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 208, UPD = AppCfg.key('update-tried');
+  const BUILD = 209, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
