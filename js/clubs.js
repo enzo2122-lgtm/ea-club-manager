@@ -42,6 +42,73 @@ const Clubs = (() => {
     crb: ['CR Belouizdad', 'CR Belouizdad', '#d71920', '#ffffff', 'CRB', 'plain'],
     boca: ['Boca Juniors', 'Boca Juniors', '#003087', '#ffd100', 'CABJ', 'band'],
     flamengo: ['Flamengo', 'CR Flamengo', '#c8102e', '#000000', 'CRF', 'hoops'],
+    // (3.20) more clubs from the 5 big European leagues
+    rcsa: ['RC Strasbourg', 'RC Strasbourg Alsace', '#009fe3', '#ffffff', 'RCSA', 'plain'],
+    tfc: ['Toulouse FC', 'Toulouse FC', '#5b2c84', '#ffffff', 'TFC', 'plain'],
+    brest: ['Stade brestois', 'Stade Brestois 29', '#e30613', '#ffffff', 'SB29', 'plain'],
+    angers: ['Angers SCO', 'Angers SCO', '#000000', '#ffffff', 'SCO', 'stripes'],
+    aja: ['AJ Auxerre', 'AJ Auxerre', '#0055a4', '#ffffff', 'AJA', 'plain'],
+    hac: ['Le Havre AC', 'Le Havre AC', '#5ca0d3', '#003366', 'HAC', 'halves'],
+    fcl: ['FC Lorient', 'FC Lorient', '#f58220', '#000000', 'FCL', 'plain'],
+    metz: ['FC Metz', 'FC Metz', '#7a1c2c', '#ffffff', 'FCM', 'plain'],
+    pfc: ['Paris FC', 'Paris FC', '#1b2a4a', '#ffffff', 'PFC', 'plain'],
+    reims: ['Stade de Reims', 'Stade de Reims', '#e30613', '#ffffff', 'SDR', 'plain'],
+    mhsc: ['Montpellier HSC', 'Montpellier HSC', '#f58220', '#003b7a', 'MHSC', 'halves'],
+    fcgb: ['Girondins de Bordeaux', 'FC Girondins de Bordeaux', '#0a1f44', '#ffffff', 'FCGB', 'plain'],
+    redstar: ['Red Star FC', 'Red Star F.C.', '#00843d', '#ffffff', 'RSFC', 'plain'],
+    spurs: ['Tottenham Hotspur', 'Tottenham Hotspur F.C.', '#132257', '#ffffff', 'THFC', 'plain'],
+    newcastle: ['Newcastle United', 'Newcastle United F.C.', '#000000', '#ffffff', 'NUFC', 'stripes'],
+    villa: ['Aston Villa', 'Aston Villa F.C.', '#670e36', '#95bfe5', 'AVFC', 'halves'],
+    westham: ['West Ham United', 'West Ham United F.C.', '#7a263a', '#1bb1e7', 'WHU', 'halves'],
+    everton: ['Everton', 'Everton F.C.', '#003399', '#ffffff', 'EFC', 'plain'],
+    brighton: ['Brighton & Hove Albion', 'Brighton & Hove Albion F.C.', '#0057b8', '#ffffff', 'BHA', 'stripes'],
+    forest: ['Nottingham Forest', 'Nottingham Forest F.C.', '#dd0000', '#ffffff', 'NFFC', 'plain'],
+    palace: ['Crystal Palace', 'Crystal Palace F.C.', '#1b458f', '#c4122e', 'CPFC', 'stripes'],
+    leeds: ['Leeds United', 'Leeds United F.C.', '#1d428a', '#ffcd00', 'LUFC', 'plain'],
+    fulham: ['Fulham', 'Fulham F.C.', '#000000', '#ffffff', 'FFC', 'halves'],
+    wolves: ['Wolverhampton Wanderers', 'Wolverhampton Wanderers F.C.', '#fdb913', '#231f20', 'WOL', 'plain'],
+    bournemouth: ['AFC Bournemouth', 'AFC Bournemouth', '#da291c', '#000000', 'AFCB', 'stripes'],
+    brentford: ['Brentford', 'Brentford F.C.', '#e30613', '#ffffff', 'BFC', 'stripes'],
+    sunderland: ['Sunderland', 'Sunderland A.F.C.', '#eb172b', '#ffffff', 'SAFC', 'stripes'],
+    sevilla: ['FC Séville', 'Sevilla FC', '#d4021d', '#ffffff', 'SFC', 'plain'],
+    betis: ['Real Betis', 'Real Betis', '#00954c', '#ffffff', 'RBB', 'stripes'],
+    valencia: ['Valence CF', 'Valencia CF', '#ee3524', '#000000', 'VCF', 'plain'],
+    villarreal: ['Villarreal', 'Villarreal CF', '#ffe667', '#005187', 'VIL', 'plain'],
+    athletic: ['Athletic Bilbao', 'Athletic Bilbao', '#ee2523', '#ffffff', 'ATH', 'stripes'],
+    rsociedad: ['Real Sociedad', 'Real Sociedad', '#0067b1', '#ffffff', 'RSO', 'stripes'],
+    celta: ['Celta de Vigo', 'RC Celta de Vigo', '#8ac3ee', '#c8102e', 'RCC', 'plain'],
+    girona: ['Girona FC', 'Girona FC', '#cd2534', '#ffffff', 'GFC', 'stripes'],
+    espanyol: ['Espanyol Barcelone', 'RCD Espanyol', '#007fc8', '#ffffff', 'RCDE', 'stripes'],
+    osasuna: ['CA Osasuna', 'CA Osasuna', '#d91a21', '#0a346f', 'CAO', 'plain'],
+    mallorca: ['RCD Majorque', 'RCD Mallorca', '#e20613', '#000000', 'RCDM', 'plain'],
+    getafe: ['Getafe CF', 'Getafe CF', '#004fa3', '#ffffff', 'GCF', 'plain'],
+    rayo: ['Rayo Vallecano', 'Rayo Vallecano', '#e53027', '#ffffff', 'RAY', 'band'],
+    lazio: ['Lazio Rome', 'SS Lazio', '#87d8f7', '#0a2240', 'SSL', 'plain'],
+    atalanta: ['Atalanta Bergame', 'Atalanta BC', '#1e71b8', '#000000', 'ATA', 'stripes'],
+    fiorentina: ['Fiorentina', 'ACF Fiorentina', '#482e92', '#ffffff', 'ACF', 'plain'],
+    bologna: ['Bologne FC', 'Bologna FC 1909', '#1a2f48', '#a21c26', 'BFC', 'stripes'],
+    torino: ['Torino FC', 'Torino FC', '#8a1e03', '#ffffff', 'TOR', 'plain'],
+    genoa: ['Genoa CFC', 'Genoa CFC', '#ad1919', '#002147', 'GEN', 'halves'],
+    udinese: ['Udinese', 'Udinese Calcio', '#000000', '#ffffff', 'UDI', 'stripes'],
+    como: ['Côme 1907', 'Como 1907', '#003db8', '#ffffff', 'COM', 'plain'],
+    cagliari: ['Cagliari', 'Cagliari Calcio', '#002350', '#a71c20', 'CAG', 'halves'],
+    verona: ['Hellas Vérone', 'Hellas Verona FC', '#002f6c', '#ffd700', 'HVE', 'plain'],
+    leverkusen: ['Bayer Leverkusen', 'Bayer 04 Leverkusen', '#e32221', '#000000', 'B04', 'plain'],
+    leipzig: ['RB Leipzig', 'RB Leipzig', '#dd0741', '#ffffff', 'RBL', 'plain'],
+    frankfurt: ['Eintracht Francfort', 'Eintracht Frankfurt', '#e1000f', '#000000', 'SGE', 'plain'],
+    stuttgart: ['VfB Stuttgart', 'VfB Stuttgart', '#e32219', '#ffffff', 'VFB', 'band'],
+    gladbach: ['Borussia Mönchengladbach', 'Borussia Mönchengladbach', '#000000', '#00a65a', 'BMG', 'plain'],
+    freiburg: ['SC Fribourg', 'SC Freiburg', '#e30613', '#000000', 'SCF', 'plain'],
+    wolfsburg: ['VfL Wolfsburg', 'VfL Wolfsburg', '#65b32e', '#ffffff', 'WOB', 'plain'],
+    bremen: ['Werder Brême', 'SV Werder Bremen', '#1d9053', '#ffffff', 'SVW', 'plain'],
+    union: ['Union Berlin', '1. FC Union Berlin', '#eb1923', '#ffffff', 'FCU', 'plain'],
+    schalke: ['Schalke 04', 'FC Schalke 04', '#004d9d', '#ffffff', 'S04', 'plain'],
+    hsv: ['Hambourg SV', 'Hamburger SV', '#0a3f86', '#ffffff', 'HSV', 'plain'],
+    koln: ['FC Cologne', '1. FC Köln', '#ed1c24', '#ffffff', 'KOE', 'plain'],
+    hoffenheim: ['Hoffenheim', 'TSG Hoffenheim', '#1961b5', '#ffffff', 'TSG', 'plain'],
+    mainz: ['Mayence 05', '1. FSV Mainz 05', '#c3141e', '#ffffff', 'M05', 'plain'],
+    augsburg: ['FC Augsbourg', 'FC Augsburg', '#ba3733', '#46714d', 'FCA', 'plain'],
+    stpauli: ['FC St. Pauli', 'FC St. Pauli', '#5c3b25', '#ffffff', 'STP', 'plain'],
     raincy: ['FA Le Raincy', '', '#8b1426', '#0e1d45', 'FAR', 'halves'],
   };
   const KEY = AppCfg.key('crests');
@@ -96,7 +163,18 @@ const Clubs = (() => {
     fetchCrest(key);
     return `<span class="crest-fallback" title="Club de cœur : ${UI.esc(LIST[key][0])}">${shield(key, size)}</span>`;
   }
-  const options = sel => `<option value="">Aucune</option>${Object.entries(LIST).sort((a, b) => a[1][0].localeCompare(b[1][0], 'fr')).map(([k, c]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${UI.esc(c[0])}</option>`).join('')}`;
+  // (3.20) the clubs by country (the menu's groups)
+  const COUNTRY = { France: 'psg om ol asm losc rcl srfc ogcn fcn asse rcsa tfc brest angers aja hac fcl metz pfc reims mhsc fcgb redstar',
+    Angleterre: 'liverpool manu mancity arsenal chelsea spurs newcastle villa westham everton brighton forest palace leeds fulham wolves bournemouth brentford sunderland',
+    Espagne: 'real barca atm sevilla betis valencia villarreal athletic rsociedad celta girona espanyol osasuna mallorca getafe rayo',
+    Italie: 'milan inter juve napoli roma lazio atalanta fiorentina bologna torino genoa udinese como cagliari verona',
+    Allemagne: 'bayern bvb leverkusen leipzig frankfurt stuttgart gladbach freiburg wolfsburg bremen union schalke hsv koln hoffenheim mainz augsburg stpauli' };
+  function groups() {
+    const seen = new Set(), byName = (a, b) => LIST[a][0].localeCompare(LIST[b][0], 'fr');
+    const g = Object.entries(COUNTRY).map(([c, ks]) => { const l = ks.split(' ').filter(k => LIST[k]).sort(byName); l.forEach(k => seen.add(k)); return [c, l]; });
+    return [['Le club', Object.keys(LIST).filter(k => k === 'raincy')], ...g, ['Autres pays', Object.keys(LIST).filter(k => !seen.has(k) && k !== 'raincy').sort(byName)]].filter(x => x[1].length);
+  }
+  const options = sel => `<option value="">Aucune</option>${groups().map(([c, l]) => `<optgroup label="${c}">${l.map(k => `<option value="${k}" ${k === sel ? 'selected' : ''}>${String(LIST[k][0]).replace(/[&<>"]/g, '')}</option>`).join('')}</optgroup>`).join('')}`;
   // « club: Juventus » in a pasted list → its key
   const n = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const ALIASES = { milanac: 'milan', acmilan: 'milan', milan: 'milan', juventus: 'juve', juve: 'juve', barcelone: 'barca', barcelona: 'barca', fcbarcelone: 'barca', fcbarcelona: 'barca', barca: 'barca', psg: 'psg', parissaintgermain: 'psg', paris: 'psg', porto: 'porto', fcporto: 'porto', om: 'om', marseille: 'om', real: 'real', realmadrid: 'real', inter: 'inter', intermilan: 'inter' };
@@ -114,5 +192,5 @@ const Clubs = (() => {
   }
   const oppLogo = (name, cls = 'opp-logo') => { const id = oppId(name); return id ? `<img class="${cls}" src="https://cdn-transverse.azureedge.net/phlogos/BC${id}.jpg" alt="" loading="lazy" onerror="this.remove()">` : ''; };
   function setOppLogos(map) { const c = Store.state.club, L = c.oppLogos = Object.assign({}, c.oppLogos || {}); let n = 0; Object.entries(map || {}).forEach(([name, id]) => { const k = okey(name); if (k && /^\d+$/.test(id) && L[k] !== id) { L[k] = id; n++; } }); return n; }
-  return { LIST, crest, shield, options, find, name: k => (LIST[k] || [''])[0], oppLogo, setOppLogos };
+  return { LIST, groups, crest, shield, options, find, name: k => (LIST[k] || [''])[0], oppLogo, setOppLogos };
 })();

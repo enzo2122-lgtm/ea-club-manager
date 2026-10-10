@@ -13,8 +13,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/ea-logo.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="app.css?v=220">
-<link rel="stylesheet" href="theme.css?v=220">
+<link rel="stylesheet" href="app.css?v=221">
+<link rel="stylesheet" href="theme.css?v=221">
 </head>
 <body>
 <div class="shell">
@@ -30,8 +30,8 @@
 <div id="busy" class="busy" hidden></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script src="js/config.js?v=220"></script>
-<script src="js/app.bundle.js?v=220"></script>
+<script src="js/config.js?v=221"></script>
+<script src="js/app.bundle.js?v=221"></script>
 <script>/* (3.75) safety net: a page that has not started after 15 s shows a button to reload (login and data are kept) */
 setTimeout(function () { if (window.__appStarted || document.getElementById('app-stuck')) return;
   document.body.insertAdjacentHTML('beforeend', '<div id="app-stuck" style="position:fixed;left:16px;right:16px;bottom:96px;z-index:300;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:14px;background:#0e1d45;color:#fff;font:15px system-ui"><span>L\'appli met du temps à s\'ouvrir.</span><button style="font:inherit;padding:10px 14px;border-radius:10px;border:0;background:#8c1024;color:#fff" onclick="location.reload()">Recharger</button></div>');

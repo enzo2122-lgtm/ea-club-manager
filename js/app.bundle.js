@@ -177,8 +177,9 @@ var Theme = (() => {
   function apply(v = get()) {
     const d = document.documentElement, h = HEARTS.find(x => x[0] === v.h);
     d.dataset.look = LOOKS.some(x => x[0] === v.t) ? v.t : 'club';
+    delete d.dataset.heart; d.style.removeProperty('--heart'); d.style.removeProperty('--heart2');
     if (h && h[2]) { d.dataset.heart = h[0]; d.style.setProperty('--heart', h[2]); d.style.setProperty('--heart2', h[3]); }
-    else { delete d.dataset.heart; d.style.removeProperty('--heart'); d.style.removeProperty('--heart2'); }
+    else if (/^c:/.test(v.h || '') && typeof Clubs !== 'undefined' && Clubs.LIST[v.h.slice(2)]) { const c = Clubs.LIST[v.h.slice(2)]; colors(c[2], c[3]); } // (3.20) a club of the big list
     return v;
   }
   function set(v, onSaved) { try { localStorage.setItem(KEY(), JSON.stringify(v)); } catch (e) {} apply(v); if (onSaved) onSaved(v); }
@@ -194,7 +195,8 @@ var Theme = (() => {
       <div class="look-grid" role="radiogroup" aria-label="Thème">${LOOKS.map(([k, l, d]) => `<button type="button" class="look-pick ${v.t === k ? 'on' : ''}" role="radio" aria-checked="${v.t === k}" data-look="${k}">
         <span class="look-prev look-${k}"><i></i></span><b>${esc(l)}</b><small>${esc(d)}</small></button>`).join('')}</div>
       ${opts.heartNote ? `<p class="muted small">${esc(opts.heartNote)}</p>` : ''}<div class="lbl" ${opts.heartNote ? 'hidden' : ''}>Mon club de cœur</div>
-      <div class="heart-row" ${opts.heartNote ? 'hidden' : ''}>${HEARTS.map(([k, l, a, b]) => `<button type="button" class="heart ${v.h === k ? 'on' : ''}" data-heart="${k}" aria-pressed="${v.h === k}" title="${esc(l)}">
+      ${!opts.heartNote && typeof Clubs !== 'undefined' && Clubs.groups ? `<label class="fld"><span class="sr-only">Mon club de cœur</span><select id="lookHeart"><option value="">Les couleurs de mon club</option>${Clubs.groups().map(([c, l]) => `<optgroup label="${esc(c)}">${l.map(k => `<option value="c:${k}" ${v.h === 'c:' + k ? 'selected' : ''}>${esc(Clubs.LIST[k][0])}</option>`).join('')}</optgroup>`).join('')}</select></label>` : ''}
+      <div class="heart-row" ${opts.heartNote || typeof Clubs !== 'undefined' ? 'hidden' : ''}>${HEARTS.map(([k, l, a, b]) => `<button type="button" class="heart ${v.h === k ? 'on' : ''}" data-heart="${k}" aria-pressed="${v.h === k}" title="${esc(l)}">
         <span class="heart-sw" style="${a ? `background:linear-gradient(135deg,${a} 0 55%,${b} 55% 100%)` : ''}"></span><span>${esc(l)}</span></button>`).join('')}</div>
       <label class="fld"><span>Mon poste</span><select id="lookPost">${POSTS.map(([k, l]) => `<option value="${k}" ${v.p === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
       <p class="muted small" id="lookTip">${v.p && POSTS.find(x => x[0] === v.p)[2] && POSTS.find(x => x[0] === v.p)[2] !== v.t ? `Pour ton poste, essaie « ${esc(LOOKS.find(x => x[0] === POSTS.find(y => y[0] === v.p)[2])[1])} ».` : ''}</p></section>`;
@@ -208,12 +210,14 @@ var Theme = (() => {
       const l = e.target.closest('.look-pick[data-look]'), h = e.target.closest('.heart[data-heart]'); if (!l && !h) return;
       const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); again();
     };
+    const hs = box.querySelector('#lookHeart'); if (hs) hs.onchange = () => { const v = get(); v.h = hs.value; set(v, onSaved); again(); };
     const sel = box.querySelector('#lookPost'); if (sel) sel.onchange = () => { const v = get(), p = POSTS.find(x => x[0] === sel.value); v.p = sel.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); again(); };
   }
   const lum = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return 1; const n = parseInt(m[1], 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(x => { x /= 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
   // the coaches' favourite club (chosen in « Mon compte »): its colours on their page, the darker one on the buttons (readable on white)
-  function fromClub(c1, c2) {
-    const d = document.documentElement; if (!c1 || get().h) return;
+  function fromClub(c1, c2) { if (!c1 || get().h) return; colors(c1, c2); }
+  function colors(c1, c2) {
+    const d = document.documentElement;
     const [a, b] = lum(c1) <= lum(c2) ? [c1, c2] : [c2, c1];
     if (lum(a) > .3) { d.style.setProperty('--heart2', a); return; } // two light colours: only the stripe
     d.dataset.heart = 'club'; d.style.setProperty('--heart', a); d.style.setProperty('--heart2', b);
@@ -227,7 +231,7 @@ var Theme = (() => {
       const l = e.target.closest('.look-pick[data-look]'), h = e.target.closest('.heart[data-heart]'); if (!l && !h) return;
       const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); redraw && redraw();
     });
-    document.addEventListener('change', e => { if (e.target.id !== 'lookPost') return; const v = get(), p = POSTS.find(x => x[0] === e.target.value); v.p = e.target.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); redraw && redraw(); });
+    document.addEventListener('change', e => { if (e.target.id === 'lookHeart') { const v = get(); v.h = e.target.value; set(v, onSaved); redraw && redraw(); return; } if (e.target.id !== 'lookPost') return; const v = get(), p = POSTS.find(x => x[0] === e.target.value); v.p = e.target.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); redraw && redraw(); });
   }
   apply();
   return { LOOKS, HEARTS, POSTS, get, set, apply, use, card, bind, live, icon, fromClub };
@@ -1642,6 +1646,73 @@ var Clubs = (() => {
     crb: ['CR Belouizdad', 'CR Belouizdad', '#d71920', '#ffffff', 'CRB', 'plain'],
     boca: ['Boca Juniors', 'Boca Juniors', '#003087', '#ffd100', 'CABJ', 'band'],
     flamengo: ['Flamengo', 'CR Flamengo', '#c8102e', '#000000', 'CRF', 'hoops'],
+    // (3.20) more clubs from the 5 big European leagues
+    rcsa: ['RC Strasbourg', 'RC Strasbourg Alsace', '#009fe3', '#ffffff', 'RCSA', 'plain'],
+    tfc: ['Toulouse FC', 'Toulouse FC', '#5b2c84', '#ffffff', 'TFC', 'plain'],
+    brest: ['Stade brestois', 'Stade Brestois 29', '#e30613', '#ffffff', 'SB29', 'plain'],
+    angers: ['Angers SCO', 'Angers SCO', '#000000', '#ffffff', 'SCO', 'stripes'],
+    aja: ['AJ Auxerre', 'AJ Auxerre', '#0055a4', '#ffffff', 'AJA', 'plain'],
+    hac: ['Le Havre AC', 'Le Havre AC', '#5ca0d3', '#003366', 'HAC', 'halves'],
+    fcl: ['FC Lorient', 'FC Lorient', '#f58220', '#000000', 'FCL', 'plain'],
+    metz: ['FC Metz', 'FC Metz', '#7a1c2c', '#ffffff', 'FCM', 'plain'],
+    pfc: ['Paris FC', 'Paris FC', '#1b2a4a', '#ffffff', 'PFC', 'plain'],
+    reims: ['Stade de Reims', 'Stade de Reims', '#e30613', '#ffffff', 'SDR', 'plain'],
+    mhsc: ['Montpellier HSC', 'Montpellier HSC', '#f58220', '#003b7a', 'MHSC', 'halves'],
+    fcgb: ['Girondins de Bordeaux', 'FC Girondins de Bordeaux', '#0a1f44', '#ffffff', 'FCGB', 'plain'],
+    redstar: ['Red Star FC', 'Red Star F.C.', '#00843d', '#ffffff', 'RSFC', 'plain'],
+    spurs: ['Tottenham Hotspur', 'Tottenham Hotspur F.C.', '#132257', '#ffffff', 'THFC', 'plain'],
+    newcastle: ['Newcastle United', 'Newcastle United F.C.', '#000000', '#ffffff', 'NUFC', 'stripes'],
+    villa: ['Aston Villa', 'Aston Villa F.C.', '#670e36', '#95bfe5', 'AVFC', 'halves'],
+    westham: ['West Ham United', 'West Ham United F.C.', '#7a263a', '#1bb1e7', 'WHU', 'halves'],
+    everton: ['Everton', 'Everton F.C.', '#003399', '#ffffff', 'EFC', 'plain'],
+    brighton: ['Brighton & Hove Albion', 'Brighton & Hove Albion F.C.', '#0057b8', '#ffffff', 'BHA', 'stripes'],
+    forest: ['Nottingham Forest', 'Nottingham Forest F.C.', '#dd0000', '#ffffff', 'NFFC', 'plain'],
+    palace: ['Crystal Palace', 'Crystal Palace F.C.', '#1b458f', '#c4122e', 'CPFC', 'stripes'],
+    leeds: ['Leeds United', 'Leeds United F.C.', '#1d428a', '#ffcd00', 'LUFC', 'plain'],
+    fulham: ['Fulham', 'Fulham F.C.', '#000000', '#ffffff', 'FFC', 'halves'],
+    wolves: ['Wolverhampton Wanderers', 'Wolverhampton Wanderers F.C.', '#fdb913', '#231f20', 'WOL', 'plain'],
+    bournemouth: ['AFC Bournemouth', 'AFC Bournemouth', '#da291c', '#000000', 'AFCB', 'stripes'],
+    brentford: ['Brentford', 'Brentford F.C.', '#e30613', '#ffffff', 'BFC', 'stripes'],
+    sunderland: ['Sunderland', 'Sunderland A.F.C.', '#eb172b', '#ffffff', 'SAFC', 'stripes'],
+    sevilla: ['FC Séville', 'Sevilla FC', '#d4021d', '#ffffff', 'SFC', 'plain'],
+    betis: ['Real Betis', 'Real Betis', '#00954c', '#ffffff', 'RBB', 'stripes'],
+    valencia: ['Valence CF', 'Valencia CF', '#ee3524', '#000000', 'VCF', 'plain'],
+    villarreal: ['Villarreal', 'Villarreal CF', '#ffe667', '#005187', 'VIL', 'plain'],
+    athletic: ['Athletic Bilbao', 'Athletic Bilbao', '#ee2523', '#ffffff', 'ATH', 'stripes'],
+    rsociedad: ['Real Sociedad', 'Real Sociedad', '#0067b1', '#ffffff', 'RSO', 'stripes'],
+    celta: ['Celta de Vigo', 'RC Celta de Vigo', '#8ac3ee', '#c8102e', 'RCC', 'plain'],
+    girona: ['Girona FC', 'Girona FC', '#cd2534', '#ffffff', 'GFC', 'stripes'],
+    espanyol: ['Espanyol Barcelone', 'RCD Espanyol', '#007fc8', '#ffffff', 'RCDE', 'stripes'],
+    osasuna: ['CA Osasuna', 'CA Osasuna', '#d91a21', '#0a346f', 'CAO', 'plain'],
+    mallorca: ['RCD Majorque', 'RCD Mallorca', '#e20613', '#000000', 'RCDM', 'plain'],
+    getafe: ['Getafe CF', 'Getafe CF', '#004fa3', '#ffffff', 'GCF', 'plain'],
+    rayo: ['Rayo Vallecano', 'Rayo Vallecano', '#e53027', '#ffffff', 'RAY', 'band'],
+    lazio: ['Lazio Rome', 'SS Lazio', '#87d8f7', '#0a2240', 'SSL', 'plain'],
+    atalanta: ['Atalanta Bergame', 'Atalanta BC', '#1e71b8', '#000000', 'ATA', 'stripes'],
+    fiorentina: ['Fiorentina', 'ACF Fiorentina', '#482e92', '#ffffff', 'ACF', 'plain'],
+    bologna: ['Bologne FC', 'Bologna FC 1909', '#1a2f48', '#a21c26', 'BFC', 'stripes'],
+    torino: ['Torino FC', 'Torino FC', '#8a1e03', '#ffffff', 'TOR', 'plain'],
+    genoa: ['Genoa CFC', 'Genoa CFC', '#ad1919', '#002147', 'GEN', 'halves'],
+    udinese: ['Udinese', 'Udinese Calcio', '#000000', '#ffffff', 'UDI', 'stripes'],
+    como: ['Côme 1907', 'Como 1907', '#003db8', '#ffffff', 'COM', 'plain'],
+    cagliari: ['Cagliari', 'Cagliari Calcio', '#002350', '#a71c20', 'CAG', 'halves'],
+    verona: ['Hellas Vérone', 'Hellas Verona FC', '#002f6c', '#ffd700', 'HVE', 'plain'],
+    leverkusen: ['Bayer Leverkusen', 'Bayer 04 Leverkusen', '#e32221', '#000000', 'B04', 'plain'],
+    leipzig: ['RB Leipzig', 'RB Leipzig', '#dd0741', '#ffffff', 'RBL', 'plain'],
+    frankfurt: ['Eintracht Francfort', 'Eintracht Frankfurt', '#e1000f', '#000000', 'SGE', 'plain'],
+    stuttgart: ['VfB Stuttgart', 'VfB Stuttgart', '#e32219', '#ffffff', 'VFB', 'band'],
+    gladbach: ['Borussia Mönchengladbach', 'Borussia Mönchengladbach', '#000000', '#00a65a', 'BMG', 'plain'],
+    freiburg: ['SC Fribourg', 'SC Freiburg', '#e30613', '#000000', 'SCF', 'plain'],
+    wolfsburg: ['VfL Wolfsburg', 'VfL Wolfsburg', '#65b32e', '#ffffff', 'WOB', 'plain'],
+    bremen: ['Werder Brême', 'SV Werder Bremen', '#1d9053', '#ffffff', 'SVW', 'plain'],
+    union: ['Union Berlin', '1. FC Union Berlin', '#eb1923', '#ffffff', 'FCU', 'plain'],
+    schalke: ['Schalke 04', 'FC Schalke 04', '#004d9d', '#ffffff', 'S04', 'plain'],
+    hsv: ['Hambourg SV', 'Hamburger SV', '#0a3f86', '#ffffff', 'HSV', 'plain'],
+    koln: ['FC Cologne', '1. FC Köln', '#ed1c24', '#ffffff', 'KOE', 'plain'],
+    hoffenheim: ['Hoffenheim', 'TSG Hoffenheim', '#1961b5', '#ffffff', 'TSG', 'plain'],
+    mainz: ['Mayence 05', '1. FSV Mainz 05', '#c3141e', '#ffffff', 'M05', 'plain'],
+    augsburg: ['FC Augsbourg', 'FC Augsburg', '#ba3733', '#46714d', 'FCA', 'plain'],
+    stpauli: ['FC St. Pauli', 'FC St. Pauli', '#5c3b25', '#ffffff', 'STP', 'plain'],
     raincy: ['FA Le Raincy', '', '#8b1426', '#0e1d45', 'FAR', 'halves'],
   };
   const KEY = AppCfg.key('crests');
@@ -1696,7 +1767,18 @@ var Clubs = (() => {
     fetchCrest(key);
     return `<span class="crest-fallback" title="Club de cœur : ${UI.esc(LIST[key][0])}">${shield(key, size)}</span>`;
   }
-  const options = sel => `<option value="">Aucune</option>${Object.entries(LIST).sort((a, b) => a[1][0].localeCompare(b[1][0], 'fr')).map(([k, c]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${UI.esc(c[0])}</option>`).join('')}`;
+  // (3.20) the clubs by country (the menu's groups)
+  const COUNTRY = { France: 'psg om ol asm losc rcl srfc ogcn fcn asse rcsa tfc brest angers aja hac fcl metz pfc reims mhsc fcgb redstar',
+    Angleterre: 'liverpool manu mancity arsenal chelsea spurs newcastle villa westham everton brighton forest palace leeds fulham wolves bournemouth brentford sunderland',
+    Espagne: 'real barca atm sevilla betis valencia villarreal athletic rsociedad celta girona espanyol osasuna mallorca getafe rayo',
+    Italie: 'milan inter juve napoli roma lazio atalanta fiorentina bologna torino genoa udinese como cagliari verona',
+    Allemagne: 'bayern bvb leverkusen leipzig frankfurt stuttgart gladbach freiburg wolfsburg bremen union schalke hsv koln hoffenheim mainz augsburg stpauli' };
+  function groups() {
+    const seen = new Set(), byName = (a, b) => LIST[a][0].localeCompare(LIST[b][0], 'fr');
+    const g = Object.entries(COUNTRY).map(([c, ks]) => { const l = ks.split(' ').filter(k => LIST[k]).sort(byName); l.forEach(k => seen.add(k)); return [c, l]; });
+    return [['Le club', Object.keys(LIST).filter(k => k === 'raincy')], ...g, ['Autres pays', Object.keys(LIST).filter(k => !seen.has(k) && k !== 'raincy').sort(byName)]].filter(x => x[1].length);
+  }
+  const options = sel => `<option value="">Aucune</option>${groups().map(([c, l]) => `<optgroup label="${c}">${l.map(k => `<option value="${k}" ${k === sel ? 'selected' : ''}>${String(LIST[k][0]).replace(/[&<>"]/g, '')}</option>`).join('')}</optgroup>`).join('')}`;
   // « club: Juventus » in a pasted list → its key
   const n = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const ALIASES = { milanac: 'milan', acmilan: 'milan', milan: 'milan', juventus: 'juve', juve: 'juve', barcelone: 'barca', barcelona: 'barca', fcbarcelone: 'barca', fcbarcelona: 'barca', barca: 'barca', psg: 'psg', parissaintgermain: 'psg', paris: 'psg', porto: 'porto', fcporto: 'porto', om: 'om', marseille: 'om', real: 'real', realmadrid: 'real', inter: 'inter', intermilan: 'inter' };
@@ -1714,7 +1796,7 @@ var Clubs = (() => {
   }
   const oppLogo = (name, cls = 'opp-logo') => { const id = oppId(name); return id ? `<img class="${cls}" src="https://cdn-transverse.azureedge.net/phlogos/BC${id}.jpg" alt="" loading="lazy" onerror="this.remove()">` : ''; };
   function setOppLogos(map) { const c = Store.state.club, L = c.oppLogos = Object.assign({}, c.oppLogos || {}); let n = 0; Object.entries(map || {}).forEach(([name, id]) => { const k = okey(name); if (k && /^\d+$/.test(id) && L[k] !== id) { L[k] = id; n++; } }); return n; }
-  return { LIST, crest, shield, options, find, name: k => (LIST[k] || [''])[0], oppLogo, setOppLogos };
+  return { LIST, groups, crest, shield, options, find, name: k => (LIST[k] || [''])[0], oppLogo, setOppLogos };
 })();
 
 ;
@@ -3983,7 +4065,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.19';
+  const VERSION = '3.20';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8134,19 +8216,19 @@ var Rooms = (() => {
     // (3.14) opened from another page: today's week (unless a match asked for its own day)
     if (!root.querySelector('[data-pg="rooms"]')) { if (ui.roomPin) ui.roomPin = 0; else ui.roomDay = today; }
     ui.roomDay = ui.roomDay || today;
-    const day = ui.roomDay, week = monday(day), days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.roomView === 'week';
+    const day = ui.roomDay, week = monday(day), days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.roomView !== 'day';
     const my = gen = gen + 1;
     const wkLabel = `Semaine du ${parse(week).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
     root.innerHTML = `${Planning.placeTabs('rooms')}
       <header class="page-head" data-pg="rooms"><div><h1>Vestiaires</h1><p class="sub">Qui est dans quel vestiaire, sans chevauchement</p></div>
-      <div class="head-actions"><button class="btn" data-r="recur">${I.rotate}<span>Chaque semaine</span></button><button class="btn primary" data-r="new">${I.plus}<span>Attribuer</span></button></div></header>
+      <div class="head-actions plan-actions"><button class="btn" data-r="recur">${I.rotate}<span>Chaque semaine</span></button><button class="btn primary" data-r="new">${I.plus}<span>Attribuer</span></button></div></header>
       <div class="chips view-tog"><button class="chip ${wk ? '' : 'on'}" data-r="vday">Jour</button><button class="chip ${wk ? 'on' : ''}" data-r="vweek">Semaine</button></div>
       <div class="plan-nav"><button class="icon-btn" data-r="prev" aria-label="${wk ? 'Semaine précédente' : 'Jour précédent'}">${I.back}</button>
         <b>${esc(wk ? wkLabel : parse(day).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}</b>
-        <button class="icon-btn" data-r="next" aria-label="${wk ? 'Semaine suivante' : 'Jour suivant'}">${I.next}</button><button class="btn soft" data-r="today">${wk ? 'Cette semaine' : 'Aujourd\'hui'}</button></div>
+        <button class="icon-btn" data-r="next" aria-label="${wk ? 'Semaine suivante' : 'Jour suivant'}">${I.next}</button><button class="btn soft" data-r="today">Aujourd'hui</button></div>
       ${wk ? '' : `<div class="day-chips">${days.map(d => `<button class="chip ${d === day ? 'on' : ''} ${d === today ? 'today' : ''}" data-rday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} ${parse(d).getDate()}</button>`).join('')}</div>`}
       <div id="roomMatches"></div>
-      <div class="plan-wrap" id="roomGrid"><p class="muted">Chargement…</p></div>`;
+      <div class="plan-wrap ${wk ? 'wk' : ''}" id="roomGrid"><p class="muted">Chargement…</p></div>`;
     const cr = $('.day-chips', root), on = $('.day-chips .chip.on', root); if (cr && on) cr.scrollLeft = on.offsetLeft - (cr.clientWidth - on.offsetWidth) / 2;
     const cached = loaded === week;
     const show = () => wk ? drawWeek(root, days) : draw(root, day);
@@ -8172,7 +8254,7 @@ var Rooms = (() => {
           ${onDay(d).map(b => { const c = b.kind === 'adversaire' ? '#475569' : Planning.colorOf(b), l = lane(b.field);
             return `<button class="bk k-${esc(b.kind || 'autre')} ${mine.has(b.team_id) ? 'mine' : ''}" data-rbk="${b.id}" title="${esc(roomName(b.field) + ' · ' + label(b) + ' · ' + hm(b.start_min) + '–' + hm(b.end_min))}"
               style="top:${(b.start_min - lo) * px}px;height:${Math.max(phone ? 16 : 22, (b.end_min - b.start_min) * px - 2)}px;left:calc(${l * W}% + 1px);right:auto;width:calc(${W}% - 2px);padding:2px 3px${c ? ';background-color:' + c + ';color:#fff' : ''}">
-              <b>${esc(short(b.field))}</b><span>${esc(b.kind === 'adversaire' ? '🆚' : (label(b) || '').replace(/^Seniors?/, 'S').slice(0, 6))}</span></button>`; }).join('')}
+              <b>${esc(short(b.field))} · ${esc(label(b))}</b><i class="bk-s">${esc(short(b.field))}</i></button>`; }).join('')}
         </div></div>`;
     };
     $('#roomMatches', root).innerHTML = '';
@@ -8212,7 +8294,7 @@ var Rooms = (() => {
       const b = e.target.closest('button'), ui = S().ui;
       if (b && b.dataset.r) {
         const r = b.dataset.r;
-        if (r === 'prev' || r === 'next') { ui.roomDay = addDays(ui.roomDay || day, (r === 'prev' ? -1 : 1) * (ui.roomView === 'week' ? 7 : 1)); return page(root); }
+        if (r === 'prev' || r === 'next') { ui.roomDay = addDays(ui.roomDay || day, (r === 'prev' ? -1 : 1) * (ui.roomView !== 'day' ? 7 : 1)); return page(root); }
         if (r === 'today') { ui.roomDay = iso(new Date()); return page(root); }
         if (r === 'vday' || r === 'vweek') { ui.roomView = r === 'vweek' ? 'week' : 'day'; Store.save(); return page(root); }
         if (r === 'new') return form({ date: day, start: 18 * 60 }, () => page(root));
@@ -17280,6 +17362,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 179, date: '2026-10-10', title: 'Vestiaires comme le terrain, et 100 clubs de cœur 🚿⚽', items: [
+      ['🚿', "Planning des vestiaires : la même présentation que le terrain. En Semaine, les 7 jours côte à côte avec les heures, chaque vestiaire dans son couloir (1, 2, K1, K2). En Jour, un vestiaire par colonne. Touche un jour pour l'ouvrir."],
+      ['⚽', "Plus de 100 clubs de cœur, rangés par pays : France, Angleterre, Espagne, Italie, Allemagne, et les autres. Les joueurs et les parents les ont aussi dans « Ma page »."],
+    ] },
     { n: 178, date: '2026-10-10', title: 'Les petits soucis réglés 🔧', items: [
       ['🐛', "Les menus « ⋯ » s'ouvrent à nouveau (ils étaient cachés par le bandeau depuis les thèmes)."],
       ['🐛', "Ma page : « Mon poste » s'ouvre normalement (toucher la carte la redessinait)."],
@@ -22375,7 +22461,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 220, UPD = AppCfg.key('update-tried');
+  const BUILD = 221, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

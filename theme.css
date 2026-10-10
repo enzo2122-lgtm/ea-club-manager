@@ -84,3 +84,4 @@ header.top { overflow: hidden; }
 @media (max-width: 600px) { .page-head { padding: 14px 14px 12px; border-radius: 14px; } .page-head h1 { font-size: 32px; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 .avatar-post { position: absolute; right: -6px; bottom: -4px; font-size: 15px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); text-transform: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

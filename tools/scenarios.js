@@ -186,7 +186,10 @@ const SCENARIOS = [
     must(Theme.icon() === '🧤', 'poste non gardé'); must(document.documentElement.dataset.look === 'stade', 'le poste a écrasé un thème choisi');
     const me = Auth.current(), st = Store.get('staff', me.id); must(st.look && st.look.t === 'stade', 'thème non gardé sur la fiche (autre appareil)');
     const ph = getComputedStyle(document.querySelector('.page-head')).backgroundImage; must(/gradient/.test(ph), 'bandeau sans décor');
-    Theme.set({ t: 'club', h: '', p: '' }); delete st.look; Store.upsert('staff', st); return 'ok';`],
+    const groups = $$('#myClub optgroup').map(g => g.label); must(['France', 'Angleterre', 'Espagne', 'Italie', 'Allemagne'].every(c => groups.includes(c)), 'championnats manquants : ' + groups.join(','));
+    must($$('#myClub option').length > 90, 'pas assez de clubs : ' + $$('#myClub option').length);
+    Theme.set({ t: 'club', h: 'c:lazio', p: '' }); must(document.documentElement.style.getPropertyValue('--heart2') || document.documentElement.style.getPropertyValue('--heart'), 'couleurs du club de cœur non appliquées');
+    Theme.set({ t: 'club', h: '', p: '' }); delete st.look; Store.upsert('staff', st); return $$('#myClub option').length + ' clubs';`],
   ['AssistCoachAI : amicaux et tournois importés comme matchs', `
     const t = Store.state.teams.find(x => /senior/i.test(x.name + ' ' + (x.category || ''))) || Store.state.teams[0];
     const d = (n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); });

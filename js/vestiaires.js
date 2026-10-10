@@ -44,19 +44,19 @@ const Rooms = (() => {
     // (3.14) opened from another page: today's week (unless a match asked for its own day)
     if (!root.querySelector('[data-pg="rooms"]')) { if (ui.roomPin) ui.roomPin = 0; else ui.roomDay = today; }
     ui.roomDay = ui.roomDay || today;
-    const day = ui.roomDay, week = monday(day), days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.roomView === 'week';
+    const day = ui.roomDay, week = monday(day), days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.roomView !== 'day';
     const my = gen = gen + 1;
     const wkLabel = `Semaine du ${parse(week).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
     root.innerHTML = `${Planning.placeTabs('rooms')}
       <header class="page-head" data-pg="rooms"><div><h1>Vestiaires</h1><p class="sub">Qui est dans quel vestiaire, sans chevauchement</p></div>
-      <div class="head-actions"><button class="btn" data-r="recur">${I.rotate}<span>Chaque semaine</span></button><button class="btn primary" data-r="new">${I.plus}<span>Attribuer</span></button></div></header>
+      <div class="head-actions plan-actions"><button class="btn" data-r="recur">${I.rotate}<span>Chaque semaine</span></button><button class="btn primary" data-r="new">${I.plus}<span>Attribuer</span></button></div></header>
       <div class="chips view-tog"><button class="chip ${wk ? '' : 'on'}" data-r="vday">Jour</button><button class="chip ${wk ? 'on' : ''}" data-r="vweek">Semaine</button></div>
       <div class="plan-nav"><button class="icon-btn" data-r="prev" aria-label="${wk ? 'Semaine précédente' : 'Jour précédent'}">${I.back}</button>
         <b>${esc(wk ? wkLabel : parse(day).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}</b>
-        <button class="icon-btn" data-r="next" aria-label="${wk ? 'Semaine suivante' : 'Jour suivant'}">${I.next}</button><button class="btn soft" data-r="today">${wk ? 'Cette semaine' : 'Aujourd\'hui'}</button></div>
+        <button class="icon-btn" data-r="next" aria-label="${wk ? 'Semaine suivante' : 'Jour suivant'}">${I.next}</button><button class="btn soft" data-r="today">Aujourd'hui</button></div>
       ${wk ? '' : `<div class="day-chips">${days.map(d => `<button class="chip ${d === day ? 'on' : ''} ${d === today ? 'today' : ''}" data-rday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} ${parse(d).getDate()}</button>`).join('')}</div>`}
       <div id="roomMatches"></div>
-      <div class="plan-wrap" id="roomGrid"><p class="muted">Chargement…</p></div>`;
+      <div class="plan-wrap ${wk ? 'wk' : ''}" id="roomGrid"><p class="muted">Chargement…</p></div>`;
     const cr = $('.day-chips', root), on = $('.day-chips .chip.on', root); if (cr && on) cr.scrollLeft = on.offsetLeft - (cr.clientWidth - on.offsetWidth) / 2;
     const cached = loaded === week;
     const show = () => wk ? drawWeek(root, days) : draw(root, day);
@@ -82,7 +82,7 @@ const Rooms = (() => {
           ${onDay(d).map(b => { const c = b.kind === 'adversaire' ? '#475569' : Planning.colorOf(b), l = lane(b.field);
             return `<button class="bk k-${esc(b.kind || 'autre')} ${mine.has(b.team_id) ? 'mine' : ''}" data-rbk="${b.id}" title="${esc(roomName(b.field) + ' · ' + label(b) + ' · ' + hm(b.start_min) + '–' + hm(b.end_min))}"
               style="top:${(b.start_min - lo) * px}px;height:${Math.max(phone ? 16 : 22, (b.end_min - b.start_min) * px - 2)}px;left:calc(${l * W}% + 1px);right:auto;width:calc(${W}% - 2px);padding:2px 3px${c ? ';background-color:' + c + ';color:#fff' : ''}">
-              <b>${esc(short(b.field))}</b><span>${esc(b.kind === 'adversaire' ? '🆚' : (label(b) || '').replace(/^Seniors?/, 'S').slice(0, 6))}</span></button>`; }).join('')}
+              <b>${esc(short(b.field))} · ${esc(label(b))}</b><i class="bk-s">${esc(short(b.field))}</i></button>`; }).join('')}
         </div></div>`;
     };
     $('#roomMatches', root).innerHTML = '';
@@ -122,7 +122,7 @@ const Rooms = (() => {
       const b = e.target.closest('button'), ui = S().ui;
       if (b && b.dataset.r) {
         const r = b.dataset.r;
-        if (r === 'prev' || r === 'next') { ui.roomDay = addDays(ui.roomDay || day, (r === 'prev' ? -1 : 1) * (ui.roomView === 'week' ? 7 : 1)); return page(root); }
+        if (r === 'prev' || r === 'next') { ui.roomDay = addDays(ui.roomDay || day, (r === 'prev' ? -1 : 1) * (ui.roomView !== 'day' ? 7 : 1)); return page(root); }
         if (r === 'today') { ui.roomDay = iso(new Date()); return page(root); }
         if (r === 'vday' || r === 'vweek') { ui.roomView = r === 'vweek' ? 'week' : 'day'; Store.save(); return page(root); }
         if (r === 'new') return form({ date: day, start: 18 * 60 }, () => page(root));
