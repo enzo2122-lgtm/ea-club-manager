@@ -3944,7 +3944,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.15';
+  const VERSION = '3.16';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -5790,6 +5790,10 @@ var People = (() => {
         { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           const v = id => $('#' + id, r).value.trim();
           if (!v('sLast') && !v('sFirst')) { toast('Écris au moins le nom ou le prénom', 'err'); return false; }
+          // (3.16) the same dirigeant twice: his card is opened instead of making a second one
+          const nk = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+          const twin = isNew && Store.state.staff.find(x => x.id !== p.id && nk(x.lastName) === nk(v('sLast')) && nk(x.firstName) === nk(v('sFirst')));
+          if (twin) { toast(`${name(twin)} est déjà dans les dirigeants : voici sa fiche`); setTimeout(() => editStaff(twin, opts), 350); return; }
           Object.assign(p, { lastName: v('sLast').toUpperCase(), firstName: v('sFirst'), role: v('sRole'), club: v('sClub'), motto: v('sMotto').replace(/\s+/g, ' '), email: v('sMail'), notes: $('#sNotes', r).value });
           if ($('#sTel', r)) { p.phone = v('sTel'); p.phoneShow = v('sShow') || 'club'; }
           if ($('#sAccess', r)) { if (v('sAccess')) p.access = v('sAccess'); else delete p.access; }
@@ -17210,6 +17214,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 175, date: '2026-10-10', title: 'Un dirigeant, une fiche 🧢', items: [
+      ['🐛', "Ajouter un dirigeant qui existe déjà (même nom, même prénom) ouvre sa fiche au lieu d'en créer une deuxième."],
+    ] },
     { n: 174, date: '2026-10-10', title: 'Ta page, ton style ⚽', items: [
       ['🎨', "Ma page (Réglages, ou « Moi » dans l'espace joueur / parents) : 4 thèmes, Le club, Le stade, La pelouse, Les filets. Ton poste choisit le thème qui lui va, et les couleurs de ton club de cœur colorent ta page. Pour toi seulement."],
       ['🔤', "Nouvelle police pour les titres, des terrains, filets et tribunes dans les bandeaux, un ballon quand une liste est vide."],
@@ -22284,7 +22291,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 216, UPD = AppCfg.key('update-tried');
+  const BUILD = 217, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
