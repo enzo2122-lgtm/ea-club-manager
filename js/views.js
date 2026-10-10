@@ -892,6 +892,51 @@ const Views = (() => {
   const POSTS = [['GB', '🧤 GB'], ['DG', 'DG'], ['DC', 'DC'], ['DD', 'DD'], ['MDC', 'MDC'], ['MG', 'MG'], ['MC', 'MC'], ['MD', 'MD'], ['MOG', 'MOG'], ['MOC', 'MOC'], ['MOD', 'MOD'], ['AG', 'AG'], ['AV', 'AV'], ['AD', 'AD']];
   const POST_XY = { GB: [.04, .5], DG: [.2, .12], DC: [.17, .5], DD: [.2, .88], MDC: [.33, .5], MG: [.45, .12], MC: [.46, .5], MD: [.45, .88], MOG: [.62, .15], MOC: [.62, .5], MOD: [.62, .85], AG: [.8, .15], AV: [.88, .5], AD: [.8, .85] };
   const POST_RANK = Object.fromEntries(POSTS.map(([k], i) => [k, i]));
+  // the posts of a player's card that fit each post of the drawing (for « Proposer une compo »)
+  const POST_FITS = { GB: ['GB'], DG: ['LG', 'DG'], DC: ['DC'], DD: ['LD', 'DD'], MDC: ['MDC', 'MC'], MG: ['MG', 'LG', 'AG'], MC: ['MC', 'MDC', 'MOC'], MD: ['MD', 'LD', 'AD'], MOG: ['AG', 'MG'], MOC: ['MOC', 'MC', 'SA'], MOD: ['AD', 'MD'], AG: ['AG', 'MG'], AV: ['BU', 'SA'], AD: ['AD', 'MD'] };
+  let swapPick = null; // (2.95) a substitute touched, waiting for the starter he replaces
+  const nearestPost = (sc, pos) => { const { L, W } = Board.dims(sc.field), x = pos[0] / L, y = pos[1] / W; let best = 'MC', d0 = 1e9;
+    Object.entries(POST_XY).forEach(([k, [px, py]]) => { const d = (px - x) ** 2 + (py - y) ** 2 * .6; if (d < d0) { d0 = d; best = k; } }); return best; };
+  // every post of the drawing gets the convoked player whose card fits it best (the goalkeeper first); the others become substitutes
+  function autoCompo(sc, conv, m) {
+    const st = sc.steps[0], slots = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]); ensurePosts(sc, slots, st);
+    const rows = slots.map(o => [o.post, 0, 0, o.post === 'GB', POST_FITS[o.post] || ['MC']]);
+    const { out } = People.assignSlots(conv, rows);
+    slots.forEach(o => { delete o.playerId; o.name = ''; o.label = o.post; });
+    slots.forEach((o, j) => { if (out[j]) setSlot(sc, o.id, out[j].id, m); });
+    const left = conv.filter(p => !out.some(x => x && x.id === p.id)); slots.forEach((o, j) => { if (!out[j] && left.length) setSlot(sc, o.id, left.shift().id, m); }); // a post nobody fits: the next convoked player anyway
+    Store.upsert('schemas', sc);
+    return out.filter(Boolean).length;
+  }
+  // the drawing answers to the finger: a player dragged moves on the pitch, his post follows (the line below is redrawn)
+  function lineupDrag(root, m) {
+    let d = null;
+    root.onpointerdown = e => {
+      const wrap = e.target.closest('[data-luwrap]'); if (!wrap || e.button) return;
+      const sc = Store.get('schemas', wrap.dataset.luwrap); if (!sc) return;
+      const r = wrap.getBoundingClientRect(), cam = Board.camera(sc, 480, 312), w = cam.toW((e.clientX - r.left) / r.width * 480, (e.clientY - r.top) / r.height * 312);
+      const h = Board.hit(sc, 0, cam, w); if (!h || h.kind !== 'obj') return;
+      const o = sc.objects.find(x => x.id === h.id); if (!o || o.type !== 'player') return;
+      d = { sc, o, wrap, cam, x0: e.clientX, y0: e.clientY, moving: false, canvas: null };
+    };
+    root.onpointermove = e => {
+      if (!d) return;
+      if (!d.moving) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return; d.moving = true; d.wrap.classList.add('dragging'); try { d.wrap.setPointerCapture(e.pointerId); } catch (x) {}
+        d.canvas = document.createElement('canvas'); d.canvas.width = 480; d.canvas.height = 312; d.canvas.className = 'lu-live'; d.wrap.appendChild(d.canvas); }
+      e.preventDefault();
+      const r = d.wrap.getBoundingClientRect(), w = d.cam.toW((e.clientX - r.left) / r.width * 480, (e.clientY - r.top) / r.height * 312), ex = Board.extents(d.sc.field), tr = Board.tokenR(d.sc.field);
+      d.sc.steps[0].pos[d.o.id] = [Board.clamp(w[0], ex.x0 + tr, ex.x1 - tr), Board.clamp(w[1], ex.y0 + tr, ex.y1 - tr)];
+      Board.drawFrame(d.canvas.getContext('2d'), 480, 312, d.sc, 0, 0, { homeBib: S().club.homeBib });
+    };
+    root.onpointerup = root.onpointercancel = e => {
+      if (!d) return; const was = d; d = null;
+      if (!was.moving) return;
+      was.wrap.classList.remove('dragging'); try { was.wrap.releasePointerCapture(e.pointerId); } catch (x) {}
+      const o = was.o, sc = was.sc; if (!o.bench) { o.post = nearestPost(sc, sc.steps[0].pos[o.id]); o.gk = o.post === 'GB'; if (o.gk) o.color = 'jaune'; else if (o.color === 'jaune') o.color = S().club.homeBib; if (!o.playerId) o.label = o.post; }
+      Store.upsert('schemas', sc); toast(o.bench ? 'Déplacé' : `${o.name || 'Le poste'} → ${o.post}`);
+      const h = location.hash; if (/^#\/match\//.test(h)) App.route(true);
+    };
+  }
   // every spot of the drawing gets its post written down (from the lines of the drawing when it has none yet)
   function ensurePosts(sc, slots, st) {
     if (slots.every(o => o.post && POST_RANK[o.post] != null)) return false;
@@ -912,12 +957,12 @@ const Views = (() => {
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
-    return `<section class="card slots-card"><div class="row-head"><h2>👕 Qui joue où ?</h2>${sysSel}</div>
-      <p class="muted small">Poste, numéro, joueur : chaque changement se dessine aussitôt sur la compo. Un joueur déjà placé disparaît des autres listes.</p>
+    return `<div class="slots-card"><div class="row-head"><h3>👕 Qui joue où ?</h3>${sysSel}</div>
+      <p class="muted small">Poste, numéro, joueur : chaque changement se dessine aussitôt. ${swapPick ? '<b>Touche « Ici » sur la ligne du titulaire à remplacer, ou ⇄ pour annuler.</b>' : 'Touche ⇄ à côté d\'un remplaçant pour l\'échanger avec un titulaire.'}</p>
       <div class="slots">${slots.map((o, i) => { const t = taken(o), pl = o.playerId && Store.get('players', o.playerId), cur = pl ? Store.numOf(pl, m) : (/^\d+$/.test(o.label || '') ? o.label : ''); return `<label class="slot"><select class="slot-post ${o.gk ? 'gk' : ''}" data-spost="${o.id}" aria-label="Poste">${POSTS.map(([k, l]) => `<option value="${k}" ${k === o.post ? 'selected' : ''}>${l}</option>`).join('')}</select>${numSel(pl, m, `data-snum="${o.id}"`, cur)}
-        <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`; }).join('')}</div>
+        <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select>${swapPick ? `<button type="button" class="btn small primary swapto" data-swapto="${o.id}">Ici</button>` : ''}</label>`; }).join('')}</div>
       ${(() => { const placed = new Set(slots.map(o => o.playerId).filter(Boolean)), bench = players.filter(p => !placed.has(p.id)); // (2.85) the convoked players without a position: the bench
-        return `<p class="small bench-line">🪑 <b>Remplaçants (${bench.length})</b> : ${bench.length ? bench.map(p => `<span class="chip small">${numSel(p, m, `data-bnum="${p.id}"`, Store.numOf(p, m))} ${esc(Store.shortName(p))}</span>`).join(' ') : '<span class="muted">aucun, tous les convoqués ont un poste</span>'}</p>`; })()}</section>`;
+        return `<p class="small bench-line">🪑 <b>Remplaçants (${bench.length})</b> : ${bench.length ? bench.map(p => `<span class="chip small ${swapPick === p.id ? 'picked' : ''}">${numSel(p, m, `data-bnum="${p.id}"`, Store.numOf(p, m))} ${esc(Store.shortName(p))} <button type="button" class="swap-btn" data-swap="${p.id}" title="Échanger avec un titulaire" aria-label="Échanger ${esc(Store.shortName(p))} avec un titulaire">⇄</button></span>`).join(' ') : '<span class="muted">aucun, tous les convoqués ont un poste</span>'}</p>`; })()}</div>`;
   }
   // (2.92) the drawing follows « Qui joue où ? »: every placed player shows his number of the match
   function syncLabels(sc, m) {
@@ -1029,11 +1074,12 @@ const Views = (() => {
         </div>
         <div ${panel('compo')}>
         <h2 class="section">Composition</h2>
-        <section class="card lineup">${lineup ? `<div class="lineup-wrap"><a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(syncLabels(lineup, m))}"></a>${lineupHot(lineup)}</div><p class="muted small">Touche un joueur sur le dessin pour changer son poste ou son numéro ; glisse-les sur le terrain avec « Modifier la composition ».</p><div class="chips"><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>${m.played ? '' : `<button class="btn soft" data-act="lineupredo">🗑️<span>Refaire la composition</span></button>`}</div>`
+        <section class="card lineup">${lineup ? `<div class="lineup-wrap" data-luwrap="${lineup.id}"><img class="lu-img" alt="" src="${UI.thumb(syncLabels(lineup, m))}" draggable="false">${lineupHot(lineup)}</div><p class="muted small">Glisse un joueur sur le dessin pour le déplacer (son poste suit) ; touche-le pour ouvrir sa ligne.</p>
+          <div class="chips">${conv.length ? `<button class="btn" data-act="autocomp">✨<span>Proposer une compo</span></button>` : ''}<a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Flèches et détails</span></a>${m.played ? '' : `<button class="btn soft" data-act="lineupredo">🗑️<span>Refaire</span></button>`}</div>
+          ${slotsCard(lineup, conv, m)}`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><div class="chips"><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>${lastLineup(m) ? `<button class="btn" data-act="lineupcopy">♻️<span>Reprendre la compo du ${esc(fmtDate(lastLineup(m).m.date, { day: 'numeric', month: 'short' }))}</span></button>` : ''}</div>`}</section>
         ${conv.length && !m.exempt ? `<section class="card capt-card"><label class="fld"><span>©️ Capitaine</span><select data-capt><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label>
           <label class="fld"><span>Vice-capitaine</span><select data-capt2><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain2 === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label></section>` : ''}
-        ${lineup ? slotsCard(lineup, conv, m) : ''}
         </div>
         <div ${panel('pendant')}>
         ${!m.exempt ? Live.card(m) : '<p class="muted">Pas de match cette semaine (exempt).</p>'}
@@ -1123,6 +1169,7 @@ const Views = (() => {
       if (e.target.dataset.addguest && e.target.value) { const p = Store.get('players', e.target.value); if (p) { p.helps = [...new Set([...(p.helps || []), e.target.dataset.addguest])]; Store.upsert('players', p); m.convoked = [...new Set([...(m.convoked || []), p.id])]; save(); toast(`🤝 ${Store.shortName(p)} en renfort, convoqué`); } return render(); }
       root.oninput(e);
     };
+    lineupDrag(root, m);
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.mtab) { matchTabs[m.id] = b.dataset.mtab; $$('.m-tab', root).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); $$('.m-panel', root).forEach(p => { p.hidden = p.dataset.panel !== b.dataset.mtab; }); return; }
@@ -1134,6 +1181,9 @@ const Views = (() => {
       if (b.dataset.act === 'dayconv') { const o = Store.dayOf(m).filter(x => x.id !== m.id); o.forEach(x => { x.convoked = [...(m.convoked || [])]; if (m.captain && !x.captain) x.captain = m.captain; Store.upsert('matches', x); }); toast(`📋 Convoqués repris pour ${o.length} match${o.length > 1 ? 's' : ''}`); return render(); }
       if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
         try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
+      if (b.dataset.swap) { swapPick = swapPick === b.dataset.swap ? null : b.dataset.swap; if (swapPick) toast('Touche « Ici » sur la ligne du titulaire à remplacer'); return render(); }
+      if (b.dataset.swapto || (b.dataset.hot && swapPick)) { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc || !swapPick) return; const pid = swapPick; swapPick = null; setSlot(sc, b.dataset.swapto || b.dataset.hot, pid, m); toast('Échangé ✓'); return render(); }
+      if (b.dataset.act === 'autocomp') { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return; const t = teamOf(m.teamId), conv = t ? Store.rosterOf(t.id).filter(p => (m.convoked || []).includes(p.id)) : []; const n = autoCompo(sc, conv, m); toast(`${n} joueurs placés d'après leur poste : corrige si besoin`); return render(); }
       if (b.dataset.hot) { const sel = root.querySelector(`[data-slot="${b.dataset.hot}"]`); if (!sel) return; const lab = sel.closest('.slot'); lab.scrollIntoView({ behavior: 'smooth', block: 'center' }); lab.classList.add('flash'); setTimeout(() => lab.classList.remove('flash'), 1600); setTimeout(() => { try { sel.focus(); if (sel.showPicker) sel.showPicker(); } catch (e) {} }, 350); return; }
       if (b.dataset.act === 'sameconv') { const prev = lastConv(m); if (!prev) return; const ids = new Set(Store.rosterOf(m.teamId).map(p => p.id)); m.convoked = prev.convoked.filter(id => ids.has(id)); save(); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return render(); }
       if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }

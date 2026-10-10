@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 153, date: '2026-10-10', title: 'La compo, un seul écran ✋', items: [
+      ['✋', "Compo d'un match : glisse un joueur sur le dessin, il change de poste ; tout est sur une seule carte, le dessin en haut, les lignes dessous."],
+      ['✨', "« Proposer une compo » place les convoqués d'après le poste de leur fiche (gardien d'abord). Tu corriges ensuite."],
+      ['⇄', "Touche ⇄ à côté d'un remplaçant puis « Ici » sur la ligne d'un titulaire : ils s'échangent."],
+    ] },
     { n: 152, date: '2026-10-10', title: 'Qui joue où, pour de vrai 🎛️', items: [
       ['🎛️', "Compo : sur chaque ligne, le poste se change (le joueur se déplace sur le dessin), le numéro aussi, le joueur aussi. Deux joueurs au même poste se répartissent sur la largeur."],
       ['🔁', "« Changer de système » (4-3-3, 4-4-2…) replace toutes les lignes en gardant les joueurs dans l'ordre : gardien, défense, milieu, attaque."],

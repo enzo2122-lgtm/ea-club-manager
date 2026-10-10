@@ -2352,3 +2352,15 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 .slot-post { min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2); font-weight: 800; padding: 0 6px; width: 78px; }
 .slot-post.gk { background: #fde68a; color: #1f1f1f; }
 .sys-sel { margin: 0; } .sys-sel select { min-height: 38px; }
+
+/* (2.95) one composition screen: the drawing you drag, the swap */
+.lineup-wrap { touch-action: none; user-select: none; -webkit-user-select: none; }
+.lineup-wrap .lu-img { display: block; max-width: 100%; border-radius: 12px; }
+.lineup-wrap .lu-live { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 12px; }
+.lineup-wrap.dragging .lu-hot { display: none; }
+.lineup-wrap.dragging { cursor: grabbing; }
+.slots-card { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.slots-card h3 { font-size: 17px; margin: 0; }
+.swap-btn { border: 0; background: var(--navy); color: #fff; border-radius: 50%; width: 26px; height: 26px; font-size: 14px; cursor: pointer; margin-left: 2px; }
+.chip.picked { background: #fde68a; border-color: #d97706; box-shadow: 0 0 0 3px rgba(217,119,6,.25); }
+.slot .swapto { min-height: 34px; padding: 0 10px; }
