@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 163, date: '2026-10-10', title: 'Des blocs de 30 mètres 📏', items: [
+      ['📏', "Compo : chaque bloc fait maintenant 30 m de profondeur entre la défense et les attaquants (bas : 20 → 48 m ; médian : 30 → 58 m ; haut : 42 → 70 m ; très haut : 52 → 82 m), les lignes gardent leurs écarts."],
+    ] },
     { n: 162, date: '2026-10-10', title: 'On y voit clair 🔆', items: [
       ['🐛', "iPhone : en défilant, le fond bleu marine réapparaissait derrière le texte sombre (page du match, listes). Le fond clair suit maintenant toute la page."],
       ['🔆', "Mode sombre : les textes gris (étiquettes, aides, « pas dispo ») sont plus clairs."],

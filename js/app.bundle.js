@@ -3734,7 +3734,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.03';
+  const VERSION = '3.04';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16823,6 +16823,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 163, date: '2026-10-10', title: 'Des blocs de 30 mètres 📏', items: [
+      ['📏', "Compo : chaque bloc fait maintenant 30 m de profondeur entre la défense et les attaquants (bas : 20 → 48 m ; médian : 30 → 58 m ; haut : 42 → 70 m ; très haut : 52 → 82 m), les lignes gardent leurs écarts."],
+    ] },
     { n: 162, date: '2026-10-10', title: 'On y voit clair 🔆', items: [
       ['🐛', "iPhone : en défilant, le fond bleu marine réapparaissait derrière le texte sombre (page du match, listes). Le fond clair suit maintenant toute la page."],
       ['🔆', "Mode sombre : les textes gris (étiquettes, aides, « pas dispo ») sont plus clairs."],
@@ -20646,7 +20649,8 @@ var Views = (() => {
   // the defensive line, the forwards' pressing line, the goalkeeper. Bloc bas: the team in its last 30-35 m, the line near the box.
   // Bloc médian: between the box and the halfway line, the forwards press at the halfway line. Bloc haut: the line near the halfway
   // line, the forwards press at the far edge of the centre circle (about 62 m). Sources: entrainement-foot.fr, footballcoachvideo.com, helloasso.com (bloc bas).
-  const BLOCS = [['tbas', 'Très bas', 14, 40, 4], ['bas', 'Bas', 22, 45, 5], ['median', 'Médian', 32, 52.5, 7], ['haut', 'Haut', 45, 62, 15], ['thaut', 'Très haut', 52.5, 70, 21]];
+  // (3.04) a block is 30 m deep from the defensive line to the forwards (bloc bas: the last 30-35 m); the forwards press 28-30 m ahead of the defence
+  const BLOCS = [['tbas', 'Très bas', 12, 40, 4], ['bas', 'Bas', 20, 48, 5], ['median', 'Médian', 30, 58, 8], ['haut', 'Haut', 42, 70, 16], ['thaut', 'Très haut', 52, 82, 22]];
   const blocDef = k => BLOCS.find(b => b[0] === k) || null;
   // the depth of every outfield player, from the drawing (« comme dessiné ») to a block: the lines are spread between the defensive line and the forwards' line
   function blocApply(sc, st, key) {
@@ -21701,7 +21705,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 204, UPD = AppCfg.key('update-tried');
+  const BUILD = 205, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

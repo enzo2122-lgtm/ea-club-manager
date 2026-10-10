@@ -937,7 +937,8 @@ const Views = (() => {
   // the defensive line, the forwards' pressing line, the goalkeeper. Bloc bas: the team in its last 30-35 m, the line near the box.
   // Bloc médian: between the box and the halfway line, the forwards press at the halfway line. Bloc haut: the line near the halfway
   // line, the forwards press at the far edge of the centre circle (about 62 m). Sources: entrainement-foot.fr, footballcoachvideo.com, helloasso.com (bloc bas).
-  const BLOCS = [['tbas', 'Très bas', 14, 40, 4], ['bas', 'Bas', 22, 45, 5], ['median', 'Médian', 32, 52.5, 7], ['haut', 'Haut', 45, 62, 15], ['thaut', 'Très haut', 52.5, 70, 21]];
+  // (3.04) a block is 30 m deep from the defensive line to the forwards (bloc bas: the last 30-35 m); the forwards press 28-30 m ahead of the defence
+  const BLOCS = [['tbas', 'Très bas', 12, 40, 4], ['bas', 'Bas', 20, 48, 5], ['median', 'Médian', 30, 58, 8], ['haut', 'Haut', 42, 70, 16], ['thaut', 'Très haut', 52, 82, 22]];
   const blocDef = k => BLOCS.find(b => b[0] === k) || null;
   // the depth of every outfield player, from the drawing (« comme dessiné ») to a block: the lines are spread between the defensive line and the forwards' line
   function blocApply(sc, st, key) {
