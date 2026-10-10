@@ -812,6 +812,9 @@ const Views = (() => {
       } }] });
   }
   /* ---------- convocation to send on WhatsApp (to the parents' group) ---------- */
+  // (3.12) adult teams (Seniors, Vétérans, Loisirs…): the message goes to the players themselves, not to the parents
+  const PARENT_ASK = 'Merci de confirmer la présence de votre enfant en répondant à ce message.';
+  const adultTeam = t => !!t && /senior|v[ée]t[ée]ran|veteran|loisir|\+\s?\d{2}|foot\s?entreprise/i.test(`${t.name || ''} ${t.category || ''}`);
   function convocationText(m) {
     const t = teamOf(m.teamId), conv = (t ? Store.rosterOf(t.id) : []).filter(p => (m.convoked || []).includes(p.id)), club = S().club.name || 'Le club';
     const hh = x => String(x || '').replace(':', 'h'), me = Auth.current();
@@ -820,7 +823,7 @@ const Views = (() => {
       m.place || m.home ? `📍 ${m.place || S().club.fieldName || 'Stade du club'}` : '',
       m.rdv || m.time ? `🕘 ${m.rdv ? 'Rendez-vous ' + hh(m.rdv) : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? 'coup d\'envoi ' + hh(m.time) : ''}` : '🕘 Horaire à confirmer', '',
       `*Joueurs convoqués (${conv.length}) :*`, ...conv.map((p, i) => `${i + 1}. ${p.firstName || ''} ${p.lastName || ''}`.trim()), '',
-      '🎒 Prévoir : tenue du club, protège-tibias, gourde.', 'Merci de confirmer la présence de votre enfant en répondant à ce message.',
+      '🎒 Prévoir : tenue du club, protège-tibias, gourde.', adultTeam(t) ? '' : PARENT_ASK,
       me ? `${Messages.coachName(me)}` : ''].filter((l, i, a) => l !== '' || (a[i - 1] !== '' && i > 0)).join('\n').replace(/\n+$/, '');
   }
   function sendConvocation(m) {
@@ -832,7 +835,7 @@ const Views = (() => {
         lb.disabled = true;
         try {
           const t = Store.get('teams', m.teamId), url = Codes.catUrl(Parents.familyName ? Parents.familyName(m.teamId) : (t || {}).name || ''), ta = $('#convTxt', r); // the category's page: each family types its personal code
-          ta.value = ta.value.replace('Merci de confirmer la présence de votre enfant en répondant à ce message.', `👉 Répondez présent ou absent pour votre enfant ici (avec son code personnel) : ${url}`);
+          ta.value = ta.value.replace(PARENT_ASK, `👉 Répondez présent ou absent pour votre enfant ici (avec son code personnel) : ${url}`);
           if (!ta.value.includes(url)) ta.value += `\n👉 Présent ou absent : ${url}`;
           lb.hidden = true; toast('Lien ajouté au message');
         } catch (e) { lb.disabled = false; toast(e.code === 'MISE_A_JOUR' ? 'Le serveur doit être mis à jour par le responsable (Réglages → Serveur du club)' : e.message, 'err'); }
