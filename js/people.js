@@ -233,6 +233,10 @@ const People = (() => {
         { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           const v = id => $('#' + id, r).value.trim();
           if (!v('sLast') && !v('sFirst')) { toast('Écris au moins le nom ou le prénom', 'err'); return false; }
+          // (3.16) the same dirigeant twice: his card is opened instead of making a second one
+          const nk = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+          const twin = isNew && Store.state.staff.find(x => x.id !== p.id && nk(x.lastName) === nk(v('sLast')) && nk(x.firstName) === nk(v('sFirst')));
+          if (twin) { toast(`${name(twin)} est déjà dans les dirigeants : voici sa fiche`); setTimeout(() => editStaff(twin, opts), 350); return; }
           Object.assign(p, { lastName: v('sLast').toUpperCase(), firstName: v('sFirst'), role: v('sRole'), club: v('sClub'), motto: v('sMotto').replace(/\s+/g, ' '), email: v('sMail'), notes: $('#sNotes', r).value });
           if ($('#sTel', r)) { p.phone = v('sTel'); p.phoneShow = v('sShow') || 'club'; }
           if ($('#sAccess', r)) { if (v('sAccess')) p.access = v('sAccess'); else delete p.access; }

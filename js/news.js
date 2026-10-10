@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 175, date: '2026-10-10', title: 'Un dirigeant, une fiche 🧢', items: [
+      ['🐛', "Ajouter un dirigeant qui existe déjà (même nom, même prénom) ouvre sa fiche au lieu d'en créer une deuxième."],
+    ] },
     { n: 174, date: '2026-10-10', title: 'Ta page, ton style ⚽', items: [
       ['🎨', "Ma page (Réglages, ou « Moi » dans l'espace joueur / parents) : 4 thèmes, Le club, Le stade, La pelouse, Les filets. Ton poste choisit le thème qui lui va, et les couleurs de ton club de cœur colorent ta page. Pour toi seulement."],
       ['🔤', "Nouvelle police pour les titres, des terrains, filets et tribunes dans les bandeaux, un ballon quand une liste est vide."],
