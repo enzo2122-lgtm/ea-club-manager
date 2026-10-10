@@ -367,9 +367,9 @@ const Analyse = (() => {
     });
     const urlOf = rec => urls[rec.id] || (urls[rec.id] = URL.createObjectURL(rec.blob));
     const drop = () => { cancelAnimationFrame(raf); if (v) { v.ontimeupdate = v.onended = null; v.pause(); if (v.destroy) v.destroy(); } v = null; };
-    const end = () => { stop = true; clearTimeout(timer); drop(); vid.removeAttribute('src'); vid.load(); Object.values(urls).forEach(u => URL.revokeObjectURL(u)); ov.remove(); document.removeEventListener('keydown', key); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
+    const end = () => { stop = true; clearTimeout(timer); drop(); vid.removeAttribute('src'); vid.load(); Object.values(urls).forEach(u => URL.revokeObjectURL(u)); ov.remove(); document.removeEventListener('keydown', key); window.removeEventListener('hashchange', end); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
     const key = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight') go(i + 1); if (e.key === 'ArrowLeft') go(i - 1); if (e.key === ' ') { e.preventDefault(); if (v) v.paused ? v.play() : v.pause(); } };
-    document.addEventListener('keydown', key);
+    document.addEventListener('keydown', key); window.addEventListener('hashchange', end); // the back gesture closes the briefing (its video and timers)
     try { const d = document.documentElement, p = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (p && p.catch) p.catch(() => {}); } catch (e) {}
     function go(n) {
       if (stop) return; clearTimeout(timer); drop();

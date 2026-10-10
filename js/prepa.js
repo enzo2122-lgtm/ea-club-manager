@@ -330,7 +330,8 @@ const Prepa = (() => {
     ].filter(Boolean);
     const ov = document.createElement('div'); ov.className = 'pp-show'; document.body.appendChild(ov);
     const t0 = Date.now(), target = +(t.minutes || 8) * 60; let i = 0, iv = null;
-    const end = () => { clearInterval(iv); ov.remove(); document.removeEventListener('keydown', key); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
+    // (leaving the page by the back gesture closes the talk too: otherwise it stayed in the page with its clock running)
+    const end = () => { clearInterval(iv); ov.remove(); document.removeEventListener('keydown', key); window.removeEventListener('hashchange', end); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
     const go = n => { i = Math.max(0, Math.min(slides.length - 1, n));
       ov.innerHTML = `<div class="pp-slide">${slides[i]}</div>
         <div class="pp-bar"><button class="icon-btn" data-pp="prev" aria-label="Précédent" ${i ? '' : 'disabled'}>${I.back}</button><span class="pp-dots">${slides.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</span>
@@ -338,7 +339,7 @@ const Prepa = (() => {
     // the time of the talk: green, orange near the aimed length, red beyond
     const clock = () => { const el = ov.querySelector('#ppClock'); if (!el) return; const s = Math.round((Date.now() - t0) / 1000); el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${target / 60} min`; el.className = 'pp-clock ' + (s > target ? 'late' : s > target * .8 ? 'soon' : ''); };
     const key = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(i + 1); } if (e.key === 'ArrowLeft') go(i - 1); };
-    document.addEventListener('keydown', key);
+    document.addEventListener('keydown', key); window.addEventListener('hashchange', end);
     let sx = null; ov.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
     ov.addEventListener('touchend', e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1)); });
     ov.onclick = e => { const b = e.target.closest('[data-pp]'); if (!b) return; const x = b.dataset.pp;

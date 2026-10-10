@@ -164,13 +164,14 @@ const CRAWL = `
   const withId = { equipe: team, joueur: pl, entrainement: tr, match: up, prepa: up, direct: up, jourj: up, codes: team, progression: pl, tests: team, bilan: team };
   let rs = ['', ...routes, ...Object.entries(withId).filter(([, o]) => o).map(([r, o]) => r + '/' + o.id), ...(played ? ['match/' + played.id] : [])];
   const ALL = window.__crawlAll, STEPS = ['semaine', 'adversaire', 'plan', 'causerie', 'jourj', 'mitemps', 'apres'];
-  if (ALL) rs = [...rs, ...S.matches.flatMap(m => ['match/' + m.id, 'jourj/' + m.id, 'direct/' + m.id, ...STEPS.map(s => 'prepa/' + m.id + '/' + s)]),
+  const today = new Date().toISOString().slice(0, 10), hot = new Set(S.matches.filter(m => m.prep || m.lineupId || (m.date || '') >= today).map(m => m.id));
+  if (ALL) rs = [...rs, ...S.matches.flatMap(m => ['match/' + m.id, 'jourj/' + m.id, 'direct/' + m.id, ...(hot.has(m.id) ? STEPS.map(s => 'prepa/' + m.id + '/' + s) : ['prepa/' + m.id])]),
     ...S.teams.flatMap(t => ['equipe/' + t.id, 'codes/' + t.id, 'tests/' + t.id, 'bilan/' + t.id]), ...S.trainings.map(t => 'entrainement/' + t.id),
     ...S.players.flatMap(p => ['joueur/' + p.id, 'progression/' + p.id])];
-  const MAXC = r => !ALL ? 25 : /^(match|prepa|jourj|equipe)[/]/.test(r) ? 12 : 4;
+  const MAXC = r => !ALL ? 25 : /^(joueur|progression)[/]/.test(r) ? 0 : /^(match|prepa|jourj|equipe)[/]/.test(r) && (r.startsWith('equipe') || hot.has(r.split('/')[1])) ? 12 : 2;
   HTMLAnchorElement.prototype.click = function () {}; window.open = () => null; window.print = () => {};
   const d = document, modalOpen = () => { const m = d.getElementById('modal'); return m && !m.hidden; };
-  const closeAll = async () => { for (let k = 0; k < 4 && modalOpen(); k++) { const x = d.querySelector('#modal .x, #modal [aria-label="Fermer"], #modal [data-close]'); if (x) x.click(); else d.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(80); } const m = d.getElementById('modal'); if (m) m.hidden = true; d.querySelectorAll('.rs-back, .link-gate').forEach(x => x.remove()); };
+  const closeAll = async () => { d.querySelectorAll('.pp-show [data-pp="close"], .an-show [data-b="close"], .an-show .x').forEach(x => x.click()); for (let k = 0; k < 4 && modalOpen(); k++) { const x = d.querySelector('#modal .x, #modal [aria-label="Fermer"], #modal [data-close]'); if (x) x.click(); else d.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(80); } const m = d.getElementById('modal'); if (m) m.hidden = true; d.querySelectorAll('.rs-back, .link-gate').forEach(x => x.remove()); };
   const SKIP = /supprim|delete|trash|danger|logout|sortir|déconnect|reset|réinitial|retirer|quitter|quit|vider|effacer|forget|fichier|import|photo|vidéo|video|caméra|micro|recevoir|notif|créer mon club|demo|mettre à jour|télécharg|exporter|pdf|imprim|partag|envoyer|whatsapp|image|refaire|redo|lineupredo|dayrotate|autocomp|nophoto|archiv/i;
   const out = []; window.__crawlErrs = [];
   for (const r of rs) {

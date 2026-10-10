@@ -3855,7 +3855,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.10';
+  const VERSION = '3.11';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8523,7 +8523,8 @@ var Prepa = (() => {
     ].filter(Boolean);
     const ov = document.createElement('div'); ov.className = 'pp-show'; document.body.appendChild(ov);
     const t0 = Date.now(), target = +(t.minutes || 8) * 60; let i = 0, iv = null;
-    const end = () => { clearInterval(iv); ov.remove(); document.removeEventListener('keydown', key); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
+    // (leaving the page by the back gesture closes the talk too: otherwise it stayed in the page with its clock running)
+    const end = () => { clearInterval(iv); ov.remove(); document.removeEventListener('keydown', key); window.removeEventListener('hashchange', end); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
     const go = n => { i = Math.max(0, Math.min(slides.length - 1, n));
       ov.innerHTML = `<div class="pp-slide">${slides[i]}</div>
         <div class="pp-bar"><button class="icon-btn" data-pp="prev" aria-label="Précédent" ${i ? '' : 'disabled'}>${I.back}</button><span class="pp-dots">${slides.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</span>
@@ -8531,7 +8532,7 @@ var Prepa = (() => {
     // the time of the talk: green, orange near the aimed length, red beyond
     const clock = () => { const el = ov.querySelector('#ppClock'); if (!el) return; const s = Math.round((Date.now() - t0) / 1000); el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${target / 60} min`; el.className = 'pp-clock ' + (s > target ? 'late' : s > target * .8 ? 'soon' : ''); };
     const key = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(i + 1); } if (e.key === 'ArrowLeft') go(i - 1); };
-    document.addEventListener('keydown', key);
+    document.addEventListener('keydown', key); window.addEventListener('hashchange', end);
     let sx = null; ov.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
     ov.addEventListener('touchend', e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1)); });
     ov.onclick = e => { const b = e.target.closest('[data-pp]'); if (!b) return; const x = b.dataset.pp;
@@ -14936,9 +14937,9 @@ var Analyse = (() => {
     });
     const urlOf = rec => urls[rec.id] || (urls[rec.id] = URL.createObjectURL(rec.blob));
     const drop = () => { cancelAnimationFrame(raf); if (v) { v.ontimeupdate = v.onended = null; v.pause(); if (v.destroy) v.destroy(); } v = null; };
-    const end = () => { stop = true; clearTimeout(timer); drop(); vid.removeAttribute('src'); vid.load(); Object.values(urls).forEach(u => URL.revokeObjectURL(u)); ov.remove(); document.removeEventListener('keydown', key); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
+    const end = () => { stop = true; clearTimeout(timer); drop(); vid.removeAttribute('src'); vid.load(); Object.values(urls).forEach(u => URL.revokeObjectURL(u)); ov.remove(); document.removeEventListener('keydown', key); window.removeEventListener('hashchange', end); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
     const key = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight') go(i + 1); if (e.key === 'ArrowLeft') go(i - 1); if (e.key === ' ') { e.preventDefault(); if (v) v.paused ? v.play() : v.pause(); } };
-    document.addEventListener('keydown', key);
+    document.addEventListener('keydown', key); window.addEventListener('hashchange', end); // the back gesture closes the briefing (its video and timers)
     try { const d = document.documentElement, p = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (p && p.catch) p.catch(() => {}); } catch (e) {}
     function go(n) {
       if (stop) return; clearTimeout(timer); drop();
@@ -16967,6 +16968,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 170, date: '2026-10-10', title: 'La causerie sait partir 🚪', items: [
+      ['🐛', "Causerie plein écran et briefing vidéo : quitter la page par le geste retour les laissait tourner en cachette (chrono compris), et l'appli ralentissait. Ils se ferment maintenant avec la page."],
+    ] },
     { n: 169, date: '2026-10-10', title: 'Une feuille bien rangée 🔢', items: [
       ['🐛', "PDF de la préparation : les titulaires sont rangés par numéro (1, 2, 3…), comme les remplaçants. Et tous les postes sont écrits en entier : « Latéral droit » au lieu de « DD », « Avant-centre » au lieu de « AV »."],
     ] },
@@ -21904,7 +21908,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 211, UPD = AppCfg.key('update-tried');
+  const BUILD = 212, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

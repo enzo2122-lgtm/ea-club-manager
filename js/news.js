@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 170, date: '2026-10-10', title: 'La causerie sait partir 🚪', items: [
+      ['🐛', "Causerie plein écran et briefing vidéo : quitter la page par le geste retour les laissait tourner en cachette (chrono compris), et l'appli ralentissait. Ils se ferment maintenant avec la page."],
+    ] },
     { n: 169, date: '2026-10-10', title: 'Une feuille bien rangée 🔢', items: [
       ['🐛', "PDF de la préparation : les titulaires sont rangés par numéro (1, 2, 3…), comme les remplaçants. Et tous les postes sont écrits en entier : « Latéral droit » au lieu de « DD », « Avant-centre » au lieu de « AV »."],
     ] },
