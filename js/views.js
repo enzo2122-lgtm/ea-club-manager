@@ -593,8 +593,9 @@ const Views = (() => {
         </section>
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
-        <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
-        <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
+        <div class="ex-list" data-exlist="1">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice, ou laisse l\'appli en proposer.</p>'}</div>
+        ${tr.exercises.length > 1 ? '<p class="muted small">Glisse le numéro d\'un exercice pour changer l\'ordre.</p>' : ''}
+        <div class="chips">${!tr.exercises.length ? `<button class="btn primary" data-act="propose">✨<span>Proposer une séance</span></button>` : ''}<button class="btn ${tr.exercises.length ? 'primary' : ''}" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(tr.teamId, tr.staffIds)}</div>
         ${tm ? `<div class="row-head"><h2 class="section" id="presH">Présents (${(tr.presents || []).length}/${squad(tm.id).length})${(tr.late || []).length ? ` · ⏰ ${tr.late.length} en retard` : ''}</h2>
           <div class="chips"><button class="btn soft" data-allpres="1">${I.check}<span>Tous présents</span></button><button class="btn soft" data-allpres="0">${I.x}<span>Personne</span></button></div></div>
@@ -616,6 +617,24 @@ const Views = (() => {
       Parents.mountTraining($('#trAnsBox', root), tr, ids => { tr.presents = [...new Set([...(tr.presents || []), ...ids])]; save(); render(); toast('Présents annoncés cochés'); });
       EvFeed.mount($('#evFeed', root), tr.id);
     };
+    // (2.97) the number of an exercise is a handle: dragged up or down, the exercise changes place
+    (() => {
+      let d = null;
+      root.onpointerdown = e => { const h = e.target.closest('.ex-num'); const card = h && h.closest('[data-ex]'); if (!card || e.button) return; d = { card, y0: e.clientY, moving: false }; };
+      root.onpointermove = e => {
+        if (!d) return;
+        if (!d.moving) { if (Math.abs(e.clientY - d.y0) < 8) return; d.moving = true; d.card.classList.add('ex-drag'); try { d.card.setPointerCapture(e.pointerId); } catch (x) {} }
+        e.preventDefault();
+        const cards = [...root.querySelectorAll('[data-exlist] > [data-ex]')], over = cards.find(c => c !== d.card && e.clientY > c.getBoundingClientRect().top && e.clientY < c.getBoundingClientRect().bottom);
+        if (over) { const r = over.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) over.before(d.card); else over.after(d.card); }
+      };
+      root.onpointerup = root.onpointercancel = e => {
+        if (!d) return; const was = d; d = null; if (!was.moving) return;
+        was.card.classList.remove('ex-drag'); try { was.card.releasePointerCapture(e.pointerId); } catch (x) {}
+        const order = [...root.querySelectorAll('[data-exlist] > [data-ex]')].map(c => c.dataset.ex), byId = Object.fromEntries(tr.exercises.map(x => [x.id, x]));
+        const next = order.map(id => byId[id]).filter(Boolean); if (next.length === tr.exercises.length) { tr.exercises = next; save(); toast('Ordre changé'); render(); }
+      };
+    })();
     const renderModel = total => {
       root.innerHTML = `${header(`<input class="h1-input" id="trTitle" value="${esc(tr.title)}" aria-label="Thème">`, `📚 Séance type du club · ${total} min`,
         `<a class="btn" href="#/entrainements">${I.back}<span>Séances</span></a><button class="btn" data-act="pdf">${I.pdf}<span>PDF</span></button><button class="btn primary" data-act="use">${I.plus}<span>Utiliser pour une séance</span></button>`)}
@@ -712,6 +731,7 @@ const Views = (() => {
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'share': return shareTraining(tr);
+        case 'propose': return Exos.generator({ target: tr.id, teamId: tr.teamId, date: tr.date });
         case 'img': return trainingImage(tr);
         case 'dup': return copyTraining(tr, 'dup');
         case 'use': return copyTraining(tr, 'use');

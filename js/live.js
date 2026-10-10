@@ -141,9 +141,13 @@ const Live = (() => {
     return k < N ? `<button class="btn lv-big" data-lv="brk">⏸ ${N === 2 ? 'Mi-temps' : `Fin ${masc() ? 'du' : 'de la'} ${nth(k)} ${SP().periodWord}`}</button><button class="linkish" data-lv="end">Fin du match</button>`
       : `<button class="btn lv-big" data-lv="end">🏁 Fin du match</button><button class="linkish" data-lv="brk">Prolongation</button>`;
   }
+  let subOut = null; // (2.97) the player touched as going out, waiting for the one who comes in
   function page(root, id) {
     const m = Store.get('matches', id); if (!m) { location.hash = '#/matchs'; return; }
     const l = L(m), all = players(m), save = () => { m.editedBy = (Auth.current() || {}).id; Store.upsert('matches', m); };
+    // (2.97) the starters come from the composition of the match (the players placed on the drawing), unless chosen here already
+    const lineup = m.lineupId && Store.get('schemas', m.lineupId);
+    if (l.status === 'pre' && !l.starters.length && lineup) { const st = (lineup.steps || [])[0] || { pos: {} }, ids = new Set(all.map(p => p.id)); l.starters = lineup.objects.filter(o => o.type === 'player' && !o.bench && o.playerId && st.pos[o.id] && ids.has(o.playerId)).map(o => o.playerId); if (l.starters.length) save(); }
     const us = (Store.get('teams', m.teamId) || {}).name || S().club.name, live = playing(l.status);
     const on = onField(l), bench = all.filter(p => !on.has(p.id)), [a, b] = score(l), evs = EVS();
     const [plabel, ptime] = clock(l);
@@ -155,6 +159,7 @@ const Live = (() => {
         <div class="lv-clock"><span id="lvLabel">${plabel}</span><b id="lvTime">${ptime}</b></div>
         <div class="lv-ctl">${controls(l)}</div>
       </section>
+      ${l.status === 'pre' && lineup ? `<section class="card lv-compo"><img alt="" src="${UI.thumb(lineup)}"><p class="muted small">La compo du match : les titulaires ci-dessous en viennent. <a href="#/match/${m.id}">La changer</a></p></section>` : ''}
       ${l.status === 'pre' ? `<section class="card"><div class="row-head"><h2>Les titulaires</h2><b class="lv-count ${l.starters.length === size(m) ? 'ok' : ''}">${l.starters.length} / ${size(m)}</b></div>
         ${all.length ? `<div class="chips lv-pick">${all.map(p => `<button class="chip ${l.starters.includes(p.id) ? 'on' : ''}" data-start="${p.id}">${esc(pname(p.id))}</button>`).join('')}</div>`
           : `<p class="muted">Coche d'abord les convoqués sur la page du match.</p>`}
@@ -164,8 +169,8 @@ const Live = (() => {
       ${Cloud.ready() && l.status !== 'end' ? `<div class="lv-share"><button class="btn soft" data-lvshare>📲 Saisie partagée${l.share ? ' · ' + esc(l.share) : ''}</button><span class="muted small">${l.share ? 'Les actions de l\'aide arrivent toutes seules ici' : 'Un adjoint ou un parent note le match depuis son téléphone'}</span></div>` : ''}
       ${Sport.isFoot() && l.status !== 'pre' ? possHtml(l) : ''}
       ${Sport.isFoot() && (l.status === 'end' || pause(l.status)) ? tabHtml(m, l) : ''}
-      ${l.status !== 'pre' ? `<div class="lv-field"><div><h3>Sur le terrain (${on.size})</h3><p>${[...on].map(id => `<span>${esc(pname(id))}</span>`).join('') || '<span class="muted">—</span>'}</p></div>
-        <div><h3>Remplaçants (${bench.length})</h3><p>${bench.map(p => `<span>${esc(pname(p.id))}</span>`).join('') || '<span class="muted">—</span>'}</p></div></div>` : ''}
+      ${l.status !== 'pre' ? `<div class="lv-field ${subOut ? 'picking' : ''}"><div><h3>Sur le terrain (${on.size}) <span class="muted">· touche qui sort</span></h3><p>${[...on].map(id => `<button type="button" class="lv-who ${subOut === id ? 'on' : ''}" data-subout="${id}" ${l.status === 'end' ? 'disabled' : ''}>${esc(pname(id))}</button>`).join('') || '<span class="muted">—</span>'}</p></div>
+        <div><h3>Remplaçants (${bench.length}) ${subOut ? '<b class="ans-no">· puis qui entre</b>' : ''}</h3><p>${bench.map(p => `<button type="button" class="lv-who in" data-subin="${p.id}" ${l.status === 'end' ? 'disabled' : ''}>${esc(pname(p.id))}</button>`).join('') || '<span class="muted">—</span>'}</p></div></div>` : ''}
       <h2 class="section">Le fil du match</h2>
       <div class="lv-feed">${l.events.slice().sort((x, y) => y.wall - x.wall).map(e => `<div class="lv-ev" style="--c:${EV[e.type][2]}"><b>${e.min}</b><span>${EV[e.type][0]} ${esc(desc(e))}${e.by ? ` <i class="muted small">📲 ${esc(e.by)}</i>` : ''}</span>
         <button class="icon-btn" data-edit="${e.id}" aria-label="Modifier">${I.edit}</button><button class="icon-btn danger" data-del="${e.id}" aria-label="Supprimer">${I.trash}</button></div>`).join('') || '<p class="muted">Rien pour l\'instant.</p>'}</div>
@@ -183,6 +188,8 @@ const Live = (() => {
     const hs = $('#lvHalf', root); if (hs) hs.onchange = () => { l.halfLen = +hs.value; save(); };
     root.onclick = async e => {
       const btn = e.target.closest('button'); if (!btn) return;
+      if (btn.dataset.subout) { subOut = subOut === btn.dataset.subout ? null : btn.dataset.subout; if (subOut) toast('Qui entre à sa place ? Touche un remplaçant'); return redraw(); }
+      if (btn.dataset.subin) { if (!subOut) { toast('Touche d\'abord le joueur qui sort', 'err'); return; } const now = Date.now(), ev = { id: Store.uid(), type: 'sub', wall: now, min: minuteOf(l, now), period: periodAt(l, now) || 1, out: subOut, in: btn.dataset.subin }; subOut = null; l.events.push(ev); write(m); save(); toast(`⇄ ${pname(ev.out)} ➜ ${pname(ev.in)} · ${ev.min}`); return redraw(); }
       if (btn.dataset.start) { const x = btn.dataset.start; l.starters = l.starters.includes(x) ? l.starters.filter(y => y !== x) : [...l.starters, x]; save(); return redraw(); }
       if (btn.dataset.poss) { possSet(l, btn.dataset.poss); save(); return redraw(); }
       if (btn.hasAttribute('data-lvshare')) return shareDialog(m, save, redraw);

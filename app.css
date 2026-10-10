@@ -2373,3 +2373,11 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 .wk-row .btn.small { min-height: 34px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
 @media (max-width: 480px) { .wk-row { grid-template-columns: 78px minmax(0, 1fr) auto; } .wk-row .wk-d { font-size: 13px; } }
 .lu-hist { margin-top: 12px; }
+
+/* (2.97) the exercises dragged by their number; the live substitution in two taps */
+.ex .ex-num { cursor: grab; touch-action: none; }
+.ex.ex-drag { opacity: .75; box-shadow: 0 10px 30px rgba(0,0,0,.25); position: relative; z-index: 5; }
+.lv-compo img { display: block; width: 100%; max-width: 420px; border-radius: 12px; margin: 0 auto 6px; }
+.lv-who { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; margin: 0 6px 6px 0; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.lv-who.on { background: #fde68a; border-color: #d97706; }
+.lv-field.picking .lv-who.in { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(140,16,36,.18); }

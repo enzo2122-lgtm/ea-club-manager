@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 155, date: '2026-10-10', title: 'La séance et le direct, au pouce ✋', items: [
+      ['✋', "Séance : glisse le numéro d'un exercice pour changer l'ordre ; une séance vide propose « Proposer une séance » (thème, durée, et c'est rempli)."],
+      ['🧩', "Match en direct : les titulaires viennent de la compo du match, avec le dessin sous les yeux avant le coup d'envoi."],
+      ['⇄', "Changement en deux touches : qui sort, qui entre. Le temps de jeu de chacun se calcule tout seul."],
+    ] },
     { n: 154, date: '2026-10-10', title: 'Ma semaine, mes compos 🗓️', items: [
       ['🗓️', "Accueil : « Ma semaine », une ligne par jour avec quelque chose à faire (convoquer, envoyer, compo, préparer la séance) et le bouton au bout."],
       ['🖼️', "Compo : « Image WhatsApp » fabrique l'affiche de la compo (terrain, titulaires par poste, remplaçants) à poster la veille."],

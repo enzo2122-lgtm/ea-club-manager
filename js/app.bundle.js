@@ -3731,7 +3731,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.96';
+  const VERSION = '2.97';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8679,9 +8679,13 @@ var Live = (() => {
     return k < N ? `<button class="btn lv-big" data-lv="brk">⏸ ${N === 2 ? 'Mi-temps' : `Fin ${masc() ? 'du' : 'de la'} ${nth(k)} ${SP().periodWord}`}</button><button class="linkish" data-lv="end">Fin du match</button>`
       : `<button class="btn lv-big" data-lv="end">🏁 Fin du match</button><button class="linkish" data-lv="brk">Prolongation</button>`;
   }
+  let subOut = null; // (2.97) the player touched as going out, waiting for the one who comes in
   function page(root, id) {
     const m = Store.get('matches', id); if (!m) { location.hash = '#/matchs'; return; }
     const l = L(m), all = players(m), save = () => { m.editedBy = (Auth.current() || {}).id; Store.upsert('matches', m); };
+    // (2.97) the starters come from the composition of the match (the players placed on the drawing), unless chosen here already
+    const lineup = m.lineupId && Store.get('schemas', m.lineupId);
+    if (l.status === 'pre' && !l.starters.length && lineup) { const st = (lineup.steps || [])[0] || { pos: {} }, ids = new Set(all.map(p => p.id)); l.starters = lineup.objects.filter(o => o.type === 'player' && !o.bench && o.playerId && st.pos[o.id] && ids.has(o.playerId)).map(o => o.playerId); if (l.starters.length) save(); }
     const us = (Store.get('teams', m.teamId) || {}).name || S().club.name, live = playing(l.status);
     const on = onField(l), bench = all.filter(p => !on.has(p.id)), [a, b] = score(l), evs = EVS();
     const [plabel, ptime] = clock(l);
@@ -8693,6 +8697,7 @@ var Live = (() => {
         <div class="lv-clock"><span id="lvLabel">${plabel}</span><b id="lvTime">${ptime}</b></div>
         <div class="lv-ctl">${controls(l)}</div>
       </section>
+      ${l.status === 'pre' && lineup ? `<section class="card lv-compo"><img alt="" src="${UI.thumb(lineup)}"><p class="muted small">La compo du match : les titulaires ci-dessous en viennent. <a href="#/match/${m.id}">La changer</a></p></section>` : ''}
       ${l.status === 'pre' ? `<section class="card"><div class="row-head"><h2>Les titulaires</h2><b class="lv-count ${l.starters.length === size(m) ? 'ok' : ''}">${l.starters.length} / ${size(m)}</b></div>
         ${all.length ? `<div class="chips lv-pick">${all.map(p => `<button class="chip ${l.starters.includes(p.id) ? 'on' : ''}" data-start="${p.id}">${esc(pname(p.id))}</button>`).join('')}</div>`
           : `<p class="muted">Coche d'abord les convoqués sur la page du match.</p>`}
@@ -8702,8 +8707,8 @@ var Live = (() => {
       ${Cloud.ready() && l.status !== 'end' ? `<div class="lv-share"><button class="btn soft" data-lvshare>📲 Saisie partagée${l.share ? ' · ' + esc(l.share) : ''}</button><span class="muted small">${l.share ? 'Les actions de l\'aide arrivent toutes seules ici' : 'Un adjoint ou un parent note le match depuis son téléphone'}</span></div>` : ''}
       ${Sport.isFoot() && l.status !== 'pre' ? possHtml(l) : ''}
       ${Sport.isFoot() && (l.status === 'end' || pause(l.status)) ? tabHtml(m, l) : ''}
-      ${l.status !== 'pre' ? `<div class="lv-field"><div><h3>Sur le terrain (${on.size})</h3><p>${[...on].map(id => `<span>${esc(pname(id))}</span>`).join('') || '<span class="muted">—</span>'}</p></div>
-        <div><h3>Remplaçants (${bench.length})</h3><p>${bench.map(p => `<span>${esc(pname(p.id))}</span>`).join('') || '<span class="muted">—</span>'}</p></div></div>` : ''}
+      ${l.status !== 'pre' ? `<div class="lv-field ${subOut ? 'picking' : ''}"><div><h3>Sur le terrain (${on.size}) <span class="muted">· touche qui sort</span></h3><p>${[...on].map(id => `<button type="button" class="lv-who ${subOut === id ? 'on' : ''}" data-subout="${id}" ${l.status === 'end' ? 'disabled' : ''}>${esc(pname(id))}</button>`).join('') || '<span class="muted">—</span>'}</p></div>
+        <div><h3>Remplaçants (${bench.length}) ${subOut ? '<b class="ans-no">· puis qui entre</b>' : ''}</h3><p>${bench.map(p => `<button type="button" class="lv-who in" data-subin="${p.id}" ${l.status === 'end' ? 'disabled' : ''}>${esc(pname(p.id))}</button>`).join('') || '<span class="muted">—</span>'}</p></div></div>` : ''}
       <h2 class="section">Le fil du match</h2>
       <div class="lv-feed">${l.events.slice().sort((x, y) => y.wall - x.wall).map(e => `<div class="lv-ev" style="--c:${EV[e.type][2]}"><b>${e.min}</b><span>${EV[e.type][0]} ${esc(desc(e))}${e.by ? ` <i class="muted small">📲 ${esc(e.by)}</i>` : ''}</span>
         <button class="icon-btn" data-edit="${e.id}" aria-label="Modifier">${I.edit}</button><button class="icon-btn danger" data-del="${e.id}" aria-label="Supprimer">${I.trash}</button></div>`).join('') || '<p class="muted">Rien pour l\'instant.</p>'}</div>
@@ -8721,6 +8726,8 @@ var Live = (() => {
     const hs = $('#lvHalf', root); if (hs) hs.onchange = () => { l.halfLen = +hs.value; save(); };
     root.onclick = async e => {
       const btn = e.target.closest('button'); if (!btn) return;
+      if (btn.dataset.subout) { subOut = subOut === btn.dataset.subout ? null : btn.dataset.subout; if (subOut) toast('Qui entre à sa place ? Touche un remplaçant'); return redraw(); }
+      if (btn.dataset.subin) { if (!subOut) { toast('Touche d\'abord le joueur qui sort', 'err'); return; } const now = Date.now(), ev = { id: Store.uid(), type: 'sub', wall: now, min: minuteOf(l, now), period: periodAt(l, now) || 1, out: subOut, in: btn.dataset.subin }; subOut = null; l.events.push(ev); write(m); save(); toast(`⇄ ${pname(ev.out)} ➜ ${pname(ev.in)} · ${ev.min}`); return redraw(); }
       if (btn.dataset.start) { const x = btn.dataset.start; l.starters = l.starters.includes(x) ? l.starters.filter(y => y !== x) : [...l.starters, x]; save(); return redraw(); }
       if (btn.dataset.poss) { possSet(l, btn.dataset.poss); save(); return redraw(); }
       if (btn.hasAttribute('data-lvshare')) return shareDialog(m, save, redraw);
@@ -16799,6 +16806,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 155, date: '2026-10-10', title: 'La séance et le direct, au pouce ✋', items: [
+      ['✋', "Séance : glisse le numéro d'un exercice pour changer l'ordre ; une séance vide propose « Proposer une séance » (thème, durée, et c'est rempli)."],
+      ['🧩', "Match en direct : les titulaires viennent de la compo du match, avec le dessin sous les yeux avant le coup d'envoi."],
+      ['⇄', "Changement en deux touches : qui sort, qui entre. Le temps de jeu de chacun se calcule tout seul."],
+    ] },
     { n: 154, date: '2026-10-10', title: 'Ma semaine, mes compos 🗓️', items: [
       ['🗓️', "Accueil : « Ma semaine », une ligne par jour avec quelque chose à faire (convoquer, envoyer, compo, préparer la séance) et le bouton au bout."],
       ['🖼️', "Compo : « Image WhatsApp » fabrique l'affiche de la compo (terrain, titulaires par poste, remplaçants) à poster la veille."],
@@ -20245,8 +20257,9 @@ var Views = (() => {
         </section>
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
-        <div class="ex-list">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice.</p>'}</div>
-        <div class="chips"><button class="btn primary" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
+        <div class="ex-list" data-exlist="1">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice, ou laisse l\'appli en proposer.</p>'}</div>
+        ${tr.exercises.length > 1 ? '<p class="muted small">Glisse le numéro d\'un exercice pour changer l\'ordre.</p>' : ''}
+        <div class="chips">${!tr.exercises.length ? `<button class="btn primary" data-act="propose">✨<span>Proposer une séance</span></button>` : ''}<button class="btn ${tr.exercises.length ? 'primary' : ''}" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
         <h2 class="section">Encadrants</h2><div class="staff-pick">${People.staffPicker(tr.teamId, tr.staffIds)}</div>
         ${tm ? `<div class="row-head"><h2 class="section" id="presH">Présents (${(tr.presents || []).length}/${squad(tm.id).length})${(tr.late || []).length ? ` · ⏰ ${tr.late.length} en retard` : ''}</h2>
           <div class="chips"><button class="btn soft" data-allpres="1">${I.check}<span>Tous présents</span></button><button class="btn soft" data-allpres="0">${I.x}<span>Personne</span></button></div></div>
@@ -20268,6 +20281,24 @@ var Views = (() => {
       Parents.mountTraining($('#trAnsBox', root), tr, ids => { tr.presents = [...new Set([...(tr.presents || []), ...ids])]; save(); render(); toast('Présents annoncés cochés'); });
       EvFeed.mount($('#evFeed', root), tr.id);
     };
+    // (2.97) the number of an exercise is a handle: dragged up or down, the exercise changes place
+    (() => {
+      let d = null;
+      root.onpointerdown = e => { const h = e.target.closest('.ex-num'); const card = h && h.closest('[data-ex]'); if (!card || e.button) return; d = { card, y0: e.clientY, moving: false }; };
+      root.onpointermove = e => {
+        if (!d) return;
+        if (!d.moving) { if (Math.abs(e.clientY - d.y0) < 8) return; d.moving = true; d.card.classList.add('ex-drag'); try { d.card.setPointerCapture(e.pointerId); } catch (x) {} }
+        e.preventDefault();
+        const cards = [...root.querySelectorAll('[data-exlist] > [data-ex]')], over = cards.find(c => c !== d.card && e.clientY > c.getBoundingClientRect().top && e.clientY < c.getBoundingClientRect().bottom);
+        if (over) { const r = over.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) over.before(d.card); else over.after(d.card); }
+      };
+      root.onpointerup = root.onpointercancel = e => {
+        if (!d) return; const was = d; d = null; if (!was.moving) return;
+        was.card.classList.remove('ex-drag'); try { was.card.releasePointerCapture(e.pointerId); } catch (x) {}
+        const order = [...root.querySelectorAll('[data-exlist] > [data-ex]')].map(c => c.dataset.ex), byId = Object.fromEntries(tr.exercises.map(x => [x.id, x]));
+        const next = order.map(id => byId[id]).filter(Boolean); if (next.length === tr.exercises.length) { tr.exercises = next; save(); toast('Ordre changé'); render(); }
+      };
+    })();
     const renderModel = total => {
       root.innerHTML = `${header(`<input class="h1-input" id="trTitle" value="${esc(tr.title)}" aria-label="Thème">`, `📚 Séance type du club · ${total} min`,
         `<a class="btn" href="#/entrainements">${I.back}<span>Séances</span></a><button class="btn" data-act="pdf">${I.pdf}<span>PDF</span></button><button class="btn primary" data-act="use">${I.plus}<span>Utiliser pour une séance</span></button>`)}
@@ -20364,6 +20395,7 @@ var Views = (() => {
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'share': return shareTraining(tr);
+        case 'propose': return Exos.generator({ target: tr.id, teamId: tr.teamId, date: tr.date });
         case 'img': return trainingImage(tr);
         case 'dup': return copyTraining(tr, 'dup');
         case 'use': return copyTraining(tr, 'use');
@@ -21525,7 +21557,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 197, UPD = AppCfg.key('update-tried');
+  const BUILD = 198, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
