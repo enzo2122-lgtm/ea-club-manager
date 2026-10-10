@@ -195,7 +195,10 @@ const Exporter = (() => {
   function Doc(club) {
     if (!window.jspdf) { loadPdf().catch(() => {}); throw new Error(navigator.onLine === false ? 'Pas de connexion : le PDF a besoin d\'internet la première fois.' : 'Le PDF se prépare : réessaie dans 2 secondes.'); }
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    // (2.99) A4 by default; A3 when chosen in Réglages → Impression: the same layout, enlarged exactly (A3 = A4 × √2), so it stays readable from the bench
+    const a3 = (Store.state.ui || {}).pdfFormat === 'a3', k = a3 ? Math.SQRT2 : 1;
+    const doc = new jsPDF({ unit: 'mm', format: a3 ? 'a3' : 'a4' });
+    if (a3) { doc.internal.scaleFactor *= k; const sfs = doc.setFontSize.bind(doc); doc.setFontSize = s => sfs(s * k); const gfs = doc.getFontSize.bind(doc); doc.getFontSize = () => gfs() / k; }
     const PW = 210, PH = 297, M = 14, CW = PW - 2 * M;
     const accent = [140, 16, 36];
     let y = M;

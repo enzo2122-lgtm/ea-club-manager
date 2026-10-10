@@ -1713,7 +1713,10 @@ var Exporter = (() => {
   function Doc(club) {
     if (!window.jspdf) { loadPdf().catch(() => {}); throw new Error(navigator.onLine === false ? 'Pas de connexion : le PDF a besoin d\'internet la première fois.' : 'Le PDF se prépare : réessaie dans 2 secondes.'); }
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    // (2.99) A4 by default; A3 when chosen in Réglages → Impression: the same layout, enlarged exactly (A3 = A4 × √2), so it stays readable from the bench
+    const a3 = (Store.state.ui || {}).pdfFormat === 'a3', k = a3 ? Math.SQRT2 : 1;
+    const doc = new jsPDF({ unit: 'mm', format: a3 ? 'a3' : 'a4' });
+    if (a3) { doc.internal.scaleFactor *= k; const sfs = doc.setFontSize.bind(doc); doc.setFontSize = s => sfs(s * k); const gfs = doc.getFontSize.bind(doc); doc.getFontSize = () => gfs() / k; }
     const PW = 210, PH = 297, M = 14, CW = PW - 2 * M;
     const accent = [140, 16, 36];
     let y = M;
@@ -3731,7 +3734,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.98';
+  const VERSION = '2.99';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16820,6 +16823,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 157, date: '2026-10-10', title: 'Grand format 📰', items: [
+      ['📰', "Réglages → Impression : A4 ou A3 pour tous les PDF (feuille de match, compte-rendu, préparation et causerie, séance). En A3, tout est agrandi, lisible depuis le banc."],
+    ] },
     { n: 156, date: '2026-10-10', title: 'Dernier tour de vis 🔧', items: [
       ['🐛', "Compo : changer le poste d'un joueur ne bouge plus que lui, à la place standard du poste. Les autres restent où tu les as mis."],
       ['⏱️', "Compo : les joueurs qui ont peu joué cette saison sont signalés au moment de choisir, avec leurs minutes face à la moyenne."],
@@ -21216,6 +21222,11 @@ var Views = (() => {
       ${Auth.settingsSection()}
       ${Help.settingsSection()}
       <section class="card">
+        <h2>🖨️ Impression</h2>
+        <p class="muted">Le format de tous les PDF : feuille de match, compte-rendu, préparation et causerie, séance. En A3 pour le banc et le vestiaire.</p>
+        <div class="chips">${[['a4', '📄 A4'], ['a3', '📰 A3']].map(([v, l]) => `<button class="chip ${(S().ui.pdfFormat || 'a4') === v ? 'on' : ''}" data-pdffmt="${v}">${l}</button>`).join('')}</div>
+      </section>
+      <section class="card">
         <h2>🌗 Apparence</h2>
         <p class="muted">Sur cet appareil. « Auto » suit le réglage du téléphone.</p>
         <div class="chips">${[['', 'Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([v, l]) => `<button class="chip ${(document.documentElement.dataset.theme || '') === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div>
@@ -21265,6 +21276,7 @@ var Views = (() => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.stab) { setTab = b.dataset.stab; return settings(root); }
+      if (b.dataset.pdffmt) { S().ui.pdfFormat = b.dataset.pdffmt; Store.persistNow(); toast(b.dataset.pdffmt === 'a3' ? 'Les PDF sortiront en A3' : 'Les PDF sortiront en A4'); return settings(root); }
       if (b.dataset.theme != null) { const v = b.dataset.theme; try { if (v) localStorage.setItem(AppCfg.key('theme'), v); else localStorage.removeItem(AppCfg.key('theme')); } catch (e) {} if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; return settings(root); }
       if (b.dataset.navpos) { App.setNavPos(b.dataset.navpos); return settings(root); }
       if (b.dataset.home) { c.homeBib = b.dataset.home; Store.save(); App.refreshChrome(); return settings(root); }
@@ -21636,7 +21648,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 199, UPD = AppCfg.key('update-tried');
+  const BUILD = 200, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

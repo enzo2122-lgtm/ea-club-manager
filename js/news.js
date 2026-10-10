@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 157, date: '2026-10-10', title: 'Grand format 📰', items: [
+      ['📰', "Réglages → Impression : A4 ou A3 pour tous les PDF (feuille de match, compte-rendu, préparation et causerie, séance). En A3, tout est agrandi, lisible depuis le banc."],
+    ] },
     { n: 156, date: '2026-10-10', title: 'Dernier tour de vis 🔧', items: [
       ['🐛', "Compo : changer le poste d'un joueur ne bouge plus que lui, à la place standard du poste. Les autres restent où tu les as mis."],
       ['⏱️', "Compo : les joueurs qui ont peu joué cette saison sont signalés au moment de choisir, avec leurs minutes face à la moyenne."],
