@@ -128,7 +128,7 @@ const SCENARIOS = [
       Store.state.ui.roomDay = '2025-01-06'; Store.state.ui.roomView = 'day';
       await go('#/matchs'); await go('#/vestiaires'); await wait(400);
       must(Store.state.ui.roomDay === t, 'pas ouvert sur aujourd\u2019hui : ' + Store.state.ui.roomDay);
-      await click('[data-r="vweek"]', 700); must($$('.rw-day').length === 7, 'vue semaine : ' + $$('.rw-day').length + ' jours'); must($('.rw-bk'), 'le vestiaire attribué n\u2019apparaît pas');
+      await click('[data-r="vweek"]', 700); must($$('.room-week-grid .plan-day').length === 7, 'vue semaine : ' + $$('.room-week-grid .plan-day').length + ' jours'); must($('.room-week-grid .bk[data-rbk]'), 'le vestiaire attribué n\u2019apparaît pas');
       Store.state.ui.planWeek = '2025-01-06'; await go('#/matchs'); await go('#/planning'); await wait(400);
       return 'ok · planning terrain : ' + Store.state.ui.planWeek;
     } finally { Cloud.ready = r0; Cloud.bookings = b0; Store.state.ui.roomView = 'day'; }`],
@@ -179,6 +179,8 @@ const SCENARIOS = [
     return '3 morceaux, relu à l\u2019identique';`],
   ['Ma page : thèmes, poste, couleurs du club de cœur', `
     await go('#/matchs'); await go('#/reglages'); must($('#lookCard'), 'pas de carte « Ma page » dans les réglages');
+    await wait(1500); const before = $('#lookPost'); $('#lookCard p').click(); before.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(300);
+    must(document.contains(before), 'toucher la carte (ou « Mon poste ») redessine la page : le menu se referme');
     await click('#lookCard [data-look="stade"]', 500); must(document.documentElement.dataset.look === 'stade', 'thème non appliqué : ' + document.documentElement.dataset.look);
     const sel = $('#lookPost'); sel.value = 'gk'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(500);
     must(Theme.icon() === '🧤', 'poste non gardé'); must(document.documentElement.dataset.look === 'stade', 'le poste a écrasé un thème choisi');
@@ -201,6 +203,14 @@ const SCENARIOS = [
     must(comp('ev-a1') === 'Amical' && comp('ev-a2') === 'Amical' && comp('ev-t1') === 'Tournoi', 'compétitions : ' + got.map(m => m.competition).join(','));
     await go('#/matchs'); must(/US Amie/.test(text('main')) && /FC Copains/.test(text('main')), 'amicaux absents de la liste des matchs');
     return got.map(m => m.competition).join(' / ');`],
+  ['Bibliothèque : noms lisibles, doublons, menu ⋯ visible', `
+    const mk = (id, name, t) => ({ id, ref: 'lib', kind: 'image', name, thumb: 'data:image/png;base64,iVBORw0KGgo' + t, createdAt: Date.now(), blob: new Blob(['x' + t]) });
+    await Media.put(mk('lb1', '9330b8bc-02ea-4ab3-9f00-aaaaaaaaaaaa.png', 'AAA')); await Media.put(mk('lb2', '9330b8bc-02ea-4ab3-9f00-aaaaaaaaaaaa.png', 'AAA')); await Media.put(mk('lb3', 'Atelier losange.png', 'BBB'));
+    await go('#/matchs'); await go('#/bibliotheque'); await wait(600);
+    must(!/9330b8bc/.test(text('#libGrid')), 'nom illisible encore affiché'); must(/Image du/.test(text('#libGrid')), 'pas de nom lisible');
+    const db = $('#libDups'); must(db && !db.hidden, 'doublon non repéré');
+    await go('#/equipes'); const d = $('details.more-acts'); if (d) { d.querySelector('summary').click(); await wait(300); const r = d.querySelector('.more-pop').getBoundingClientRect(); must(r.height > 20 && document.elementFromPoint(r.left + 10, r.top + 10) && d.querySelector('.more-pop').contains(document.elementFromPoint(r.left + 10, r.top + 10)), 'menu ⋯ caché'); d.removeAttribute('open'); }
+    for (const id of ['lb1', 'lb2', 'lb3']) await Media.del(id); return 'ok';`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);

@@ -16,7 +16,12 @@ h2 { font-weight: 700; }
 .tile b, .score, .pnum, .lv-score, .res-big { font-family: var(--display); font-variant-numeric: tabular-nums; }
 
 /* ---------- the head of a page (coaches) and the header (players / families) ---------- */
-.page-head, header.top { position: relative; isolation: isolate; overflow: hidden; }
+.page-head, header.top { position: relative; isolation: isolate; }
+header.top { overflow: hidden; }
+/* (3.19) the head of a page lets its « ⋯ » menu go out of it: the decoration keeps the rounded corners by itself */
+.page-head::before { border-radius: 18px 18px 0 0; }
+.page-head::after { border-radius: inherit; overflow: hidden; }
+.page-head .more-acts, .page-head .more-pop { z-index: 40; }
 .page-head { padding: 18px 20px 16px; border-radius: 18px; background: var(--head-bg, var(--surface)); color: var(--head-ink, var(--ink)); border: 1px solid var(--line); }
 .page-head h1 { font-size: clamp(32px, 4.6vw, 44px); line-height: 1; }
 .page-head .sub, .page-head h1 i { color: var(--head-muted, var(--muted)); }

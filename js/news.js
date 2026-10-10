@@ -5,6 +5,13 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 178, date: '2026-10-10', title: 'Les petits soucis réglés 🔧', items: [
+      ['🐛', "Les menus « ⋯ » s'ouvrent à nouveau (ils étaient cachés par le bandeau depuis les thèmes)."],
+      ['🐛', "Ma page : « Mon poste » s'ouvre normalement (toucher la carte la redessinait)."],
+      ['🚿', "Vestiaires, vue Semaine : comme le planning du terrain, une colonne par jour avec les heures, chaque vestiaire dans son couloir."],
+      ['📚', "Bibliothèque : des noms lisibles (« Image du 30 sept. » au lieu d'un code), les doublons retirés en un geste, les vidéos avec une vraie image au lieu d'un écran noir, l'aide repliée."],
+      ['🧢', "Dirigeants : une fiche en double (même nom, même prénom) est retirée toute seule quand un responsable ouvre les comptes."],
+    ] },
     { n: 177, date: '2026-10-10', title: 'Un accueil rangé 🧹', items: [
       ['🗓️', "L'accueil tient en un écran : une seule carte « Ma semaine », le prochain rendez-vous en premier avec son bouton, ce qui manque (exercices, convocation, compo) et le matériel à prendre sur la ligne. Les autres jours se déplient."],
       ['🔔', "Les rappels du club (sauvegarde, suivi des blessés…) sont rangés dans « À regarder », sur une ligne."],

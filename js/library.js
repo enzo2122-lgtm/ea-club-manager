@@ -564,29 +564,40 @@ const Library = (() => {
   }
 
   /* ---------- library page ---------- */
+  // (3.19) a name a person can read: « 9330b8bc-02ea-… », « IMG_4521 », « image » become « Image du 30 sept. »
+  const RAW = /^([0-9a-f]{8}-[0-9a-f]{4}-|[0-9a-f]{16,}|img[_-]?\d+|image|video|vid[_-]?\d+|photo|document|fichier|screenshot|capture)/i;
+  const niceName = m => { const n = String(m.name || '').replace(/\.[a-z0-9]{2,4}$/i, '').trim(), [lab] = KIND[m.kind] || ['Fichier'];
+    return !n || RAW.test(n) ? `${lab} du ${new Date(m.createdAt || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}` : n.replace(/[_]+/g, ' '); };
   function card(m) {
     const [lab, ic] = KIND[m.kind] || ['Fichier', 'pdf'];
     return `<button class="lib-card" data-doc="${m.id}">
       <span class="lib-thumb">${m.thumb ? `<img alt="" src="${m.thumb}">` : I[ic]}<span class="lib-badge">${lab}${m.kind === 'pdf' ? ' · ' + m.pages.length + ' p.' : ''}</span></span>
-      <span class="lib-name">${esc(m.name || 'Sans nom')}</span><span class="muted small">${esc(new Date(m.createdAt).toLocaleDateString('fr-FR'))}</span></button>`;
+      <span class="lib-name">${esc(niceName(m))}</span><span class="muted small">${esc(new Date(m.createdAt).toLocaleDateString('fr-FR'))}</span></button>`;
   }
   async function page(root) {
     const filt = S().ui.libFilter || '';
     root.innerHTML = `<header class="page-head"><div><h1>Bibliothèque</h1><p class="sub">Vidéos, montages, PDF et images venant d'autres applis</p></div>
-      <div class="head-actions"><a class="btn" href="#/schemas">${I.board}<span>Schémas</span></a><button class="btn primary" data-act="import">${I.upload}<span>Importer</span></button></div></header>
-      <section class="card how"><ul>
+      <div class="head-actions"><a class="btn" href="#/schemas">${I.board}<span>Schémas</span></a><button class="btn" id="libDups" hidden>🧹<span>Doublons</span></button><button class="btn primary" data-act="import">${I.upload}<span>Importer</span></button></div></header>
+      <details class="card how lib-how"><summary><b>💡 Ce que fait la bibliothèque</b></summary><ul>
         <li>${I.video}<span><b>Vidéo de match</b> : « Analyser le match » pour marquer les actions et en faire un briefing vidéo, ou mets sur pause et dessine sur l'image.</span></li>
         <li>${I.pdf}<span><b>PDF</b> (séance, exercice, fiche) : l'appli le lit page par page, en fait une séance ou te laisse dessiner sur une page.</span></li>
         <li>${I.image}<span><b>Image ou capture d'écran</b> : dessine dessus comme sur le tableau tactique.</span></li>
         <li>${I.share}<span><b>OneDrive, Google Drive, Dropbox</b> : « Importer » → « Fichiers », ou colle un lien de partage.</span></li>
         <li>${I.layers}<span>Joins n'importe quel fichier à un entraînement, une séance type ou un match : il apparaît sur sa page et dans son PDF.</span></li>
-        <li>${I.board}<span><b>Fiches d'exercices</b> : « Lire et créer les exercices » lit un PDF, une photo ou une capture et crée les exercices partout (Exercices du club, séance type, Schémas), partagés avec tous les coachs.</span></li></ul></section>
+        <li>${I.board}<span><b>Fiches d'exercices</b> : « Lire et créer les exercices » lit un PDF, une photo ou une capture et crée les exercices partout (Exercices du club, séance type, Schémas), partagés avec tous les coachs.</span></li></ul></details>
       ${Analyse.libraryCard()}
       <div class="chips filter">${[['', 'Tout'], ['video', 'Vidéos'], ['pdf', 'PDF'], ['image', 'Images'], ['link', 'Liens']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
       <div class="lib-grid" id="libGrid"><p class="muted">Chargement…</p></div>`;
     const grid = $('#libGrid', root);
     const fill = async () => {
-      const items = (await Media.list('lib')).filter(m => !filt || m.kind === filt).reverse();
+      const all = (await Media.list('lib')).reverse();
+      // (3.19) the same file twice (same kind, same picture, same size): one is shown, the others can be removed in one touch
+      const seen = new Map(), dups = [];
+      all.forEach(m => { const k = m.kind + '|' + (m.thumb ? m.thumb.length + ':' + m.thumb.slice(-60) : m.url || m.name) + '|' + ((m.blob && m.blob.size) || (m.pages || []).length || ''); if (seen.has(k)) dups.push(m); else seen.set(k, m); });
+      const items = all.filter(m => !dups.includes(m) && (!filt || m.kind === filt));
+      const db = $('#libDups', root); if (db) { db.hidden = !dups.length; db.querySelector('span').textContent = `Retirer ${dups.length} doublon${dups.length > 1 ? 's' : ''}`; db.onclick = async () => { if (!(await confirmBox(`Retirer ${dups.length} fichier${dups.length > 1 ? 's' : ''} en double ? Un exemplaire de chacun reste.`))) return; for (const d of dups) await Media.del(d.id); toast('Doublons retirés'); fill(); }; }
+      // the videos without a picture, or with a black one: a picture taken a little further in, once
+      all.filter(m => m.kind === 'video' && m.blob && !m.thumbRedo).forEach(m => setTimeout(async () => { const t = await Media.videoThumb(m.blob); m.thumbRedo = 1; if (t) m.thumb = t; await Media.put(m); const im = root.querySelector(`[data-doc="${m.id}"] .lib-thumb img`); if (t && im) im.src = t; else if (t) fill(); }, 300));
       // (3.14) archived: what is joined only to matches / sessions already past, and the videos older than 3 weeks joined to nothing to come
       const t0 = UI.today(), when = {}, model = new Set();
       [...S().matches, ...S().trainings].forEach(ev => (ev.docIds || []).forEach(id => { if (ev.model) model.add(id); else (when[id] = when[id] || []).push(ev.date || ''); }));

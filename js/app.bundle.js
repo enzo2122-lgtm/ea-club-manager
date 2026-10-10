@@ -199,12 +199,13 @@ var Theme = (() => {
       <label class="fld"><span>Mon poste</span><select id="lookPost">${POSTS.map(([k, l]) => `<option value="${k}" ${v.p === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
       <p class="muted small" id="lookTip">${v.p && POSTS.find(x => x[0] === v.p)[2] && POSTS.find(x => x[0] === v.p)[2] !== v.t ? `Pour ton poste, essaie « ${esc(LOOKS.find(x => x[0] === POSTS.find(y => y[0] === v.p)[2])[1])} ».` : ''}</p></section>`;
   }
+  // (3.19) only the buttons of the card count: the page itself carries data-look / data-heart
   // the card's hands (call after the card is in the page); onSaved(v) to keep it elsewhere too, redraw() to show the change
   function bind(root, onSaved, redraw) {
     const box = root.querySelector('#lookCard'); if (!box) return;
     const again = () => { if (redraw) redraw(); else { const n = document.createElement('div'); n.innerHTML = card(); box.replaceWith(n.firstElementChild); bind(root, onSaved); } };
     box.onclick = e => {
-      const l = e.target.closest('[data-look]'), h = e.target.closest('[data-heart]'); if (!l && !h) return;
+      const l = e.target.closest('.look-pick[data-look]'), h = e.target.closest('.heart[data-heart]'); if (!l && !h) return;
       const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); again();
     };
     const sel = box.querySelector('#lookPost'); if (sel) sel.onchange = () => { const v = get(), p = POSTS.find(x => x[0] === sel.value); v.p = sel.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); again(); };
@@ -223,7 +224,7 @@ var Theme = (() => {
     if (liveOn) return; liveOn = true;
     document.addEventListener('click', e => {
       const box = e.target.closest('#lookCard'); if (!box) return;
-      const l = e.target.closest('[data-look]'), h = e.target.closest('[data-heart]'); if (!l && !h) return;
+      const l = e.target.closest('.look-pick[data-look]'), h = e.target.closest('.heart[data-heart]'); if (!l && !h) return;
       const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); redraw && redraw();
     });
     document.addEventListener('change', e => { if (e.target.id !== 'lookPost') return; const v = get(), p = POSTS.find(x => x[0] === e.target.value); v.p = e.target.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); redraw && redraw(); });
@@ -2668,9 +2669,29 @@ var Auth = (() => {
     }).join('');
     return rows || '<p class="muted">Ajoute les dirigeants dans Équipes → Dirigeants.</p>';
   }
+  // (3.19) the same dirigeant several times (same name and first name): one card is kept, the one with a password, then a responsable's,
+  // then any account, then the oldest; it takes the others' phone / e-mail / role if it has none; the others and their unused accounts go
+  function dedupeStaff(acc) {
+    if (!isAdmin()) return 0;
+    const k = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, ''), by = {}, A = {}; (acc || []).forEach(a => { A[a.staff_id] = a; });
+    Store.state.staff.forEach(s => { const key = k(s.lastName) + '|' + k(s.firstName); if (key !== '|') (by[key] = by[key] || []).push(s); });
+    let n = 0;
+    Object.values(by).filter(g => g.length > 1).forEach(g => {
+      const score = s => (A[s.id] && A[s.id].has_pw ? 8 : 0) + (A[s.id] && A[s.id].admin ? 4 : 0) + (A[s.id] ? 2 : 0) + (user && s.id === user.id ? 16 : 0);
+      g.sort((a, b) => score(b) - score(a) || (a.updatedAt || 0) - (b.updatedAt || 0));
+      const keep = g[0];
+      g.slice(1).forEach(d => {
+        if (A[d.id] && A[d.id].has_pw) return; // someone uses that one: the responsable decides
+        ['phone', 'email', 'role', 'motto', 'club'].forEach(f => { if (!keep[f] && d[f]) keep[f] = d[f]; });
+        Store.remove('staff', d.id); if (A[d.id]) Cloud.accountSet({ staff_id: d.id, delete: true }).catch(() => {}); n++;
+      });
+      Store.upsert('staff', keep);
+    });
+    return n;
+  }
   async function mountSettings(root) {
     const box = root.querySelector('#accList'); if (!box || !serverMode()) return;
-    try { serverAcc = await Cloud.accounts() || []; box.innerHTML = accRows(serverAcc); }
+    try { serverAcc = await Cloud.accounts() || []; const n = dedupeStaff(serverAcc); box.innerHTML = accRows(serverAcc); if (n) toast(`${n} fiche${n > 1 ? 's' : ''} de dirigeant en double retirée${n > 1 ? 's' : ''}`); }
     catch (e) { serverAcc = null; box.innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
   }
   const accOf = id => (serverAcc || []).find(a => a.staff_id === id) || {};
@@ -2799,13 +2820,20 @@ var Media = (() => {
       return { blob, mime: UI.IMG, thumb: drawScaled(img, img.naturalWidth, img.naturalHeight, 360).toDataURL(UI.IMG, .7) };
     } finally { URL.revokeObjectURL(url); }
   }
+  // (3.19) the picture of a video: a moment a quarter of the way in (the first frames are often black), the next try if it is still dark
+  const dark = c => { try { const k = document.createElement('canvas'); k.width = 16; k.height = 9; const x = k.getContext('2d'); x.drawImage(c, 0, 0, 16, 9); const d = x.getImageData(0, 0, 16, 9).data; let t = 0; for (let i = 0; i < d.length; i += 4) t += d[i] + d[i + 1] + d[i + 2]; return t / (d.length / 4) / 3 < 22; } catch (e) { return false; } };
   async function videoThumb(file) {
     const url = URL.createObjectURL(file), v = document.createElement('video');
     v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
     try {
       await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(res, 4000); });
-      await new Promise(res => { v.onseeked = res; try { v.currentTime = Math.min(.5, (v.duration || 1) / 2); } catch (e) { res(); } setTimeout(res, 2500); });
-      return v.videoWidth ? drawScaled(v, v.videoWidth, v.videoHeight, 360).toDataURL(UI.IMG, .7) : '';
+      const dur = v.duration && isFinite(v.duration) ? v.duration : 2; let best = '';
+      for (const at of [Math.min(2, dur / 4), dur / 2, dur * .75, .5]) {
+        await new Promise(res => { v.onseeked = res; try { v.currentTime = at; } catch (e) { res(); } setTimeout(res, 2500); });
+        if (!v.videoWidth) continue;
+        const c = drawScaled(v, v.videoWidth, v.videoHeight, 360); best = c.toDataURL(UI.IMG, .7); if (!dark(c)) break;
+      }
+      return best;
     } catch (e) { return ''; } finally { URL.revokeObjectURL(url); }
   }
   async function add(ref, files) {
@@ -3529,29 +3557,40 @@ var Library = (() => {
   }
 
   /* ---------- library page ---------- */
+  // (3.19) a name a person can read: « 9330b8bc-02ea-… », « IMG_4521 », « image » become « Image du 30 sept. »
+  const RAW = /^([0-9a-f]{8}-[0-9a-f]{4}-|[0-9a-f]{16,}|img[_-]?\d+|image|video|vid[_-]?\d+|photo|document|fichier|screenshot|capture)/i;
+  const niceName = m => { const n = String(m.name || '').replace(/\.[a-z0-9]{2,4}$/i, '').trim(), [lab] = KIND[m.kind] || ['Fichier'];
+    return !n || RAW.test(n) ? `${lab} du ${new Date(m.createdAt || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}` : n.replace(/[_]+/g, ' '); };
   function card(m) {
     const [lab, ic] = KIND[m.kind] || ['Fichier', 'pdf'];
     return `<button class="lib-card" data-doc="${m.id}">
       <span class="lib-thumb">${m.thumb ? `<img alt="" src="${m.thumb}">` : I[ic]}<span class="lib-badge">${lab}${m.kind === 'pdf' ? ' · ' + m.pages.length + ' p.' : ''}</span></span>
-      <span class="lib-name">${esc(m.name || 'Sans nom')}</span><span class="muted small">${esc(new Date(m.createdAt).toLocaleDateString('fr-FR'))}</span></button>`;
+      <span class="lib-name">${esc(niceName(m))}</span><span class="muted small">${esc(new Date(m.createdAt).toLocaleDateString('fr-FR'))}</span></button>`;
   }
   async function page(root) {
     const filt = S().ui.libFilter || '';
     root.innerHTML = `<header class="page-head"><div><h1>Bibliothèque</h1><p class="sub">Vidéos, montages, PDF et images venant d'autres applis</p></div>
-      <div class="head-actions"><a class="btn" href="#/schemas">${I.board}<span>Schémas</span></a><button class="btn primary" data-act="import">${I.upload}<span>Importer</span></button></div></header>
-      <section class="card how"><ul>
+      <div class="head-actions"><a class="btn" href="#/schemas">${I.board}<span>Schémas</span></a><button class="btn" id="libDups" hidden>🧹<span>Doublons</span></button><button class="btn primary" data-act="import">${I.upload}<span>Importer</span></button></div></header>
+      <details class="card how lib-how"><summary><b>💡 Ce que fait la bibliothèque</b></summary><ul>
         <li>${I.video}<span><b>Vidéo de match</b> : « Analyser le match » pour marquer les actions et en faire un briefing vidéo, ou mets sur pause et dessine sur l'image.</span></li>
         <li>${I.pdf}<span><b>PDF</b> (séance, exercice, fiche) : l'appli le lit page par page, en fait une séance ou te laisse dessiner sur une page.</span></li>
         <li>${I.image}<span><b>Image ou capture d'écran</b> : dessine dessus comme sur le tableau tactique.</span></li>
         <li>${I.share}<span><b>OneDrive, Google Drive, Dropbox</b> : « Importer » → « Fichiers », ou colle un lien de partage.</span></li>
         <li>${I.layers}<span>Joins n'importe quel fichier à un entraînement, une séance type ou un match : il apparaît sur sa page et dans son PDF.</span></li>
-        <li>${I.board}<span><b>Fiches d'exercices</b> : « Lire et créer les exercices » lit un PDF, une photo ou une capture et crée les exercices partout (Exercices du club, séance type, Schémas), partagés avec tous les coachs.</span></li></ul></section>
+        <li>${I.board}<span><b>Fiches d'exercices</b> : « Lire et créer les exercices » lit un PDF, une photo ou une capture et crée les exercices partout (Exercices du club, séance type, Schémas), partagés avec tous les coachs.</span></li></ul></details>
       ${Analyse.libraryCard()}
       <div class="chips filter">${[['', 'Tout'], ['video', 'Vidéos'], ['pdf', 'PDF'], ['image', 'Images'], ['link', 'Liens']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
       <div class="lib-grid" id="libGrid"><p class="muted">Chargement…</p></div>`;
     const grid = $('#libGrid', root);
     const fill = async () => {
-      const items = (await Media.list('lib')).filter(m => !filt || m.kind === filt).reverse();
+      const all = (await Media.list('lib')).reverse();
+      // (3.19) the same file twice (same kind, same picture, same size): one is shown, the others can be removed in one touch
+      const seen = new Map(), dups = [];
+      all.forEach(m => { const k = m.kind + '|' + (m.thumb ? m.thumb.length + ':' + m.thumb.slice(-60) : m.url || m.name) + '|' + ((m.blob && m.blob.size) || (m.pages || []).length || ''); if (seen.has(k)) dups.push(m); else seen.set(k, m); });
+      const items = all.filter(m => !dups.includes(m) && (!filt || m.kind === filt));
+      const db = $('#libDups', root); if (db) { db.hidden = !dups.length; db.querySelector('span').textContent = `Retirer ${dups.length} doublon${dups.length > 1 ? 's' : ''}`; db.onclick = async () => { if (!(await confirmBox(`Retirer ${dups.length} fichier${dups.length > 1 ? 's' : ''} en double ? Un exemplaire de chacun reste.`))) return; for (const d of dups) await Media.del(d.id); toast('Doublons retirés'); fill(); }; }
+      // the videos without a picture, or with a black one: a picture taken a little further in, once
+      all.filter(m => m.kind === 'video' && m.blob && !m.thumbRedo).forEach(m => setTimeout(async () => { const t = await Media.videoThumb(m.blob); m.thumbRedo = 1; if (t) m.thumb = t; await Media.put(m); const im = root.querySelector(`[data-doc="${m.id}"] .lib-thumb img`); if (t && im) im.src = t; else if (t) fill(); }, 300));
       // (3.14) archived: what is joined only to matches / sessions already past, and the videos older than 3 weeks joined to nothing to come
       const t0 = UI.today(), when = {}, model = new Set();
       [...S().matches, ...S().trainings].forEach(ev => (ev.docIds || []).forEach(id => { if (ev.model) model.add(id); else (when[id] = when[id] || []).push(ev.date || ''); }));
@@ -3944,7 +3983,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.18';
+  const VERSION = '3.19';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8082,6 +8121,7 @@ var Rooms = (() => {
   let bookings = [], loaded = '', gen = 0;
   async function load(from, to) { bookings = (await Cloud.bookings(from, to)).filter(b => ROOM_IDS.includes(b.field)); loaded = from; }
   const onRoom = (room, d) => bookings.filter(b => b.field === room && b.date === d);
+  const onDay = d => bookings.filter(b => b.date === d).sort((a, b) => a.start_min - b.start_min); // (3.19)
   const conflicts = (room, d, s, e, except) => bookings.filter(b => b.field === room && b.date === d && b.start_min < e && s < b.end_min && b.id !== except);
   const label = b => b.kind === 'adversaire' ? `${b.team_name || 'Adversaire'}` : (b.team_name || KINDS[b.kind || 'autre'][0]);
   // the rooms already given for a match (ours and the visitors')
@@ -8115,18 +8155,34 @@ var Rooms = (() => {
     if (my !== gen || !$('#roomGrid', root)) return;
     show();
   }
-  // (3.14) the week at a glance: each day, each room with its bookings (a tap on a day opens it)
+  // (3.19) the week like the pitch's: a column per day, the hours down the side, each room in its lane (V1, V2, VK1, VK2 side by side)
   function drawWeek(root, days) {
-    const today = iso(new Date()), mine = new Set(myTeams());
+    const today = iso(new Date()), mine = new Set(myTeams()), list = bookings.filter(b => days.includes(b.date));
+    let lo = Math.min(9 * 60, ...list.map(b => b.start_min)), hi = Math.max(21 * 60, ...list.map(b => b.end_min));
+    lo = Math.floor(lo / 60) * 60; hi = Math.ceil(hi / 60) * 60;
+    const phone = matchMedia('(max-width: 760px)').matches, top = $('#roomGrid', root).getBoundingClientRect().top + window.scrollY;
+    const px = phone ? Math.max(0.35, Math.min(PX, (innerHeight - top - 150) / (hi - lo))) : PX, H = (hi - lo) * px, hours = []; for (let m = lo; m <= hi; m += 60) hours.push(m);
+    const lane = id => Math.max(0, ROOM_IDS.indexOf(id)), W = 100 / ROOM_IDS.length, short = id => id.replace(/^V/, '').replace(/^K/, 'K');
+    const col = d => {
+      const need = homeMatchesOn(d).filter(m => { const g = forMatch(m); return !(g.some(b => b.kind === 'match') && g.some(b => b.kind === 'adversaire')); }).length;
+      return `<div class="plan-day ${d === today ? 'today' : ''}" data-col="${d}">
+        <button class="plan-head" data-rday="${d}" data-open="1">${DAYS[parse(d).getDay()].slice(0, 3)} <b>${parse(d).getDate()}</b>${need ? ' <i class="rw-need" title="Match à domicile sans vestiaire">!</i>' : ''}</button>
+        <div class="plan-body" style="height:${H}px" data-date="${d}">
+          ${hours.map(m => `<i class="hline" style="top:${(m - lo) * px}px"></i>`).join('')}
+          ${onDay(d).map(b => { const c = b.kind === 'adversaire' ? '#475569' : Planning.colorOf(b), l = lane(b.field);
+            return `<button class="bk k-${esc(b.kind || 'autre')} ${mine.has(b.team_id) ? 'mine' : ''}" data-rbk="${b.id}" title="${esc(roomName(b.field) + ' · ' + label(b) + ' · ' + hm(b.start_min) + '–' + hm(b.end_min))}"
+              style="top:${(b.start_min - lo) * px}px;height:${Math.max(phone ? 16 : 22, (b.end_min - b.start_min) * px - 2)}px;left:calc(${l * W}% + 1px);right:auto;width:calc(${W}% - 2px);padding:2px 3px${c ? ';background-color:' + c + ';color:#fff' : ''}">
+              <b>${esc(short(b.field))}</b><span>${esc(b.kind === 'adversaire' ? '🆚' : (label(b) || '').replace(/^Seniors?/, 'S').slice(0, 6))}</span></button>`; }).join('')}
+        </div></div>`;
+    };
     $('#roomMatches', root).innerHTML = '';
-    $('#roomGrid', root).innerHTML = `<div class="room-week">${days.map(d => {
-      const list = bookings.filter(b => b.date === d), ms = homeMatchesOn(d), need = ms.filter(m => { const g = forMatch(m); return !(g.some(b => b.kind === 'match') && g.some(b => b.kind === 'adversaire')); });
-      return `<section class="card rw-day ${d === today ? 'today' : ''}"><button class="rw-head" data-rday="${d}" data-open="1"><b>${esc(parse(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }))}</b>${need.length ? `<span class="badge warn">${need.length} match${need.length > 1 ? 's' : ''} sans vestiaire</span>` : ''}${I.next}</button>
-        ${list.length ? ROOMS.filter(([id]) => list.some(b => b.field === id)).map(([id, name]) => `<div class="rw-room"><span class="rw-name">${esc(name.replace('Vestiaire ', 'Vest. '))}</span><span class="rw-bks">${onRoom(id, d).map(b => { const c = b.kind === 'adversaire' ? '#475569' : Planning.colorOf(b);
-          return `<button class="rw-bk ${mine.has(b.team_id) ? 'mine' : ''}" data-rbk="${b.id}" ${c ? `style="border-left-color:${c}"` : ''}><b>${hm(b.start_min)}–${hm(b.end_min)}</b> ${KINDS[b.kind || 'autre'] ? KINDS[b.kind || 'autre'][1] + ' ' : ''}${esc(label(b))}</button>`; }).join('')}</span></div>`).join('') : '<p class="muted small">Aucun vestiaire attribué.</p>'}</section>`; }).join('')}</div>
-      <p class="muted small">Touche un jour pour le voir heure par heure et attribuer un vestiaire. 🆚 = équipe adverse.</p>`;
+    $('#roomGrid', root).innerHTML = `<div class="plan-grid room-week-grid">
+      <div class="plan-hours"><div class="plan-head">&nbsp;</div><div style="position:relative;height:${H}px">${hours.map(m => `<span style="top:${(m - lo) * px}px">${hm(m)}</span>`).join('')}</div></div>
+      ${days.map(col).join('')}</div>
+      <p class="muted small">Chaque jour, 4 couloirs : ${ROOMS.map(([id, n]) => `<b>${esc(short(id))}</b> ${esc(n.replace('Vestiaire ', 'Vest. '))}`).join(' · ')}. 🆚 = équipe adverse. Touche un jour pour l'ouvrir et attribuer.</p>`;
     bind(root, days[0]);
   }
+
   function draw(root, day) {
     // the day's home matches: their rooms, or a button to give them
     const ms = homeMatchesOn(day);
@@ -17224,6 +17280,13 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 178, date: '2026-10-10', title: 'Les petits soucis réglés 🔧', items: [
+      ['🐛', "Les menus « ⋯ » s'ouvrent à nouveau (ils étaient cachés par le bandeau depuis les thèmes)."],
+      ['🐛', "Ma page : « Mon poste » s'ouvre normalement (toucher la carte la redessinait)."],
+      ['🚿', "Vestiaires, vue Semaine : comme le planning du terrain, une colonne par jour avec les heures, chaque vestiaire dans son couloir."],
+      ['📚', "Bibliothèque : des noms lisibles (« Image du 30 sept. » au lieu d'un code), les doublons retirés en un geste, les vidéos avec une vraie image au lieu d'un écran noir, l'aide repliée."],
+      ['🧢', "Dirigeants : une fiche en double (même nom, même prénom) est retirée toute seule quand un responsable ouvre les comptes."],
+    ] },
     { n: 177, date: '2026-10-10', title: 'Un accueil rangé 🧹', items: [
       ['🗓️', "L'accueil tient en un écran : une seule carte « Ma semaine », le prochain rendez-vous en premier avec son bouton, ce qui manque (exercices, convocation, compo) et le matériel à prendre sur la ligne. Les autres jours se déplient."],
       ['🔔', "Les rappels du club (sauvegarde, suivi des blessés…) sont rangés dans « À regarder », sur une ligne."],
@@ -22312,7 +22375,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 219, UPD = AppCfg.key('update-tried');
+  const BUILD = 220, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
