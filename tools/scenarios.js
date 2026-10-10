@@ -185,6 +185,22 @@ const SCENARIOS = [
     const me = Auth.current(), st = Store.get('staff', me.id); must(st.look && st.look.t === 'stade', 'thème non gardé sur la fiche (autre appareil)');
     const ph = getComputedStyle(document.querySelector('.page-head')).backgroundImage; must(/gradient/.test(ph), 'bandeau sans décor');
     Theme.set({ t: 'club', h: '', p: '' }); delete st.look; Store.upsert('staff', st); return 'ok';`],
+  ['AssistCoachAI : amicaux et tournois importés comme matchs', `
+    const t = Store.state.teams.find(x => /senior/i.test(x.name + ' ' + (x.category || ''))) || Store.state.teams[0];
+    const d = (n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); });
+    const D = { source: 'assistcoachai', effectif: { teams: [{ name: t.name, category: t.category || t.name }], players: [] }, tests: {}, champDetail: {},
+      planning: { events: [
+        { id: 'ev-a1', type: 'amical', date: d(5) + 'T15:00:00', adversaire: 'US Amie', message: JSON.stringify({ home: true, time: '15:00' }) },
+        { id: 'ev-a2', type: 'match', date: d(9) + 'T10:00:00', adversaire: 'FC Copains', message: JSON.stringify({ type: 'amical', home: false, time: '10:00' }) },
+        { id: 'ev-t1', type: 'tournoi', date: d(12) + 'T09:00:00', adversaire: 'Tournoi de Noël', message: '{}' },
+        { id: 'ev-s1', type: 'seance', date: d(3) + 'T18:00:00', message: '{}' } ], convocations: [], attendances: [] } };
+    let r; try { r = ACImport.run(D); } catch (e) { throw new Error('import : ' + e.message); }
+    const got = Store.state.matches.filter(m => /^ev-/.test(m.acId || ''));
+    must(got.length === 3, 'matchs importés : ' + got.length + ' · types : ' + JSON.stringify(r && r.kinds));
+    const comp = id => (got.find(m => m.acId === id) || {}).competition;
+    must(comp('ev-a1') === 'Amical' && comp('ev-a2') === 'Amical' && comp('ev-t1') === 'Tournoi', 'compétitions : ' + got.map(m => m.competition).join(','));
+    await go('#/matchs'); must(/US Amie/.test(text('main')) && /FC Copains/.test(text('main')), 'amicaux absents de la liste des matchs');
+    return got.map(m => m.competition).join(' / ');`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);
