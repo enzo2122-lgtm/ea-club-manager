@@ -3944,7 +3944,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.16';
+  const VERSION = '3.17';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -14255,7 +14255,14 @@ var ACImport = (() => {
     Object.values(champs).map(c => ({ id: c.championship.id, r: rank(c.championship.name) })).filter(x => x.r).sort((a, b) => a.r - b.r)
       .forEach((x, i) => { if (lettered[i]) teamOfChamp[x.id] = lettered[i].id; });
     const byLevel = Object.assign({}, teamOfChamp);
-    evs.filter(e => e.type === 'match').forEach(e => {
+    // (3.17) the friendlies, tournaments and plateaux of AssistCoachAI are events of their own kind (not « match »): they are matches too.
+    // A match = an event of a match kind, or any event with an opponent that is not a session.
+    const SES = /^(seance|séance|training|entrainement|entraînement)$/i, FRIEND = /amical|friendly/i, TOURN = /tournoi|plateau|tournament/i;
+    const isMatchEv = e => e.type === 'match' || FRIEND.test(e.type || '') || TOURN.test(e.type || '') || /match|coupe|cup/i.test(e.type || '')
+      || (!SES.test(e.type || '') && !!(e.adversaire || msgOf(e).opp));
+    st.kinds = {}; evs.forEach(e => { st.kinds[e.type || '?'] = (st.kinds[e.type || '?'] || 0) + 1; });
+    const kindOf = (e, g) => FRIEND.test(e.type || '') || FRIEND.test(g.type || '') ? 'Amical' : TOURN.test(e.type || '') || TOURN.test(g.type || '') ? 'Tournoi' : g.type === 'coupe' || /coupe|cup/i.test(e.type || '') ? 'Coupe' : 'Championnat';
+    evs.filter(isMatchEv).forEach(e => {
       const g = msgOf(e), date = day(e.date), opp = e.adversaire || g.opp || '';
       if (/^exempt$/i.test(opp.trim())) return;
       const cands = S().matches.filter(m => m.date === date && groupIds.includes(m.teamId) && !m.acId && timeOk(m, g.time));
@@ -14265,8 +14272,9 @@ var ACImport = (() => {
       const cid = champOfEvent[e.id];
       // a match AssistCoachAI created before in the wrong team (A instead of B) goes to the team of its level
       if (m) { st.matches[1]++; if (cid) { if (byLevel[cid] && m.acId === e.id && !m.imported && !m.teamManual && !m.fffSheet) m.teamId = byLevel[cid]; teamOfChamp[cid] = m.teamId; } }
-      else { m = { id: Store.uid(), teamId: (cid && teamOfChamp[cid]) || main.id, date, opponent: opp, home: !!g.home, competition: g.type === 'amical' ? 'Amical' : g.type === 'coupe' ? 'Coupe' : 'Championnat', convoked: [], played: false, gf: 0, ga: 0 }; st.matches[0]++; }
+      else { m = { id: Store.uid(), teamId: (cid && teamOfChamp[cid]) || main.id, date, opponent: opp, home: !!g.home, competition: kindOf(e, g), convoked: [], played: false, gf: 0, ga: 0 }; st.matches[0]++; }
       if (g.type === 'coupe' && m.competition !== 'Coupe') m.competition = 'Coupe'; // (2.09) a cup match stays a cup match
+      if (/^(Amical|Tournoi)$/.test(kindOf(e, g)) && (!m.competition || m.competition === 'Championnat') && !m.fffSheet && !m.imported) m.competition = kindOf(e, g); // (3.17) a friendly stays a friendly
       m.acId = e.id; m.time = m.time || g.time || ''; m.home = typeof m.home === 'boolean' ? m.home : !!g.home;
       const convMsg = e.convocation_msg || g.convocMsg || '';
       if (convMsg && !m.rdv) m.rdv = hhmm((/(rdv|rendez[- ]vous)[^0-9]*(\d{1,2}\s*[h:]\s*\d{0,2})/i.exec(convMsg) || [])[2] || '');
@@ -14421,6 +14429,7 @@ var ACImport = (() => {
     modal({ title: 'Import AssistCoachAI', noFocus: true, body: `<p class="lead">Importé sans doublon :</p><ul>
       <li>👥 Joueurs : ${r.players[0]} ajouté${r.players[0] > 1 ? 's' : ''}, ${r.players[1]} complété${r.players[1] > 1 ? 's' : ''}</li>
       <li>⚽ Matchs : ${r.matches[0]} ajouté${r.matches[0] > 1 ? 's' : ''}, ${r.matches[1]} complété${r.matches[1] > 1 ? 's' : ''} (convocations, compos, scores, stats)</li>
+      ${r.kinds ? `<li class="muted small">Types lus dans le planning : ${Object.entries(r.kinds).map(([k, n]) => `${esc(k)} (${n})`).join(', ')}</li>` : ''}
       <li>🏃 Entraînements : ${r.trainings[0]} ajouté${r.trainings[0] > 1 ? 's' : ''}, ${r.trainings[1]} complété${r.trainings[1] > 1 ? 's' : ''} · ${r.sessions} séance${r.sessions > 1 ? 's' : ''} détaillée${r.sessions > 1 ? 's' : ''} · ${r.rpe} efforts (RPE)</li>
       <li>🚑 ${r.injuries} blessure${r.injuries > 1 ? 's' : ''} · ✈️ ${r.absences} absence${r.absences > 1 ? 's' : ''} · 💚 ${r.wellness} questionnaires de bien-être</li>
       <li>🏆 ${r.champ} championnat${r.champ > 1 ? 's' : ''} (classement)</li>
@@ -17214,6 +17223,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 176, date: '2026-10-10', title: 'Les amicaux arrivent 🤝', items: [
+      ['🐛', "AssistCoachAI : les matchs amicaux et les tournois n'étaient pas importés (AssistCoachAI les range à part des matchs). Ils arrivent maintenant partout : Matchs, accueil, planning, espaces joueurs et parents. Relance l'import AssistCoachAI une fois."],
+    ] },
     { n: 175, date: '2026-10-10', title: 'Un dirigeant, une fiche 🧢', items: [
       ['🐛', "Ajouter un dirigeant qui existe déjà (même nom, même prénom) ouvre sa fiche au lieu d'en créer une deuxième."],
     ] },
@@ -22291,7 +22303,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 217, UPD = AppCfg.key('update-tried');
+  const BUILD = 218, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

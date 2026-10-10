@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 176, date: '2026-10-10', title: 'Les amicaux arrivent 🤝', items: [
+      ['🐛', "AssistCoachAI : les matchs amicaux et les tournois n'étaient pas importés (AssistCoachAI les range à part des matchs). Ils arrivent maintenant partout : Matchs, accueil, planning, espaces joueurs et parents. Relance l'import AssistCoachAI une fois."],
+    ] },
     { n: 175, date: '2026-10-10', title: 'Un dirigeant, une fiche 🧢', items: [
       ['🐛', "Ajouter un dirigeant qui existe déjà (même nom, même prénom) ouvre sa fiche au lieu d'en créer une deuxième."],
     ] },
