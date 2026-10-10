@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 171, date: '2026-10-10', title: 'Les grands répondent eux-mêmes 🧑', items: [
+      ['✉️', "Convocation : la phrase « Merci de confirmer la présence de votre enfant » n'apparaît plus que pour les équipes de jeunes. Pour les Seniors, Vétérans et Loisirs, le message s'adresse aux joueurs, sans parler d'enfant."],
+    ] },
     { n: 170, date: '2026-10-10', title: 'La causerie sait partir 🚪', items: [
       ['🐛', "Causerie plein écran et briefing vidéo : quitter la page par le geste retour les laissait tourner en cachette (chrono compris), et l'appli ralentissait. Ils se ferment maintenant avec la page."],
     ] },

@@ -99,6 +99,16 @@ const SCENARIOS = [
     must(text('.section').startsWith('Convoqués (0)'), 'devrait afficher 0 convoqué : ' + text('.section'));
     await click('[data-act="sameconv"]'); const n = (Store.get('matches', m.id).convoked || []).length; must(n > 0, 'rien repris');
     await click('[data-act="convoc"]', 800); must(modal() || Store.get('matches', m.id).convSent, 'envoi non déclenché'); await closeModal(); return n + ' convoqués';`],
+  ['Convocation : « votre enfant » chez les jeunes seulement', `
+    const res = [];
+    for (const adult of [true, false]) {
+      const t = Store.state.teams.find(x => /senior|v[ée]t[ée]ran/i.test(x.name + ' ' + (x.category || '')) === adult); must(t, 'pas d\u2019équipe ' + (adult ? 'adulte' : 'jeune'));
+      const m = Store.state.matches.find(x => x.teamId === t.id && !x.exempt); must(m, 'pas de match pour ' + t.name);
+      await go('#/matchs'); await go('#/match/' + m.id); await click('[data-act="convoc"]', 800);
+      const txt = ($('#convTxt') || {}).value || ''; await closeModal(); must(txt, 'message de convocation absent');
+      must(/votre enfant/.test(txt) !== adult, t.name + (adult ? ' : « votre enfant » ne doit pas y être' : ' : « votre enfant » manque')); res.push(t.name);
+    }
+    return res.join(' / ');`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);
