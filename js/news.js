@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 159, date: '2026-10-10', title: 'Le gardien sort 🧤', items: [
+      ['🧤', "Compo : en bloc haut, le gardien sort devant sa surface ; en très haut, encore plus loin. En bloc bas, il reste sur sa ligne."],
+    ] },
     { n: 158, date: '2026-10-10', title: 'Bloc haut, bloc bas 📏', items: [
       ['📏', "Compo : à côté du système, un menu « Bloc » (très bas, bas, médian, haut, très haut) fait monter ou descendre toute l'équipe sur le terrain, le gardien reste."],
     ] },
