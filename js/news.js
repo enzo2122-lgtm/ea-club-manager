@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 151, date: '2026-10-10', title: 'Rangés par poste 🧤🛡️⚙️⚡', items: [
+      ['🛡️', "« Qui joue où ? » est rangé comme sur le terrain : gardien, défense (DG, DC, DD), milieu (MG, MDC, MC, MD), attaque (AG, AV, AD), avec le poste devant chaque ligne."],
+    ] },
     { n: 150, date: '2026-10-10', title: 'Le dessin et la liste ne font qu\'un 🔗', items: [
       ['🔗', "Compo : le dessin suit « Qui joue où ? » (noms et numéros), et toucher un joueur sur le dessin ouvre sa ligne dans la liste."],
     ] },

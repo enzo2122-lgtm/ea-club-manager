@@ -3731,7 +3731,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.92';
+  const VERSION = '2.93';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16799,6 +16799,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 151, date: '2026-10-10', title: 'Rangés par poste 🧤🛡️⚙️⚡', items: [
+      ['🛡️', "« Qui joue où ? » est rangé comme sur le terrain : gardien, défense (DG, DC, DD), milieu (MG, MDC, MC, MD), attaque (AG, AV, AD), avec le poste devant chaque ligne."],
+    ] },
     { n: 150, date: '2026-10-10', title: 'Le dessin et la liste ne font qu\'un 🔗', items: [
       ['🔗', "Compo : le dessin suit « Qui joue où ? » (noms et numéros), et toucher un joueur sur le dessin ouvre sa ligne dans la liste."],
     ] },
@@ -20509,16 +20512,29 @@ var Views = (() => {
   }
   // (2.90) the shirt number of the match, 1 to 99 (« — » = the usual one on his card)
   const numSel = (p, m, attr, cur) => `<select class="slot-num" ${attr} aria-label="Numéro"><option value="">—</option>${Array.from({ length: 99 }, (_, i) => i + 1).map(n => `<option value="${n}" ${String(cur) === String(n) ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+  // (2.93) the post of a spot, from where it stands on the pitch: GB · DG DC DD · MG MDC MC MD · AG AV AD (the attack goes to the right)
+  // the lines of the drawing (a gap of 8 % of the pitch between two depths starts a new line), from the back: défense, milieu(x), attaque
+  function postsOfSpots(sc, slots, st) {
+    const { L, W } = Board.dims(sc.field), out = new Map();
+    const side = o => { const y = (st.pos[o.id] || [0, 0])[1] / W; return y < .3 ? 'G' : y > .7 ? 'D' : 'C'; };
+    const field = slots.filter(o => !o.gk).sort((a, b) => st.pos[a.id][0] - st.pos[b.id][0]), lines = []; let last = -1e9;
+    field.forEach(o => { const x = st.pos[o.id][0]; if (x - last > L * .08) lines.push([]); lines[lines.length - 1].push(o); last = x; });
+    const n = lines.length, kinds = n <= 1 ? ['M'] : n === 2 ? ['D', 'A'] : n === 3 ? ['D', 'M', 'A'] : ['D', ...Array(n - 3).fill('M'), 'MO', 'A'];
+    slots.filter(o => o.gk).forEach(o => out.set(o.id, { post: 'GB', line: -1 }));
+    lines.forEach((line, i) => { const k = kinds[i], midN = kinds.filter(x => x === 'M').length, midI = kinds.slice(0, i).filter(x => x === 'M').length;
+      line.forEach(o => { const s = side(o); out.set(o.id, { line: i, post: k === 'D' ? 'D' + s : k === 'A' ? (s === 'C' ? 'AV' : 'A' + s) : k === 'MO' ? 'MO' + s : (s === 'C' ? (midN > 1 && midI === 0 ? 'MDC' : 'MC') : 'M' + s) }); }); });
+    return out;
+  }
   function slotsCard(sc, conv, m) {
     const st = (sc.steps || [])[0] || { pos: {} };
-    const slots = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id])
-      .sort((a, b) => (b.gk - a.gk) || (st.pos[a.id][0] - st.pos[b.id][0]) || (st.pos[a.id][1] - st.pos[b.id][1]));
+    const all = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]), posts = postsOfSpots(sc, all, st), postOf = o => (posts.get(o.id) || {}).post || '';
+    const slots = all.slice().sort((a, b) => ((posts.get(a.id) || {}).line - (posts.get(b.id) || {}).line) || (st.pos[a.id][1] - st.pos[b.id][1]) || (st.pos[a.id][0] - st.pos[b.id][0]));
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
     return `<section class="card slots-card"><h2>👕 Qui joue où ?</h2>
       <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur déjà placé disparaît des autres listes.</p>
-      <div class="slots">${slots.map((o, i) => { const t = taken(o), pl = o.playerId && Store.get('players', o.playerId), cur = pl ? Store.numOf(pl, m) : (/^\d+$/.test(o.label || '') ? o.label : ''); return `<label class="slot">${o.gk ? '<span class="slot-tag gk">🧤</span>' : ''}${numSel(pl, m, `data-snum="${o.id}"`, cur)}
+      <div class="slots">${slots.map((o, i) => { const t = taken(o), pl = o.playerId && Store.get('players', o.playerId), cur = pl ? Store.numOf(pl, m) : (/^\d+$/.test(o.label || '') ? o.label : ''); return `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}" title="Poste d'après la place sur le terrain">${o.gk ? '🧤' : esc(postOf(o))}</span>${numSel(pl, m, `data-snum="${o.id}"`, cur)}
         <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`; }).join('')}</div>
       ${(() => { const placed = new Set(slots.map(o => o.playerId).filter(Boolean)), bench = players.filter(p => !placed.has(p.id)); // (2.85) the convoked players without a position: the bench
         return `<p class="small bench-line">🪑 <b>Remplaçants (${bench.length})</b> : ${bench.length ? bench.map(p => `<span class="chip small">${numSel(p, m, `data-bnum="${p.id}"`, Store.numOf(p, m))} ${esc(Store.shortName(p))}</span>`).join(' ') : '<span class="muted">aucun, tous les convoqués ont un poste</span>'}</p>`; })()}</section>`;
@@ -21357,7 +21373,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 193, UPD = AppCfg.key('update-tried');
+  const BUILD = 194, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
