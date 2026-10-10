@@ -72,13 +72,13 @@ const UI = (() => {
 
   // Thumbnails of schemas, cached per update
   const thumbCache = new Map();
-  function thumb(sc, w = 480, h = 312) {
-    const key = sc.id + ':' + (sc.updatedAt || 0) + ':' + w;
+  function thumb(sc, w = 480, h = 312, opts = {}) {
+    const key = sc.id + ':' + (sc.updatedAt || 0) + ':' + w + ':' + (opts.step == null ? 'all' : opts.step);
     if (thumbCache.has(key)) return thumbCache.get(key);
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     // (2.30) an animated schema is shown whole: every movement of every step on the picture
-    const view = typeof AutoSchema !== 'undefined' && AutoSchema.overview ? AutoSchema.overview(sc) : sc;
-    Board.drawFrame(c.getContext('2d'), w, h, view, 0, 0, { homeBib: Store.state.club.homeBib });
+    const view = opts.step == null && typeof AutoSchema !== 'undefined' && AutoSchema.overview ? AutoSchema.overview(sc) : sc;
+    Board.drawFrame(c.getContext('2d'), w, h, view, opts.step || 0, 0, { homeBib: Store.state.club.homeBib });
     const url = c.toDataURL(IMG, .8); thumbCache.set(key, url); return url;
   }
 

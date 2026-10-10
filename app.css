@@ -2282,7 +2282,7 @@ details.seen { margin: 8px 0; } details.seen summary { cursor: pointer; font-siz
 /* (2.72) iPhone, app installed (iOS 26): the whole page, bars included, bounced when pulled past its ends and iOS did not always put it back: no bounce */
 html.ios-app, html.ios-app body { overscroll-behavior: none; }
 /* (2.74) iPhone, app installed: iOS cuts what is fixed at the bottom at the height it announces and draws the canvas (html background) under it: navy under the bottom bar, so the band is the colour of the bar */
-@media (max-width: 760px) { html.ios-app:has(body:not(.nav-top):not(.editing)) { background: var(--navy); } html.ios-app:has(body:not(.nav-top):not(.editing)) body { background: var(--bg); min-height: 100%; } }
+@media (max-width: 760px) { html.ios-app:has(body:not(.nav-top):not(.editing)) { background: var(--navy); } html.ios-app:has(body:not(.nav-top):not(.editing)) body { background: var(--bg); height: auto; min-height: 100%; } } /* (3.03) height auto: the light background follows the whole page, the navy stays under the bar only */
 
 /* (2.77) a player whose licence is still pending (or certificate missing): orange, everywhere he appears */
 .chip:has(.lic-warn) { background: #fff3e0; border-color: #f59e0b; color: #7c2d12; }
@@ -2392,3 +2392,8 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 
 /* (3.00) system and block side by side */
 .sys-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+
+/* (3.03) dark mode: the grey texts a little brighter (labels, tips, « ✗ pas dispo » lines) */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --muted: #b3b9cf; } }
+html[data-theme="dark"] { --muted: #b3b9cf; }
+.ans-why { color: var(--ink); }

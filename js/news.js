@@ -5,6 +5,14 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 162, date: '2026-10-10', title: 'On y voit clair 🔆', items: [
+      ['🐛', "iPhone : en défilant, le fond bleu marine réapparaissait derrière le texte sombre (page du match, listes). Le fond clair suit maintenant toute la page."],
+      ['🔆', "Mode sombre : les textes gris (étiquettes, aides, « pas dispo ») sont plus clairs."],
+    ] },
+    { n: 161, date: '2026-10-10', title: 'Une seule échelle 📏', items: [
+      ['🐛', "Compo : changer un poste et changer de système plaçaient les joueurs sur deux échelles différentes, d'où des sauts bizarres sur le dessin. Une seule échelle maintenant."],
+      ['🔢', "Le système courant (4-3-3, 4-2-3-1…) est affiché à côté du menu."],
+    ] },
     { n: 160, date: '2026-10-10', title: 'Des blocs qui ont un sens 📐', items: [
       ['📐', "Compo : les blocs suivent les repères des entraîneurs (sur 105 m) : bas, défense à 22 m et pressing à 45 m ; médian, 32 m et ligne médiane ; haut, 45 m et 62 m (sortie du rond central). Le gardien sort avec le bloc. « Comme dessiné » remet ta compo telle quelle."],
     ] },

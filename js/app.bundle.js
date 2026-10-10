@@ -1288,13 +1288,13 @@ var UI = (() => {
 
   // Thumbnails of schemas, cached per update
   const thumbCache = new Map();
-  function thumb(sc, w = 480, h = 312) {
-    const key = sc.id + ':' + (sc.updatedAt || 0) + ':' + w;
+  function thumb(sc, w = 480, h = 312, opts = {}) {
+    const key = sc.id + ':' + (sc.updatedAt || 0) + ':' + w + ':' + (opts.step == null ? 'all' : opts.step);
     if (thumbCache.has(key)) return thumbCache.get(key);
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     // (2.30) an animated schema is shown whole: every movement of every step on the picture
-    const view = typeof AutoSchema !== 'undefined' && AutoSchema.overview ? AutoSchema.overview(sc) : sc;
-    Board.drawFrame(c.getContext('2d'), w, h, view, 0, 0, { homeBib: Store.state.club.homeBib });
+    const view = opts.step == null && typeof AutoSchema !== 'undefined' && AutoSchema.overview ? AutoSchema.overview(sc) : sc;
+    Board.drawFrame(c.getContext('2d'), w, h, view, opts.step || 0, 0, { homeBib: Store.state.club.homeBib });
     const url = c.toDataURL(IMG, .8); thumbCache.set(key, url); return url;
   }
 
@@ -3734,7 +3734,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.02';
+  const VERSION = '3.03';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16823,6 +16823,14 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 162, date: '2026-10-10', title: 'On y voit clair 🔆', items: [
+      ['🐛', "iPhone : en défilant, le fond bleu marine réapparaissait derrière le texte sombre (page du match, listes). Le fond clair suit maintenant toute la page."],
+      ['🔆', "Mode sombre : les textes gris (étiquettes, aides, « pas dispo ») sont plus clairs."],
+    ] },
+    { n: 161, date: '2026-10-10', title: 'Une seule échelle 📏', items: [
+      ['🐛', "Compo : changer un poste et changer de système plaçaient les joueurs sur deux échelles différentes, d'où des sauts bizarres sur le dessin. Une seule échelle maintenant."],
+      ['🔢', "Le système courant (4-3-3, 4-2-3-1…) est affiché à côté du menu."],
+    ] },
     { n: 160, date: '2026-10-10', title: 'Des blocs qui ont un sens 📐', items: [
       ['📐', "Compo : les blocs suivent les repères des entraîneurs (sur 105 m) : bas, défense à 22 m et pressing à 45 m ; médian, 32 m et ligne médiane ; haut, 45 m et 62 m (sortie du rond central). Le gardien sort avec le bloc. « Comme dessiné » remet ta compo telle quelle."],
     ] },
@@ -20630,7 +20638,8 @@ var Views = (() => {
   }
   // (2.94) the posts a coach can give to a line, and where each one stands on the pitch (fractions of the length and the width, attack to the right)
   const POSTS = [['GB', '🧤 GB'], ['DG', 'DG'], ['DC', 'DC'], ['DD', 'DD'], ['MDC', 'MDC'], ['MG', 'MG'], ['MC', 'MC'], ['MD', 'MD'], ['MOG', 'MOG'], ['MOC', 'MOC'], ['MOD', 'MOD'], ['AG', 'AG'], ['AV', 'AV'], ['AD', 'AD']];
-  const POST_XY = { GB: [.04, .5], DG: [.2, .12], DC: [.17, .5], DD: [.2, .88], MDC: [.33, .5], MG: [.45, .12], MC: [.46, .5], MD: [.45, .88], MOG: [.62, .15], MOC: [.62, .5], MOD: [.62, .85], AG: [.8, .15], AV: [.88, .5], AD: [.8, .85] };
+  // (3.03) the same scale as the formations of the app (a formation row x is drawn at x × 1.9 of the length): défense around 32-38 %, milieu 53-62 %, attaque 85-91 %
+  const POST_XY = { GB: [.04, .5], DG: [.38, .12], DC: [.32, .5], DD: [.38, .88], MDC: [.53, .5], MG: [.62, .12], MC: [.6, .5], MD: [.62, .88], MOG: [.74, .15], MOC: [.74, .5], MOD: [.74, .85], AG: [.86, .15], AV: [.91, .5], AD: [.86, .85] };
   const POST_RANK = Object.fromEntries(POSTS.map(([k], i) => [k, i]));
   // (3.00) the block: how high the team (goalkeeper apart) stands, as a share of the pitch length away from the standard spots
   // (3.02) the blocks as coaches define them, in metres from our goal line on a 105 m pitch (then scaled to the pitch of the match):
@@ -20725,7 +20734,8 @@ var Views = (() => {
     const st = (sc.steps || [])[0] || { pos: {} };
     const all = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]); if (ensurePosts(sc, all, st)) Store.upsert('schemas', sc);
     const postOf = o => o.post, slots = all.slice().sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
-    const fmt = Formations[sc.field.format] ? sc.field.format : null, sysSel = fmt ? `<label class="fld inline sys-sel"><span>Système</span><select data-ssys><option value="">Changer de système…</option>${Object.keys(Formations[fmt]).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select></label>` : '';
+    const shape = (() => { const c = { D: 0, M: 0, O: 0, A: 0 }; all.forEach(o => { if (o.gk) return; const p = o.post || ''; c[p.startsWith('MO') ? 'O' : p[0] in c ? p[0] : 'M']++; }); return [c.D, c.M, c.O, c.A].filter((n, i) => n || i !== 2).join('-'); })();
+    const fmt = Formations[sc.field.format] ? sc.field.format : null, sysSel = fmt ? `<label class="fld inline sys-sel"><span>Système · <b>${esc(shape)}</b></span><select data-ssys><option value="">Changer de système…</option>${Object.keys(Formations[fmt]).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select></label>` : '';
     const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc><option value="" ${!sc.bloc ? 'selected' : ''}>Comme dessiné</option>${BLOCS.map(([k, l, a, b]) => `<option value="${k}" ${sc.bloc === k ? 'selected' : ''}>${l} · défense ${a} m, pressing ${b} m</option>`).join('')}</select></label>`;
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
@@ -20848,7 +20858,7 @@ var Views = (() => {
         </div>
         <div ${panel('compo')}>
         <h2 class="section">Composition</h2>
-        <section class="card lineup">${lineup ? `<div class="lineup-wrap" data-luwrap="${lineup.id}"><img class="lu-img" alt="" src="${UI.thumb(syncLabels(lineup, m))}" draggable="false">${lineupHot(lineup)}</div><p class="muted small">Glisse un joueur sur le dessin pour le déplacer (son poste suit) ; touche-le pour ouvrir sa ligne.</p>
+        <section class="card lineup">${lineup ? `<div class="lineup-wrap" data-luwrap="${lineup.id}"><img class="lu-img" alt="" src="${UI.thumb(syncLabels(lineup, m), 480, 312, { step: 0 })}" draggable="false">${lineupHot(lineup)}</div><p class="muted small">Glisse un joueur sur le dessin pour le déplacer (son poste suit) ; touche-le pour ouvrir sa ligne.</p>
           <div class="chips">${conv.length ? `<button class="btn" data-act="autocomp">✨<span>Proposer une compo</span></button>` : ''}<button class="btn" data-act="luimg">🖼️<span>Image WhatsApp</span></button><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Flèches et détails</span></a>${m.played ? '' : `<button class="btn soft" data-act="lineupredo">🗑️<span>Refaire</span></button>`}</div>
           ${slotsCard(lineup, conv, m)}${lineupHistory(m)}`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><div class="chips"><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>${lastLineup(m) ? `<button class="btn" data-act="lineupcopy">♻️<span>Reprendre la compo du ${esc(fmtDate(lastLineup(m).m.date, { day: 'numeric', month: 'short' }))}</span></button>` : ''}</div>${lineupHistory(m)}`}</section>
@@ -21062,7 +21072,7 @@ var Views = (() => {
     x.fillStyle = '#e2c27d'; x.font = '700 32px system-ui, sans-serif'; x.fillText((club + (t ? ' · ' + t.name : '')).toUpperCase(), 60, 90);
     x.fillStyle = '#fff'; x.font = '900 60px system-ui, sans-serif'; x.fillText((m.home ? 'contre ' : 'chez ') + (m.opponent || '?'), 60, 160);
     x.fillStyle = 'rgba(255,255,255,.85)'; x.font = '600 34px system-ui, sans-serif'; x.fillText(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }) + (m.time ? ' · ' + m.time.replace(':', 'h') : '') + (m.rdv ? ' · rendez-vous ' + m.rdv.replace(':', 'h') : ''), 60, 212);
-    const pc = document.createElement('canvas'); pc.width = 960; pc.height = 620; Board.drawFrame(pc.getContext('2d'), 960, 620, syncLabels(sc, m), 0, 0, { homeBib: S().club.homeBib }); x.drawImage(pc, 60, 240);
+    const pc = document.createElement('canvas'); pc.width = 960; pc.height = 620; Board.drawFrame(pc.getContext('2d'), 960, 620, syncLabels(sc, m), 0, 0, { homeBib: S().club.homeBib }); // step 1 only x.drawImage(pc, 60, 240);
     const st = sc.steps[0], slots = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id] && o.playerId).sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
     let y = 920; const col = Math.ceil(slots.length / 2) || 1; x.font = '700 30px system-ui, sans-serif';
     slots.forEach((o, i) => { const p = Store.get('players', o.playerId); if (!p) return; const cx = 60 + (i >= col ? 520 : 0), cy = y + (i % col) * 44; x.fillStyle = '#e2c27d'; x.fillText(String(o.label || ''), cx, cy); x.fillStyle = '#fff'; x.fillText((o.post ? o.post + ' · ' : '') + Store.shortName(p) + (m.captain === p.id ? ' ©' : ''), cx + 70, cy); });
@@ -21691,7 +21701,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 203, UPD = AppCfg.key('update-tried');
+  const BUILD = 204, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
