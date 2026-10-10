@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 177, date: '2026-10-10', title: 'Un accueil rangé 🧹', items: [
+      ['🗓️', "L'accueil tient en un écran : une seule carte « Ma semaine », le prochain rendez-vous en premier avec son bouton, ce qui manque (exercices, convocation, compo) et le matériel à prendre sur la ligne. Les autres jours se déplient."],
+      ['🔔', "Les rappels du club (sauvegarde, suivi des blessés…) sont rangés dans « À regarder », sur une ligne."],
+    ] },
     { n: 176, date: '2026-10-10', title: 'Les amicaux arrivent 🤝', items: [
       ['🐛', "AssistCoachAI : les matchs amicaux et les tournois n'étaient pas importés (AssistCoachAI les range à part des matchs). Ils arrivent maintenant partout : Matchs, accueil, planning, espaces joueurs et parents. Relance l'import AssistCoachAI une fois."],
     ] },
