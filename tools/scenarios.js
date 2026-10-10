@@ -110,6 +110,23 @@ const SCENARIOS = [
     await go('#/reglages'); must($$('.set-tabs .chip').length === 2, 'pas deux onglets');
     await click('[data-stab="club"]'); must(!$$('.set-pane')[1].hidden, 'onglet club caché'); must($('.set-pane:not([hidden]) details.fold'), 'pas de « Avancé »');
     await click('[data-stab="moi"]'); must(!$$('.set-pane')[0].hidden, 'onglet moi caché'); return 'ok';`],
+  ['Synchro : fusion à trois (base, moi, eux)', `
+    const b = { id: 'm1', updatedAt: 1, convoked: ['a', 'b'], prep: {}, gf: 0, notes: 'x', minutes: { a: 60 } };
+    const mine = { id: 'm1', updatedAt: 5, convoked: ['a', 'b', 'c'], prep: { talk: { objective: 'Gagner' } }, gf: 0, notes: 'x', minutes: { a: 60 } };
+    const theirs = { id: 'm1', updatedAt: 3, convoked: ['a'], prep: {}, lineupId: 'sc1', gf: 2, notes: 'x', minutes: { a: 60, b: 30 } };
+    const r = Sync.merged(b, mine, theirs);
+    must(r.prep && r.prep.talk && r.prep.talk.objective === 'Gagner', 'la causerie de mon côté est perdue');
+    must(r.lineupId === 'sc1', 'la compo de leur côté est perdue');
+    must(r.convoked.join(',') === 'a,c', 'convoqués : attendu a,c (b retiré par eux, c ajouté par moi), obtenu ' + r.convoked.join(','));
+    must(r.gf === 2 && r.minutes.b === 30 && r.minutes.a === 60, 'score ou minutes perdus');
+    must(r.updatedAt === 5, 'updatedAt');
+    // without any base (old device): what one side has and the other lacks is kept
+    const r2 = Sync.merged(null, { id: 'm1', updatedAt: 9, prep: { talk: { objective: 'Tenir' } } }, { id: 'm1', updatedAt: 8, lineupId: 'sc2', prep: {} });
+    must(r2.prep.talk.objective === 'Tenir' && r2.lineupId === 'sc2', 'fusion sans base');
+    // a list of exercises with ids: edited here, extended there
+    const r3 = Sync.merged({ id: 't', exercises: [{ id: 'e1', title: 'A', duration: 10 }] }, { id: 't', updatedAt: 2, exercises: [{ id: 'e1', title: 'A', duration: 15 }] }, { id: 't', updatedAt: 3, exercises: [{ id: 'e1', title: 'A', duration: 10 }, { id: 'e2', title: 'B', duration: 5 }] });
+    must(r3.exercises.length === 2 && r3.exercises[0].duration === 15 && r3.exercises[1].id === 'e2', 'exercices : ' + JSON.stringify(r3.exercises));
+    return 'ok';`],
   ['Hors connexion : le bandeau', `
     document.body.classList.add('offline'); const c = getComputedStyle(document.body, '::before').content; document.body.classList.remove('offline');
     must(/Hors connexion/.test(c), 'pas de bandeau'); return 'ok';`],

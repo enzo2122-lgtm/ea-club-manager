@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 149, date: '2026-10-10', title: 'La synchro ne perd plus rien 🧷', items: [
+      ['🧷', "Deux écrans qui touchent le même match, la même séance ou le même joueur : les changements des deux sont gardés, champ par champ (plus de version qui écrase l'autre)."],
+      ['⚡', "L'appli se met à jour toutes les 15 secondes quand elle est à l'écran, tout de suite quand tu y reviens, et envoie ce qui reste juste avant de se fermer."],
+    ] },
     { n: 148, date: '2026-10-10', title: 'Les numéros, au bon endroit 👕', items: [
       ['👕', "Compo : le numéro de maillot se choisit directement dans « Qui joue où ? » (liste de 1 à 99, pour les titulaires et les remplaçants). La carte « Numéros du match » disparaît."],
     ] },

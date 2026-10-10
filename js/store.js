@@ -241,6 +241,7 @@ const Store = (() => {
     load, closeDb, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
     playersOf, rosterOf, helps, sameCat, numOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, isDayComp, dayOf, matchKind, kindOk,
     get state() { return state; }, on: f => listeners.add(f), off: f => listeners.delete(f),
+    auxGet: idbGet, auxPut: idbPut, // (2.91) a side drawer in the same database (the sync keeps its « base » there)
   };
 })();
 

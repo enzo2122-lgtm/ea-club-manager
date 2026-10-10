@@ -1054,6 +1054,7 @@ var Store = (() => {
     load, closeDb, save, persistNow, sortTeams, get, upsert, remove, uid, exportAll, exportTraining, exportSchema, importText, reset, removeExamples,
     playersOf, rosterOf, helps, sameCat, numOf, staffOf, fullName, shortName, byName, isMain, isSub, teamGroups, teamLabel, isFriendly, isDayComp, dayOf, matchKind, kindOk,
     get state() { return state; }, on: f => listeners.add(f), off: f => listeners.delete(f),
+    auxGet: idbGet, auxPut: idbPut, // (2.91) a side drawer in the same database (the sync keeps its « base » there)
   };
 })();
 
@@ -3730,7 +3731,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.90';
+  const VERSION = '2.91';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4261,7 +4262,9 @@ var Cloud = (() => {
 /* ===== sync.js ===== */
 /* Sync: the club's data lives on the club server, each device keeps a copy that works offline.
    Every few seconds a device sends what changed on it and receives what changed on the others.
-   One item (a player, a training, a schema…) is the unit: the latest change of an item wins. */
+   (2.91) Nothing is lost any more when two devices touch the same item: each device remembers the last version it shared
+   with the server (the « base »), and a three-way merge (base, mine, theirs) keeps the changes of both sides, field by field.
+   The server refuses a version built on an outdated base and returns its own: the device merges and sends again. */
 var Sync = (() => {
   const COLS = ['teams', 'players', 'staff', 'schemas', 'trainings', 'matches', 'reports'];
   const S = () => Store.state;
@@ -4296,47 +4299,99 @@ var Sync = (() => {
     return cur;
   }
 
+  /* ---------- the base: the last version of each item shared with the server (kept apart, in the phone's database) ---------- */
+  const BKEY = AppCfg.key('sync-base');
+  let base = null, baseT = null;
+  async function loadBase() {
+    if (base) return base;
+    try { base = (await Store.auxGet(BKEY)) || {}; } catch (e) { base = {}; }
+    // first time after the update: an item that is clean (same as the last print) is taken as the shared version
+    if (!Object.keys(base).length) { const H = meta().h; Object.entries(current()).forEach(([k, [col, x]]) => { if (col !== 'club' && H[k] && H[k] === fp(x)) base[k] = clone(x); }); }
+    return base;
+  }
+  function saveBase() { clearTimeout(baseT); baseT = setTimeout(() => { if (base) Store.auxPut(BKEY, base).catch(() => {}); }, 400); }
+  const clone = x => x == null ? x : JSON.parse(JSON.stringify(x));
+
+  /* ---------- the three-way merge: base (what both sides started from), mine, theirs ---------- */
+  const same = (a, b) => canon(a) === canon(b);
+  const isObj = x => x && typeof x === 'object' && !Array.isArray(x);
+  const SETS = /^(convoked|presents|late|absents|teamIds|staffIds|docIds|helps|subs|coaches|members|tags|ids|seen|read)$/i;
+  const idLike = s => typeof s === 'string' && /^[A-Za-z0-9_.:-]{1,60}$/.test(s);
+  const isIdSet = (arr, key) => arr.every(idLike) && new Set(arr).size === arr.length && (SETS.test(key || '') || /ids?$/i.test(key || ''));
+  const hasIds = arr => arr.length > 0 && arr.every(x => isObj(x) && x.id != null);
+  // « newer » says which side wins when both changed the same simple value
+  function merge3(b, l, s, newer, key) {
+    if (same(l, s)) return l;
+    if (same(b, l)) return s;
+    if (same(b, s)) return l;
+    if (l === undefined) return s; if (s === undefined) return l; // one side has it, the other never had it
+    if (isObj(l) && isObj(s)) {
+      const bb = isObj(b) ? b : {}, out = {};
+      new Set([...Object.keys(bb), ...Object.keys(l), ...Object.keys(s)]).forEach(k => {
+        const v = merge3(bb[k], l[k], s[k], newer, k); if (v !== undefined) out[k] = v;
+      });
+      // a value removed on one side (present in the base, absent on that side) and untouched on the other: it goes
+      Object.keys(bb).forEach(k => { if ((!(k in l) && same(bb[k], s[k])) || (!(k in s) && same(bb[k], l[k]))) delete out[k]; });
+      return out;
+    }
+    if (Array.isArray(l) && Array.isArray(s)) {
+      const ba = Array.isArray(b) ? b : [];
+      if (isIdSet(l, key) && isIdSet(s, key)) { // a set of ids: the additions of both, minus the removals of both
+        const bs = new Set(ba), ls = new Set(l), ss = new Set(s), out = [];
+        s.forEach(x => { if (ls.has(x) || !bs.has(x)) out.push(x); });
+        l.forEach(x => { if (!ss.has(x) && !bs.has(x) && !out.includes(x)) out.push(x); });
+        return out;
+      }
+      if (hasIds(l) && hasIds(s)) { // a list of things with an id (exercises, notes, events): merged one by one, order of theirs then mine
+        const bm = new Map(ba.filter(x => isObj(x) && x.id != null).map(x => [x.id, x])), lm = new Map(l.map(x => [x.id, x])), sm = new Map(s.map(x => [x.id, x])), out = [];
+        s.forEach(x => { const mine = lm.get(x.id), was = bm.get(x.id); if (mine) out.push(merge3(was, mine, x, newer, key)); else if (!was || !same(was, x)) out.push(x); });
+        l.forEach(x => { if (!sm.has(x.id) && !bm.has(x.id)) out.push(x); });
+        return out;
+      }
+      return newer === 'l' ? l : s; // other lists (positions, keys of a talk…): the most recent wins
+    }
+    return newer === 'l' ? l : s;
+  }
+  // mine and theirs merged on the base; without a base (old device), what one side has and the other lacks is kept
+  function merged(b, loc, data) {
+    const newer = (loc.updatedAt || 0) > (data.updatedAt || 0) ? 'l' : 's';
+    const out = merge3(b || {}, loc, data, newer, '');
+    out.updatedAt = Math.max(loc.updatedAt || 0, data.updatedAt || 0);
+    return out;
+  }
+
   /* ---------- receive ---------- */
   async function apply(rows) {
-    const H = meta().h; let changed = false;
+    const H = meta().h, B = await loadBase(); let changed = false;
     for (const r of rows) {
       const k = r.col + '/' + r.id;
       if (r.col === 'club') {
         if (r.del || !r.data) continue;
         const loc = clubData();
-        if (H[k] && fp(loc) !== H[k]) continue; // changed here too: ours will be sent
+        if (H[k] && fp(loc) !== H[k]) { // changed here too: both sides merged
+          const m = merged(B[k] || {}, loc, r.data); Object.assign(S().club, m); B[k] = clone(r.data); H[k] = fp(r.data); changed = true; if (typeof Sport !== 'undefined') Sport.apply(); saveBase(); continue;
+        }
         if (fp(loc) !== fp(r.data)) { Object.assign(S().club, r.data); changed = true; if (typeof Sport !== 'undefined') Sport.apply(); }
-        H[k] = fp(clubData()); continue;
+        H[k] = fp(clubData()); B[k] = clone(r.data); continue;
       }
       if (!COLS.includes(r.col)) continue;
       const arr = S()[r.col], i = arr.findIndex(x => x.id === r.id), loc = i >= 0 ? arr[i] : null;
       if (r.del) {
-        if (loc && H[k] && fp(loc) !== H[k] && (loc.updatedAt || 0) > (r.u || 0)) continue; // edited here after the deletion
+        if (loc && H[k] && fp(loc) !== H[k]) continue; // edited here meanwhile: ours is kept and sent again (the deletion is undone)
         if (loc) { arr.splice(i, 1); changed = true; }
-        delete H[k]; continue;
+        delete H[k]; delete B[k]; saveBase(); continue;
       }
       let data = r.data;
       if (data && data.bgData) { await Library.saveBackground(data).catch(() => {}); data = strip(data); }
       if (loc) {
-        const same = fp(loc) === fp(data);
-        if (same) { H[k] = fp(loc); continue; }
+        if (fp(loc) === fp(data)) { H[k] = fp(loc); B[k] = clone(data); continue; }
         const dirty = fp(loc) !== H[k];
-        if (dirty && (loc.updatedAt || 0) > (r.u || 0)) continue; // our version is newer: it will be sent
-        // (2.88) a match: what was prepared here (causerie, compo, convoqués, capitaine) is never erased by a version of the match
-        // that does not have it: it is merged in, and the merged match leaves at the next push (H keeps the server's print, so it is « dirty »)
-        let merged = false;
-        if (r.col === 'matches') {
-          const full = o => o && typeof o === 'object' && Object.keys(o).length > 0;
-          if (full(loc.prep) && !full(data.prep)) { data.prep = loc.prep; merged = true; }
-          if (loc.lineupId && !data.lineupId) { data.lineupId = loc.lineupId; merged = true; }
-          if ((loc.convoked || []).length && !(data.convoked || []).length) { data.convoked = loc.convoked; merged = true; }
-          if (loc.captain && !data.captain) { data.captain = loc.captain; merged = true; }
-        }
-        arr[i] = data;
-        if (merged) { changed = true; continue; }
+        if (!dirty) arr[i] = data; // nothing changed here: theirs, simply
+        else arr[i] = merged(B[k], loc, data); // changed on both sides: the merge keeps both; it differs from theirs, so it leaves at the next push
       } else arr.push(data);
-      H[k] = fp(data); changed = true;
+      H[k] = fp(data); B[k] = clone(data); changed = true;
     }
+    saveBase();
     return changed;
   }
   async function pull() {
@@ -4352,9 +4407,9 @@ var Sync = (() => {
   }
 
   /* ---------- send ---------- */
-  async function push() {
-    if (typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly()) return; // (2.61) observation: nothing goes to the server
-    const H = meta().h, cur = current(), out = [], now = Date.now();
+  async function push(round = 0) {
+    if (typeof Auth !== 'undefined' && Auth.readOnly && Auth.readOnly()) return 0; // (2.61) observation: nothing goes to the server
+    const H = meta().h, B = await loadBase(), cur = current(), out = [], now = Date.now();
     const only = typeof Auth !== 'undefined' && Auth.limited && Auth.limited() ? 'players' : ''; // (2.66) intendance / référent médical
     for (const [k, [col, x]] of Object.entries(cur)) {
       if (only && col !== only) continue;
@@ -4362,15 +4417,19 @@ var Sync = (() => {
       if (col !== 'club') x.updatedAt = Math.max(now, (x.updatedAt || 0) + 1);
       // a copy taken now: what is typed or drawn while it travels stays "to send" (otherwise the server's echo would erase it)
       const snap = JSON.parse(JSON.stringify(x));
-      out.push({ k, col, id: col === 'club' ? 'club' : x.id, x: snap, f: fp(snap), u: col === 'club' ? now : x.updatedAt });
+      // the base the change was built on: the server refuses the item if someone else changed it since (and returns its version)
+      const bu = col === 'club' ? null : B[k] ? (B[k].updatedAt || 0) : (H[k] ? null : 0);
+      out.push({ k, col, id: col === 'club' ? 'club' : x.id, x: snap, f: fp(snap), u: col === 'club' ? now : x.updatedAt, bu });
     }
-    Object.keys(H).forEach(k => { if (!cur[k] && (!only || k.startsWith(only + '/'))) out.push({ k, col: k.slice(0, k.indexOf('/')), id: k.slice(k.indexOf('/') + 1), del: true, u: now }); });
+    Object.keys(H).forEach(k => { if (!cur[k] && (!only || k.startsWith(only + '/'))) out.push({ k, col: k.slice(0, k.indexOf('/')), id: k.slice(k.indexOf('/') + 1), del: true, u: now, bu: B[k] ? (B[k].updatedAt || 0) : null }); });
     if (!out.length) return 0;
-    let batch = [], size = 0;
+    let batch = [], size = 0, conflicts = [];
     const send = async () => {
       if (!batch.length) return;
-      await Cloud.push(batch.map(b => ({ col: b.col, id: b.id, data: b.del ? null : b.data, u: b.u, del: !!b.del })));
-      batch.forEach(b => { if (b.del) delete H[b.k]; else H[b.k] = b.f; });
+      const res = await Cloud.push(batch.map(b => ({ col: b.col, id: b.id, data: b.del ? null : b.data, u: b.u, del: !!b.del, bu: b.bu })));
+      const refused = new Set((res && Array.isArray(res.conflicts) ? res.conflicts : []).map(c => c.col + '/' + c.id));
+      batch.forEach(b => { if (refused.has(b.k)) return; if (b.del) { delete H[b.k]; delete B[b.k]; } else { H[b.k] = b.f; B[b.k] = clone(b.x); } });
+      if (res && Array.isArray(res.conflicts)) conflicts.push(...res.conflicts);
       batch = []; size = 0;
     };
     for (const o of out) {
@@ -4381,7 +4440,12 @@ var Sync = (() => {
       if (batch.length && (size + len > 900000 || batch.length >= 150)) await send();
       batch.push(o); size += len;
     }
-    await send();
+    await send(); saveBase();
+    // refused by the server (someone else changed the same thing): their version is merged with ours, then sent again
+    if (conflicts.length && round < 3) {
+      await apply(conflicts.map(c => ({ col: c.col, id: c.id, data: c.data, u: c.u, del: !!c.del, rev: c.rev })));
+      await push(round + 1);
+    }
     return out.length;
   }
 
@@ -4390,7 +4454,7 @@ var Sync = (() => {
   // Recent work of the device is still shared.
   function adoptStale() {
     const H = meta().h, old = Date.now() - 864e5;
-    Object.entries(current()).forEach(([k, [col, x]]) => { if (col !== 'club' && !H[k] && (x.updatedAt || 0) < old) H[k] = fp(x); });
+    Object.entries(current()).forEach(([k, [col, x]]) => { if (col !== 'club' && !H[k] && (x.updatedAt || 0) < old) { H[k] = fp(x); if (base) base[k] = clone(x); } });
   }
 
   /* ---------- run ---------- */
@@ -4400,6 +4464,7 @@ var Sync = (() => {
     running = (async () => {
       let changed = false;
       try {
+        await loadBase();
         const fresh = !meta().rev && !Object.keys(meta().h).length;
         changed = await pull();
         if (fresh && meta().rev > 0) adoptStale();
@@ -4429,12 +4494,14 @@ var Sync = (() => {
   }
   let pending = false, lastTouch = 0, retry = null;
   ['touchstart', 'touchmove', 'scroll', 'wheel'].forEach(ev => window.addEventListener(ev, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
-  const soon = () => { clearTimeout(timer); timer = setTimeout(run, 2500); };
+  const soon = () => { clearTimeout(timer); timer = setTimeout(run, 1500); };
   function start() {
     Store.on(soon);
-    clearInterval(poll); poll = setInterval(() => { if (document.visibilityState === 'visible') run(); }, 30000);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') run(); });
+    // (2.91) every 15 s while the app is on screen, at once when it comes back, when the network returns, and before it is closed
+    clearInterval(poll); poll = setInterval(() => { if (document.visibilityState === 'visible') run(); }, 15000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') run(); else { clearTimeout(timer); run(); } });
     window.addEventListener('online', () => run());
+    window.addEventListener('pagehide', () => { clearTimeout(timer); run(); });
     window.addEventListener('hashchange', () => { if (pending) { pending = false; } });
     run();
   }
@@ -4445,9 +4512,9 @@ var Sync = (() => {
     if (lastErr) return 'Synchronisation : ' + lastErr;
     return lastOk ? 'Données à jour avec le serveur (' + new Date(lastOk).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + ').' : 'Synchronisation en cours…';
   }
-  const forget = () => { S().sync = { rev: 0, h: {} }; };
+  const forget = () => { S().sync = { rev: 0, h: {} }; base = {}; saveBase(); };
 
-  return { start, run, firstLoad, status, forget, fp };
+  return { start, run, firstLoad, status, forget, fp, merge3, merged };
 })();
 
 ;
@@ -16732,6 +16799,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 149, date: '2026-10-10', title: 'La synchro ne perd plus rien 🧷', items: [
+      ['🧷', "Deux écrans qui touchent le même match, la même séance ou le même joueur : les changements des deux sont gardés, champ par champ (plus de version qui écrase l'autre)."],
+      ['⚡', "L'appli se met à jour toutes les 15 secondes quand elle est à l'écran, tout de suite quand tu y reviens, et envoie ce qui reste juste avant de se fermer."],
+    ] },
     { n: 148, date: '2026-10-10', title: 'Les numéros, au bon endroit 👕', items: [
       ['👕', "Compo : le numéro de maillot se choisit directement dans « Qui joue où ? » (liste de 1 à 99, pour les titulaires et les remplaçants). La carte « Numéros du match » disparaît."],
     ] },
@@ -21267,7 +21338,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 191, UPD = AppCfg.key('update-tried');
+  const BUILD = 192, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
