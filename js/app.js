@@ -76,7 +76,7 @@ const App = (() => {
     // a volunteer: only what he uses on match days
     const nav = pv && pv.role === 'benevole' ? [['benevoles', 'Bénévoles', 'team'], NAV[6]]
       : Auth.limited() === 'kit' ? [['equipements', 'Équipements', 'team', 'Équip.'], ...NAV.filter(n => Auth.pageOk(n[0]))]
-      : Auth.isAdmin() ? [...NAV.slice(0, -1), ['gestion', 'Gestion du club', 'shield', 'Gestion'], NAV[NAV.length - 1]] : NAV;
+      : Auth.isAdmin() ? [...NAV.slice(0, -1).filter(n => n[0] !== 'jeu' && n[0] !== 'terrain'), ['gestion', 'Gestion du club', 'shield', 'Gestion'], NAV[NAV.length - 1]] : NAV; // (2.86) a responsable: no predictions game, no chrono in the menu
     const idx = nav.findIndex(n => n[0] === active);
     document.body.classList.toggle('nav-top', navPos() === 'haut');
     const rail = document.querySelector('.rail'), cur = nav[idx] || null;
@@ -164,7 +164,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 186, UPD = AppCfg.key('update-tried');
+  const BUILD = 187, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

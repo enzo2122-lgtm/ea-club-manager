@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 144, date: '2026-10-10', title: 'Menu du responsable allégé 🧹', items: [
+      ['🧹', "Pour les responsables, « Jeu des pronos » et « Chrono et score » quittent le menu : ils restent pour les coachs (et par le mode Coach des rôles)."],
+    ] },
     { n: 143, date: '2026-10-10', title: "Les remplaçants ont leur ligne 🪑", items: [
       ['🪑', "Compo d'un match : sous « Qui joue où ? », les convoqués sans poste apparaissent comme remplaçants, tout seuls."],
       ['👕', "« Numéros du match » se plie : il ne sert que si un joueur change de maillot pour ce match."],
