@@ -228,7 +228,7 @@
     // (1.64) in tabs: matches, sessions, my season (stats, results, standings), the predictions game, coaches, settings
     $('#page').innerHTML = `${Member.bar(data, 'joueurs')}
       ${Member.tabs('joueurs', [
-        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${rdv}${wbCard(now)}<div id="afBox"></div>${Injury.card('', Injury.events(data))}<div id="abBox"></div>${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
+        { id: 'matchs', icon: '🏠', label: 'Accueil', html: `${Member.bday(data, 'joueurs')}${Member.installCard('joueurs')}${Member.convocsHtml(data, { date: d => fmt(d), hh, title, who: 'Tu es', today: now })}${rdv}${wbCard(now)}<div id="afBox"></div>${Injury.card('', Injury.events(data))}<div id="abBox"></div>${homeVideos()}${msgCard(true)}` }, // (1.81) no matches here: they are in « Séances »
         { id: 'seances', icon: '🏃', label: 'Séances', html: `${talkCard(up.find(m => m.convoked) || up[0])}${Member.tipsHtml(tips, 'toi')}
           ${prog ? `<h2>Entraînements et matchs à venir</h2>${prog}` : '<h2>Entraînements et matchs</h2><p class="tip">Rien de prévu pour l\'instant.</p>'}
           <div class="card perso-card"><h3>🏃 Mon entraînement perso</h3><p class="info">Physique, technique ou tactique, seul ou à plusieurs, en plus des entraînements du club. Note tes footings (temps, distance) et envoie-les à ton coach si tu veux.</p><button class="b yes on" data-perso>Créer ma séance · noter mes footings</button></div>` },
@@ -282,7 +282,7 @@
     const tok = ++loadTok, c = Member.current(); lastLoad = Date.now();
     if (c !== code) { code = c; data = null; extra = null; lead = null; tips = []; vids = []; prof = null; draft = null; msgDraft = ''; wbNote = ''; Object.keys(wbVals).forEach(k => delete wbVals[k]); Object.keys(sess).forEach(k => delete sess[k]); }
     try {
-      const d = await rpc('member_view', { p_code: code }); if (tok !== loadTok) return;
+      const [d, cv] = await Promise.all([rpc('member_view', { p_code: code }), Member.convocs(code)]); if (tok !== loadTok) return; Member.applyConvocs(d, cv); // (3.13) the convocations sent in the app
       data = d; window.CLUB_SPORT = (data.club || {}).sport; Member.remember(code, data); Member.crest(data); render();
       if (data.guest === 'pending') return; // (2.67) nothing else is open before the coach validates
       const soft = p => p.catch(() => undefined); // a club server not yet updated: that part stays empty

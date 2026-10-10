@@ -660,7 +660,39 @@ const Member = (() => {
     } catch (e) {}
     return data;
   }
+  // (3.13) the convocations sent in the app by the coach: his message, the called-up players, the time it was sent.
+  // Read together with member_view; an old server (no member_convocs): null, and the space stays as before.
+  async function convocs(code) { try { const r = await rpc('member_convocs', { p_code: code }); return Array.isArray(r) ? r : null; } catch (e) { return null; } }
+  function applyConvocs(d, list) {
+    if (!d || !Array.isArray(list)) return d;
+    const by = {}; list.forEach(x => { by[x.id] = x; });
+    d.convApp = true; (d.matches || []).forEach(m => { m.conv = by[m.id] || null; if (m.convoked && !m.conv && !m.played) m.convoked = false; }); // not sent yet: « dispo ? » until the coach sends it
+    return d;
+  }
+  // the coach's message without the lines that the buttons replace (answer here, the link)
+  const convMsg = t => String(t || '').split('\n').filter(l => !/votre enfant en répondant|Répondez présent ou absent|^👉 Présent ou absent|^\*?Joueurs convoqués/.test(l)).join('\n')
+    .replace(/\n(\d+\. .*(\n|$))+/g, '\n').replace(/\*([^*\n]+)\*/g, '$1').replace(/\n{3,}/g, '\n\n').trim();
+  // « 📣 Convocation » : the message, the list, and the answer (who = 'Tu es' / '<prénom> est')
+  function convocCard(m, o) {
+    const cv = m.conv || {}, sq = (cv.squad || []).slice().sort((a, b) => (+a.n || 999) - (+b.n || 999) || String(a.name).localeCompare(String(b.name))), msg = convMsg(cv.msg);
+    const st = m.answer === 'oui' ? '✓ présent' : m.answer === 'non' ? '✗ absent' + (m.reason ? ' · ' + esc(m.reason) : '') : '⏳ pas encore répondu';
+    return `<article class="card convoc ${m.answer ? 'done' : 'todo'}" data-m="${esc(m.id)}">
+      <div class="cv-head"><b>📣 Convocation</b><span class="info small">${cv.at ? 'envoyée le ' + esc(new Date(+cv.at).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })) : ''}</span></div>
+      <div class="m-date">${esc(o.date(m.date))}${m.time ? ' · ' + esc(o.hh(m.time)) : ''}</div>
+      <div class="m-title">${o.title(m)}</div>
+      <p class="info">${m.rdv ? `🕘 Rendez-vous <b>${esc(o.hh(m.rdv))}</b>` : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? `coup d'envoi <b>${esc(o.hh(m.time))}</b>` : ''}</p>
+      ${msg ? `<p class="cv-msg">${esc(msg).replace(/\n/g, '<br>')}</p>` : ''}
+      ${sq.length ? `<details class="cv-squad"><summary>👥 Les ${sq.length} convoqués</summary><ol>${sq.map(x => `<li class="${x.me ? 'me' : ''}">${x.n ? `<b>${esc(x.n)}</b> ` : ''}${esc(x.name)}</li>`).join('')}</ol></details>` : ''}
+      <div class="kid mine"><span class="nm">${esc(o.who)} convoqué${o.fem ? 'e' : ''}</span><span class="st ${esc(m.answer || '')}">${st}</span>
+        <span class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></span></div>
+    </article>`;
+  }
+  // the « Convocations » part on top: the convocations of the matches to come (the ones without an answer first)
+  function convocsHtml(d, o) {
+    const now = o.today, l = (d.matches || []).filter(m => m.conv && !m.played && m.date >= now).sort((a, b) => (a.answer ? 1 : 0) - (b.answer ? 1 : 0) || (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+    return l.length ? `<h2>📣 Mes convocations</h2>${l.map(m => convocCard(m, o)).join('')}` : '';
+  }
   // (2.29) the service worker is registered as soon as the page opens (offline copy, and what the stores check), not only with the notifications
   if (location.protocol !== 'file:' && 'serviceWorker' in navigator && !PREVIEW) navigator.serviceWorker.register('sw.js').catch(() => {});
-  return { pendingCard, bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, guestForm, bar, onBar, pretty, clean, pageFor, list, crest, family };
+  return { convocs, applyConvocs, convocsHtml, convocCard, pendingCard, bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, guestForm, bar, onBar, pretty, clean, pageFor, list, crest, family };
 })();
