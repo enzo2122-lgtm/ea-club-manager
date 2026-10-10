@@ -39,6 +39,7 @@ const App = (() => {
     UI.modal({ title: '🩺 Diagnostic', body: `<textarea rows="14" readonly style="font:12px monospace;width:100%">${UI.esc(txt)}</textarea>`, actions: [{ label: 'Fermer' }, { label: 'Copier', kind: 'primary', onClick: () => { navigator.clipboard.writeText(txt).then(() => UI.toast('Copié')).catch(() => UI.toast('Sélectionne et copie')); return false; } }] });
   }
   function refreshChrome() {
+    { const me = Auth.current(), st = me && Store.get('staff', me.id); if (st && st.look && !localStorage.getItem(AppCfg.key('look'))) Theme.use('', st.look); Theme.apply(); const fc = me && me.club && Clubs.LIST[me.club]; if (fc) Theme.fromClub(fc[2], fc[3]); } // (3.15) one's look, from another device
     const c = Store.state.club;
     // Banner while a responsable looks at the app as a coach
     let bar = document.getElementById('previewBar'); const pv = Auth.preview();
@@ -58,7 +59,7 @@ const App = (() => {
     // The connected coach: his initials with his favourite club's crest, and « Coach Prénom » (opens Mon compte)
     const coach = u ? Messages.coachName(u) : '', first = coach.replace(/^Coach /, '');
     ru.innerHTML = u ? `<a class="ru-me" href="#/reglages" title="Mon compte">
-        <span class="avatar" aria-hidden="true">${UI.esc((first[0] || '') + ((u.lastName || '')[0] || ''))}${u.club ? `<span class="avatar-club">${Clubs.crest(u.club, 18, () => refreshChrome())}</span>` : ''}</span>
+        <span class="avatar" aria-hidden="true">${UI.esc((first[0] || '') + ((u.lastName || '')[0] || ''))}${Theme.icon() ? `<span class="avatar-post">${Theme.icon()}</span>` : ''}${u.club ? `<span class="avatar-club">${Clubs.crest(u.club, 18, () => refreshChrome())}</span>` : ''}</span>
         <span class="ru-name">${UI.esc(coach)}</span></a>${Auth.realAdmin() ? '<button class="ru-out" id="rolesBtn" title="Mes rôles">🔀 Rôles</button>' : ''}<button class="ru-out" id="logoutBtn">Sortir</button>` : '';
     const rb = document.getElementById('rolesBtn'); if (rb) rb.onclick = () => Roles.open();
     const lo = document.getElementById('logoutBtn'); if (lo) lo.onclick = () => Auth.logout();
@@ -170,7 +171,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 215, UPD = AppCfg.key('update-tried');
+  const BUILD = 216, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

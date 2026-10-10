@@ -49,7 +49,7 @@ const Member = (() => {
       if (/SONDAGE_FINI/.test(m)) throw new Error('Ce sondage est terminé.');
       if (/FICHIER_TYPE/.test(m)) throw new Error('Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).');
       if (/FICHIER_POIDS/.test(m)) throw new Error('Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.');
-      if (/FICHIER_ABSENT/.test(m)) throw new Error('Fichier introuvable (effacé après 90 jours ?).');
+      if (/FICHIER_ABSENT/.test(m)) throw new Error('Fichier introuvable : les vidéos s\'effacent après 3 jours, le reste après 90 jours.');
       if (/PHOTOS_COACHS/.test(m)) throw new Error('Dans ce chat, seuls les coachs envoient des photos pour l\'instant.');
       if (/\bPHOTO\b/.test(m)) throw new Error('Cette photo ne passe pas : essaie avec une autre.');
       if (/CODE_EXPIRE/.test(m)) throw new Error('Cette invitation a expiré (plus de 60 jours) : demande un nouveau code au coach.');

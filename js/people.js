@@ -4,7 +4,7 @@ const People = (() => {
   const S = () => Store.state;
   const POS = [['', '–'], ['GB', 'Gardien'], ['DEF', 'Défenseur'], ['MIL', 'Milieu'], ['ATT', 'Attaquant']];
   const SUBCATS = ['Senior', 'Senior U20', 'Vétéran', 'U6', 'U7', 'U8', 'U9', 'U10', 'U11', 'U12', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19'];
-  const ROLES = ['Éducateur', 'Éducateur adjoint', 'Responsable de catégorie', 'Dirigeant', 'Accompagnateur', 'Entraîneur des gardiens', 'Arbitre du club', 'Arbitre bénévole', 'Intendant', 'Président', 'Vice-président', 'Secrétaire', 'Trésorier', 'Autre'];
+  const ROLES = ['Éducateur', 'Éducateur adjoint', 'Responsable de catégorie', 'Dirigeant', 'Accompagnateur', 'Entraîneur des gardiens', 'Arbitre du club', 'Arbitre bénévole', 'Intendant', 'Président', 'Vice-président', 'Secrétaire', 'Trésorier', 'Trésorière', 'Trésorière · Secrétaire', 'Autre'];
   const RELS = ['Mère', 'Père', 'Tuteur', 'Autre'];
   // Which category (team) gathers each licence sub-category
   // Footclubs sub-category → category of the club (no U18 / U19 / U20 at the club: those players are in Seniors)

@@ -118,8 +118,8 @@ const SCENARIOS = [
       must(!Store.get('matches', m.id).convSent, 'marquée envoyée à la simple ouverture');
       const b = $$('#modal button').find(x => /Envoyer dans l.appli/.test(x.innerText)); must(b, 'pas de bouton « Envoyer dans l\u2019appli »'); b.click(); await wait(600);
       const x = Store.get('matches', m.id); must(x.convSent && /Convocation/.test(x.convMsg || '') && (x.convHow || []).includes('appli'), 'convocation non enregistrée pour l\u2019appli');
-      must(note && note.ids.length === m.convoked.length && /Convocation/.test(note.t), 'pas de notification aux convoqués');
-      return note.ids.length + ' notifiés · ' + text('#toast').slice(0, 40);
+      must(!note, 'notification envoyée aussi par l\u2019appli (le serveur l\u2019envoie déjà : doublon)');
+      return text('#toast').slice(0, 50);
     } finally { Cloud.ready = r0; Cloud.memberNote = n0; await closeModal(); }`],
   ['Vestiaires : semaine en cours à l\u2019ouverture, vue semaine', `
     const r0 = Cloud.ready, b0 = Cloud.bookings, t = UI.today(); Cloud.ready = () => true;
@@ -177,6 +177,14 @@ const SCENARIOS = [
     let err = ''; try { await Chat.attUpload(api, new File([new Uint8Array(51 * 1048576)], 'long.mov', { type: 'video/quicktime' })); } catch (e) { err = e.message; } must(/trop lourd/.test(err), 'vidéo de 51 Mo acceptée');
     err = ''; try { await Chat.attUpload(api, new File([new Uint8Array(10)], 'x.exe', { type: 'application/x-msdownload' })); } catch (e) { err = e.message; } must(/pas accepté/.test(err), '.exe accepté');
     return '3 morceaux, relu à l\u2019identique';`],
+  ['Ma page : thèmes, poste, couleurs du club de cœur', `
+    await go('#/matchs'); await go('#/reglages'); must($('#lookCard'), 'pas de carte « Ma page » dans les réglages');
+    await click('#lookCard [data-look="stade"]', 500); must(document.documentElement.dataset.look === 'stade', 'thème non appliqué : ' + document.documentElement.dataset.look);
+    const sel = $('#lookPost'); sel.value = 'gk'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(500);
+    must(Theme.icon() === '🧤', 'poste non gardé'); must(document.documentElement.dataset.look === 'stade', 'le poste a écrasé un thème choisi');
+    const me = Auth.current(), st = Store.get('staff', me.id); must(st.look && st.look.t === 'stade', 'thème non gardé sur la fiche (autre appareil)');
+    const ph = getComputedStyle(document.querySelector('.page-head')).backgroundImage; must(/gradient/.test(ph), 'bandeau sans décor');
+    Theme.set({ t: 'club', h: '', p: '' }); delete st.look; Store.upsert('staff', st); return 'ok';`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);
