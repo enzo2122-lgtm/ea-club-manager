@@ -7,6 +7,7 @@ const Chat = (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ERR = [[/MOT_INTERDIT/, 'Pas envoyé : un mot grossier ou insultant n\'est pas accepté ici. Reformule gentiment 🙂'],
     [/TROP_VITE/, 'Doucement : attends une seconde entre deux messages.'], [/CHAT_FERME/, 'Les coachs ont mis le chat en lecture seule pour l\'instant.'],
+    [/FICHIER_TYPE/, 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).'], [/FICHIER_POIDS/, 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.'], [/FICHIER_ABSENT/, 'Fichier introuvable (effacé après 90 jours ?).'],
     [/LIMITE_CHAT/, 'Beaucoup de messages aujourd\'hui : réessaie demain.'], [/PHOTOS_COACHS/, 'Dans ce chat, seuls les coachs envoient des photos pour l\'instant.'], [/\bPHOTO\b/, 'Cette photo ne passe pas : essaie avec une autre.'], [/SONDAGE_FINI/, 'Ce sondage est terminé.']];
   const nice = e => { const m = String((e && ((e.code || '') + ' ' + (e.message || ''))) || ''); const x = ERR.find(([r]) => r.test(m)); return x ? x[1] : (e && e.message) || 'Le serveur ne répond pas.'; };
   const EMOJI = ['👍', '⚽', '🔥', '💪', '😂', '👏', '🙏', '❤️', '😅', '🏆', '🥅', '✅'];
@@ -97,6 +98,8 @@ const Chat = (() => {
       '@keyframes cxCrown{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) scale(1.08)}}@media (prefers-reduced-motion:reduce){.cx-bdc{animation:none}}',
       '.cx-row.flash .cx-b{outline:3px solid #c9a45c}.cx-mute{border:0;background:none;font-size:20px;min-width:40px;min-height:40px;cursor:pointer}',
       '.cx-img{display:block;margin:2px -4px 4px;border-radius:12px;overflow:hidden;min-height:120px;background:color-mix(in srgb,currentColor 8%,transparent);cursor:zoom-in}.cx-img img{display:block;width:100%;max-height:340px;object-fit:cover}',
+      '.cx-att{display:flex;align-items:center;gap:10px;width:100%;min-width:200px;text-align:left;margin:2px 0 4px;padding:8px 10px;border:0;border-radius:12px;background:color-mix(in srgb,currentColor 10%,transparent);color:inherit;font:inherit;cursor:pointer}.cx-att-ic{font-size:24px}.cx-att-t{display:flex;flex-direction:column;min-width:0}.cx-att-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cx-att-t small{opacity:.75}' +
+      '.cx-attbusy{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:100;background:#0e1d45;color:#fff;padding:10px 16px;border-radius:12px;font:600 14px sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.3)}' +
       '.cx-b.photo{min-width:min(70%,260px)}.cx-pin{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:13px;background:color-mix(in srgb,#c9a45c 16%,var(--surface,#fff));border-bottom:1px solid var(--line,#e3e5ea);cursor:pointer}.cx-pin span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.cx-view{position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}.cx-view img{max-width:100%;max-height:82vh;border-radius:8px}.cx-view p{color:#fff;margin:10px 0 0;font-size:14px;text-align:center}',
       '.cx-ph.off{opacity:.45}',
@@ -216,6 +219,71 @@ const Chat = (() => {
       catch (e) { m.pend = false; m.fail = true; drawList(false); if (/MOT_INTERDIT/.test((e.code || '') + e.message)) { view.msgs = view.msgs.filter(x => x !== m); draft = cap; drawAll(); } (o.toast || alert)(nice(e), true); }
     });
   }
+  /* ---------- (3.14) attachments: PDF, videos (50 Mo), documents, photos in full size ----------
+     The file goes to the club server in pieces of 3 Mo (begin → put × n), then the message carries [[pj:id|name|mime|size]].
+     Read back piece by piece when touched; kept 90 days, like the photos. */
+  const MB = 1048576, PART = 3 * MB;
+  const ATT_RE = /\[\[pj:([0-9a-f-]{36})\|([^|\]]{0,120})\|([^|\]]{0,80})\|(\d{1,10})\]\]/g;
+  const attLimit = mime => /^video\//.test(mime) ? 50 * MB : 20 * MB;
+  const ATT_OK = /^(application\/pdf|video\/|image\/|audio\/|text\/plain|text\/csv|application\/(msword|vnd\.openxmlformats-officedocument\.|vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.oasis\.opendocument\.))/;
+  const mimeOf = f => f.type || ({ pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', txt: 'text/plain', csv: 'text/csv', mov: 'video/quicktime', mp4: 'video/mp4', m4v: 'video/mp4', heic: 'image/heic' }[String(f.name || '').split('.').pop().toLowerCase()] || '');
+  const sizeTxt = n => n >= MB ? (Math.round(n / MB * 10) / 10).toString().replace('.', ',') + ' Mo' : Math.max(1, Math.round(n / 1024)) + ' Ko';
+  const attIcon = mime => /^video\//.test(mime) ? '🎬' : /^image\//.test(mime) ? '🖼️' : /pdf/.test(mime) ? '📄' : /^audio\//.test(mime) ? '🎧' : /sheet|excel|csv/.test(mime) ? '📊' : /presentation|powerpoint/.test(mime) ? '📽️' : '📎';
+  const attClean = body => String(body == null ? '' : body).replace(ATT_RE, (x, id, name, mime) => `${attIcon(mime)} ${name}`);
+  const attsOf = body => { const out = []; String(body || '').replace(ATT_RE, (x, id, name, mime, size) => { out.push({ id, name, mime, size: +size }); return x; }); return out; };
+  const attChip = a => `<button type="button" class="cx-att" data-cxatt="${esc(a.id)}" data-name="${esc(a.name)}" data-mime="${esc(a.mime)}" data-size="${a.size}"><span class="cx-att-ic">${attIcon(a.mime)}</span><span class="cx-att-t"><b>${esc(a.name)}</b><small>${esc(sizeTxt(a.size))} · ${/^video\//.test(a.mime) ? 'regarder' : /pdf|^image\//.test(a.mime) ? 'ouvrir' : 'télécharger'}</small></span></button>`;
+  const b64 = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(new Error('Lecture du fichier impossible')); r.readAsDataURL(blob); });
+  // send one file: api = { begin(name, mime, size, parts) → id, put(id, n, data) }; progress(0..1)
+  async function attUpload(api, file, progress) {
+    const mime = mimeOf(file), size = file.size;
+    if (!ATT_OK.test(mime)) throw new Error('Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).');
+    if (size > attLimit(mime)) throw new Error(`Fichier trop lourd (${sizeTxt(size)}) : ${/^video\//.test(mime) ? '50 Mo au plus pour une vidéo' : '20 Mo au plus'}. Pour une longue vidéo, envoie un lien YouTube ou Drive.`);
+    const parts = Math.max(1, Math.ceil(size / PART)), name = String(file.name || 'fichier').replace(/[|\][]/g, ' ').slice(0, 100);
+    const id = await api.begin(name, mime, size, parts); if (!id) throw new Error('Le serveur n\'a pas accepté le fichier');
+    for (let n = 0; n < parts; n++) {
+      const data = await b64(file.slice(n * PART, Math.min(size, (n + 1) * PART)));
+      let ok = false; for (let k = 0; k < 3 && !ok; k++) { try { await api.put(id, n, data); ok = true; } catch (e) { if (k === 2) throw e; await new Promise(r => setTimeout(r, 1500)); } }
+      progress && progress((n + 1) / parts);
+    }
+    return `[[pj:${id}|${name}|${mime}|${size}]]`;
+  }
+  // read it back: api.get(id, n) → { parts, data } ; kept while the page lives
+  const attBlobs = new Map();
+  async function attFetch(api, a, progress) {
+    if (attBlobs.has(a.id)) return attBlobs.get(a.id);
+    const first = await api.get(a.id, 0); if (!first || !first.data) throw new Error('Fichier introuvable (effacé après 90 jours ?)');
+    const parts = +first.parts || 1, chunks = [first.data]; progress && progress(1 / parts);
+    for (let n = 1; n < parts; n++) { const r = await api.get(a.id, n); chunks.push(r.data); progress && progress((n + 1) / parts); }
+    const bytes = chunks.map(c => Uint8Array.from(atob(c), ch => ch.charCodeAt(0)));
+    const blob = new Blob(bytes, { type: a.mime || first.mime || 'application/octet-stream' }); attBlobs.set(a.id, blob); return blob;
+  }
+  // open it: a video or a photo in a big view, a PDF in a new tab, the rest downloaded
+  async function attOpen(api, a, toastFn) {
+    const t = toastFn || (() => {});
+    const pr = document.createElement('div'); pr.className = 'cx-attbusy'; pr.textContent = `⬇️ ${a.name}…`; document.body.appendChild(pr);
+    try {
+      const blob = await attFetch(api, a, f => { pr.textContent = `⬇️ ${a.name} · ${Math.round(f * 100)} %`; }), url = URL.createObjectURL(blob);
+      if (/^video\/|^image\//.test(a.mime)) {
+        const v = document.createElement('div'); v.className = 'cx-view';
+        v.innerHTML = `${/^video\//.test(a.mime) ? `<video src="${url}" controls playsinline autoplay style="max-width:100%;max-height:78vh;border-radius:10px"></video>` : `<img alt="" src="${url}">`}<p>${esc(a.name)}<br><a href="${url}" download="${esc(a.name)}" style="color:#fff">Enregistrer</a> · <span data-x>Fermer</span></p>`;
+        v.onclick = e => { if (e.target.closest('video,a')) return; v.remove(); URL.revokeObjectURL(url); }; document.body.appendChild(v);
+      } else if (/pdf/.test(a.mime)) { const w = window.open(url, '_blank'); if (!w) { const l = document.createElement('a'); l.href = url; l.download = a.name; l.click(); } }
+      else { const l = document.createElement('a'); l.href = url; l.download = a.name; document.body.appendChild(l); l.click(); l.remove(); }
+    } catch (e) { t(e.message || String(e), true); } finally { pr.remove(); }
+  }
+  const ACCEPT = 'application/pdf,video/*,image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.odt,.ods';
+  async function sendAtt(file) {
+    const t = $('#cxText'), cap = (t ? t.value : '').trim();
+    if (/^image\//.test(mimeOf(file)) && o.photo && file.size < 8 * MB) return sendPhoto(file); // a photo: made lighter, shown in the chat
+    const m = { id: 'p' + (++pend), at: new Date().toISOString(), name: 'moi', kind: o.kind || 'player', mine: true, body: `${attIcon(mimeOf(file))} ${file.name} · envoi…`, pend: true };
+    view.msgs.push(m); draft = ''; if (t) { t.value = ''; grow(); } drawList(true);
+    queue = queue.then(async () => {
+      try {
+        const tok = await attUpload({ begin: (n, mi, sz, pa) => o.att.begin(view.cat, n, mi, sz, pa), put: o.att.put }, file, f => { m.body = `${attIcon(mimeOf(file))} ${file.name} · ${Math.round(f * 100)} %`; drawList(false); });
+        await o.post(view.cat, (cap ? cap + '\n' : '') + tok); m.ok = true; view.msgs = view.msgs.filter(x => x !== m); lastPoll = 0; await load(false);
+      } catch (e) { m.pend = false; m.fail = true; m.body = `${attIcon(mimeOf(file))} ${file.name}`; drawList(false); (o.toast || alert)(nice(e), true); }
+    });
+  }
   /* ---------- the messages ---------- */
   // the key of a message for the grouping: same person, less than 5 minutes after the one before, same day
   function rowHtml(m, prev) {
@@ -224,11 +292,12 @@ const Chat = (() => {
     const day = !prev || dayOf(prev.at) !== dayOf(m.at) ? `<div class="cx-day">${esc(dayOf(m.at))}</div>` : '';
     const big = !m.deleted && onlyEmoji(m.body);
     const pic = m.img && !m.deleted ? `<span class="cx-img" data-cximg="${m.id}">${m.local || imgs.get(m.id) ? `<img alt="Photo" src="${m.local || imgs.get(m.id)}">` : ''}</span>` : '';
-    const body = m.deleted ? '<span class="cx-gone">🚫 Message supprimé</span>' : m.poll && pollOf(m.id) ? pollHtml(pollOf(m.id)) : pic + (m.body ? linkify(m.body) : '');
+    const atts = m.deleted ? [] : attsOf(m.body), txt = atts.length ? String(m.body || '').replace(ATT_RE, '').trim() : m.body;
+    const body = m.deleted ? '<span class="cx-gone">🚫 Message supprimé</span>' : m.poll && pollOf(m.id) ? pollHtml(pollOf(m.id)) : pic + atts.map(attChip).join('') + (txt ? linkify(txt) : '');
     const av = m.mine ? '' : `<span class="cx-av ${first ? '' : 'ghost'}" style="background:${color(m.name)}" aria-hidden="true">${esc(initials(m.name))}</span>`;
     const name = !m.mine && first ? `<span class="cx-name" style="color:${color(m.name)}">${m.king ? '<span class="cx-crown" title="C\'est son anniversaire">👑</span>' : ''}${esc(m.name.replace(/^Coach\s+/, ''))}${m.kind === 'coach' ? '<span class="cx-coach">COACH</span>' : ''}</span>` : '';
     const st = m.fail ? '⚠️' : m.ok ? '✓' : m.pend ? '🕓' : '';
-    const quote = m.reply && !m.deleted ? `<span class="cx-q" data-cxgoto="${m.reply.id}"><b>↩️ ${esc(String(m.reply.name || '').replace(/^Coach\s+/, ''))}</b>${m.reply.body == null ? '<i>Message supprimé</i>' : esc(m.reply.body)}</span>` : '';
+    const quote = m.reply && !m.deleted ? `<span class="cx-q" data-cxgoto="${m.reply.id}"><b>↩️ ${esc(String(m.reply.name || '').replace(/^Coach\s+/, ''))}</b>${m.reply.body == null ? '<i>Message supprimé</i>' : esc(attClean(m.reply.body))}</span>` : '';
     const rep = view && view.mod && view.reports && view.reports[m.id], flag = rep ? `<span class="cx-flag" title="Signalé par ${esc(rep.join(', '))}">🚩 ${rep.length}</span>` : '';
     const rx = (view && view.reacts && view.reacts[m.id]) || [];
     const rxs = rx.length && !m.deleted ? `<div class="cx-rxs ${m.mine ? 'mine' : ''}">${rx.map(r => `<button class="${r.me ? 'me' : ''}" data-cxrx="${m.id}:${r.e}" title="${esc((r.who || []).join(', '))}">${r.e} ${r.n}</button>`).join('')}</div>` : '';
@@ -273,7 +342,7 @@ const Chat = (() => {
         ${view.mod && o.photosOk && view.filtered ? `<button class="cx-mute cx-ph ${view.photos ? '' : 'off'}" data-cxphotos="${view.photos ? 0 : 1}" title="${view.photos ? 'Les joueurs peuvent envoyer des photos : toucher pour réserver les photos aux coachs' : 'Photos réservées aux coachs : toucher pour les ouvrir aux joueurs'}" aria-label="Photos des joueurs">📷</button>` : ''}
         ${view.mod && o.off ? `<button class="cx-mod" data-cxoff="${view.off ? 0 : 1}" title="${parRoom() ? (view.off ? 'Les parents lisent sans pouvoir écrire : toucher pour leur rendre la parole' : 'Mettre tous les parents en sourdine : ils lisent, seuls les coachs écrivent') : (view.off ? 'Rouvrir le chat aux joueurs' : 'Fermer le chat : les joueurs lisent, seuls les coachs écrivent')}">${parRoom() ? (view.off ? '🔊 Parole aux parents' : '🔇 Sourdine parents') : (view.off ? '🔓 Rouvrir' : '🔒 Fermer')}</button>` : ''}</div>
       ${(view.kings || []).length && mode === 'chat' ? `<div class="cx-kings">👑 <b>King of the day</b> : ${esc(view.kings.join(', '))} · joyeux anniversaire ! 🎂</div>` : ''}
-      ${view.pin && mode === 'chat' ? `<div class="cx-pin" data-cxgoto="${view.pin.id}">📌<span><b>${esc(String(view.pin.name || '').replace(/^Coach\s+/, ''))}</b> : ${esc(view.pin.body || (view.pin.img ? '📷 Photo' : ''))}</span></div>` : ''}
+      ${view.pin && mode === 'chat' ? `<div class="cx-pin" data-cxgoto="${view.pin.id}">📌<span><b>${esc(String(view.pin.name || '').replace(/^Coach\s+/, ''))}</b> : ${esc(attClean(view.pin.body) || (view.pin.img ? '📷 Photo' : ''))}</span></div>` : ''}
       ${view.off ? `<div class="cx-off">${parRoom() ? '🔇 Parents en sourdine : seuls les coachs écrivent' : '🔒 Chat fermé par les coachs'}${view.mod ? ' (toi, tu peux écrire)' : ''}</div>` : ''}
       <div class="cx-list" id="cxList">${listHtml()}</div>
       <button class="cx-new" id="cxNew" hidden>⬇ Nouveaux messages</button>
@@ -282,7 +351,7 @@ const Chat = (() => {
       ${editing ? `<div class="cx-replybar cx-editbar"><span>✏️ <b>Modification</b> de ton message</span><button type="button" data-cxeditno aria-label="Annuler la modification">✕</button></div>` : ''}
       ${replyTo ? `<div class="cx-replybar"><span>↩️ Réponse à <b>${esc(String(replyTo.name).replace(/^Coach\s+/, ''))}</b> : ${esc(replyTo.body || '')}</span><button type="button" data-cxreplyno aria-label="Ne plus répondre">✕</button></div>` : ''}
       <div class="cx-ment" id="cxMent" hidden></div>
-      <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}${o.photo && (view.mod || view.photos) ? '<button type="button" class="cx-ic" data-cxphoto aria-label="Envoyer une photo">📷</button><input type="file" accept="image/*" id="cxFile" hidden>' : ''}
+      <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}${o.photo && (view.mod || view.photos) ? '<button type="button" class="cx-ic" data-cxphoto aria-label="Envoyer une photo">📷</button><input type="file" accept="image/*" id="cxFile" hidden>' : ''}${o.att && (view.mod || view.photos) ? `<button type="button" class="cx-ic" data-cxattpick aria-label="Joindre un fichier (PDF, vidéo, document)">📎</button><input type="file" accept="${ACCEPT}" id="cxAttFile" hidden>` : ''}
         <textarea id="cxText" rows="1" maxlength="500" placeholder="Message" aria-label="Message" enterkeyhint="send">${esc(draft)}</textarea>
         <button type="submit" class="cx-ic cx-send" id="cxSend" aria-label="Envoyer" ${draft.trim() ? '' : 'disabled'}>➤</button></form>
       ${o.note ? `<div class="cx-note">${esc(o.note)}</div>` : ''}` : ''}
@@ -484,7 +553,7 @@ const Chat = (() => {
     el.addEventListener('input', e => {
       if (sheet) { if (e.target.id === 'cxPq') sheet.q = e.target.value; if (e.target.dataset.cxopt) sheet.opts[+e.target.dataset.cxopt] = e.target.value; if (e.target.id === 'cxPmulti') sheet.multi = e.target.checked; }
     });
-    el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; if (e.target.id === 'cxFile' && e.target.files && e.target.files[0]) { sendPhoto(e.target.files[0]); e.target.value = ''; } });
+    el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; if (e.target.id === 'cxFile' && e.target.files && e.target.files[0]) { sendPhoto(e.target.files[0]); e.target.value = ''; } if (e.target.id === 'cxAttFile' && e.target.files && e.target.files[0]) { sendAtt(e.target.files[0]); e.target.value = ''; } });
     el.addEventListener('input', e => { if (e.target.id !== 'cxText') return; draft = e.target.value; grow(); const s = $('#cxSend'); if (s) s.disabled = !draft.trim(); mentionAsk(e.target); });
     // a touch on a name: the keyboard stays open
     el.addEventListener('pointerdown', e => { if (e.target.closest('[data-cxment]')) e.preventDefault(); });
@@ -520,6 +589,8 @@ const Chat = (() => {
       if (f && o.off) { const off = f.dataset.cxoff === '1'; try { await o.off(off); view.off = off; drawAll(); (o.toast || (() => {}))(parRoom() ? (off ? '🔇 Parents en sourdine : ils lisent, seuls les coachs écrivent.' : '🔊 Les parents peuvent de nouveau écrire.') : off ? '🔒 Chat fermé : les joueurs peuvent lire, plus écrire.' : '🔓 Chat rouvert.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       // (2.03) a reaction (in the menu or a chip under a bubble): shown at once
       if (q('[data-cxphoto]')) { const f = $('#cxFile'); if (f) f.click(); return; }
+      if (q('[data-cxattpick]')) { const f = $('#cxAttFile'); if (f) f.click(); return; }
+      const at = q('[data-cxatt]'); if (at && !q('.cx-menu') && o.att) { attOpen({ get: o.att.get }, { id: at.dataset.cxatt, name: at.dataset.name, mime: at.dataset.mime, size: +at.dataset.size }, o.toast); return; }
       const im = q('[data-cximg]'); if (im && !q('.cx-menu')) { const i = im.querySelector('img'); if (i) { const m = view.msgs.find(x => String(x.id) === im.dataset.cximg); viewPhoto(i.src, m && m.body); } return; }
       const pn = q('[data-cxpin]'); if (pn && o.pin) { const id = +pn.dataset.cxpin || null; armed = null; closeMenu();
         try { await o.pin(view.cat, id); view.pin = id ? (() => { const m = view.msgs.find(x => x.id === id); return m ? { id, name: m.name, body: (m.body || '').slice(0, 140), img: !!m.img } : null; })() : null; drawAll();
@@ -565,5 +636,5 @@ const Chat = (() => {
     if (!timer) timer = setInterval(tick, 500);
     tick();
   }
-  return { mount, nice };
+  return { mount, nice, attUpload, attOpen, attsOf, attChip, attClean, ACCEPT, ATT_RE };
 })();

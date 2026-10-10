@@ -28,6 +28,43 @@ const ClubAdmin = (() => {
   }
   const noImage = p => val(p, 'image') === 'non';
 
+  /* ---------- (3.14) the licence: its number, its real state in Footclubs, and its price ----------
+     club.fees = { town, local, ext, mute }: the price for the players living in the club's town, the others, the transferred ones (mutés).
+     A licence read in Footclubs is paid (the club only registers it once paid): the fee is marked « payée » at the import. */
+  const fees = () => S().club.fees || {};
+  const normTown = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const isMute = p => !!p.mute && /^mute/.test(p.mute);
+  const local = p => { const f = fees(); return !f.town || !p.town ? null : normTown(p.town) === normTown(f.town) || normTown(p.town).includes(normTown(f.town)); };
+  // [price, why] — null when the club has no prices or the town is unknown
+  function fee(p) {
+    const f = fees(); if (!f.local && !f.ext && !f.mute) return null;
+    if (isMute(p) && f.mute) return [+f.mute, 'muté'];
+    const l = local(p); if (l == null) return null;
+    return l ? [+f.local, f.town ? 'habite ' + f.town : 'tarif local'] : [+f.ext, 'hors ' + (f.town || 'commune')];
+  }
+  const LICS = { ok: ['✓ Validée', 'good'], attente: ['⏳ En attente', 'mid'] };
+  // the card on the player's page (coaches and responsables)
+  function licenceCard(p) {
+    if (!Auth.current() || Auth.limited()) return '';
+    const a = adm(p), fc = p.fc || null, fe = fee(p), st = LICS[a.lic], paid = a.cotis === 'ok', part = a.cotis === 'partiel';
+    return `<section class="card lic-card"><h2>🪪 Licence</h2>
+      <dl class="lic-dl">
+        <div><dt>Numéro</dt><dd>${p.licence ? `<b>${esc(p.licence)}</b>` : '<span class="muted">pas encore renseigné</span>'}</dd></div>
+        <div><dt>Dans Footclubs</dt><dd>${fc ? `<b>${esc(fc.etat || 'présente')}</b><span class="muted small"> · lu le ${esc(fmtDate(fc.at))}</span>` : '<span class="muted">pas lue (Gestion → Sources → Footclubs)</span>'}</dd></div>
+        <div><dt>État</dt><dd>${st ? `<span class="adm-b ${st[1]}">${st[0]}</span>` : '<span class="muted">–</span>'}${isMute(p) ? ' <span class="badge">muté</span>' : ''}</dd></div>
+        <div><dt>Cotisation</dt><dd>${paid ? '<span class="adm-b good">✓ Payée</span>' : part ? '<span class="adm-b mid">½ En partie</span>' : '<span class="adm-b bad">✗ Non payée</span>'}${a.paid != null && a.paid !== '' ? ` · ${esc(a.paid)} €` : ''}${fc && paid && a.paidBy === 'footclubs' ? '<span class="muted small"> (licence présente sur Footclubs)</span>' : ''}</dd></div>
+        <div><dt>Tarif</dt><dd>${fe ? `<b>${fe[0]} €</b> <span class="muted small">(${esc(fe[1])})</span>` : `<span class="muted">${fees().local || fees().ext ? 'commune inconnue : « Modifier » → Commune' : 'tarifs non réglés (Licences et cotisations)'}</span>`}</dd></div>
+        ${p.town ? `<div><dt>Commune</dt><dd>${esc(p.town)}</dd></div>` : ''}
+      </dl>${Auth.isAdmin() ? '<p><a class="btn soft" href="#/licences">🧾<span>Licences et cotisations du club</span></a></p>' : ''}</section>`;
+  }
+  // the Footclubs import: what it tells about one player (his state, and the licence there = paid)
+  function fromFootclubs(p, etat) {
+    p.fc = { etat: String(etat || '').slice(0, 60), at: today() };
+    const a = Object.assign({}, p.adm);
+    if (a.cotis !== 'ok') { a.cotis = 'ok'; a.paidBy = 'footclubs'; const fe = fee(p); if ((a.paid == null || a.paid === '') && fe) a.paid = fe[0]; }
+    p.adm = a;
+  }
+
   function licencesPage(root) {
     if (!Auth.isAdmin()) { location.hash = '#/'; return; }
     const ui = S().ui, cat = ui.admCat || '', only = ui.admOnly || '', q = (ui.admQ || '').toLowerCase();
@@ -46,15 +83,22 @@ const ClubAdmin = (() => {
         <select id="admCat" aria-label="Catégorie"><option value="">Toutes les catégories</option>${S().teams.map(t => `<option value="${t.id}" ${t.id === cat ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select>
         <label class="switch"><input type="checkbox" id="admOnly" ${only ? 'checked' : ''}><span>Seulement ceux qui ne sont pas en règle</span></label>
       </div>
+      <details class="card fees-card" ${fees().local || fees().ext ? '' : 'open'}><summary><b>💶 Tarifs des licences</b><span class="muted small"> · ${fees().local || fees().ext ? `${esc(fees().town || 'commune')} ${esc(fees().local || '?')} € · autres ${esc(fees().ext || '?')} € · mutés ${esc(fees().mute || '?')} €` : 'à régler'}</span></summary>
+        <div class="row2"><label class="fld"><span>Commune du club</span><input id="feeTown" value="${esc(fees().town || '')}" placeholder="ex : Le Raincy"></label>
+          <label class="fld"><span>Habitants de la commune (€)</span><input id="feeLocal" type="number" min="0" inputmode="decimal" value="${esc(fees().local || '')}"></label>
+          <label class="fld"><span>Hors commune (€)</span><input id="feeExt" type="number" min="0" inputmode="decimal" value="${esc(fees().ext || '')}"></label>
+          <label class="fld"><span>Mutés (€)</span><input id="feeMute" type="number" min="0" inputmode="decimal" value="${esc(fees().mute || '')}"></label></div>
+        <p class="muted small">La commune de chaque joueur se met sur sa fiche (« Modifier » → Commune). Une licence lue dans Footclubs compte comme payée, au tarif du joueur.</p></details>
       <p class="muted small">Touche une case pour changer son état. Les coachs voient ⚠️ à côté d'un joueur dont la licence est en attente ou le certificat à fournir (dans les convocations), et savent qui refuse le droit à l'image. Les cotisations restent entre responsables.</p>
-      <div class="table-wrap"><table class="tbl adm-tbl"><thead><tr><th>Joueur</th>${FIELDS.map(f => `<th>${esc(f[1])}</th>`).join('')}<th>Payé (€)</th></tr></thead>
+      <div class="table-wrap"><table class="tbl adm-tbl"><thead><tr><th>Joueur</th>${FIELDS.map(f => `<th>${esc(f[1])}</th>`).join('')}<th>Tarif</th><th>Payé (€)</th></tr></thead>
         <tbody>${list.map(p => `<tr><td><a href="#/joueur/${p.id}"><b>${esc(Store.fullName(p))}</b></a><br><span class="muted small">${esc((p.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '))}</span></td>
-          ${FIELDS.map(f => `<td>${cell(p, f)}</td>`).join('')}<td><input class="adm-paid" type="number" min="0" step="1" inputmode="decimal" data-paid="${p.id}" value="${adm(p).paid == null ? '' : esc(adm(p).paid)}" aria-label="Montant payé par ${esc(Store.fullName(p))}"></td></tr>`).join('') || `<tr><td colspan="6" class="muted">Personne ici.</td></tr>`}</tbody></table></div>`;
+          ${FIELDS.map(f => `<td>${cell(p, f)}</td>`).join('')}<td>${(fe => fe ? `${fe[0]} €` : '<span class="muted">?</span>')(fee(p))}</td><td><input class="adm-paid" type="number" min="0" step="1" inputmode="decimal" data-paid="${p.id}" value="${adm(p).paid == null ? '' : esc(adm(p).paid)}" aria-label="Montant payé par ${esc(Store.fullName(p))}"></td></tr>`).join('') || `<tr><td colspan="6" class="muted">Personne ici.</td></tr>`}</tbody></table></div>`;
     const again = () => { const y = window.scrollY; licencesPage(root); window.scrollTo(0, y); };
     $('#admQ', root).oninput = e => { ui.admQ = e.target.value; clearTimeout(licencesPage.t); licencesPage.t = setTimeout(() => { again(); const i = $('#admQ', root); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 400); };
     $('#admCat', root).onchange = e => { ui.admCat = e.target.value; Store.persistNow(); again(); };
     $('#admOnly', root).onchange = e => { ui.admOnly = e.target.checked ? 1 : 0; Store.persistNow(); again(); };
     root.onchange = e => {
+      if (/^fee/.test(e.target.id || '')) { const v = id => $('#' + id, root).value.trim(); S().club.fees = { town: v('feeTown'), local: +v('feeLocal') || 0, ext: +v('feeExt') || 0, mute: +v('feeMute') || 0 }; Store.save(); toast('Tarifs enregistrés'); return; }
       const i = e.target.closest('[data-paid]'); if (!i) return;
       const p = Store.get('players', i.dataset.paid); p.adm = Object.assign({}, p.adm, { paid: i.value === '' ? null : Math.max(0, +i.value) }); Store.upsert('players', p);
     };
@@ -102,6 +146,7 @@ const ClubAdmin = (() => {
   /* ---------- who supervises what (week) and the dirigeants' absences: staff.absences = [{ id, from, to, note }] ---------- */
   const absentOn = (s, d) => (s.absences || []).find(a => a.from <= d && d <= (a.to || a.from));
   function staffingPage(root) {
+    const ui0 = S().ui; if (!root.querySelector('[data-pg="enc"]')) ui0.encWeek = monday(today()); // (3.14) opened from another page: this week
     const ui = S().ui, me = Auth.current(), wk = ui.encWeek = ui.encWeek || monday(today()), days = Array.from({ length: 7 }, (_, i) => addDays(wk, i));
     const mine = ui.encMine && !Auth.isAdmin();
     const evs = [...S().matches.filter(m => !m.exempt && days.includes(m.date)).map(m => ({ kind: 'match', x: m, date: m.date, time: m.rdv || m.time || '', title: `⚽ ${(Store.get('teams', m.teamId) || {}).name || ''} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`, href: '#/match/' + m.id })),
@@ -109,7 +154,7 @@ const ClubAdmin = (() => {
       .filter(e => !mine || Auth.sees(e.x.teamId)).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     const nobody = evs.filter(e => !(e.x.staffIds || []).length).length;
     const absents = S().staff.map(s => ({ s, a: (s.absences || []).filter(a => a.from <= days[6] && (a.to || a.from) >= days[0]) })).filter(x => x.a.length);
-    root.innerHTML = `<header class="page-head"><div><h1>Qui encadre ?</h1><p class="sub">Matchs et séances de la semaine, leurs encadrants, et les absences</p></div>
+    root.innerHTML = `<header class="page-head" data-pg="enc"><div><h1>Qui encadre ?</h1><p class="sub">Matchs et séances de la semaine, leurs encadrants, et les absences</p></div>
       <div class="head-actions"><a class="btn" href="#/planning">${I.calendar}<span>Planning</span></a><button class="btn primary" data-act="absence">${I.plus}<span>Déclarer une absence</span></button></div></header>
       <div class="plan-nav"><button class="icon-btn" data-wk="-7" aria-label="Semaine précédente">${I.back}</button><b>Semaine du ${esc(fmtDate(wk, { day: 'numeric', month: 'long' }))}</b><button class="icon-btn" data-wk="7" aria-label="Semaine suivante">${I.next}</button><button class="btn soft" data-wk="0">Cette semaine</button>
         ${Auth.isAdmin() ? '' : `<span class="grow"></span><label class="switch small"><input type="checkbox" id="encMine" ${mine ? 'checked' : ''}><span>Mes catégories</span></label>`}</div>
@@ -154,5 +199,5 @@ const ClubAdmin = (() => {
       } }] });
   }
 
-  return { licencesPage, staffingPage, absenceDialog, problem, noImage, csv, csvSeason, tracking };
+  return { licenceCard, fromFootclubs, fee, licencesPage, staffingPage, absenceDialog, problem, noImage, csv, csvSeason, tracking };
 })();

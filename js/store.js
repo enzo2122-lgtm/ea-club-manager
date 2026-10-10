@@ -139,7 +139,7 @@ const Store = (() => {
     if (ro(col)) { roSay(); return item; }
     item.updatedAt = Date.now();
     // who changed a match or a session: he is not notified of his own change (club server)
-    if ((col === 'matches' || col === 'trainings') && typeof Auth !== 'undefined' && Auth.current()) item.editedBy = Auth.current().id;
+    if (col !== 'club' && typeof Auth !== 'undefined' && Auth.current()) item.editedBy = Auth.current().id; // (3.14) who changed it last (the journal; the server knows it from the connection too)
     const i = state[col].findIndex(x => x.id === item.id);
     if (i < 0) state[col].push(item); else state[col][i] = item;
     if (col === 'teams') sortTeams();

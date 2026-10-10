@@ -40,24 +40,41 @@ const Rooms = (() => {
   async function page(root) {
     if (!Cloud.ready()) { root.innerHTML = `${Planning.placeTabs('rooms')}<div class="empty"><p>Le planning des vestiaires passe par le serveur du club, pas encore connecté sur cet appareil.</p></div>`; return; }
     const ui = S().ui, today = iso(new Date());
+    // (3.14) opened from another page: today's week (unless a match asked for its own day)
+    if (!root.querySelector('[data-pg="rooms"]')) { if (ui.roomPin) ui.roomPin = 0; else ui.roomDay = today; }
     ui.roomDay = ui.roomDay || today;
-    const day = ui.roomDay, week = monday(day), days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
+    const day = ui.roomDay, week = monday(day), days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.roomView === 'week';
     const my = gen = gen + 1;
+    const wkLabel = `Semaine du ${parse(week).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
     root.innerHTML = `${Planning.placeTabs('rooms')}
-      <header class="page-head"><div><h1>Vestiaires</h1><p class="sub">Qui est dans quel vestiaire, sans chevauchement</p></div>
+      <header class="page-head" data-pg="rooms"><div><h1>Vestiaires</h1><p class="sub">Qui est dans quel vestiaire, sans chevauchement</p></div>
       <div class="head-actions"><button class="btn" data-r="recur">${I.rotate}<span>Chaque semaine</span></button><button class="btn primary" data-r="new">${I.plus}<span>Attribuer</span></button></div></header>
-      <div class="plan-nav"><button class="icon-btn" data-r="prev" aria-label="Jour précédent">${I.back}</button>
-        <b>${esc(parse(day).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}</b>
-        <button class="icon-btn" data-r="next" aria-label="Jour suivant">${I.next}</button><button class="btn soft" data-r="today">Aujourd'hui</button></div>
-      <div class="day-chips">${days.map(d => `<button class="chip ${d === day ? 'on' : ''}" data-rday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} ${parse(d).getDate()}</button>`).join('')}</div>
+      <div class="chips view-tog"><button class="chip ${wk ? '' : 'on'}" data-r="vday">Jour</button><button class="chip ${wk ? 'on' : ''}" data-r="vweek">Semaine</button></div>
+      <div class="plan-nav"><button class="icon-btn" data-r="prev" aria-label="${wk ? 'Semaine précédente' : 'Jour précédent'}">${I.back}</button>
+        <b>${esc(wk ? wkLabel : parse(day).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}</b>
+        <button class="icon-btn" data-r="next" aria-label="${wk ? 'Semaine suivante' : 'Jour suivant'}">${I.next}</button><button class="btn soft" data-r="today">${wk ? 'Cette semaine' : 'Aujourd\'hui'}</button></div>
+      ${wk ? '' : `<div class="day-chips">${days.map(d => `<button class="chip ${d === day ? 'on' : ''} ${d === today ? 'today' : ''}" data-rday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} ${parse(d).getDate()}</button>`).join('')}</div>`}
       <div id="roomMatches"></div>
       <div class="plan-wrap" id="roomGrid"><p class="muted">Chargement…</p></div>`;
     const cr = $('.day-chips', root), on = $('.day-chips .chip.on', root); if (cr && on) cr.scrollLeft = on.offsetLeft - (cr.clientWidth - on.offsetWidth) / 2;
     const cached = loaded === week;
-    if (cached) draw(root, day);
+    const show = () => wk ? drawWeek(root, days) : draw(root, day);
+    if (cached) show();
     try { await load(week, addDays(week, 6)); } catch (e) { if (my === gen && !cached && $('#roomGrid', root)) $('#roomGrid', root).innerHTML = `<div class="empty"><p>${esc(e.message)}</p></div>`; return; }
     if (my !== gen || !$('#roomGrid', root)) return;
-    draw(root, day);
+    show();
+  }
+  // (3.14) the week at a glance: each day, each room with its bookings (a tap on a day opens it)
+  function drawWeek(root, days) {
+    const today = iso(new Date()), mine = new Set(myTeams());
+    $('#roomMatches', root).innerHTML = '';
+    $('#roomGrid', root).innerHTML = `<div class="room-week">${days.map(d => {
+      const list = bookings.filter(b => b.date === d), ms = homeMatchesOn(d), need = ms.filter(m => { const g = forMatch(m); return !(g.some(b => b.kind === 'match') && g.some(b => b.kind === 'adversaire')); });
+      return `<section class="card rw-day ${d === today ? 'today' : ''}"><button class="rw-head" data-rday="${d}" data-open="1"><b>${esc(parse(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }))}</b>${need.length ? `<span class="badge warn">${need.length} match${need.length > 1 ? 's' : ''} sans vestiaire</span>` : ''}${I.next}</button>
+        ${list.length ? ROOMS.filter(([id]) => list.some(b => b.field === id)).map(([id, name]) => `<div class="rw-room"><span class="rw-name">${esc(name.replace('Vestiaire ', 'Vest. '))}</span><span class="rw-bks">${onRoom(id, d).map(b => { const c = b.kind === 'adversaire' ? '#475569' : Planning.colorOf(b);
+          return `<button class="rw-bk ${mine.has(b.team_id) ? 'mine' : ''}" data-rbk="${b.id}" ${c ? `style="border-left-color:${c}"` : ''}><b>${hm(b.start_min)}–${hm(b.end_min)}</b> ${KINDS[b.kind || 'autre'] ? KINDS[b.kind || 'autre'][1] + ' ' : ''}${esc(label(b))}</button>`; }).join('')}</span></div>`).join('') : '<p class="muted small">Aucun vestiaire attribué.</p>'}</section>`; }).join('')}</div>
+      <p class="muted small">Touche un jour pour le voir heure par heure et attribuer un vestiaire. 🆚 = équipe adverse.</p>`;
+    bind(root, days[0]);
   }
   function draw(root, day) {
     // the day's home matches: their rooms, or a button to give them
@@ -88,13 +105,14 @@ const Rooms = (() => {
       const b = e.target.closest('button'), ui = S().ui;
       if (b && b.dataset.r) {
         const r = b.dataset.r;
-        if (r === 'prev' || r === 'next') { ui.roomDay = addDays(day, r === 'prev' ? -1 : 1); return page(root); }
+        if (r === 'prev' || r === 'next') { ui.roomDay = addDays(ui.roomDay || day, (r === 'prev' ? -1 : 1) * (ui.roomView === 'week' ? 7 : 1)); return page(root); }
         if (r === 'today') { ui.roomDay = iso(new Date()); return page(root); }
+        if (r === 'vday' || r === 'vweek') { ui.roomView = r === 'vweek' ? 'week' : 'day'; Store.save(); return page(root); }
         if (r === 'new') return form({ date: day, start: 18 * 60 }, () => page(root));
         if (r === 'recur') return recurForm(() => page(root));
         if (r === 'allmatches') return assignAll(homeMatchesOn(day).filter(m => matchWindow(m)), () => page(root));
       }
-      if (b && b.dataset.rday) { ui.roomDay = b.dataset.rday; return page(root); }
+      if (b && b.dataset.rday) { ui.roomDay = b.dataset.rday; if (b.dataset.open) { ui.roomView = 'day'; Store.save(); } return page(root); }
       if (b && b.dataset.rmatch) return matchForm(Store.get('matches', b.dataset.rmatch), () => page(root));
       if (b && b.dataset.rbk) return detail(bookings.find(x => x.id === b.dataset.rbk), () => page(root));
       const body = e.target.closest('.room-body');
@@ -248,7 +266,7 @@ const Rooms = (() => {
     el.innerHTML = `<p class="rooms-line">🚪 <b>Vestiaires</b> · 🏠 ${us ? esc(roomName(us.field)) : 'à attribuer'} · 🆚 ${them ? esc(roomName(them.field)) : 'à attribuer'}
       ${us && them ? '' : `<button class="linkish" data-roomfor="${m.id}">attribuer</button>`} <a class="linkish" href="#/vestiaires" data-roomday="${m.date}">planning des vestiaires</a></p>`;
     el.onclick = e => {
-      const a = e.target.closest('[data-roomday]'); if (a) { S().ui.roomDay = a.dataset.roomday; }
+      const a = e.target.closest('[data-roomday]'); if (a) { S().ui.roomDay = a.dataset.roomday; S().ui.roomPin = 1; S().ui.roomView = 'day'; }
       const b = e.target.closest('[data-roomfor]'); if (b) matchForm(m, () => matchBox(el, m));
     };
   }

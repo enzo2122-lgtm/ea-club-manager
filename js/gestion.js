@@ -47,7 +47,7 @@ const Gestion = (() => {
         tile('#/stats', '📈', 'Stats', 'Buts, temps de jeu, présences'), tile('#/bilan', '📘', 'Bilan de saison', 'Par catégorie'), tile('#/exercices', '📚', 'Exercices du club', 'Bibliothèque des coachs')])}
       ${group('📣 La communication', [tile('#/messages', '💬', 'Messagerie', 'Tout le club, catégories, privés'), tile('', '📣', 'Message à tout le club', 'Les dirigeants reçoivent une notification', 'announce')])}
       ${group('🛠️ Les données', [tile('', '📥', 'Importer', 'Joueurs, matchs, dirigeants (photo, PDF, Excel)', 'import'), tile('', '🛟', 'Sauvegardes', 'Automatique chaque lundi, ou à la main', 'backup'),
-        tile('#/reglages', '⚙️', 'Réglages du club', 'Couleurs, serveur, notifications, saison')])}`;
+        tile('#/journal', '📜', 'Journal des modifications', 'Qui a changé quoi, et quand'), tile('#/reglages', '⚙️', 'Réglages du club', 'Couleurs, serveur, notifications, saison')])}`;
     root.onclick = e => {
       const b = e.target.closest('[data-g]'); if (!b) return;
       const g = b.dataset.g;

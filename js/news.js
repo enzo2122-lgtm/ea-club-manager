@@ -5,6 +5,15 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 173, date: '2026-10-10', title: 'Fichiers, journal, licences et plannings rangés 🗂️', items: [
+      ['📎', "Chats des catégories et messagerie du club : joins un PDF, une vidéo (50 Mo au plus), une photo en taille réelle, un Word, un Excel… Touche-le pour l'ouvrir. Gardés 90 jours."],
+      ['📜', "Journal des modifications (Gestion → Journal) : qui a ajouté, modifié ou supprimé quoi, avec la date et l'heure. Pour les responsables."],
+      ['🔒', "Créneaux du terrain et des vestiaires : seul le coach qui a réservé, ou un responsable, peut les libérer (le serveur le vérifie)."],
+      ['🚿', "Vestiaires : nouvelle vue « Semaine ». Les plannings (terrain, vestiaires, qui encadre) s'ouvrent toujours sur la semaine en cours."],
+      ['🗄️', "Entraînements : les 2 semaines à venir en vue, le reste de la saison et les anciennes séances rangés. Schémas et bibliothèque : les compos et fichiers des matchs passés vont dans les archives."],
+      ['🪪', "Fiche joueur : numéro de licence, état réel dans Footclubs, cotisation et tarif (commune, muté). Une licence présente dans Footclubs = cotisation payée."],
+      ['🧑‍💻', "Compte développeur (Réglages → Avancé) : mesure de l'écran, diagnostic, club d'essai… visibles seulement par le développeur."],
+    ] },
     { n: 172, date: '2026-10-10', title: 'La convocation arrive dans l\'appli 📣', items: [
       ['📲', "Nouveau bouton « Envoyer dans l'appli » dans la fenêtre de convocation : chaque convoqué la reçoit dans son espace (joueur ou parents), avec une notification sur le téléphone."],
       ['📋', "Côté joueurs et familles : une partie « Mes convocations » en haut, avec le mot du coach, l'heure de rendez-vous, la liste des convoqués (par numéro) et les boutons Présent / Absent."],

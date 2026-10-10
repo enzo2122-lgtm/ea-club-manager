@@ -2397,3 +2397,32 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --muted: #b3b9cf; } }
 html[data-theme="dark"] { --muted: #b3b9cf; }
 .ans-why { color: var(--ink); }
+/* (3.14) the journal of changes */
+.jr-row { align-items: flex-start; gap: 10px; }
+.jr-row .li-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jr-ic { font-size: 18px; line-height: 1.4; }
+.jr-act { font-weight: 700; }
+.jr-act.good { color: var(--good, #15803d); }
+.jr-act.bad { color: var(--bad, #b91c1c); }
+/* (3.14) rooms: the week */
+.view-tog { margin: 0 0 8px; }
+.room-week { display: grid; gap: 10px; }
+.rw-day.today { outline: 2px solid var(--brand); }
+.rw-head { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 0 0 6px; font: inherit; color: inherit; text-align: left; cursor: pointer; text-transform: capitalize; }
+.rw-head b { flex: 1; }
+.rw-head svg { width: 16px; height: 16px; opacity: .6; }
+.rw-room { display: flex; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); align-items: flex-start; }
+.rw-name { min-width: 72px; font-weight: 600; font-size: 13px; color: var(--muted); padding-top: 4px; }
+.rw-bks { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.rw-bk { text-align: left; border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 8px; padding: 5px 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.rw-bk.mine { box-shadow: 0 0 0 1px var(--brand) inset; }
+/* (3.14) folded lists: later sessions, archives */
+.fold-list { margin: 10px 0; }
+.fold-list > summary { cursor: pointer; padding: 2px 0; }
+.fold-list[open] > summary { margin-bottom: 8px; }
+.lib-grid .lib-arch { grid-column: 1 / -1; }
+/* (3.14) the licence card */
+.lic-dl { display: grid; gap: 6px; margin: 0; }
+.lic-dl > div { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.lic-dl dt { min-width: 110px; color: var(--muted); font-size: 13px; }
+.lic-dl dd { margin: 0; }

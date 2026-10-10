@@ -162,7 +162,7 @@
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),
       react: (c, id, e) => rpc('member_chat_react', { p_code: code, p_cat: c, p_id: id, p_emo: e }), report: (c, id) => rpc('member_chat_report', { p_code: code, p_cat: c, p_id: id }),
       mute: on => rpc('member_chat_mute', { p_code: code, p_on: on }),
-      photo: (c, img, b) => rpc('member_chat_photo', { p_code: code, p_cat: c, p_img: img, p_body: b || null }), img: (c, id) => rpc('member_chat_img', { p_code: code, p_cat: c, p_id: id }) });
+      photo: (c, img, b) => rpc('member_chat_photo', { p_code: code, p_cat: c, p_img: img, p_body: b || null }), att: { begin: (c, n, mi, sz, pa) => rpc('member_att_begin', { p_code: code, p_cat: c, p_name: n, p_mime: mi, p_size: sz, p_parts: pa }), put: (id, n, d) => rpc('member_att_put', { p_code: code, p_id: id, p_n: n, p_data: d }), get: (id, n) => rpc('member_att_get', { p_code: code, p_id: id, p_n: n }) }, img: (c, id) => rpc('member_chat_img', { p_code: code, p_cat: c, p_id: id }) });
   }
 
   // (2.01) everything asked at the same time, the page drawn twice; another child: nothing of the one before

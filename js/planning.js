@@ -96,11 +96,12 @@ const Planning = (() => {
   async function page(root) {
     if (!Cloud.ready()) return notReady(root);
     const ui = S().ui, today = iso(new Date());
+    if (!root.querySelector('[data-pg="plan"]')) { ui.planWeek = monday(today); ui.planDay = today; } // (3.14) opened from another page: this week, today
     ui.planWeek = ui.planWeek || monday(today);
     ui.planDay = ui.planDay || today;
     const week = ui.planWeek, days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.planView !== 'day';
     if (!days.includes(ui.planDay)) ui.planDay = days[0];
-    root.innerHTML = `${placeTabs('pitch')}<header class="page-head"><div><h1>Planning · ${esc(fieldName())}</h1><p class="sub">Grand terrain ou demi-terrain, sans chevauchement</p></div>
+    root.innerHTML = `${placeTabs('pitch')}<header class="page-head" data-pg="plan"><div><h1>Planning · ${esc(fieldName())}</h1><p class="sub">Grand terrain ou demi-terrain, sans chevauchement</p></div>
       <div class="head-actions plan-actions"><a class="btn" href="#/encadrement" aria-label="Qui encadre ?">${I.whistle}<span>Qui encadre ?</span></a>${Auth.isAdmin() ? `<button class="btn" data-p="slots" aria-label="Créneaux disponibles">${I.clock}<span>Créneaux disponibles</span></button>` : ''}
       <button class="btn" data-p="bookHome" id="bookHome" hidden aria-label="Réserver les matchs à domicile">${I.match}<span>Réserver les matchs à domicile</span></button>
       <button class="btn" data-p="recur" aria-label="Chaque semaine">${I.rotate}<span>Chaque semaine</span></button>
