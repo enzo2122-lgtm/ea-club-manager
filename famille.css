@@ -77,3 +77,14 @@ body { min-height: 100dvh; }
 html.ios-app, html.ios-app body { overscroll-behavior: none; }
 /* (2.74) iPhone, app installed: the canvas under the bottom bar is navy (what iOS draws under the bar it cuts), see app.css */
 html.ios-app:has(body.has-tabs:not(.tabs-top)) { background: var(--navy); } html.ios-app:has(body.has-tabs:not(.tabs-top)) body { background: var(--bg); min-height: 100%; }
+/* (3.13) the convocation sent in the app */
+.card.convoc { border: 2px solid var(--brand); }
+.card.convoc.done { border-color: var(--line); }
+.convoc .cv-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; color: var(--brand); }
+.convoc .cv-msg { white-space: normal; background: color-mix(in srgb, var(--ink) 4%, transparent); border-radius: 10px; padding: 10px; margin: 8px 0; line-height: 1.45; }
+.convoc .cv-squad { margin: 8px 0; }
+.convoc .cv-squad summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.convoc .cv-squad ol { list-style: none; padding: 0; margin: 6px 0 0; columns: 2; column-gap: 16px; }
+.convoc .cv-squad li { padding: 2px 0; break-inside: avoid; }
+.convoc .cv-squad li b { display: inline-block; min-width: 1.6em; color: var(--muted); }
+.convoc .cv-squad li.me { font-weight: 700; color: var(--brand); }

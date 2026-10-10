@@ -828,7 +828,9 @@ const Views = (() => {
   }
   function sendConvocation(m) {
     const text = convocationText(m);
-    modal({ title: 'Envoyer la convocation', noFocus: true, body: `<p class="muted small">Le message est prêt : choisis où l'envoyer (le groupe WhatsApp des parents, par exemple).</p>
+    const sent = (how, r) => { m.convSent = Date.now(); m.convMsg = $('#convTxt', r).value.slice(0, 3000); m.convHow = Array.from(new Set([...(m.convHow || []), how])); Store.upsert('matches', m); };
+    modal({ title: 'Envoyer la convocation', noFocus: true, body: `<p class="muted small">${Cloud.ready() ? '« Envoyer dans l\'appli » : la convocation arrive dans l\'espace de chaque convoqué (joueur ou parents), avec une notification, et ils répondent présent / absent. Tu peux aussi la partager sur WhatsApp.' : 'Le message est prêt : choisis où l\'envoyer (le groupe WhatsApp des parents, par exemple).'}</p>
+      ${m.convHow && m.convHow.includes('appli') ? `<p class="small ans-yes">✓ Déjà envoyée dans l'appli${m.convSent ? ' le ' + esc(fmtDate(new Date(m.convSent).toISOString().slice(0, 10))) : ''} : renvoyer la met à jour et notifie à nouveau.</p>` : ''}
       ${Cloud.ready() ? `<button class="btn soft wide" id="convLink" type="button">${I.check}<span>Ajouter le lien pour répondre présent / absent</span></button>` : ''}
       <textarea id="convTxt" rows="12">${esc(text)}</textarea>`,
       onOpen: r => { const lb = $('#convLink', r); if (lb) lb.onclick = async () => {
@@ -841,10 +843,19 @@ const Views = (() => {
         } catch (e) { lb.disabled = false; toast(e.code === 'MISE_A_JOUR' ? 'Le serveur doit être mis à jour par le responsable (Réglages → Serveur du club)' : e.message, 'err'); }
       }; },
       actions: [
-        { label: 'WhatsApp', kind: 'primary', icon: I.share, onClick: (c, r) => { window.open('https://wa.me/?text=' + encodeURIComponent($('#convTxt', r).value), '_blank'); return false; } },
-        ...(navigator.share ? [{ label: 'Autre appli', icon: I.share, onClick: (c, r) => { navigator.share({ title: 'Convocation', text: $('#convTxt', r).value }).catch(() => {}); return false; } }] : []),
-        ...(Cloud.ready() ? [{ label: 'Messagerie du club', icon: I.chat, onClick: (c, r) => { Cloud.post('team:' + m.teamId, $('#convTxt', r).value).then(() => toast('Convocation publiée dans le canal ' + ((teamOf(m.teamId) || {}).name || ''))).catch(e => toast(e.message, 'err')); } }] : []),
-        { label: 'Copier', icon: I.copy, onClick: (c, r) => { navigator.clipboard.writeText($('#convTxt', r).value).then(() => toast('Convocation copiée')).catch(() => toast('Sélectionne le texte et copie-le')); return false; } }] });
+        ...(Cloud.ready() ? [{ label: 'Envoyer dans l\'appli', kind: 'primary', icon: I.check, onClick: (c, r) => { sent('appli', r); notifyConvoked(m); } }] : []),
+        { label: 'WhatsApp', kind: Cloud.ready() ? '' : 'primary', icon: I.share, onClick: (c, r) => { sent('whatsapp', r); window.open('https://wa.me/?text=' + encodeURIComponent($('#convTxt', r).value), '_blank'); return false; } },
+        ...(navigator.share ? [{ label: 'Autre appli', icon: I.share, onClick: (c, r) => { sent('partage', r); navigator.share({ title: 'Convocation', text: $('#convTxt', r).value }).catch(() => {}); return false; } }] : []),
+        ...(Cloud.ready() ? [{ label: 'Messagerie du club', icon: I.chat, onClick: (c, r) => { sent('messagerie', r); Cloud.post('team:' + m.teamId, $('#convTxt', r).value).then(() => toast('Convocation publiée dans le canal ' + ((teamOf(m.teamId) || {}).name || ''))).catch(e => toast(e.message, 'err')); } }] : []),
+        { label: 'Copier', icon: I.copy, onClick: (c, r) => { sent('copie', r); navigator.clipboard.writeText($('#convTxt', r).value).then(() => toast('Convocation copiée')).catch(() => toast('Sélectionne le texte et copie-le')); return false; } }] });
+  }
+  // (3.13) the convocation is in each convoked player's space (joueurs / parents page): a notification on the phones that have them on
+  async function notifyConvoked(m) {
+    const t = teamOf(m.teamId), ids = (m.convoked || []).slice(), hh = x => String(x || '').replace(':', 'h');
+    const title = `📣 Convocation${t ? ' · ' + t.name : ''}`, body = `Match ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}, ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}${m.rdv ? ' · rendez-vous ' + hh(m.rdv) : m.time ? ' · ' + hh(m.time) : ''}. Réponds présent ou absent dans l'appli.`;
+    try { const res = await Cloud.memberNote(ids, title, body), n = ((res && res.sent) || []).length;
+      toast(`Convocation envoyée dans l'appli · ${n} notifié${n > 1 ? 's' : ''}${ids.length - n ? ` (${ids.length - n} sans notifications : ils la verront en ouvrant l'appli)` : ''}`); }
+    catch (e) { toast('Convocation envoyée dans l\'appli (notification impossible : ' + (e.message || e) + ')'); }
   }
   // Playing time of each convoked player (minutes); the season total is on the player's page and in Stats
   function minutesCard(m, conv) {
@@ -1321,7 +1332,7 @@ const Views = (() => {
       if (b.dataset.act === 'autocomp') { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return; const t = teamOf(m.teamId), conv = t ? Store.rosterOf(t.id).filter(p => (m.convoked || []).includes(p.id)) : []; const n = autoCompo(sc, conv, m); toast(`${n} joueurs placés d'après leur poste : corrige si besoin`); return render(); }
       if (b.dataset.hot) { const sel = root.querySelector(`[data-slot="${b.dataset.hot}"]`); if (!sel) return; const lab = sel.closest('.slot'); lab.scrollIntoView({ behavior: 'smooth', block: 'center' }); lab.classList.add('flash'); setTimeout(() => lab.classList.remove('flash'), 1600); setTimeout(() => { try { sel.focus(); if (sel.showPicker) sel.showPicker(); } catch (e) {} }, 350); return; }
       if (b.dataset.act === 'sameconv') { const prev = lastConv(m); if (!prev) return; const ids = new Set(Store.rosterOf(m.teamId).map(p => p.id)); m.convoked = prev.convoked.filter(id => ids.has(id)); save(); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return render(); }
-      if (b.dataset.act === 'convoc') { m.convSent = Date.now(); save(); return sendConvocation(m); }
+      if (b.dataset.act === 'convoc') return sendConvocation(m); // (3.13) « envoyée » once it is really sent (the app, WhatsApp, copied…), not when the window opens
       if (b.dataset.act === 'nonconv') { const t = teamOf(m.teamId); return Parents.nonConvDialog(m, t ? Store.rosterOf(t.id) : []); }
       if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }

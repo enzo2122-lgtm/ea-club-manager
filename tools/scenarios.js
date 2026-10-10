@@ -109,6 +109,18 @@ const SCENARIOS = [
       must(/votre enfant/.test(txt) !== adult, t.name + (adult ? ' : « votre enfant » ne doit pas y être' : ' : « votre enfant » manque')); res.push(t.name);
     }
     return res.join(' / ');`],
+  ['Convocation : envoyer dans l\u2019appli (espace des convoqués + notification)', `
+    const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today() && (x.convoked || []).length).sort((a, b) => a.date.localeCompare(b.date))[0]; must(m, 'aucun match convoqué');
+    delete m.convSent; delete m.convMsg; delete m.convHow; Store.upsert('matches', m);
+    const r0 = Cloud.ready, n0 = Cloud.memberNote; let note = null; Cloud.ready = () => true; Cloud.memberNote = async (ids, t, b) => { note = { ids, t, b }; return { sent: ids.slice(0, 2) }; };
+    try {
+      await go('#/matchs'); await go('#/match/' + m.id); await click('[data-act="convoc"]', 800);
+      must(!Store.get('matches', m.id).convSent, 'marquée envoyée à la simple ouverture');
+      const b = $$('#modal button').find(x => /Envoyer dans l.appli/.test(x.innerText)); must(b, 'pas de bouton « Envoyer dans l\u2019appli »'); b.click(); await wait(600);
+      const x = Store.get('matches', m.id); must(x.convSent && /Convocation/.test(x.convMsg || '') && (x.convHow || []).includes('appli'), 'convocation non enregistrée pour l\u2019appli');
+      must(note && note.ids.length === m.convoked.length && /Convocation/.test(note.t), 'pas de notification aux convoqués');
+      return note.ids.length + ' notifiés · ' + text('#toast').slice(0, 40);
+    } finally { Cloud.ready = r0; Cloud.memberNote = n0; await closeModal(); }`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);

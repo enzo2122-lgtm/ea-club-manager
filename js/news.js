@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 172, date: '2026-10-10', title: 'La convocation arrive dans l\'appli 📣', items: [
+      ['📲', "Nouveau bouton « Envoyer dans l'appli » dans la fenêtre de convocation : chaque convoqué la reçoit dans son espace (joueur ou parents), avec une notification sur le téléphone."],
+      ['📋', "Côté joueurs et familles : une partie « Mes convocations » en haut, avec le mot du coach, l'heure de rendez-vous, la liste des convoqués (par numéro) et les boutons Présent / Absent."],
+      ['🤫', "« Tu es convoqué » n'apparaît plus dès que le coach coche les noms : seulement une fois la convocation envoyée. Avant, ils voient « Tu es dispo ? »."],
+    ] },
     { n: 171, date: '2026-10-10', title: 'Les grands répondent eux-mêmes 🧑', items: [
       ['✉️', "Convocation : la phrase « Merci de confirmer la présence de votre enfant » n'apparaît plus que pour les équipes de jeunes. Pour les Seniors, Vétérans et Loisirs, le message s'adresse aux joueurs, sans parler d'enfant."],
     ] },
