@@ -193,10 +193,11 @@ const Quick = (() => {
   }
 
   /* ---------- « Demain » : what is coming, what is missing ---------- */
-  function tomorrowCard() {
+  function tomorrowCard(onlyNoTeam) { // (3.18) onlyNoTeam: the home page has « Ma semaine » (exercises, kit, convocation are there)
     // a coach without any category yet: who gives them
     if (Auth.current() && !Auth.isAdmin() && !Auth.preview() && !Auth.teams().length) return `<section class="card tm-card"><h2>🧢 Tu n'as pas encore de catégorie</h2>
       <p class="muted">Le responsable du club te les donne : Réglages → Comptes des dirigeants → « Catégories ». Ensuite tu vois les joueurs, les séances et les matchs de tes équipes.</p></section>`;
+    if (onlyNoTeam) return '';
     const now = UI.today(), tm = addDays(now, 1), is = mine(), rows = [];
     const trs = S().trainings.filter(t => !t.model && is(t) && t.teamId && (t.date === tm || t.date === now)).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
     trs.forEach(t => {

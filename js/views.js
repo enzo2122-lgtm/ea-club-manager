@@ -272,21 +272,28 @@ const Views = (() => {
   }
   // (2.96) the coach's week: one line per day with something to do, the action at the end
   function weekCard(matches, trainings, now) {
-    const end = addDays(now, 7), tn = id => (Store.get('teams', id) || {}).name || '';
+    // (3.18) one card for the week: the next rendez-vous first, with its action; what is missing (exercises, convocation, compo) and
+    // the kit to bring on the line itself; the 3 next ones; the rest of the week folded
+    const end = addDays(now, 7), tn = id => (Store.get('teams', id) || {}).name || '', soon = d => d <= addDays(now, 1);
     const evs = [...matches.filter(m => !m.played && !m.exempt && m.date >= now && m.date <= end).map(m => ({ k: 'm', d: m.date, t: m.time || '', m })),
       ...trainings.filter(t => !t.model && t.date >= now && t.date <= end).map(t => ({ k: 't', d: t.date, t: t.time || '', tr: t }))].sort((a, b) => (a.d + a.t).localeCompare(b.d + b.t));
     if (!evs.length) return '';
     const day = d => d === now ? "Aujourd'hui" : d === addDays(now, 1) ? 'Demain' : fmtDate(d, { weekday: 'long', day: 'numeric' }).replace(/^./, c => c.toUpperCase());
-    const row = (href, d, time, title, sub, act, soft) => `<a class="wk-row" href="${href}"><span class="wk-d">${d}${time ? '<br><small>' + esc(time) + '</small>' : ''}</span><span class="wk-t"><b>${title}</b><br><small>${sub}</small></span><span class="btn small ${soft ? 'soft' : 'primary'}">${act}</span></a>`;
-    const rows = evs.map(e => {
+    const row = (href, d, time, title, sub, act, soft, first) => `<a class="wk-row ${first ? 'wk-next' : ''}" href="${href}"><span class="wk-d">${d}${time ? '<br><small>' + esc(time) + '</small>' : ''}</span><span class="wk-t"><b>${title}</b><br><small>${sub}</small></span><span class="btn sm ${soft ? 'soft' : 'primary'}">${act}</span></a>`;
+    const rows = evs.map((e, i) => {
       if (e.k === 'm') { const m = e.m, conv = (m.convoked || []).length;
-        const act = m.date === now ? ['🏟️ Jour de match', '#/jourj/' + m.id, false] : !conv ? ['📣 Convoquer', '#/match/' + m.id, false] : !m.convSent ? ['📣 Envoyer', '#/match/' + m.id, false] : !m.lineupId ? ['🧩 Compo', '#/match/' + m.id, false] : ['✓ Prêt', '#/jourj/' + m.id, true];
-        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : ''), act[0], act[2]); }
-      const t = e.tr, n = (t.exercises || []).length;
-      return row('#/entrainement/' + t.id, day(t.date), t.time, `${esc(tn(t.teamId))} · ${esc(t.title || 'Séance')}`, n ? n + ' exercice' + (n > 1 ? 's' : '') : "pas encore d'exercice", n ? '📝 Ouvrir' : '✍️ Préparer', !!n);
+        const act = m.date === now ? ['🏟️ Jour de match', '#/jourj/' + m.id, false] : !conv ? ['📣 Convoquer', '#/match/' + m.id, false] : !m.convSent ? ['📣 Envoyer', '#/match/' + m.id, false] : !m.lineupId ? ['🧩 Compo', '#/match/' + m.id, false] : ['🏟️ Préparer', '#/jourj/' + m.id, true];
+        const miss = soon(m.date) ? [conv && !m.convSent && 'convocation pas envoyée', !m.lineupId && 'compo à faire'].filter(Boolean) : [];
+        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : '') + (miss.length ? ' · ⚠️ ' + miss.join(', ') : ''), act[0], act[2], i === 0); }
+      const t = e.tr, ex = t.exercises || [], n = ex.length;
+      const kit = soon(t.date) ? [...new Set(ex.map(x => x.materiel).filter(Boolean).join(', ').split(/\s*,\s*/).map(x => x.trim()).filter(Boolean))].slice(0, 5) : [];
+      return row('#/entrainement/' + t.id, day(t.date), t.time, `${esc(tn(t.teamId))} · ${esc(t.title || 'Séance')}`, (n ? n + ' exercice' + (n > 1 ? 's' : '') : (soon(t.date) ? "⚠️ pas encore d'exercice" : "pas encore d'exercice")) + (kit.length ? ' · 🎒 ' + esc(kit.join(', ')) : ''), n ? '📝 Ouvrir' : '✍️ Préparer', !!n, i === 0);
     });
-    return `<section class="card week-card"><h2>🗓️ Ma semaine</h2><div class="wk">${rows.join('')}</div></section>`;
+    const shown = rows.slice(0, 4), rest = rows.slice(4);
+    return `<section class="card week-card today-card"><h2>🗓️ Ma semaine</h2><div class="wk">${shown.join('')}</div>
+      ${rest.length ? `<details class="wk-more"><summary>Voir les ${rest.length} autre${rest.length > 1 ? 's' : ''} rendez-vous de la semaine</summary><div class="wk">${rest.join('')}</div></details>` : ''}</section>`;
   }
+
   function home(root) {
     const now = today();
     const matches = byTeam(S().matches), trainings = byTeam(S().trainings);
@@ -298,16 +305,13 @@ const Views = (() => {
       ${serverBanner()}
       ${teamSwitch()}
       ${typeof News !== 'undefined' ? News.pill() : ''}
-      ${todayCard(next, nextTr, now)}
-      ${weekCard(matches, trainings, now)}
       ${setupCard()}
+      ${weekCard(matches, trainings, now) || todayCard(next, nextTr, now)}
+      ${Quick.tomorrowCard(true)}
       ${birthdayCard()}
-      ${Onboard.planCard()}
-      ${Quick.matchDayCard()}
-      ${Quick.tomorrowCard()}
-      ${Health.followCard()}
-      ${Quick.backupCard()}
-      ${President.homeReminder()}
+      ${(() => { // (3.18) the reminders together, folded: one line on the page instead of a card each
+        const l = [Onboard.planCard(), Health.followCard(), Quick.backupCard(), President.homeReminder()].filter(x => x && x.trim());
+        return l.length ? `<details class="card home-todo"><summary><b>🔔 À regarder</b> <span class="badge">${l.length}</span><span class="muted small"> · ${l.length > 1 ? 'rappels' : 'rappel'} du club</span></summary>${l.join('')}</details>` : ''; })()}
       ${Weather.placeholder()}
       <details class="fold home-more" ${homeOpen() ? 'open' : ''}><summary>🗂️ Le reste de l'accueil <span class="muted small">(raccourcis, planning, résultats, schémas)</span></summary>
       <div class="quick">

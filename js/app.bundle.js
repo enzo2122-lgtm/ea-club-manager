@@ -3944,7 +3944,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.17';
+  const VERSION = '3.18';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17052,10 +17052,11 @@ var Quick = (() => {
   }
 
   /* ---------- « Demain » : what is coming, what is missing ---------- */
-  function tomorrowCard() {
+  function tomorrowCard(onlyNoTeam) { // (3.18) onlyNoTeam: the home page has « Ma semaine » (exercises, kit, convocation are there)
     // a coach without any category yet: who gives them
     if (Auth.current() && !Auth.isAdmin() && !Auth.preview() && !Auth.teams().length) return `<section class="card tm-card"><h2>🧢 Tu n'as pas encore de catégorie</h2>
       <p class="muted">Le responsable du club te les donne : Réglages → Comptes des dirigeants → « Catégories ». Ensuite tu vois les joueurs, les séances et les matchs de tes équipes.</p></section>`;
+    if (onlyNoTeam) return '';
     const now = UI.today(), tm = addDays(now, 1), is = mine(), rows = [];
     const trs = S().trainings.filter(t => !t.model && is(t) && t.teamId && (t.date === tm || t.date === now)).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
     trs.forEach(t => {
@@ -17223,6 +17224,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 177, date: '2026-10-10', title: 'Un accueil rangé 🧹', items: [
+      ['🗓️', "L'accueil tient en un écran : une seule carte « Ma semaine », le prochain rendez-vous en premier avec son bouton, ce qui manque (exercices, convocation, compo) et le matériel à prendre sur la ligne. Les autres jours se déplient."],
+      ['🔔', "Les rappels du club (sauvegarde, suivi des blessés…) sont rangés dans « À regarder », sur une ligne."],
+    ] },
     { n: 176, date: '2026-10-10', title: 'Les amicaux arrivent 🤝', items: [
       ['🐛', "AssistCoachAI : les matchs amicaux et les tournois n'étaient pas importés (AssistCoachAI les range à part des matchs). Ils arrivent maintenant partout : Matchs, accueil, planning, espaces joueurs et parents. Relance l'import AssistCoachAI une fois."],
     ] },
@@ -20510,21 +20515,28 @@ var Views = (() => {
   }
   // (2.96) the coach's week: one line per day with something to do, the action at the end
   function weekCard(matches, trainings, now) {
-    const end = addDays(now, 7), tn = id => (Store.get('teams', id) || {}).name || '';
+    // (3.18) one card for the week: the next rendez-vous first, with its action; what is missing (exercises, convocation, compo) and
+    // the kit to bring on the line itself; the 3 next ones; the rest of the week folded
+    const end = addDays(now, 7), tn = id => (Store.get('teams', id) || {}).name || '', soon = d => d <= addDays(now, 1);
     const evs = [...matches.filter(m => !m.played && !m.exempt && m.date >= now && m.date <= end).map(m => ({ k: 'm', d: m.date, t: m.time || '', m })),
       ...trainings.filter(t => !t.model && t.date >= now && t.date <= end).map(t => ({ k: 't', d: t.date, t: t.time || '', tr: t }))].sort((a, b) => (a.d + a.t).localeCompare(b.d + b.t));
     if (!evs.length) return '';
     const day = d => d === now ? "Aujourd'hui" : d === addDays(now, 1) ? 'Demain' : fmtDate(d, { weekday: 'long', day: 'numeric' }).replace(/^./, c => c.toUpperCase());
-    const row = (href, d, time, title, sub, act, soft) => `<a class="wk-row" href="${href}"><span class="wk-d">${d}${time ? '<br><small>' + esc(time) + '</small>' : ''}</span><span class="wk-t"><b>${title}</b><br><small>${sub}</small></span><span class="btn small ${soft ? 'soft' : 'primary'}">${act}</span></a>`;
-    const rows = evs.map(e => {
+    const row = (href, d, time, title, sub, act, soft, first) => `<a class="wk-row ${first ? 'wk-next' : ''}" href="${href}"><span class="wk-d">${d}${time ? '<br><small>' + esc(time) + '</small>' : ''}</span><span class="wk-t"><b>${title}</b><br><small>${sub}</small></span><span class="btn sm ${soft ? 'soft' : 'primary'}">${act}</span></a>`;
+    const rows = evs.map((e, i) => {
       if (e.k === 'm') { const m = e.m, conv = (m.convoked || []).length;
-        const act = m.date === now ? ['🏟️ Jour de match', '#/jourj/' + m.id, false] : !conv ? ['📣 Convoquer', '#/match/' + m.id, false] : !m.convSent ? ['📣 Envoyer', '#/match/' + m.id, false] : !m.lineupId ? ['🧩 Compo', '#/match/' + m.id, false] : ['✓ Prêt', '#/jourj/' + m.id, true];
-        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : ''), act[0], act[2]); }
-      const t = e.tr, n = (t.exercises || []).length;
-      return row('#/entrainement/' + t.id, day(t.date), t.time, `${esc(tn(t.teamId))} · ${esc(t.title || 'Séance')}`, n ? n + ' exercice' + (n > 1 ? 's' : '') : "pas encore d'exercice", n ? '📝 Ouvrir' : '✍️ Préparer', !!n);
+        const act = m.date === now ? ['🏟️ Jour de match', '#/jourj/' + m.id, false] : !conv ? ['📣 Convoquer', '#/match/' + m.id, false] : !m.convSent ? ['📣 Envoyer', '#/match/' + m.id, false] : !m.lineupId ? ['🧩 Compo', '#/match/' + m.id, false] : ['🏟️ Préparer', '#/jourj/' + m.id, true];
+        const miss = soon(m.date) ? [conv && !m.convSent && 'convocation pas envoyée', !m.lineupId && 'compo à faire'].filter(Boolean) : [];
+        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : '') + (miss.length ? ' · ⚠️ ' + miss.join(', ') : ''), act[0], act[2], i === 0); }
+      const t = e.tr, ex = t.exercises || [], n = ex.length;
+      const kit = soon(t.date) ? [...new Set(ex.map(x => x.materiel).filter(Boolean).join(', ').split(/\s*,\s*/).map(x => x.trim()).filter(Boolean))].slice(0, 5) : [];
+      return row('#/entrainement/' + t.id, day(t.date), t.time, `${esc(tn(t.teamId))} · ${esc(t.title || 'Séance')}`, (n ? n + ' exercice' + (n > 1 ? 's' : '') : (soon(t.date) ? "⚠️ pas encore d'exercice" : "pas encore d'exercice")) + (kit.length ? ' · 🎒 ' + esc(kit.join(', ')) : ''), n ? '📝 Ouvrir' : '✍️ Préparer', !!n, i === 0);
     });
-    return `<section class="card week-card"><h2>🗓️ Ma semaine</h2><div class="wk">${rows.join('')}</div></section>`;
+    const shown = rows.slice(0, 4), rest = rows.slice(4);
+    return `<section class="card week-card today-card"><h2>🗓️ Ma semaine</h2><div class="wk">${shown.join('')}</div>
+      ${rest.length ? `<details class="wk-more"><summary>Voir les ${rest.length} autre${rest.length > 1 ? 's' : ''} rendez-vous de la semaine</summary><div class="wk">${rest.join('')}</div></details>` : ''}</section>`;
   }
+
   function home(root) {
     const now = today();
     const matches = byTeam(S().matches), trainings = byTeam(S().trainings);
@@ -20536,16 +20548,13 @@ var Views = (() => {
       ${serverBanner()}
       ${teamSwitch()}
       ${typeof News !== 'undefined' ? News.pill() : ''}
-      ${todayCard(next, nextTr, now)}
-      ${weekCard(matches, trainings, now)}
       ${setupCard()}
+      ${weekCard(matches, trainings, now) || todayCard(next, nextTr, now)}
+      ${Quick.tomorrowCard(true)}
       ${birthdayCard()}
-      ${Onboard.planCard()}
-      ${Quick.matchDayCard()}
-      ${Quick.tomorrowCard()}
-      ${Health.followCard()}
-      ${Quick.backupCard()}
-      ${President.homeReminder()}
+      ${(() => { // (3.18) the reminders together, folded: one line on the page instead of a card each
+        const l = [Onboard.planCard(), Health.followCard(), Quick.backupCard(), President.homeReminder()].filter(x => x && x.trim());
+        return l.length ? `<details class="card home-todo"><summary><b>🔔 À regarder</b> <span class="badge">${l.length}</span><span class="muted small"> · ${l.length > 1 ? 'rappels' : 'rappel'} du club</span></summary>${l.join('')}</details>` : ''; })()}
       ${Weather.placeholder()}
       <details class="fold home-more" ${homeOpen() ? 'open' : ''}><summary>🗂️ Le reste de l'accueil <span class="muted small">(raccourcis, planning, résultats, schémas)</span></summary>
       <div class="quick">
@@ -22303,7 +22312,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 218, UPD = AppCfg.key('update-tried');
+  const BUILD = 219, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
