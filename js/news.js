@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 160, date: '2026-10-10', title: 'Des blocs qui ont un sens 📐', items: [
+      ['📐', "Compo : les blocs suivent les repères des entraîneurs (sur 105 m) : bas, défense à 22 m et pressing à 45 m ; médian, 32 m et ligne médiane ; haut, 45 m et 62 m (sortie du rond central). Le gardien sort avec le bloc. « Comme dessiné » remet ta compo telle quelle."],
+    ] },
     { n: 159, date: '2026-10-10', title: 'Le gardien sort 🧤', items: [
       ['🧤', "Compo : en bloc haut, le gardien sort devant sa surface ; en très haut, encore plus loin. En bloc bas, il reste sur sa ligne."],
     ] },

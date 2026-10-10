@@ -3734,7 +3734,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.01';
+  const VERSION = '3.02';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16823,6 +16823,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 160, date: '2026-10-10', title: 'Des blocs qui ont un sens 📐', items: [
+      ['📐', "Compo : les blocs suivent les repères des entraîneurs (sur 105 m) : bas, défense à 22 m et pressing à 45 m ; médian, 32 m et ligne médiane ; haut, 45 m et 62 m (sortie du rond central). Le gardien sort avec le bloc. « Comme dessiné » remet ta compo telle quelle."],
+    ] },
     { n: 159, date: '2026-10-10', title: 'Le gardien sort 🧤', items: [
       ['🧤', "Compo : en bloc haut, le gardien sort devant sa surface ; en très haut, encore plus loin. En bloc bas, il reste sur sa ligne."],
     ] },
@@ -20630,9 +20633,31 @@ var Views = (() => {
   const POST_XY = { GB: [.04, .5], DG: [.2, .12], DC: [.17, .5], DD: [.2, .88], MDC: [.33, .5], MG: [.45, .12], MC: [.46, .5], MD: [.45, .88], MOG: [.62, .15], MOC: [.62, .5], MOD: [.62, .85], AG: [.8, .15], AV: [.88, .5], AD: [.8, .85] };
   const POST_RANK = Object.fromEntries(POSTS.map(([k], i) => [k, i]));
   // (3.00) the block: how high the team (goalkeeper apart) stands, as a share of the pitch length away from the standard spots
-  const BLOCS = [['tbas', 'Très bas', -.18], ['bas', 'Bas', -.09], ['median', 'Médian', 0], ['haut', 'Haut', .09], ['thaut', 'Très haut', .18]];
-  const blocOff = k => (BLOCS.find(b => b[0] === k) || BLOCS[2])[2];
-  const gkOff = k => ({ tbas: 0, bas: 0, median: 0, haut: .13, thaut: .19 })[k || 'median'] || 0; // (3.01) the goalkeeper comes out in front of his box when the block is high
+  // (3.02) the blocks as coaches define them, in metres from our goal line on a 105 m pitch (then scaled to the pitch of the match):
+  // the defensive line, the forwards' pressing line, the goalkeeper. Bloc bas: the team in its last 30-35 m, the line near the box.
+  // Bloc médian: between the box and the halfway line, the forwards press at the halfway line. Bloc haut: the line near the halfway
+  // line, the forwards press at the far edge of the centre circle (about 62 m). Sources: entrainement-foot.fr, footballcoachvideo.com, helloasso.com (bloc bas).
+  const BLOCS = [['tbas', 'Très bas', 14, 40, 4], ['bas', 'Bas', 22, 45, 5], ['median', 'Médian', 32, 52.5, 7], ['haut', 'Haut', 45, 62, 15], ['thaut', 'Très haut', 52.5, 70, 21]];
+  const blocDef = k => BLOCS.find(b => b[0] === k) || null;
+  // the depth of every outfield player, from the drawing (« comme dessiné ») to a block: the lines are spread between the defensive line and the forwards' line
+  function blocApply(sc, st, key) {
+    const { L } = Board.dims(sc.field), r = Board.tokenR(sc.field), B = sc.blocBase = sc.blocBase || {}, out = sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]);
+    out.forEach(x => { if (B[x.id] == null) B[x.id] = st.pos[x.id][0]; }); // the drawing as the coach made it is the base
+    const d = blocDef(key);
+    if (!d) { out.forEach(x => { st.pos[x.id][0] = B[x.id]; }); return; }
+    const field = out.filter(x => !x.gk), xs = field.map(x => B[x.id]), lo = Math.min(...xs), hi = Math.max(...xs), span = hi - lo;
+    const def = d[2] / 105 * L, att = d[3] / 105 * L;
+    field.forEach(x => { const t = span > 1 ? (B[x.id] - lo) / span : .5; st.pos[x.id][0] = Math.max(r * 1.2, Math.min(L - r * 1.2, def + t * (att - def))); });
+    out.filter(x => x.gk).forEach(x => { st.pos[x.id][0] = Math.max(r * 1.2, d[4] / 105 * L); });
+  }
+  // a player moved by hand while a block is set: his base (« comme dessiné ») follows, so the block keeps its shape
+  function blocRebase(sc, st, o) {
+    const B = sc.blocBase; if (!B) return; const d = blocDef(sc.bloc); if (!d) { B[o.id] = st.pos[o.id][0]; return; }
+    if (o.gk) return; const { L } = Board.dims(sc.field), field = sc.objects.filter(x => x.type === 'player' && !x.bench && !x.gk && st.pos[x.id] && x.id !== o.id), xs = field.map(x => B[x.id]).filter(v => v != null);
+    if (xs.length < 2) { B[o.id] = st.pos[o.id][0]; return; }
+    const lo = Math.min(...xs), hi = Math.max(...xs), def = d[2] / 105 * L, att = d[3] / 105 * L, t = (st.pos[o.id][0] - def) / ((att - def) || 1);
+    B[o.id] = lo + t * (hi - lo);
+  }
   // the posts of a player's card that fit each post of the drawing (for « Proposer une compo »)
   const POST_FITS = { GB: ['GB'], DG: ['LG', 'DG'], DC: ['DC'], DD: ['LD', 'DD'], MDC: ['MDC', 'MC'], MG: ['MG', 'LG', 'AG'], MC: ['MC', 'MDC', 'MOC'], MD: ['MD', 'LD', 'AD'], MOG: ['AG', 'MG'], MOC: ['MOC', 'MC', 'SA'], MOD: ['AD', 'MD'], AG: ['AG', 'MG'], AV: ['BU', 'SA'], AD: ['AD', 'MD'] };
   let swapPick = null; // (2.95) a substitute touched, waiting for the starter he replaces
@@ -20673,7 +20698,7 @@ var Views = (() => {
       if (!d) return; const was = d; d = null;
       if (!was.moving) return;
       was.wrap.classList.remove('dragging'); try { was.wrap.releasePointerCapture(e.pointerId); } catch (x) {}
-      const o = was.o, sc = was.sc; if (sc.blocBase) sc.blocBase[o.id] = sc.steps[0].pos[o.id][0] - (o.gk ? gkOff(sc.bloc) : blocOff(sc.bloc)) * Board.dims(sc.field).L; if (!o.bench) { o.post = nearestPost(sc, sc.steps[0].pos[o.id]); o.gk = o.post === 'GB'; if (o.gk) o.color = 'jaune'; else if (o.color === 'jaune') o.color = S().club.homeBib; if (!o.playerId) o.label = o.post; }
+      const o = was.o, sc = was.sc; blocRebase(sc, sc.steps[0], o); if (!o.bench) { o.post = nearestPost(sc, sc.steps[0].pos[o.id]); o.gk = o.post === 'GB'; if (o.gk) o.color = 'jaune'; else if (o.color === 'jaune') o.color = S().club.homeBib; if (!o.playerId) o.label = o.post; }
       Store.upsert('schemas', sc); toast(o.bench ? 'Déplacé' : `${o.name || 'Le poste'} → ${o.post}`);
       const h = location.hash; if (/^#\/match\//.test(h)) App.route(true);
     };
@@ -20701,7 +20726,7 @@ var Views = (() => {
     const all = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]); if (ensurePosts(sc, all, st)) Store.upsert('schemas', sc);
     const postOf = o => o.post, slots = all.slice().sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
     const fmt = Formations[sc.field.format] ? sc.field.format : null, sysSel = fmt ? `<label class="fld inline sys-sel"><span>Système</span><select data-ssys><option value="">Changer de système…</option>${Object.keys(Formations[fmt]).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select></label>` : '';
-    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc>${BLOCS.map(([k, l]) => `<option value="${k}" ${(sc.bloc || 'median') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
+    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc><option value="" ${!sc.bloc ? 'selected' : ''}>Comme dessiné</option>${BLOCS.map(([k, l, a, b]) => `<option value="${k}" ${sc.bloc === k ? 'selected' : ''}>${l} · défense ${a} m, pressing ${b} m</option>`).join('')}</select></label>`;
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
@@ -20890,17 +20915,14 @@ var Views = (() => {
         const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return;
         const st = sc.steps[0], o = sc.objects.find(x => x.id === e.target.dataset.spost); if (!o) return;
         o.post = e.target.value; if (!o.playerId) o.label = o.post;
-        placeOne(sc, o, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st); if (sc.blocBase) sc.blocBase[o.id] = st.pos[o.id][0] - blocOff(sc.bloc) * Board.dims(sc.field).L;
+        placeOne(sc, o, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st); if (sc.blocBase) { sc.blocBase[o.id] = st.pos[o.id][0]; if (sc.bloc) blocApply(sc, st, sc.bloc); }
         Store.upsert('schemas', sc); toast('Poste changé, le dessin suit'); return render();
       }
       // (3.00) the block: everybody but the goalkeeper slides up or down the pitch, the shape is kept
       if ('sbloc' in e.target.dataset) {
         const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return;
-        const st = sc.steps[0], { L } = Board.dims(sc.field), r = Board.tokenR(sc.field), cur = blocOff(sc.bloc) * L, off = blocOff(e.target.value) * L;
-        const B = sc.blocBase = sc.blocBase || {}; // the depth of each spot in a median block: the block slides from there and comes back exactly
-        sc.objects.filter(x => x.type === 'player' && !x.bench && !x.gk && st.pos[x.id]).forEach(x => { if (B[x.id] == null) B[x.id] = st.pos[x.id][0] - cur; st.pos[x.id][0] = Math.max(r * 1.2, Math.min(L - r * 1.2, B[x.id] + off)); });
-        sc.objects.filter(x => x.type === 'player' && !x.bench && x.gk && st.pos[x.id]).forEach(x => { if (B[x.id] == null) B[x.id] = st.pos[x.id][0] - gkOff(sc.bloc) * L; st.pos[x.id][0] = Math.max(r * 1.2, Math.min(L * .4, B[x.id] + gkOff(e.target.value) * L)); });
-        sc.bloc = e.target.value; Store.upsert('schemas', sc); toast(`Bloc ${(BLOCS.find(b => b[0] === sc.bloc) || [])[1].toLowerCase()}`); return render();
+        const st = sc.steps[0]; blocApply(sc, st, e.target.value);
+        if (e.target.value) sc.bloc = e.target.value; else delete sc.bloc; Store.upsert('schemas', sc); const d = blocDef(sc.bloc); toast(d ? `Bloc ${d[1].toLowerCase()} : défense à ${d[2]} m, pressing à ${d[3]} m` : 'Comme dessiné'); return render();
       }
       // (2.94) another system: the lines are laid out again, the players keep their order (gardien, défense, milieu, attaque)
       if ('ssys' in e.target.dataset) {
@@ -21669,7 +21691,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 202, UPD = AppCfg.key('update-tried');
+  const BUILD = 203, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
