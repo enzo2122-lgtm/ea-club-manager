@@ -366,7 +366,9 @@ const Prepa = (() => {
       } }] });
   }
   // (3.08) who starts and who is on the bench: the players placed on the composition, else the AssistCoachAI line-up; the bench = the other convoked players
-  const postName = k => { const f = (Sport.POSTS || []).find(q => q[0] === k); return f ? f[1] : (k || ''); };
+  // the composition's own codes (views.js) that the sport list doesn't know, so every post is written out in full
+  const POST_FULL = { DG: 'Latéral gauche', DD: 'Latéral droit', PG: 'Piston gauche', PD: 'Piston droit', MOG: 'Milieu offensif gauche', MOD: 'Milieu offensif droit', AV: 'Avant-centre' };
+  const postName = k => { const f = (Sport.POSTS || []).find(q => q[0] === k); return f ? f[1] : POST_FULL[k] || (k || ''); };
   function squad(m, lineup) {
     const absent = new Set(m.absents || []), get = id => Store.get('players', id), conv = (m.convoked || []).filter(id => !absent.has(id)).map(get).filter(Boolean);
     let ids = []; const gks = new Set(), slot = {};
@@ -374,8 +376,9 @@ const Prepa = (() => {
     if (!ids.length && m.acLineup) ids = m.acLineup.starters || [];
     ids = [...new Set(ids)].filter(id => !absent.has(id));
     const byNum = (a, b) => (+Store.numOf(a, m) || 99) - (+Store.numOf(b, m) || 99) || Store.byName(a, b), gk = x => gks.has(x.id) || /^(GB|G)$/.test((x.posts || [])[0] || x.pos || '') ? 0 : 1;
-    const starters = ids.map(get).filter(Boolean).sort((a, b) => gk(a) - gk(b) || byNum(a, b));
-    const post = x => (slot[x.id] && postName(slot[x.id])) || People.postsLabel(x) || '';
+    const num = x => +Store.numOf(x, m) || 0; // by shirt number; the ones without a number after (the goalkeeper first among them)
+    const starters = ids.map(get).filter(Boolean).sort((a, b) => (!num(a)) - (!num(b)) || num(a) - num(b) || gk(a) - gk(b) || Store.byName(a, b));
+    const post = x => postName(slot[x.id] || (x.posts || [])[0] || x.pos || '');
     return { starters, bench: conv.filter(x => !ids.includes(x.id)).sort(byNum), post };
   }
   async function pdf(m, parts) {
