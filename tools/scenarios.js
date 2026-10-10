@@ -1,5 +1,9 @@
 /* Scénarios joués dans un vrai navigateur (Chrome ou Edge, sans fenêtre) avant chaque publication :
      node tools/scenarios.js            (lance son propre petit serveur sur le port 8797)
+     node tools/scenarios.js --crawl                      (en plus : toutes les pages, tous les boutons, sur le club de démonstration)
+     node tools/scenarios.js --donnees copie.json         (le parcours sur une copie des vraies données d'un club : sauvegarde de l'appli
+                                                           ou lignes du serveur ; le serveur est bloqué, rien ne sort de l'ordinateur ;
+                                                           la copie ne doit jamais être mise dans le dépôt : données personnelles)
    Chaque scénario ouvre le club de démonstration, fait ce qu'un coach fait (ouvrir un match, convoquer, jour J, séance, réglages…)
    et vérifie le résultat. Toute erreur JavaScript de l'appli fait échouer le scénario. Rien n'est envoyé à un serveur.
    Sans dépendance : Chrome est piloté par son protocole de débogage (WebSocket de Node). */
@@ -158,15 +162,20 @@ const CRAWL = `
   const routes = [...new Set([...appJs.slice(appJs.indexOf("const fn = { '': Views.home")).split('}[name]')[0].matchAll(/(?:^|[\\s,{])(\\w+):/g)].map(m => m[1]))].filter(r => r !== 'r' && r !== 'x' && r !== 'schema' && r !== 'tableau');
   const S = Store.state, up = S.matches.find(m => !m.played), played = S.matches.find(m => m.played), tr = S.trainings.find(t => !t.model), team = S.teams[0], pl = S.players[0];
   const withId = { equipe: team, joueur: pl, entrainement: tr, match: up, prepa: up, direct: up, jourj: up, codes: team, progression: pl, tests: team, bilan: team };
-  const rs = ['', ...routes, ...Object.entries(withId).filter(([, o]) => o).map(([r, o]) => r + '/' + o.id), ...(played ? ['match/' + played.id] : [])];
+  let rs = ['', ...routes, ...Object.entries(withId).filter(([, o]) => o).map(([r, o]) => r + '/' + o.id), ...(played ? ['match/' + played.id] : [])];
+  const ALL = window.__crawlAll, STEPS = ['semaine', 'adversaire', 'plan', 'causerie', 'jourj', 'mitemps', 'apres'];
+  if (ALL) rs = [...rs, ...S.matches.flatMap(m => ['match/' + m.id, 'jourj/' + m.id, 'direct/' + m.id, ...STEPS.map(s => 'prepa/' + m.id + '/' + s)]),
+    ...S.teams.flatMap(t => ['equipe/' + t.id, 'codes/' + t.id, 'tests/' + t.id, 'bilan/' + t.id]), ...S.trainings.map(t => 'entrainement/' + t.id),
+    ...S.players.flatMap(p => ['joueur/' + p.id, 'progression/' + p.id])];
+  const MAXC = r => !ALL ? 25 : /^(match|prepa|jourj|equipe)[/]/.test(r) ? 12 : 4;
   HTMLAnchorElement.prototype.click = function () {}; window.open = () => null; window.print = () => {};
   const d = document, modalOpen = () => { const m = d.getElementById('modal'); return m && !m.hidden; };
   const closeAll = async () => { for (let k = 0; k < 4 && modalOpen(); k++) { const x = d.querySelector('#modal .x, #modal [aria-label="Fermer"], #modal [data-close]'); if (x) x.click(); else d.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(80); } const m = d.getElementById('modal'); if (m) m.hidden = true; d.querySelectorAll('.rs-back, .link-gate').forEach(x => x.remove()); };
   const SKIP = /supprim|delete|trash|danger|logout|sortir|déconnect|reset|réinitial|retirer|quitter|quit|vider|effacer|forget|fichier|import|photo|vidéo|video|caméra|micro|recevoir|notif|créer mon club|demo|mettre à jour|télécharg|exporter|pdf|imprim|partag|envoyer|whatsapp|image|refaire|redo|lineupredo|dayrotate|autocomp|nophoto|archiv/i;
   const out = []; window.__crawlErrs = [];
   for (const r of rs) {
-    location.hash = '#/' + r; await wait(500); let clicked = 0;
-    for (let i = 0; i < 25; i++) {
+    location.hash = '#/' + r; await wait(ALL ? 250 : 500); let clicked = 0; if (ALL && !d.querySelector('#view').children.length) window.__crawlErrs.push(r + ' :: page vide');
+    for (let i = 0; i < MAXC(r); i++) {
       if (location.hash !== '#/' + r) { location.hash = '#/' + r; await wait(350); }
       const b = [...d.querySelectorAll('#view button:not([disabled]), #view summary')][i]; if (!b) break;
       const t = (b.textContent + ' ' + b.className + ' ' + JSON.stringify(b.dataset)).toLowerCase(); if (SKIP.test(t)) continue;
@@ -177,6 +186,21 @@ const CRAWL = `
     out.push(r + ':' + clicked);
   }
   return out.join(' ');`;
+
+/* ---------- a copy of a club's real data in place of the demo (option --donnees) ---------- */
+async function loadData(cdp, p, file) {
+  // nothing leaves the computer: every request to a server other than the local one fails
+  const t = (await cdp.send('Target.getTargets')).targetInfos.find(x => x.type === 'page' && /localhost/.test(x.url));
+  const { sessionId } = await cdp.send('Target.attachToTarget', { targetId: t.targetId, flatten: true });
+  await cdp.send('Network.enable', {}, sessionId); await cdp.send('Network.setBlockedURLs', { urls: ['*supabase*', '*googleapis*', 'https://*'] }, sessionId);
+  let raw = JSON.parse(fs.readFileSync(file, 'utf8')), data = {};
+  if (raw.app && raw.data) data = raw.data; // a backup of the app
+  else (Array.isArray(raw) ? raw : raw.rows || []).forEach(r => { const it = typeof r.data === 'string' ? JSON.parse(r.data) : r.data; if (!it) return; if (r.col === 'club') data.club = it; else (data[r.col] = data[r.col] || []).push(it); });
+  const res = await p.evalIn(`(() => { const d = ${JSON.stringify(data)}, S = Store.state, out = [];
+    Object.entries(d).forEach(([c, v]) => { if (c === 'club') { const cl = Object.assign({}, v); delete cl.cloud; Object.assign(S.club, cl); return; } if (Array.isArray(v)) { S[c] = v; out.push(c + ' ' + v.length); } });
+    window.__crawlAll = true; Store.save(); location.hash = '#/'; return out.join(', '); })()`);
+  console.log('\n📂 Données chargées (serveur bloqué) : ' + res);
+}
 
 /* ---------- run ---------- */
 (async () => {
@@ -202,12 +226,14 @@ const CRAWL = `
     srv.kill();
   }
   console.log(bad ? `\n❌ ${bad} scénario${bad > 1 ? 's' : ''} en échec (${Math.round((Date.now() - t0) / 1000)} s)` : `\n✅ ${SCENARIOS.length} scénarios réussis (${Math.round((Date.now() - t0) / 1000)} s)`);
-  if (process.argv.includes('--crawl')) {
+  const di = process.argv.indexOf('--donnees'), DATA = di > 0 ? process.argv[di + 1] : null;
+  if (process.argv.includes('--crawl') || DATA) {
     const srv2 = spawn(process.execPath, [path.join(__dirname, 'serveur.js'), String(PORT)], { stdio: 'ignore' }); await sleep(600);
     let br2; try {
       br2 = await openBrowser(); const p = await page(br2.cdp); await p.goto(DEMO); await p.evalIn(`(async () => { ${H} guide(); })()`);
+      if (DATA) await loadData(br2.cdp, p, DATA);
       const visited = await p.evalIn(`(async () => { ${CRAWL} })()`);
-      const errs = p.errors().filter(e => !/favicon|net::ERR|Failed to fetch|NetworkError|Load failed/.test(e));
+      const errs = p.errors().filter(e => !/favicon|net::ERR|Failed to fetch|NetworkError|Load failed/.test(e) && !(DATA && /Le PDF se prépare/.test(e))); // internet blocked: no PDF library
       const inPage = await p.evalIn('window.__crawlErrs || []');
       console.log(`\n🕷️ Parcours de toutes les pages : ${String(visited).split(' ').length} pages, boutons touchés`);
       [...errs, ...inPage].forEach(e => console.log('  ⚠️ ' + String(e).split('\n')[0].slice(0, 220)));
