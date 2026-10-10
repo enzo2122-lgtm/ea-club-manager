@@ -6,7 +6,7 @@
 const { spawn, execSync } = require('child_process'), fs = require('fs'), path = require('path'), http = require('http'), os = require('os');
 const ROOT = path.join(__dirname, '..'), PORT = 8797, DBG = 9339;
 const BROWSERS = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', process.env.CHROME || ''].filter(Boolean);
 const DEMO = fs.existsSync(path.join(ROOT, 'demo', 'foot', 'index.html')) ? `http://localhost:${PORT}/demo/foot/` : `http://localhost:${PORT}/verif-app.html?demo=1`;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -21,7 +21,7 @@ class CDP {
 async function openBrowser() {
   const exe = BROWSERS.find(p => fs.existsSync(p)); if (!exe) throw new Error('Chrome ou Edge introuvable');
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'clubbo-scen-'));
-  const proc = spawn(exe, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--window-size=540,960', '--remote-debugging-port=' + DBG, '--user-data-dir=' + profile, 'about:blank'], { stdio: 'ignore' });
+  const proc = spawn(exe, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', ...(process.getuid && process.getuid() === 0 ? ['--no-sandbox'] : []), '--window-size=540,960', '--remote-debugging-port=' + DBG, '--user-data-dir=' + profile, 'about:blank'], { stdio: 'ignore' });
   let info; for (let i = 0; i < 50 && !info; i++) { try { info = JSON.parse(await get(`http://127.0.0.1:${DBG}/json/version`)); } catch (e) { await sleep(200); } }
   if (!info) { proc.kill(); throw new Error('le navigateur ne répond pas'); }
   const ws = new WebSocket(info.webSocketDebuggerUrl); await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
@@ -61,6 +61,18 @@ const H = `
 
 /* ---------- the scenarios ---------- */
 const SCENARIOS = [
+  ['Préparation du match : PDF complet (toutes les parties)', `
+    const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0]; must(m, 'aucun match à venir');
+    m.prep = { talk: { objective: 'Gagner', keys: ['Presser', 'Courir', 'Parler'], hook: 'Allez' }, day: { warmMin: 25 } }; Store.upsert('matches', m);
+    Exporter.deliver = async () => 'shared'; await go('#/matchs'); await go('#/prepa/' + m.id);
+    if (!window.jspdf) { const sc = document.createElement('script'); sc.src = '/node_modules/jspdf/dist/jspdf.umd.min.js'; document.head.appendChild(sc); await wait(1500); } // hors ligne : copie locale si elle existe
+    let t = '';
+    for (let n = 0; n < 4; n++) {
+      await click('[data-pa="print"]', 600); $$('#modal [data-part]').forEach(x => { x.checked = true; });
+      const ok = $$('#modal button').find(b => /Créer le PDF/.test(b.innerText)); must(ok, 'pas de bouton « Créer le PDF »'); ok.click(); await wait(4000);
+      t = text('#toast'); if (!/se prépare/.test(t)) break; await wait(2500);
+    }
+    must(!/impossible/i.test(t), t); return 'PDF créé';`],
   ['Accueil : prochain rendez-vous et menu', `
     guide(); must($('.today-card'), 'pas de carte « Prochain rendez-vous »');
     must($('#nav a'), 'pas de menu'); must(matchMedia('(max-width: 760px)').matches, 'largeur téléphone attendue');

@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 166, date: '2026-10-10', title: 'Le PDF de la prépa sort enfin 🖨️', items: [
+      ['🐛', "Préparation du match : « Créer le PDF » répondait « PDF impossible ». Deux choses portaient le même nom dans le code et se marchaient dessus. Démêlées : le PDF complet (affiche, causerie, adversaire, semaine, jour J, mi-temps, après-match) se crée à nouveau."],
+    ] },
     { n: 165, date: '2026-10-10', title: 'La prépa ne boude plus 🔑', items: [
       ['🐛', "Préparation du match : quand une clé de la causerie était tapée à la main, elle était rangée de travers et toute la page se figeait sur l'autre appareil. Rangée droit, et les anciennes sont remises d'aplomb toutes seules."],
     ] },
