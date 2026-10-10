@@ -326,7 +326,7 @@ const Editor = (() => {
       for (const s of segs) { if (t < acc + s.d) { seg = s; break; } acc += s.d; }
       E.pk = seg.k; E.pu = seg.move ? (t - acc) / seg.d : 0;
       E.root.querySelectorAll('.step-chip').forEach((c, i) => c.classList.toggle('playing', i === E.pk));
-      draw(); E.raf = requestAnimationFrame(tick);
+      draw(); if (!E) return; E.raf = requestAnimationFrame(tick);
     };
     renderSteps(); E.raf = requestAnimationFrame(tick);
   }

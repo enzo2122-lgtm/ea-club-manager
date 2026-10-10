@@ -70,7 +70,7 @@ const Terrain = (() => {
       else if (run.i >= run.plan.length - 1) { play('end'); buzz([300, 120, 300, 120, 500]); draw(root, true); wake(false); run = null; toast('🏁 Terminé, bravo !'); return; }
       else { run.i++; run.left += run.plan[run.i].d; run.ticked = -1; const k = run.plan[run.i].k; play(k === 'work' ? 'go' : 'stop'); buzz(k === 'work' ? 300 : [150, 80, 150]); }
     }
-    draw(root);
+    draw(root); if (!run) return; // (3.05) the page was left while drawing: the loop stops instead of crashing
     run.raf = requestAnimationFrame(() => loop(root));
   }
   function draw(root, done) {
@@ -107,7 +107,7 @@ const Terrain = (() => {
     S0.beeps.forEach(b => { if (before < b && vt.t >= b) play('tick', 'bip'); });
     if (before < S0.run && vt.t >= S0.run && S0.run < S0.len) { play('stop', 'bip'); buzz([120, 60, 120]); }
     if (vt.t >= S0.len) { vt.t -= S0.len; vt.stage++; play('go', 'terrain'); buzz(300); }
-    vDraw(root); vt.raf = requestAnimationFrame(() => vLoop(root));
+    vDraw(root); if (!vt) return; vt.raf = requestAnimationFrame(() => vLoop(root));
   }
   function vDraw(root) {
     const big = root.querySelector('#vtBig'); if (!big) { if (vt) { cancelAnimationFrame(vt.raf); vt = null; } return; }

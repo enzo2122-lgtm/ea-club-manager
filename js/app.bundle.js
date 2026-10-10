@@ -1213,6 +1213,127 @@ var Seed = {
 };
 
 ;
+/* ===== blocs.js ===== */
+/* Blocs11: the 16 systems of 11-a-side football with their 5 block heights (très bas → très haut), phase défensive.
+   Positions taken from the coaching document « Les 5 hauteurs de bloc » (terrain 105 × 68 m): s = across the width (0 = our left),
+   t = along the length from our goal line (0 = our goal, 1 = the opponent's). The defensive line: ~12 m, ~22 m, ~33 m, ~45 m, ~55 m.
+   The posts are the document's (G → GB, BU → AV, MO → MOC); in low blocks the wingers come back on the midfield line, as in the document. */
+var Blocs11 = {
+  "4-4-2": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MG", 0.241, 0.248], ["MC", 0.423, 0.248], ["MC", 0.578, 0.248], ["MD", 0.759, 0.248], ["AV", 0.423, 0.381], ["AV", 0.578, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MG", 0.229, 0.353], ["MC", 0.419, 0.353], ["MC", 0.581, 0.353], ["MD", 0.771, 0.353], ["AV", 0.419, 0.496], ["AV", 0.581, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MG", 0.206, 0.467], ["MC", 0.412, 0.467], ["MC", 0.589, 0.467], ["MD", 0.794, 0.467], ["AV", 0.412, 0.62], ["AV", 0.589, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MG", 0.182, 0.586], ["MC", 0.405, 0.586], ["MC", 0.595, 0.586], ["MD", 0.818, 0.586], ["AV", 0.405, 0.743], ["AV", 0.595, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MG", 0.159, 0.691], ["MC", 0.398, 0.691], ["MC", 0.602, 0.691], ["MD", 0.841, 0.691], ["AV", 0.398, 0.858], ["AV", 0.602, 0.858]],
+  },
+  "4-4-2 losange": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MDC", 0.5, 0.181], ["MC", 0.345, 0.248], ["MC", 0.656, 0.248], ["MOC", 0.5, 0.317], ["AV", 0.423, 0.381], ["AV", 0.578, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MDC", 0.5, 0.281], ["MC", 0.338, 0.353], ["MC", 0.662, 0.353], ["MOC", 0.5, 0.427], ["AV", 0.419, 0.496], ["AV", 0.581, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MDC", 0.5, 0.391], ["MC", 0.324, 0.467], ["MC", 0.677, 0.467], ["MOC", 0.5, 0.546], ["AV", 0.412, 0.62], ["AV", 0.589, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MDC", 0.5, 0.508], ["MC", 0.309, 0.586], ["MC", 0.691, 0.586], ["MOC", 0.5, 0.668], ["AV", 0.405, 0.743], ["AV", 0.595, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MDC", 0.5, 0.608], ["MC", 0.295, 0.691], ["MC", 0.705, 0.691], ["MOC", 0.5, 0.778], ["AV", 0.398, 0.858], ["AV", 0.602, 0.858]],
+  },
+  "4-3-3": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MDC", 0.5, 0.195], ["AG", 0.254, 0.248], ["MC", 0.371, 0.248], ["MC", 0.63, 0.248], ["AD", 0.746, 0.248], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MDC", 0.5, 0.296], ["AG", 0.243, 0.353], ["MC", 0.365, 0.353], ["MC", 0.635, 0.353], ["AD", 0.757, 0.353], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MDC", 0.5, 0.406], ["MC", 0.353, 0.467], ["MC", 0.647, 0.467], ["AG", 0.221, 0.62], ["AV", 0.5, 0.62], ["AD", 0.78, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MDC", 0.5, 0.523], ["MC", 0.341, 0.586], ["MC", 0.659, 0.586], ["AG", 0.198, 0.743], ["AV", 0.5, 0.743], ["AD", 0.802, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MDC", 0.5, 0.624], ["MC", 0.33, 0.691], ["MC", 0.671, 0.691], ["AG", 0.176, 0.858], ["AV", 0.5, 0.858], ["AD", 0.824, 0.858]],
+  },
+  "4-2-3-1": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MDC", 0.423, 0.195], ["MDC", 0.578, 0.195], ["MG", 0.267, 0.291], ["MOC", 0.5, 0.291], ["MD", 0.733, 0.291], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MDC", 0.419, 0.296], ["MDC", 0.581, 0.296], ["MG", 0.256, 0.399], ["MOC", 0.5, 0.399], ["MD", 0.743, 0.399], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MDC", 0.412, 0.406], ["MDC", 0.589, 0.406], ["MG", 0.236, 0.516], ["MOC", 0.5, 0.516], ["MD", 0.765, 0.516], ["AV", 0.5, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MDC", 0.405, 0.523], ["MDC", 0.595, 0.523], ["MG", 0.214, 0.637], ["MOC", 0.5, 0.637], ["MD", 0.786, 0.637], ["AV", 0.5, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MDC", 0.398, 0.624], ["MDC", 0.602, 0.624], ["MG", 0.193, 0.744], ["MOC", 0.5, 0.744], ["MD", 0.807, 0.744], ["AV", 0.5, 0.858]],
+  },
+  "4-1-4-1": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MDC", 0.5, 0.181], ["MG", 0.241, 0.261], ["MC", 0.416, 0.261], ["MC", 0.584, 0.261], ["MD", 0.759, 0.261], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MDC", 0.5, 0.281], ["MG", 0.229, 0.367], ["MC", 0.412, 0.367], ["MC", 0.588, 0.367], ["MD", 0.771, 0.367], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MDC", 0.5, 0.391], ["MG", 0.206, 0.482], ["MC", 0.405, 0.482], ["MC", 0.596, 0.482], ["MD", 0.794, 0.482], ["AV", 0.5, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MDC", 0.5, 0.508], ["MG", 0.182, 0.602], ["MC", 0.397, 0.602], ["MC", 0.603, 0.602], ["MD", 0.818, 0.602], ["AV", 0.5, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MDC", 0.5, 0.608], ["MG", 0.159, 0.708], ["MC", 0.389, 0.708], ["MC", 0.611, 0.708], ["MD", 0.841, 0.708], ["AV", 0.5, 0.858]],
+  },
+  "4-5-1": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MG", 0.228, 0.243], ["MC", 0.371, 0.243], ["MC", 0.5, 0.243], ["MC", 0.63, 0.243], ["MD", 0.772, 0.243], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MG", 0.216, 0.347], ["MC", 0.365, 0.347], ["MC", 0.5, 0.347], ["MC", 0.635, 0.347], ["MD", 0.784, 0.347], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MG", 0.191, 0.461], ["MC", 0.353, 0.461], ["MC", 0.5, 0.461], ["MC", 0.647, 0.461], ["MD", 0.809, 0.461], ["AV", 0.5, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MG", 0.166, 0.58], ["MC", 0.341, 0.58], ["MC", 0.5, 0.58], ["MC", 0.659, 0.58], ["MD", 0.834, 0.58], ["AV", 0.5, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MG", 0.142, 0.684], ["MC", 0.33, 0.684], ["MC", 0.5, 0.684], ["MC", 0.671, 0.684], ["MD", 0.858, 0.684], ["AV", 0.5, 0.858]],
+  },
+  "4-4-1-1": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MG", 0.241, 0.235], ["MC", 0.423, 0.235], ["MC", 0.578, 0.235], ["MD", 0.759, 0.235], ["SA", 0.5, 0.315], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MG", 0.229, 0.339], ["MC", 0.419, 0.339], ["MC", 0.581, 0.339], ["MD", 0.771, 0.339], ["SA", 0.5, 0.424], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MG", 0.206, 0.452], ["MC", 0.412, 0.452], ["MC", 0.589, 0.452], ["MD", 0.794, 0.452], ["SA", 0.5, 0.543], ["AV", 0.5, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MG", 0.182, 0.571], ["MC", 0.405, 0.571], ["MC", 0.595, 0.571], ["MD", 0.818, 0.571], ["SA", 0.5, 0.665], ["AV", 0.5, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MG", 0.159, 0.674], ["MC", 0.398, 0.674], ["MC", 0.602, 0.674], ["MD", 0.841, 0.674], ["SA", 0.5, 0.774], ["AV", 0.5, 0.858]],
+  },
+  "4-3-1-2": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MDC", 0.5, 0.189], ["MC", 0.345, 0.235], ["MC", 0.656, 0.235], ["MOC", 0.5, 0.312], ["AV", 0.423, 0.381], ["AV", 0.578, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MDC", 0.5, 0.29], ["MC", 0.338, 0.339], ["MC", 0.662, 0.339], ["MOC", 0.5, 0.421], ["AV", 0.419, 0.496], ["AV", 0.581, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MDC", 0.5, 0.4], ["MC", 0.324, 0.452], ["MC", 0.677, 0.452], ["MOC", 0.5, 0.54], ["AV", 0.412, 0.62], ["AV", 0.589, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MDC", 0.5, 0.517], ["MC", 0.309, 0.571], ["MC", 0.691, 0.571], ["MOC", 0.5, 0.662], ["AV", 0.405, 0.743], ["AV", 0.595, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MDC", 0.5, 0.618], ["MC", 0.295, 0.674], ["MC", 0.705, 0.674], ["MOC", 0.5, 0.771], ["AV", 0.398, 0.858], ["AV", 0.602, 0.858]],
+  },
+  "4-3-2-1": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MC", 0.358, 0.216], ["MC", 0.5, 0.216], ["MC", 0.643, 0.216], ["MOC", 0.397, 0.301], ["MOC", 0.604, 0.301], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MC", 0.351, 0.319], ["MC", 0.5, 0.319], ["MC", 0.649, 0.319], ["MOC", 0.392, 0.41], ["MOC", 0.608, 0.41], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MC", 0.339, 0.431], ["MC", 0.5, 0.431], ["MC", 0.662, 0.431], ["MOC", 0.383, 0.528], ["MOC", 0.618, 0.528], ["AV", 0.5, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MC", 0.325, 0.548], ["MC", 0.5, 0.548], ["MC", 0.675, 0.548], ["MOC", 0.373, 0.649], ["MOC", 0.627, 0.649], ["AV", 0.5, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MC", 0.313, 0.651], ["MC", 0.5, 0.651], ["MC", 0.688, 0.651], ["MOC", 0.364, 0.758], ["MOC", 0.636, 0.758], ["AV", 0.5, 0.858]],
+  },
+  "4-2-2-2": {
+    tbas: [["GB", 0.5, 0.029], ["DG", 0.241, 0.115], ["DC", 0.416, 0.115], ["DC", 0.584, 0.115], ["DD", 0.759, 0.115], ["MDC", 0.423, 0.195], ["MDC", 0.578, 0.195], ["MOC", 0.306, 0.291], ["MOC", 0.694, 0.291], ["AV", 0.423, 0.381], ["AV", 0.578, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["DG", 0.229, 0.21], ["DC", 0.412, 0.21], ["DC", 0.588, 0.21], ["DD", 0.77, 0.21], ["MDC", 0.419, 0.296], ["MDC", 0.581, 0.296], ["MOC", 0.297, 0.399], ["MOC", 0.703, 0.399], ["AV", 0.419, 0.496], ["AV", 0.581, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DG", 0.206, 0.315], ["DC", 0.405, 0.315], ["DC", 0.596, 0.315], ["DD", 0.794, 0.315], ["MDC", 0.412, 0.406], ["MDC", 0.589, 0.406], ["MOC", 0.28, 0.516], ["MOC", 0.721, 0.516], ["AV", 0.412, 0.62], ["AV", 0.589, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DG", 0.182, 0.429], ["DC", 0.397, 0.429], ["DC", 0.603, 0.429], ["DD", 0.818, 0.429], ["MDC", 0.405, 0.523], ["MDC", 0.595, 0.523], ["MOC", 0.262, 0.637], ["MOC", 0.738, 0.637], ["AV", 0.405, 0.743], ["AV", 0.595, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DG", 0.159, 0.524], ["DC", 0.389, 0.524], ["DC", 0.611, 0.524], ["DD", 0.841, 0.524], ["MDC", 0.398, 0.624], ["MDC", 0.602, 0.624], ["MOC", 0.244, 0.744], ["MOC", 0.756, 0.744], ["AV", 0.398, 0.858], ["AV", 0.602, 0.858]],
+  },
+  "3-5-2": {
+    tbas: [["GB", 0.5, 0.029], ["PG", 0.222, 0.115], ["DC", 0.319, 0.115], ["DC", 0.5, 0.115], ["DC", 0.681, 0.115], ["PD", 0.778, 0.115], ["MDC", 0.5, 0.2], ["MC", 0.371, 0.235], ["MC", 0.63, 0.235], ["AV", 0.423, 0.381], ["AV", 0.578, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["PG", 0.209, 0.21], ["DC", 0.31, 0.21], ["DC", 0.5, 0.21], ["DC", 0.689, 0.21], ["PD", 0.791, 0.21], ["MDC", 0.5, 0.301], ["MC", 0.365, 0.339], ["MC", 0.635, 0.339], ["AV", 0.419, 0.496], ["AV", 0.581, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DC", 0.294, 0.315], ["DC", 0.5, 0.315], ["DC", 0.706, 0.315], ["MDC", 0.5, 0.412], ["PG", 0.184, 0.452], ["MC", 0.353, 0.452], ["MC", 0.647, 0.452], ["PD", 0.816, 0.452], ["AV", 0.412, 0.62], ["AV", 0.589, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DC", 0.278, 0.429], ["DC", 0.5, 0.429], ["DC", 0.722, 0.429], ["MDC", 0.5, 0.53], ["PG", 0.158, 0.571], ["MC", 0.341, 0.571], ["MC", 0.659, 0.571], ["PD", 0.841, 0.571], ["AV", 0.405, 0.743], ["AV", 0.595, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DC", 0.261, 0.524], ["DC", 0.5, 0.524], ["DC", 0.739, 0.524], ["MDC", 0.5, 0.631], ["PG", 0.134, 0.674], ["MC", 0.33, 0.674], ["MC", 0.671, 0.674], ["PD", 0.867, 0.674], ["AV", 0.398, 0.858], ["AV", 0.602, 0.858]],
+  },
+  "3-4-3": {
+    tbas: [["GB", 0.5, 0.029], ["PG", 0.228, 0.115], ["DC", 0.319, 0.115], ["DC", 0.5, 0.115], ["DC", 0.681, 0.115], ["PD", 0.772, 0.115], ["AG", 0.293, 0.235], ["MC", 0.423, 0.235], ["MC", 0.578, 0.235], ["AD", 0.707, 0.235], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["PG", 0.216, 0.21], ["DC", 0.31, 0.21], ["DC", 0.5, 0.21], ["DC", 0.689, 0.21], ["PD", 0.784, 0.21], ["AG", 0.283, 0.339], ["MC", 0.419, 0.339], ["MC", 0.581, 0.339], ["AD", 0.716, 0.339], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DC", 0.294, 0.315], ["DC", 0.5, 0.315], ["DC", 0.706, 0.315], ["PG", 0.191, 0.452], ["MC", 0.412, 0.452], ["MC", 0.589, 0.452], ["PD", 0.809, 0.452], ["AG", 0.265, 0.62], ["AV", 0.5, 0.62], ["AD", 0.736, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DC", 0.278, 0.429], ["DC", 0.5, 0.429], ["DC", 0.722, 0.429], ["PG", 0.166, 0.571], ["MC", 0.405, 0.571], ["MC", 0.595, 0.571], ["PD", 0.834, 0.571], ["AG", 0.246, 0.743], ["AV", 0.5, 0.743], ["AD", 0.754, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DC", 0.261, 0.524], ["DC", 0.5, 0.524], ["DC", 0.739, 0.524], ["PG", 0.142, 0.674], ["MC", 0.398, 0.674], ["MC", 0.602, 0.674], ["PD", 0.858, 0.674], ["AG", 0.227, 0.858], ["AV", 0.5, 0.858], ["AD", 0.773, 0.858]],
+  },
+  "3-4-2-1": {
+    tbas: [["GB", 0.5, 0.029], ["PG", 0.228, 0.115], ["DC", 0.319, 0.115], ["DC", 0.5, 0.115], ["DC", 0.681, 0.115], ["PD", 0.772, 0.115], ["MC", 0.423, 0.227], ["MC", 0.578, 0.227], ["MOC", 0.384, 0.307], ["MOC", 0.617, 0.307], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["PG", 0.216, 0.21], ["DC", 0.31, 0.21], ["DC", 0.5, 0.21], ["DC", 0.689, 0.21], ["PD", 0.784, 0.21], ["MC", 0.419, 0.33], ["MC", 0.581, 0.33], ["MOC", 0.378, 0.416], ["MOC", 0.622, 0.416], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DC", 0.294, 0.315], ["DC", 0.5, 0.315], ["DC", 0.706, 0.315], ["PG", 0.191, 0.443], ["MC", 0.412, 0.443], ["MC", 0.589, 0.443], ["PD", 0.809, 0.443], ["MOC", 0.368, 0.534], ["MOC", 0.633, 0.534], ["AV", 0.5, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DC", 0.278, 0.429], ["DC", 0.5, 0.429], ["DC", 0.722, 0.429], ["PG", 0.166, 0.561], ["MC", 0.405, 0.561], ["MC", 0.595, 0.561], ["PD", 0.834, 0.561], ["MOC", 0.357, 0.655], ["MOC", 0.643, 0.655], ["AV", 0.5, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DC", 0.261, 0.524], ["DC", 0.5, 0.524], ["DC", 0.739, 0.524], ["PG", 0.142, 0.664], ["MC", 0.398, 0.664], ["MC", 0.602, 0.664], ["PD", 0.858, 0.664], ["MOC", 0.347, 0.764], ["MOC", 0.653, 0.764], ["AV", 0.5, 0.858]],
+  },
+  "3-4-1-2": {
+    tbas: [["GB", 0.5, 0.029], ["PG", 0.228, 0.115], ["DC", 0.319, 0.115], ["DC", 0.5, 0.115], ["DC", 0.681, 0.115], ["PD", 0.772, 0.115], ["MC", 0.423, 0.227], ["MC", 0.578, 0.227], ["MOC", 0.5, 0.307], ["AV", 0.423, 0.381], ["AV", 0.578, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["PG", 0.216, 0.21], ["DC", 0.31, 0.21], ["DC", 0.5, 0.21], ["DC", 0.689, 0.21], ["PD", 0.784, 0.21], ["MC", 0.419, 0.33], ["MC", 0.581, 0.33], ["MOC", 0.5, 0.416], ["AV", 0.419, 0.496], ["AV", 0.581, 0.496]],
+    median: [["GB", 0.5, 0.105], ["DC", 0.294, 0.315], ["DC", 0.5, 0.315], ["DC", 0.706, 0.315], ["PG", 0.191, 0.443], ["MC", 0.412, 0.443], ["MC", 0.589, 0.443], ["PD", 0.809, 0.443], ["MOC", 0.5, 0.534], ["AV", 0.412, 0.62], ["AV", 0.589, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["DC", 0.278, 0.429], ["DC", 0.5, 0.429], ["DC", 0.722, 0.429], ["PG", 0.166, 0.561], ["MC", 0.405, 0.561], ["MC", 0.595, 0.561], ["PD", 0.834, 0.561], ["MOC", 0.5, 0.655], ["AV", 0.405, 0.743], ["AV", 0.595, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["DC", 0.261, 0.524], ["DC", 0.5, 0.524], ["DC", 0.739, 0.524], ["PG", 0.142, 0.664], ["MC", 0.398, 0.664], ["MC", 0.602, 0.664], ["PD", 0.858, 0.664], ["MOC", 0.5, 0.764], ["AV", 0.398, 0.858], ["AV", 0.602, 0.858]],
+  },
+  "5-3-2": {
+    tbas: [["GB", 0.5, 0.029], ["PG", 0.222, 0.115], ["DC", 0.364, 0.115], ["DC", 0.5, 0.115], ["DC", 0.636, 0.115], ["PD", 0.778, 0.115], ["MC", 0.371, 0.235], ["MC", 0.5, 0.235], ["MC", 0.63, 0.235], ["AV", 0.423, 0.381], ["AV", 0.578, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["PG", 0.209, 0.21], ["DC", 0.358, 0.21], ["DC", 0.5, 0.21], ["DC", 0.642, 0.21], ["PD", 0.791, 0.21], ["MC", 0.365, 0.339], ["MC", 0.5, 0.339], ["MC", 0.635, 0.339], ["AV", 0.419, 0.496], ["AV", 0.581, 0.496]],
+    median: [["GB", 0.5, 0.105], ["PG", 0.184, 0.315], ["DC", 0.346, 0.315], ["DC", 0.5, 0.315], ["DC", 0.655, 0.315], ["PD", 0.816, 0.315], ["MC", 0.353, 0.452], ["MC", 0.5, 0.452], ["MC", 0.647, 0.452], ["AV", 0.412, 0.62], ["AV", 0.589, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["PG", 0.158, 0.429], ["DC", 0.333, 0.429], ["DC", 0.5, 0.429], ["DC", 0.667, 0.429], ["PD", 0.841, 0.429], ["MC", 0.341, 0.571], ["MC", 0.5, 0.571], ["MC", 0.659, 0.571], ["AV", 0.405, 0.743], ["AV", 0.595, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["PG", 0.134, 0.524], ["DC", 0.321, 0.524], ["DC", 0.5, 0.524], ["DC", 0.679, 0.524], ["PD", 0.867, 0.524], ["MC", 0.33, 0.674], ["MC", 0.5, 0.674], ["MC", 0.671, 0.674], ["AV", 0.398, 0.858], ["AV", 0.602, 0.858]],
+  },
+  "5-4-1": {
+    tbas: [["GB", 0.5, 0.029], ["PG", 0.222, 0.115], ["DC", 0.364, 0.115], ["DC", 0.5, 0.115], ["DC", 0.636, 0.115], ["PD", 0.778, 0.115], ["MG", 0.241, 0.235], ["MC", 0.423, 0.235], ["MC", 0.578, 0.235], ["MD", 0.759, 0.235], ["AV", 0.5, 0.381]],
+    bas: [["GB", 0.5, 0.057], ["PG", 0.209, 0.21], ["DC", 0.358, 0.21], ["DC", 0.5, 0.21], ["DC", 0.642, 0.21], ["PD", 0.791, 0.21], ["MG", 0.229, 0.339], ["MC", 0.419, 0.339], ["MC", 0.581, 0.339], ["MD", 0.771, 0.339], ["AV", 0.5, 0.496]],
+    median: [["GB", 0.5, 0.105], ["PG", 0.184, 0.315], ["DC", 0.346, 0.315], ["DC", 0.5, 0.315], ["DC", 0.655, 0.315], ["PD", 0.816, 0.315], ["MG", 0.206, 0.452], ["MC", 0.412, 0.452], ["MC", 0.589, 0.452], ["MD", 0.794, 0.452], ["AV", 0.5, 0.62]],
+    haut: [["GB", 0.5, 0.162], ["PG", 0.158, 0.429], ["DC", 0.333, 0.429], ["DC", 0.5, 0.429], ["DC", 0.667, 0.429], ["PD", 0.841, 0.429], ["MG", 0.182, 0.571], ["MC", 0.405, 0.571], ["MC", 0.595, 0.571], ["MD", 0.818, 0.571], ["AV", 0.5, 0.743]],
+    thaut: [["GB", 0.5, 0.229], ["PG", 0.134, 0.524], ["DC", 0.321, 0.524], ["DC", 0.5, 0.524], ["DC", 0.679, 0.524], ["PD", 0.867, 0.524], ["MG", 0.159, 0.674], ["MC", 0.398, 0.674], ["MC", 0.602, 0.674], ["MD", 0.841, 0.674], ["AV", 0.5, 0.858]],
+  },
+};
+
+;
 /* ===== ui.js ===== */
 /* Small UI helpers: escaping, toasts, modal sheets, confirmations, thumbnails. */
 var UI = (() => {
@@ -3734,7 +3855,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.04';
+  const VERSION = '3.05';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -6877,7 +6998,7 @@ var Editor = (() => {
       for (const s of segs) { if (t < acc + s.d) { seg = s; break; } acc += s.d; }
       E.pk = seg.k; E.pu = seg.move ? (t - acc) / seg.d : 0;
       E.root.querySelectorAll('.step-chip').forEach((c, i) => c.classList.toggle('playing', i === E.pk));
-      draw(); E.raf = requestAnimationFrame(tick);
+      draw(); if (!E) return; E.raf = requestAnimationFrame(tick);
     };
     renderSteps(); E.raf = requestAnimationFrame(tick);
   }
@@ -12762,7 +12883,7 @@ var Terrain = (() => {
       else if (run.i >= run.plan.length - 1) { play('end'); buzz([300, 120, 300, 120, 500]); draw(root, true); wake(false); run = null; toast('🏁 Terminé, bravo !'); return; }
       else { run.i++; run.left += run.plan[run.i].d; run.ticked = -1; const k = run.plan[run.i].k; play(k === 'work' ? 'go' : 'stop'); buzz(k === 'work' ? 300 : [150, 80, 150]); }
     }
-    draw(root);
+    draw(root); if (!run) return; // (3.05) the page was left while drawing: the loop stops instead of crashing
     run.raf = requestAnimationFrame(() => loop(root));
   }
   function draw(root, done) {
@@ -12799,7 +12920,7 @@ var Terrain = (() => {
     S0.beeps.forEach(b => { if (before < b && vt.t >= b) play('tick', 'bip'); });
     if (before < S0.run && vt.t >= S0.run && S0.run < S0.len) { play('stop', 'bip'); buzz([120, 60, 120]); }
     if (vt.t >= S0.len) { vt.t -= S0.len; vt.stage++; play('go', 'terrain'); buzz(300); }
-    vDraw(root); vt.raf = requestAnimationFrame(() => vLoop(root));
+    vDraw(root); if (!vt) return; vt.raf = requestAnimationFrame(() => vLoop(root));
   }
   function vDraw(root) {
     const big = root.querySelector('#vtBig'); if (!big) { if (vt) { cancelAnimationFrame(vt.raf); vt = null; } return; }
@@ -16823,6 +16944,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 164, date: '2026-10-10', title: 'Les blocs du document, au mètre près 📘', items: [
+      ['📘', "Compo à 11 : 16 systèmes (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2…) et leurs 5 blocs placés exactement comme dans le document des hauteurs de bloc : ligne défensive à 12, 22, 33, 45 ou 55 m, ailiers qui redescendent en bloc bas, gardien qui avance."],
+      ['🕷️', "Grand ménage : un robot a parcouru les 60 pages de l'appli et touché tous les boutons ; l'erreur trouvée (chrono et test VMA quittés en pleine course) est corrigée. Ce parcours rejoint les vérifications d'avant publication."],
+    ] },
     { n: 163, date: '2026-10-10', title: 'Des blocs de 30 mètres 📏', items: [
       ['📏', "Compo : chaque bloc fait maintenant 30 m de profondeur entre la défense et les attaquants (bas : 20 → 48 m ; médian : 30 → 58 m ; haut : 42 → 70 m ; très haut : 52 → 82 m), les lignes gardent leurs écarts."],
     ] },
@@ -20640,9 +20765,36 @@ var Views = (() => {
     return out;
   }
   // (2.94) the posts a coach can give to a line, and where each one stands on the pitch (fractions of the length and the width, attack to the right)
-  const POSTS = [['GB', '🧤 GB'], ['DG', 'DG'], ['DC', 'DC'], ['DD', 'DD'], ['MDC', 'MDC'], ['MG', 'MG'], ['MC', 'MC'], ['MD', 'MD'], ['MOG', 'MOG'], ['MOC', 'MOC'], ['MOD', 'MOD'], ['AG', 'AG'], ['AV', 'AV'], ['AD', 'AD']];
+  const POSTS = [['GB', '🧤 GB'], ['DG', 'DG'], ['DC', 'DC'], ['DD', 'DD'], ['PG', 'PG'], ['PD', 'PD'], ['MDC', 'MDC'], ['MG', 'MG'], ['MC', 'MC'], ['MD', 'MD'], ['MOG', 'MOG'], ['MOC', 'MOC'], ['MOD', 'MOD'], ['SA', 'SA'], ['AG', 'AG'], ['AV', 'AV'], ['AD', 'AD']];
   // (3.03) the same scale as the formations of the app (a formation row x is drawn at x × 1.9 of the length): défense around 32-38 %, milieu 53-62 %, attaque 85-91 %
-  const POST_XY = { GB: [.04, .5], DG: [.38, .12], DC: [.32, .5], DD: [.38, .88], MDC: [.53, .5], MG: [.62, .12], MC: [.6, .5], MD: [.62, .88], MOG: [.74, .15], MOC: [.74, .5], MOD: [.74, .85], AG: [.86, .15], AV: [.91, .5], AD: [.86, .85] };
+  const POST_XY = { GB: [.04, .5], DG: [.38, .12], DC: [.32, .5], DD: [.38, .88], MDC: [.53, .5], MG: [.62, .12], MC: [.6, .5], MD: [.62, .88], MOG: [.74, .15], MOC: [.74, .5], MOD: [.74, .85], AG: [.86, .15], AV: [.91, .5], AD: [.86, .85], PG: [.5, .08], PD: [.5, .92], SA: [.8, .5] };
+  // (3.05) 11-a-side: the systems and blocks of the coaching document (js/blocs.js), drawn exactly as in the document
+  const has11 = sc => sc.field.format === '11' && typeof Blocs11 !== 'undefined';
+  const sortSpots = (sc, list, st) => list.slice().sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || ((st.pos[a.id] || [0, 0])[1] - (st.pos[b.id] || [0, 0])[1]));
+  function lay11(sc, name, bloc, m) {
+    const data = Blocs11[name] && Blocs11[name][bloc || 'median']; if (!data) return false;
+    const st = sc.steps[0], { L, W } = Board.dims(sc.field);
+    const cur = sortSpots(sc, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st);
+    data.forEach(([post, s, t], i) => { let o = cur[i];
+      if (!o) { o = { id: Store.uid(), type: 'player', color: post === 'GB' ? 'jaune' : S().club.homeBib, label: post }; sc.objects.push(o); }
+      st.pos[o.id] = [t * L, s * W]; o.post = post; o.slotIx = i; o.gk = post === 'GB'; o.color = o.gk ? 'jaune' : (o.color === 'jaune' ? S().club.homeBib : o.color); if (!o.playerId) o.label = post; });
+    cur.slice(data.length).forEach(o => { sc.objects = sc.objects.filter(x => x !== o); delete st.pos[o.id]; });
+    sc.sys = name; sc.bloc = bloc || 'median'; sc.blocBase = {}; Blocs11[name].median.forEach(([, , t], i) => { const o = sc.objects.find(x => x.slotIx === i && !x.bench); if (o) sc.blocBase[o.id] = t * L; });
+    return true;
+  }
+  // a lineup made before 3.05 (or by hand) whose posts match a system of the document: adopted as that system
+  function adopt11(sc, name) {
+    const data = Blocs11[name]; if (!data) return false;
+    const st = sc.steps[0], cur = sortSpots(sc, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st);
+    // the lines are compared (défense, récupérateurs, milieu, offensifs, attaque), not the exact post names: a 4-2-3-1 drawn with MC/MOG/MOD is the document's 4-2-3-1
+    const grp = p => /^GB/.test(p) ? -1 : /^[DP]/.test(p) ? 0 : /^A/.test(p) ? 2 : 1; // gardien, défense, milieu (all of it), attaque
+    const want = data.median.map(d => grp(d[0])).sort().join(','), got = cur.map(o => grp(o.post || '')).sort().join(',');
+    if (want !== got) return false;
+    // within a group, the spots are paired by depth then by side (the drawing's own lines ↔ the document's lines)
+    const ref = data.median.map((d, i) => ({ g: grp(d[0]), s: d[1], t: d[2], i })).sort((a, b) => (a.g - b.g) || (a.t - b.t) || (a.s - b.s));
+    const mine = cur.slice().sort((a, b) => (grp(a.post || '') - grp(b.post || '')) || ((st.pos[a.id] || [0, 0])[0] - (st.pos[b.id] || [0, 0])[0]) || ((st.pos[a.id] || [0, 0])[1] - (st.pos[b.id] || [0, 0])[1]));
+    mine.forEach((o, k) => { o.slotIx = ref[k].i; }); sc.sys = name; return true;
+  }
   const POST_RANK = Object.fromEntries(POSTS.map(([k], i) => [k, i]));
   // (3.00) the block: how high the team (goalkeeper apart) stands, as a share of the pitch length away from the standard spots
   // (3.02) the blocks as coaches define them, in metres from our goal line on a 105 m pitch (then scaled to the pitch of the match):
@@ -20650,7 +20802,7 @@ var Views = (() => {
   // Bloc médian: between the box and the halfway line, the forwards press at the halfway line. Bloc haut: the line near the halfway
   // line, the forwards press at the far edge of the centre circle (about 62 m). Sources: entrainement-foot.fr, footballcoachvideo.com, helloasso.com (bloc bas).
   // (3.04) a block is 30 m deep from the defensive line to the forwards (bloc bas: the last 30-35 m); the forwards press 28-30 m ahead of the defence
-  const BLOCS = [['tbas', 'Très bas', 12, 40, 4], ['bas', 'Bas', 20, 48, 5], ['median', 'Médian', 30, 58, 8], ['haut', 'Haut', 42, 70, 16], ['thaut', 'Très haut', 52, 82, 22]];
+  const BLOCS = [['tbas', 'Très bas', 12, 40, 4], ['bas', 'Bas', 22, 48, 5], ['median', 'Médian', 33, 58, 8], ['haut', 'Haut', 45, 70, 16], ['thaut', 'Très haut', 55, 82, 22]]; // (3.05) the document's lines: 12, 22, 33, 45, 55 m
   const blocDef = k => BLOCS.find(b => b[0] === k) || null;
   // the depth of every outfield player, from the drawing (« comme dessiné ») to a block: the lines are spread between the defensive line and the forwards' line
   function blocApply(sc, st, key) {
@@ -20738,9 +20890,10 @@ var Views = (() => {
     const st = (sc.steps || [])[0] || { pos: {} };
     const all = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]); if (ensurePosts(sc, all, st)) Store.upsert('schemas', sc);
     const postOf = o => o.post, slots = all.slice().sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
-    const shape = (() => { const c = { D: 0, M: 0, O: 0, A: 0 }; all.forEach(o => { if (o.gk) return; const p = o.post || ''; c[p.startsWith('MO') ? 'O' : p[0] in c ? p[0] : 'M']++; }); return [c.D, c.M, c.O, c.A].filter((n, i) => n || i !== 2).join('-'); })();
-    const fmt = Formations[sc.field.format] ? sc.field.format : null, sysSel = fmt ? `<label class="fld inline sys-sel"><span>Système · <b>${esc(shape)}</b></span><select data-ssys><option value="">Changer de système…</option>${Object.keys(Formations[fmt]).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select></label>` : '';
-    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc><option value="" ${!sc.bloc ? 'selected' : ''}>Comme dessiné</option>${BLOCS.map(([k, l, a, b]) => `<option value="${k}" ${sc.bloc === k ? 'selected' : ''}>${l} · défense ${a} m, pressing ${b} m</option>`).join('')}</select></label>`;
+    const shape = (() => { const c = { D: 0, M: 0, O: 0, A: 0 }; all.forEach(o => { if (o.gk) return; const p = o.post || ''; c[/^MO|^SA/.test(p) ? 'O' : /^[DP]/.test(p) ? 'D' : /^A/.test(p) ? 'A' : 'M']++; }); return [c.D, c.M, c.O, c.A].filter((n, i) => n || i !== 2).join('-'); })();
+    const fmt = Formations[sc.field.format] ? sc.field.format : null, sysList = has11(sc) ? Object.keys(Blocs11) : fmt ? Object.keys(Formations[fmt]) : [];
+    const sysSel = sysList.length ? `<label class="fld inline sys-sel"><span>Système · <b>${esc(sc.sys || shape)}</b></span><select data-ssys><option value="">Changer de système…</option>${sysList.map(k => `<option value="${esc(k)}" ${k === sc.sys ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select></label>` : '';
+    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc><option value="" ${!sc.bloc ? 'selected' : ''}>Comme dessiné</option>${BLOCS.map(([k, l, a, b]) => `<option value="${k}" ${sc.bloc === k ? 'selected' : ''}>${l} · défense à ${a} m</option>`).join('')}</select></label>`;
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
@@ -20935,12 +21088,20 @@ var Views = (() => {
       // (3.00) the block: everybody but the goalkeeper slides up or down the pitch, the shape is kept
       if ('sbloc' in e.target.dataset) {
         const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return;
-        const st = sc.steps[0]; blocApply(sc, st, e.target.value);
+        const st = sc.steps[0];
+        if (has11(sc) && e.target.value) { // the document's exact positions for this system and block
+          if (!sc.sys) { const shape = (() => { const c = { D: 0, M: 0, O: 0, A: 0 }; sc.objects.filter(x => x.type === 'player' && !x.bench && !x.gk && st.pos[x.id]).forEach(x => { const p = x.post || ''; c[/^MO|^SA/.test(p) ? 'O' : /^[DP]/.test(p) ? 'D' : /^A/.test(p) ? 'A' : 'M']++; }); return [c.D, c.M, c.O, c.A].filter((n, i) => n || i !== 2).join('-'); })(); adopt11(sc, shape); }
+          if (sc.sys && Blocs11[sc.sys]) { const data = Blocs11[sc.sys][e.target.value], { L, W } = Board.dims(sc.field);
+            data.forEach(([post, s, t], i) => { const o = sc.objects.find(x => x.slotIx === i && !x.bench && x.type === 'player'); if (!o) return; st.pos[o.id] = [t * L, s * W]; o.post = post; o.gk = post === 'GB'; o.color = o.gk ? 'jaune' : (o.color === 'jaune' ? S().club.homeBib : o.color); if (!o.playerId) o.label = post; });
+            sc.bloc = e.target.value; Store.upsert('schemas', sc); const d = blocDef(sc.bloc); toast(`${sc.sys} · bloc ${d[1].toLowerCase()} : défense à ${d[2]} m`); return render(); }
+        }
+        blocApply(sc, st, e.target.value);
         if (e.target.value) sc.bloc = e.target.value; else delete sc.bloc; Store.upsert('schemas', sc); const d = blocDef(sc.bloc); toast(d ? `Bloc ${d[1].toLowerCase()} : défense à ${d[2]} m, pressing à ${d[3]} m` : 'Comme dessiné'); return render();
       }
       // (2.94) another system: the lines are laid out again, the players keep their order (gardien, défense, milieu, attaque)
       if ('ssys' in e.target.dataset) {
         const sc = m.lineupId && Store.get('schemas', m.lineupId), name = e.target.value; if (!sc || !name) return;
+        if (has11(sc) && Blocs11[name]) { lay11(sc, name, sc.bloc, m); Store.upsert('schemas', sc); toast(`Système ${name}, bloc ${(blocDef(sc.bloc) || ['', 'médian'])[1].toLowerCase()} : placés comme dans le document`); return render(); }
         const rows = (Formations[sc.field.format] || {})[name]; if (!rows) return;
         const st = sc.steps[0], { L, W } = Board.dims(sc.field);
         const cur = sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]).sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
@@ -21705,7 +21866,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 205, UPD = AppCfg.key('update-tried');
+  const BUILD = 206, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

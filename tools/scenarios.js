@@ -132,6 +132,33 @@ const SCENARIOS = [
     must(/Hors connexion/.test(c), 'pas de bandeau'); return 'ok';`],
 ];
 
+/* ---------- crawl: every page, every button (option --crawl) ---------- */
+const CRAWL = `
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const appJs = await (await fetch('js/app.js', { cache: 'no-store' })).text();
+  const routes = [...new Set([...appJs.slice(appJs.indexOf("const fn = { '': Views.home")).split('}[name]')[0].matchAll(/(?:^|[\\s,{])(\\w+):/g)].map(m => m[1]))].filter(r => r !== 'r' && r !== 'x' && r !== 'schema' && r !== 'tableau');
+  const S = Store.state, up = S.matches.find(m => !m.played), played = S.matches.find(m => m.played), tr = S.trainings.find(t => !t.model), team = S.teams[0], pl = S.players[0];
+  const withId = { equipe: team, joueur: pl, entrainement: tr, match: up, prepa: up, direct: up, jourj: up, codes: team, progression: pl, tests: team, bilan: team };
+  const rs = ['', ...routes, ...Object.entries(withId).filter(([, o]) => o).map(([r, o]) => r + '/' + o.id), ...(played ? ['match/' + played.id] : [])];
+  HTMLAnchorElement.prototype.click = function () {}; window.open = () => null; window.print = () => {};
+  const d = document, modalOpen = () => { const m = d.getElementById('modal'); return m && !m.hidden; };
+  const closeAll = async () => { for (let k = 0; k < 4 && modalOpen(); k++) { const x = d.querySelector('#modal .x, #modal [aria-label="Fermer"], #modal [data-close]'); if (x) x.click(); else d.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(80); } const m = d.getElementById('modal'); if (m) m.hidden = true; d.querySelectorAll('.rs-back, .link-gate').forEach(x => x.remove()); };
+  const SKIP = /supprim|delete|trash|danger|logout|sortir|déconnect|reset|réinitial|retirer|quitter|quit|vider|effacer|forget|fichier|import|photo|vidéo|video|caméra|micro|recevoir|notif|créer mon club|demo|mettre à jour|télécharg|exporter|pdf|imprim|partag|envoyer|whatsapp|image|refaire|redo|lineupredo|dayrotate|autocomp|nophoto|archiv/i;
+  const out = []; window.__crawlErrs = [];
+  for (const r of rs) {
+    location.hash = '#/' + r; await wait(500); let clicked = 0;
+    for (let i = 0; i < 25; i++) {
+      if (location.hash !== '#/' + r) { location.hash = '#/' + r; await wait(350); }
+      const b = [...d.querySelectorAll('#view button:not([disabled]), #view summary')][i]; if (!b) break;
+      const t = (b.textContent + ' ' + b.className + ' ' + JSON.stringify(b.dataset)).toLowerCase(); if (SKIP.test(t)) continue;
+      try { b.click(); } catch (e) { window.__crawlErrs.push(r + ' :: clic ' + e.message); }
+      clicked++; await wait(150); const busy = d.getElementById('busy'); if (busy && !busy.hidden) await wait(1500); await closeAll();
+      if (d.body.classList.contains('editing')) { location.hash = '#/' + r; await wait(300); }
+    }
+    out.push(r + ':' + clicked);
+  }
+  return out.join(' ');`;
+
 /* ---------- run ---------- */
 (async () => {
   const srv = spawn(process.execPath, [path.join(__dirname, 'serveur.js'), String(PORT)], { stdio: 'ignore' });
@@ -156,5 +183,20 @@ const SCENARIOS = [
     srv.kill();
   }
   console.log(bad ? `\n❌ ${bad} scénario${bad > 1 ? 's' : ''} en échec (${Math.round((Date.now() - t0) / 1000)} s)` : `\n✅ ${SCENARIOS.length} scénarios réussis (${Math.round((Date.now() - t0) / 1000)} s)`);
+  if (process.argv.includes('--crawl')) {
+    const srv2 = spawn(process.execPath, [path.join(__dirname, 'serveur.js'), String(PORT)], { stdio: 'ignore' }); await sleep(600);
+    let br2; try {
+      br2 = await openBrowser(); const p = await page(br2.cdp); await p.goto(DEMO); await p.evalIn(`(async () => { ${H} guide(); })()`);
+      const visited = await p.evalIn(`(async () => { ${CRAWL} })()`);
+      const errs = p.errors().filter(e => !/favicon|net::ERR|Failed to fetch|NetworkError|Load failed/.test(e));
+      const inPage = await p.evalIn('window.__crawlErrs || []');
+      console.log(`\n🕷️ Parcours de toutes les pages : ${String(visited).split(' ').length} pages, boutons touchés`);
+      [...errs, ...inPage].forEach(e => console.log('  ⚠️ ' + String(e).split('\n')[0].slice(0, 220)));
+      console.log(errs.length + inPage.length ? `❌ ${errs.length + inPage.length} erreur(s) pendant le parcours` : '✅ Aucune erreur pendant le parcours');
+      if (errs.length + inPage.length) bad++;
+      await p.close().catch(() => {});
+    } catch (e) { bad++; console.log('❌ parcours : ' + e.message); }
+    finally { if (br2) { try { br2.cdp.ws.close(); } catch (e) {} br2.proc.kill(); await sleep(400); try { fs.rmSync(br2.profile, { recursive: true, force: true }); } catch (e) {} } srv2.kill(); }
+  }
   process.exit(bad ? 1 : 0);
 })();

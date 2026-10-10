@@ -928,9 +928,36 @@ const Views = (() => {
     return out;
   }
   // (2.94) the posts a coach can give to a line, and where each one stands on the pitch (fractions of the length and the width, attack to the right)
-  const POSTS = [['GB', '🧤 GB'], ['DG', 'DG'], ['DC', 'DC'], ['DD', 'DD'], ['MDC', 'MDC'], ['MG', 'MG'], ['MC', 'MC'], ['MD', 'MD'], ['MOG', 'MOG'], ['MOC', 'MOC'], ['MOD', 'MOD'], ['AG', 'AG'], ['AV', 'AV'], ['AD', 'AD']];
+  const POSTS = [['GB', '🧤 GB'], ['DG', 'DG'], ['DC', 'DC'], ['DD', 'DD'], ['PG', 'PG'], ['PD', 'PD'], ['MDC', 'MDC'], ['MG', 'MG'], ['MC', 'MC'], ['MD', 'MD'], ['MOG', 'MOG'], ['MOC', 'MOC'], ['MOD', 'MOD'], ['SA', 'SA'], ['AG', 'AG'], ['AV', 'AV'], ['AD', 'AD']];
   // (3.03) the same scale as the formations of the app (a formation row x is drawn at x × 1.9 of the length): défense around 32-38 %, milieu 53-62 %, attaque 85-91 %
-  const POST_XY = { GB: [.04, .5], DG: [.38, .12], DC: [.32, .5], DD: [.38, .88], MDC: [.53, .5], MG: [.62, .12], MC: [.6, .5], MD: [.62, .88], MOG: [.74, .15], MOC: [.74, .5], MOD: [.74, .85], AG: [.86, .15], AV: [.91, .5], AD: [.86, .85] };
+  const POST_XY = { GB: [.04, .5], DG: [.38, .12], DC: [.32, .5], DD: [.38, .88], MDC: [.53, .5], MG: [.62, .12], MC: [.6, .5], MD: [.62, .88], MOG: [.74, .15], MOC: [.74, .5], MOD: [.74, .85], AG: [.86, .15], AV: [.91, .5], AD: [.86, .85], PG: [.5, .08], PD: [.5, .92], SA: [.8, .5] };
+  // (3.05) 11-a-side: the systems and blocks of the coaching document (js/blocs.js), drawn exactly as in the document
+  const has11 = sc => sc.field.format === '11' && typeof Blocs11 !== 'undefined';
+  const sortSpots = (sc, list, st) => list.slice().sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || ((st.pos[a.id] || [0, 0])[1] - (st.pos[b.id] || [0, 0])[1]));
+  function lay11(sc, name, bloc, m) {
+    const data = Blocs11[name] && Blocs11[name][bloc || 'median']; if (!data) return false;
+    const st = sc.steps[0], { L, W } = Board.dims(sc.field);
+    const cur = sortSpots(sc, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st);
+    data.forEach(([post, s, t], i) => { let o = cur[i];
+      if (!o) { o = { id: Store.uid(), type: 'player', color: post === 'GB' ? 'jaune' : S().club.homeBib, label: post }; sc.objects.push(o); }
+      st.pos[o.id] = [t * L, s * W]; o.post = post; o.slotIx = i; o.gk = post === 'GB'; o.color = o.gk ? 'jaune' : (o.color === 'jaune' ? S().club.homeBib : o.color); if (!o.playerId) o.label = post; });
+    cur.slice(data.length).forEach(o => { sc.objects = sc.objects.filter(x => x !== o); delete st.pos[o.id]; });
+    sc.sys = name; sc.bloc = bloc || 'median'; sc.blocBase = {}; Blocs11[name].median.forEach(([, , t], i) => { const o = sc.objects.find(x => x.slotIx === i && !x.bench); if (o) sc.blocBase[o.id] = t * L; });
+    return true;
+  }
+  // a lineup made before 3.05 (or by hand) whose posts match a system of the document: adopted as that system
+  function adopt11(sc, name) {
+    const data = Blocs11[name]; if (!data) return false;
+    const st = sc.steps[0], cur = sortSpots(sc, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st);
+    // the lines are compared (défense, récupérateurs, milieu, offensifs, attaque), not the exact post names: a 4-2-3-1 drawn with MC/MOG/MOD is the document's 4-2-3-1
+    const grp = p => /^GB/.test(p) ? -1 : /^[DP]/.test(p) ? 0 : /^A/.test(p) ? 2 : 1; // gardien, défense, milieu (all of it), attaque
+    const want = data.median.map(d => grp(d[0])).sort().join(','), got = cur.map(o => grp(o.post || '')).sort().join(',');
+    if (want !== got) return false;
+    // within a group, the spots are paired by depth then by side (the drawing's own lines ↔ the document's lines)
+    const ref = data.median.map((d, i) => ({ g: grp(d[0]), s: d[1], t: d[2], i })).sort((a, b) => (a.g - b.g) || (a.t - b.t) || (a.s - b.s));
+    const mine = cur.slice().sort((a, b) => (grp(a.post || '') - grp(b.post || '')) || ((st.pos[a.id] || [0, 0])[0] - (st.pos[b.id] || [0, 0])[0]) || ((st.pos[a.id] || [0, 0])[1] - (st.pos[b.id] || [0, 0])[1]));
+    mine.forEach((o, k) => { o.slotIx = ref[k].i; }); sc.sys = name; return true;
+  }
   const POST_RANK = Object.fromEntries(POSTS.map(([k], i) => [k, i]));
   // (3.00) the block: how high the team (goalkeeper apart) stands, as a share of the pitch length away from the standard spots
   // (3.02) the blocks as coaches define them, in metres from our goal line on a 105 m pitch (then scaled to the pitch of the match):
@@ -938,7 +965,7 @@ const Views = (() => {
   // Bloc médian: between the box and the halfway line, the forwards press at the halfway line. Bloc haut: the line near the halfway
   // line, the forwards press at the far edge of the centre circle (about 62 m). Sources: entrainement-foot.fr, footballcoachvideo.com, helloasso.com (bloc bas).
   // (3.04) a block is 30 m deep from the defensive line to the forwards (bloc bas: the last 30-35 m); the forwards press 28-30 m ahead of the defence
-  const BLOCS = [['tbas', 'Très bas', 12, 40, 4], ['bas', 'Bas', 20, 48, 5], ['median', 'Médian', 30, 58, 8], ['haut', 'Haut', 42, 70, 16], ['thaut', 'Très haut', 52, 82, 22]];
+  const BLOCS = [['tbas', 'Très bas', 12, 40, 4], ['bas', 'Bas', 22, 48, 5], ['median', 'Médian', 33, 58, 8], ['haut', 'Haut', 45, 70, 16], ['thaut', 'Très haut', 55, 82, 22]]; // (3.05) the document's lines: 12, 22, 33, 45, 55 m
   const blocDef = k => BLOCS.find(b => b[0] === k) || null;
   // the depth of every outfield player, from the drawing (« comme dessiné ») to a block: the lines are spread between the defensive line and the forwards' line
   function blocApply(sc, st, key) {
@@ -1026,9 +1053,10 @@ const Views = (() => {
     const st = (sc.steps || [])[0] || { pos: {} };
     const all = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]); if (ensurePosts(sc, all, st)) Store.upsert('schemas', sc);
     const postOf = o => o.post, slots = all.slice().sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
-    const shape = (() => { const c = { D: 0, M: 0, O: 0, A: 0 }; all.forEach(o => { if (o.gk) return; const p = o.post || ''; c[p.startsWith('MO') ? 'O' : p[0] in c ? p[0] : 'M']++; }); return [c.D, c.M, c.O, c.A].filter((n, i) => n || i !== 2).join('-'); })();
-    const fmt = Formations[sc.field.format] ? sc.field.format : null, sysSel = fmt ? `<label class="fld inline sys-sel"><span>Système · <b>${esc(shape)}</b></span><select data-ssys><option value="">Changer de système…</option>${Object.keys(Formations[fmt]).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select></label>` : '';
-    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc><option value="" ${!sc.bloc ? 'selected' : ''}>Comme dessiné</option>${BLOCS.map(([k, l, a, b]) => `<option value="${k}" ${sc.bloc === k ? 'selected' : ''}>${l} · défense ${a} m, pressing ${b} m</option>`).join('')}</select></label>`;
+    const shape = (() => { const c = { D: 0, M: 0, O: 0, A: 0 }; all.forEach(o => { if (o.gk) return; const p = o.post || ''; c[/^MO|^SA/.test(p) ? 'O' : /^[DP]/.test(p) ? 'D' : /^A/.test(p) ? 'A' : 'M']++; }); return [c.D, c.M, c.O, c.A].filter((n, i) => n || i !== 2).join('-'); })();
+    const fmt = Formations[sc.field.format] ? sc.field.format : null, sysList = has11(sc) ? Object.keys(Blocs11) : fmt ? Object.keys(Formations[fmt]) : [];
+    const sysSel = sysList.length ? `<label class="fld inline sys-sel"><span>Système · <b>${esc(sc.sys || shape)}</b></span><select data-ssys><option value="">Changer de système…</option>${sysList.map(k => `<option value="${esc(k)}" ${k === sc.sys ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select></label>` : '';
+    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc><option value="" ${!sc.bloc ? 'selected' : ''}>Comme dessiné</option>${BLOCS.map(([k, l, a, b]) => `<option value="${k}" ${sc.bloc === k ? 'selected' : ''}>${l} · défense à ${a} m</option>`).join('')}</select></label>`;
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
@@ -1223,12 +1251,20 @@ const Views = (() => {
       // (3.00) the block: everybody but the goalkeeper slides up or down the pitch, the shape is kept
       if ('sbloc' in e.target.dataset) {
         const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return;
-        const st = sc.steps[0]; blocApply(sc, st, e.target.value);
+        const st = sc.steps[0];
+        if (has11(sc) && e.target.value) { // the document's exact positions for this system and block
+          if (!sc.sys) { const shape = (() => { const c = { D: 0, M: 0, O: 0, A: 0 }; sc.objects.filter(x => x.type === 'player' && !x.bench && !x.gk && st.pos[x.id]).forEach(x => { const p = x.post || ''; c[/^MO|^SA/.test(p) ? 'O' : /^[DP]/.test(p) ? 'D' : /^A/.test(p) ? 'A' : 'M']++; }); return [c.D, c.M, c.O, c.A].filter((n, i) => n || i !== 2).join('-'); })(); adopt11(sc, shape); }
+          if (sc.sys && Blocs11[sc.sys]) { const data = Blocs11[sc.sys][e.target.value], { L, W } = Board.dims(sc.field);
+            data.forEach(([post, s, t], i) => { const o = sc.objects.find(x => x.slotIx === i && !x.bench && x.type === 'player'); if (!o) return; st.pos[o.id] = [t * L, s * W]; o.post = post; o.gk = post === 'GB'; o.color = o.gk ? 'jaune' : (o.color === 'jaune' ? S().club.homeBib : o.color); if (!o.playerId) o.label = post; });
+            sc.bloc = e.target.value; Store.upsert('schemas', sc); const d = blocDef(sc.bloc); toast(`${sc.sys} · bloc ${d[1].toLowerCase()} : défense à ${d[2]} m`); return render(); }
+        }
+        blocApply(sc, st, e.target.value);
         if (e.target.value) sc.bloc = e.target.value; else delete sc.bloc; Store.upsert('schemas', sc); const d = blocDef(sc.bloc); toast(d ? `Bloc ${d[1].toLowerCase()} : défense à ${d[2]} m, pressing à ${d[3]} m` : 'Comme dessiné'); return render();
       }
       // (2.94) another system: the lines are laid out again, the players keep their order (gardien, défense, milieu, attaque)
       if ('ssys' in e.target.dataset) {
         const sc = m.lineupId && Store.get('schemas', m.lineupId), name = e.target.value; if (!sc || !name) return;
+        if (has11(sc) && Blocs11[name]) { lay11(sc, name, sc.bloc, m); Store.upsert('schemas', sc); toast(`Système ${name}, bloc ${(blocDef(sc.bloc) || ['', 'médian'])[1].toLowerCase()} : placés comme dans le document`); return render(); }
         const rows = (Formations[sc.field.format] || {})[name]; if (!rows) return;
         const st = sc.steps[0], { L, W } = Board.dims(sc.field);
         const cur = sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]).sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));

@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 164, date: '2026-10-10', title: 'Les blocs du document, au mètre près 📘', items: [
+      ['📘', "Compo à 11 : 16 systèmes (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2…) et leurs 5 blocs placés exactement comme dans le document des hauteurs de bloc : ligne défensive à 12, 22, 33, 45 ou 55 m, ailiers qui redescendent en bloc bas, gardien qui avance."],
+      ['🕷️', "Grand ménage : un robot a parcouru les 60 pages de l'appli et touché tous les boutons ; l'erreur trouvée (chrono et test VMA quittés en pleine course) est corrigée. Ce parcours rejoint les vérifications d'avant publication."],
+    ] },
     { n: 163, date: '2026-10-10', title: 'Des blocs de 30 mètres 📏', items: [
       ['📏', "Compo : chaque bloc fait maintenant 30 m de profondeur entre la défense et les attaquants (bas : 20 → 48 m ; médian : 30 → 58 m ; haut : 42 → 70 m ; très haut : 52 → 82 m), les lignes gardent leurs écarts."],
     ] },
