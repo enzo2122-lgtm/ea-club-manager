@@ -3731,7 +3731,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.97';
+  const VERSION = '2.98';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8118,6 +8118,19 @@ var Prepa = (() => {
   const systemsOf = teamId => { if (foot()) return SYSTEMS[fmt(teamId)] || SYSTEMS[11]; const f = fmt(teamId), l = (typeof SesLib !== 'undefined' ? SesLib.systems() : []).filter(x => x.fmt === f).map(x => x.sys); return l.length ? l : (typeof SesLib !== 'undefined' ? [...new Set(SesLib.systems().map(x => x.sys))] : []); };
 
   const P = m => (m.prep = m.prep || {});
+  // (2.98) dictate instead of typing: the phone's speech recognition writes in the field (nothing leaves the phone except what the system does)
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = f => SR ? `<button type="button" class="mic-btn" data-mic="${f}" title="Dicter" aria-label="Dicter">🎤</button>` : '';
+  let rec = null;
+  function dictate(root, f) {
+    const input = root.querySelector(`[data-p="${f}"]`); if (!input || !SR) return;
+    if (rec) { try { rec.stop(); } catch (e) {} rec = null; }
+    const r = rec = new SR(); r.lang = 'fr-FR'; r.interimResults = false; r.maxAlternatives = 1;
+    const btn = root.querySelector(`[data-mic="${f}"]`); if (btn) btn.classList.add('on');
+    r.onresult = ev => { const txt = [...ev.results].map(x => x[0].transcript).join(' ').trim(); if (!txt) return; input.value = (input.value ? input.value.trim() + ' ' : '') + txt; input.dispatchEvent(new Event('input', { bubbles: true })); };
+    r.onend = r.onerror = () => { if (btn) btn.classList.remove('on'); rec = null; };
+    try { r.start(); UI.toast('Parle, j\'écris…'); } catch (e) { if (btn) btn.classList.remove('on'); }
+  }
   const get = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
   const set = (o, path, v) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach(k => { a = a[k] = a[k] && typeof a[k] === 'object' ? a[k] : {}; }); a[ks[ks.length - 1]] = v; };
   const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
@@ -8205,6 +8218,7 @@ var Prepa = (() => {
       if (b.dataset.newtr) return newSession(m, b.dataset.newtr, +b.dataset.j);
       if (b.dataset.pa === 'lineup') { location.hash = '#/match/' + m.id; return; }
       if (b.dataset.pa === 'halftimer') return halfTimer();
+      if (b.dataset.mic) return dictate(root, b.dataset.mic);
       if (b.dataset.pa === 'resetwarm') { p.day = Object.assign(p.day || {}, { warm: {} }); save(true); return page(root, id, step); }
       if (b.dataset.pa === 'allwarm') { const w = {}; WARM().forEach((x, i) => w[i] = true); p.day = Object.assign(p.day || {}, { warm: w }); save(true); return page(root, id, step); }
     };
@@ -8278,9 +8292,9 @@ var Prepa = (() => {
     return `<section class="card"><h2>🗣️ La causerie</h2>
       <p class="muted small">5 à 10 minutes, en 3 temps : une accroche pour capter l'attention, le rappel tactique, puis le message de confiance. 3 clés maximum, des phrases courtes.</p>
       <label class="fld"><span>1 · L'accroche (les 30 premières secondes)</span>${area('talk.hook', t.hook, 'ex : Le match aller, on a perdu 2-1 à la dernière minute. Aujourd\'hui on écrit la suite.', 2)}</label>
-      <label class="fld"><span>🎯 L'objectif du match</span><input data-p="talk.objective" value="${esc(t.objective || '')}" placeholder="ex : Gagner et garder la 3e place, ne pas encaisser sur CPA"></label>
+      <label class="fld"><span>🎯 L'objectif du match ${mic('talk.objective')}</span><input data-p="talk.objective" value="${esc(t.objective || '')}" placeholder="ex : Gagner et garder la 3e place, ne pas encaisser sur CPA"></label>
       <div class="lbl">2 · Les 3 clés</div>
-      ${[0, 1, 2].map(i => `<label class="fld inline prep-key"><b>${i + 1}</b><input data-p="talk.keys.${i}" value="${esc(keys[i] || '')}" placeholder="Clé n°${i + 1}"></label>`).join('')}
+      ${[0, 1, 2].map(i => `<label class="fld inline prep-key"><b>${i + 1}</b><input data-p="talk.keys.${i}" value="${esc(keys[i] || '')}" placeholder="Clé n°${i + 1}">${mic('talk.keys.' + i)}</label>`).join('')}
       ${chipsAdd('talk.keys', KEYS())}
       <label class="fld"><span>3 · Le mot de la fin</span>${area('talk.final', t.final, Supporters.SLOGAN, 2)}</label>
       <label class="fld"><span>🔗 Lien vidéo pour les joueurs (YouTube, Drive…)</span><input data-p="talk.videoUrl" value="${esc(t.videoUrl || '')}" placeholder="https://youtu.be/…  (visible sur la page des joueurs)" inputmode="url"></label>
@@ -16702,7 +16716,7 @@ var Quick = (() => {
     window.addEventListener('online', () => { if (pill) pill.classList.remove('show'); });
   }
 
-  return { fab, menu, search, matchDay, matchDayCard, tomorrowCard, backupCard, backupClick, summaryText, start, syncDone };
+  return { fab, menu, search, matchDay, matchDayCard, tomorrowCard, backupCard, backupClick, summaryText, sendSummary, start, syncDone };
 })();
 
 ;
@@ -16806,6 +16820,14 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 156, date: '2026-10-10', title: 'Dernier tour de vis 🔧', items: [
+      ['🐛', "Compo : changer le poste d'un joueur ne bouge plus que lui, à la place standard du poste. Les autres restent où tu les as mis."],
+      ['⏱️', "Compo : les joueurs qui ont peu joué cette saison sont signalés au moment de choisir, avec leurs minutes face à la moyenne."],
+      ['✅', "Après le match, une carte « Finir le match » : score et minutes (du direct), notes des joueurs, mot du coach, résumé aux parents."],
+      ['🖼️', "Convocation en image (date, rendez-vous, lieu, convoqués) à poster dans le groupe, en plus de la notification."],
+      ['🔄', "Journée de plateau : « Compos tournantes » fabrique la compo des autres matchs du jour en faisant tourner les remplaçants."],
+      ['🎤', "Causerie : un micro à côté de l'objectif et des trois clés, tu dictes, c'est écrit (reconnaissance vocale du téléphone)."],
+    ] },
     { n: 155, date: '2026-10-10', title: 'La séance et le direct, au pouce ✋', items: [
       ['✋', "Séance : glisse le numéro d'un exercice pour changer l'ordre ; une séance vide propose « Proposer une séance » (thème, durée, et c'est rempli)."],
       ['🧩', "Match en direct : les titulaires viennent de la compo du match, avec le dessin sous les yeux avant le coup d'envoi."],
@@ -19744,6 +19766,7 @@ var Views = (() => {
     return `<section class="card day-card"><h2>🎪 Journée de ${/tournoi/i.test(m.competition) ? 'tournoi' : 'plateau'} · ${T.n} matchs</h2>
       <ol class="day-list">${day.map(x => `<li class="${x.id === m.id ? 'on' : ''}"><a href="#/match/${x.id}">${x.time ? `<span class="muted">${esc(x.time.replace(':', 'h'))}</span> ` : ''}${esc(x.opponent || '?')}</a>${x.played ? ` <b>${esc(scoreTxt(x))}</b> ${resPill(x)}` : ''}</li>`).join('')}</ol>
       ${T.played ? `<p class="small">Bilan de la journée : <b>${T.V}</b> gagné${T.V > 1 ? 's' : ''}, <b>${T.N}</b> nul${T.N > 1 ? 's' : ''}, <b>${T.D}</b> perdu${T.D > 1 ? 's' : ''} · ${T.gf} ${Sport.W().units} marqués, ${T.ga} encaissés</p>` : ''}
+      ${m.lineupId && (m.convoked || []).length && !m.played ? `<button class="btn" data-act="dayrotate">🔄<span>Compos tournantes pour les ${others.length} autres matchs</span></button>` : ''}
       ${(m.convoked || []).length && !same ? `<button class="btn" data-act="dayconv">📋<span>Mêmes convoqués pour les ${others.length} autres matchs</span></button>` : (m.convoked || []).length ? '<p class="muted small">✅ Les mêmes joueurs sont convoqués à tous les matchs de la journée.</p>' : '<p class="muted small">Convoque les joueurs ici, puis reprends-les pour toute la journée en un geste.</p>'}</section>`;
   }
   const opp = m => `${Clubs.oppLogo(m.opponent)}${esc(m.opponent || '?')}`; // (1.40) with its crest when known
@@ -20645,6 +20668,12 @@ var Views = (() => {
     const d = postsOfSpots(sc, slots, st); slots.forEach(o => { if (!o.post || POST_RANK[o.post] == null) o.post = (d.get(o.id) || {}).post || 'MC'; }); return true;
   }
   // the players sharing a post are spread across the width (two DC: one on each side of the axis)
+  // (2.98) one player to his post, the others stay where the coach put them
+  function placeOne(sc, o, slots, st) {
+    const { L, W } = Board.dims(sc.field), [x, y] = POST_XY[o.post] || [.5, .5], others = slots.filter(s => s !== o && s.post === o.post).map(s => (st.pos[s.id] || [0, 0])[1] / W);
+    const free = [0, -.13, .13, -.26, .26].map(d => y + d).find(yy => yy > .04 && yy < .96 && !others.some(oy => Math.abs(oy - yy) < .09));
+    st.pos[o.id] = [x * L, (free == null ? y : free) * W]; o.gk = o.post === 'GB'; if (o.gk) o.color = 'jaune'; else if (o.color === 'jaune') o.color = S().club.homeBib;
+  }
   function placeByPost(sc, slots, st) {
     const { L, W } = Board.dims(sc.field), groups = {};
     slots.forEach(o => (groups[o.post] = groups[o.post] || []).push(o));
@@ -20660,6 +20689,7 @@ var Views = (() => {
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
     return `<div class="slots-card"><div class="row-head"><h3>👕 Qui joue où ?</h3>${sysSel}</div>
+      ${(() => { const t = teamOf(m.teamId), low = t && !m.played ? People.lowPlaytime(t.id).filter(r => (m.convoked || []).includes(r.p.id)) : []; return low.length ? `<p class="small playtime-tip">⏱️ <b>Peu de temps de jeu cette saison :</b> ${low.slice(0, 6).map(r => `${esc(Store.shortName(r.p))} (${r.min}' contre ${r.avg}' en moyenne)`).join(' · ')}</p>` : ''; })()}
       <p class="muted small">Poste, numéro, joueur : chaque changement se dessine aussitôt. ${swapPick ? '<b>Touche « Ici » sur la ligne du titulaire à remplacer, ou ⇄ pour annuler.</b>' : 'Touche ⇄ à côté d\'un remplaçant pour l\'échanger avec un titulaire.'}</p>
       <div class="slots">${slots.map((o, i) => { const t = taken(o), pl = o.playerId && Store.get('players', o.playerId), cur = pl ? Store.numOf(pl, m) : (/^\d+$/.test(o.label || '') ? o.label : ''); return `<label class="slot"><select class="slot-post ${o.gk ? 'gk' : ''}" data-spost="${o.id}" aria-label="Poste">${POSTS.map(([k, l]) => `<option value="${k}" ${k === o.post ? 'selected' : ''}>${l}</option>`).join('')}</select>${numSel(pl, m, `data-snum="${o.id}"`, cur)}
         <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select>${swapPick ? `<button type="button" class="btn small primary swapto" data-swapto="${o.id}">Ici</button>` : ''}</label>`; }).join('')}</div>
@@ -20761,7 +20791,7 @@ var Views = (() => {
           <p class="muted small">Ses ${f.length} derniers résultats dans la poule, le plus récent à droite (site de la FFF). Dernier : ${esc(`${f[f.length - 1].x.home} ${f[f.length - 1].x.hs} - ${f[f.length - 1].x.as} ${f[f.length - 1].x.away}`)}.</p></section>` : ''; })()}
         ${dayCard(m)}
         ${briefCard(m, t)}
-        <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${!conv.length && !m.played && lastConv(m) ? `<button class="btn soft" data-act="sameconv">🔁<span>Comme au dernier match</span></button>` : ''}${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button>` : ''}${(m.absents || []).length ? `<span class="muted small">⚠️ ${m.absents.length} absent${m.absents.length > 1 ? 's' : ''} le jour J</span>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
+        <div class="row-head"><h2 class="section">Convoqués (${conv.length})</h2><div class="chips">${!conv.length && !m.played && lastConv(m) ? `<button class="btn soft" data-act="sameconv">🔁<span>Comme au dernier match</span></button>` : ''}${conv.length ? `<button class="btn primary" data-act="convoc">${I.share}<span>Envoyer la convocation</span></button><button class="btn soft" data-act="convimg">🖼️<span>Image</span></button>` : ''}${(m.absents || []).length ? `<span class="muted small">⚠️ ${m.absents.length} absent${m.absents.length > 1 ? 's' : ''} le jour J</span>` : ''}${conv.length && !m.played ? `<button class="btn soft" data-act="nonconv">📣<span>Non-convoqués</span></button>` : ''}</div></div>
         ${t ? pickList(t.id, m.played ? null : Parents.matchDispo(m), m.convoked || [], p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''} ${Health.on(p, m.date) || suspOf(p, m.date) ? 'unav' : ''}" data-conv="${p.id}">${Health.flag(p, m.date)}${suspFlag(p, m.date)}${mutKind(p) && mutKind(p) !== 'contrat' ? '<i class="mut-tag">M</i>' : ''}${chipLabel(p)}</button>`, render, 'data-addconv', 'dispo') : '<p class="muted">Choisis une équipe.</p>'}
         ${t ? guestSelect(t.id) : ''}
         ${!m.played && t ? (() => { const su = Store.rosterOf(t.id).filter(p => suspOf(p, m.date)); return su.length ? `<p class="small susp-line">🟥 <b>Suspendu${su.length > 1 ? 's' : ''} ?</b> Carton rouge à son dernier match : ${su.map(p => { const x = suspOf(p, m.date); return `<b>${esc(Store.shortName(p))}</b> (${esc(fmtDate(x.date, { day: 'numeric', month: 'short' }))}) <button class="linkish" data-unsusp="${p.id}:${x.id}">lever</button>`; }).join(' · ')}. Vérifie la sanction (nombre de matchs) sur Footclubs.</p>` : ''; })() : ''}
@@ -20788,6 +20818,11 @@ var Views = (() => {
         <p class="muted small">Pendant le match, un toucher par action (but, changement, carton…) : à la fin, le score, les buteurs et le temps de jeu de chacun se remplissent tout seuls dans l'onglet « Après ».</p>
         </div>
         <div ${panel('apres')}>
+        ${m.played && !m.exempt ? `<section class="card finish-card"><h2>✅ Finir le match</h2>
+          <ol class="finish-steps"><li><b>Score, buteurs, minutes</b> : ${Object.keys(m.minutes || {}).length ? 'remplis par le direct ✓' : 'à vérifier avec « Une erreur dans ce match ? »'}</li>
+          <li><b>Notes des joueurs</b> : <button type="button" class="linkish" data-act="gorate">noter l'équipe</button></li>
+          <li><b>Le mot du coach</b> <textarea id="mWord" rows="2" maxlength="400" placeholder="ex : belle réaction en seconde période, bravo à tous">${esc(m.word || '')}</textarea></li>
+          <li><b>Résumé aux parents</b> : <button type="button" class="btn small primary" data-act="summary">📣<span>Envoyer</span></button></li></ol></section>` : ''}
         ${m.played ? dayCard(m) : ''}
         ${m.played && !m.exempt ? `<section class="card fix-card"><div><h2>✏️ Une erreur dans ce match ?</h2><p class="muted small">Score, ${Sport.W().scorers}, passeurs, temps de jeu et cartons sur un seul écran. ${(() => { const c = FixMatch.check(m).issues || []; return c.length ? ` <b class="ans-no">⚠️ ${esc(c[0].t)}${c.length > 1 ? ` (+${c.length - 1})` : ''}</b>` : ''; })()} La correction est gardée, même après un import AssistCoachAI ou de la feuille FFF.${m.handFix ? ` <b>Corrigé le ${esc(fmtDate(new Date(m.handFix.at).toISOString().slice(0, 10), { day: 'numeric', month: 'short' }))}.</b>` : ''}</p></div><button class="btn primary" data-act="fix">✏️<span>Corriger le match</span></button></section>` : ''}
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
@@ -20825,6 +20860,7 @@ var Views = (() => {
     render();
     root.oninput = e => {
       const t = e.target;
+      if (t.id === 'mWord') { m.word = t.value; save(); return; }
       if (t.dataset.min) { setMin(t.dataset.min, t.value); save(); return; }
       if (t.id === 'mDur') { m.duration = Math.max(10, Math.min(150, +t.value || 0)) || ''; save(); return; }
       const f = t.dataset.f; if (f) { m[f] = t.value; if (f === 'teamId') m.teamManual = true; save(); }
@@ -20837,7 +20873,7 @@ var Views = (() => {
         const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return;
         const st = sc.steps[0], o = sc.objects.find(x => x.id === e.target.dataset.spost); if (!o) return;
         o.post = e.target.value; if (!o.playerId) o.label = o.post;
-        placeByPost(sc, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st);
+        placeOne(sc, o, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st);
         Store.upsert('schemas', sc); toast('Poste changé, le dessin suit'); return render();
       }
       // (2.94) another system: the lines are laid out again, the players keep their order (gardien, défense, milieu, attaque)
@@ -20880,6 +20916,10 @@ var Views = (() => {
       if (b.dataset.guestman) return guestManager(b.dataset.guestman, render);
       if (b.dataset.unsusp) { const [pid, mid] = b.dataset.unsusp.split(':'), pl = Store.get('players', pid); if (pl) { pl.suspDone = [...new Set([...(pl.suspDone || []), mid])].slice(-10); Store.upsert('players', pl); toast(`${Store.shortName(pl)} n'est plus marqué suspendu`); } return render(); }
       if (b.dataset.act === 'lineupcopy') return copyLineup(m);
+      if (b.dataset.act === 'dayrotate') { rotateDay(m); return render(); }
+      if (b.dataset.act === 'convimg') return convocImage(m);
+      if (b.dataset.act === 'gorate') { const r = root.querySelector('#rateBox'); if (r) { r.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return; }
+      if (b.dataset.act === 'summary') return Quick.sendSummary(m);
       if (b.dataset.act === 'dayconv') { const o = Store.dayOf(m).filter(x => x.id !== m.id); o.forEach(x => { x.convoked = [...(m.convoked || [])]; if (m.captain && !x.captain) x.captain = m.captain; Store.upsert('matches', x); }); toast(`📋 Convoqués repris pour ${o.length} match${o.length > 1 ? 's' : ''}`); return render(); }
       if (b.dataset.act === 'briefcopy') { const L = brief(m, teamOf(m.teamId)) || [], txt = [`📋 Brief · ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'} · ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, ...L.map(([k, v]) => `${k} : ${v}`)].join('\n');
         try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
@@ -20984,6 +21024,45 @@ var Views = (() => {
     const blob = await new Promise(r => c.toBlob(r, 'image/png')), name = `compo-${m.date || ''}.png`, file = new File([blob], name, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Compo' }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('Image enregistrée dans Téléchargements');
+  }
+  // (2.98) the convocation as one picture for the group: when, where, who
+  async function convocImage(m) {
+    const t = teamOf(m.teamId), conv = t ? Store.rosterOf(t.id).filter(p => (m.convoked || []).includes(p.id)).sort(Store.byName) : [];
+    const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    const wrap = (txt, maxW) => { const words = String(txt).split(/\s+/), lines = []; let line = ''; for (const w of words) { const s = line ? line + ' ' + w : w; if (x.measureText(s).width > maxW && line) { lines.push(line); line = w; } else line = s; } if (line) lines.push(line); return lines; };
+    const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#0e1d45'); g.addColorStop(1, '#8c1024'); x.fillStyle = g; x.fillRect(0, 0, W, H); x.fillStyle = '#c9a45c'; x.fillRect(0, 0, W, 14);
+    x.fillStyle = '#e2c27d'; x.font = '700 32px system-ui, sans-serif'; x.fillText(((S().club.name || AppCfg.name) + (t ? ' · ' + t.name : '')).toUpperCase(), 60, 90);
+    x.fillStyle = '#fff'; x.font = '900 64px system-ui, sans-serif'; x.fillText('📣 Convocation', 60, 165);
+    x.font = '800 44px system-ui, sans-serif'; let y = 240; wrap((m.home ? 'contre ' : 'chez ') + (m.opponent || '?') + (m.competition ? ' · ' + m.competition : ''), W - 120).forEach(l => { x.fillText(l, 60, y); y += 54; });
+    x.fillStyle = 'rgba(255,255,255,.9)'; x.font = '600 36px system-ui, sans-serif';
+    [`📅 ${fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}`, m.rdv ? `🕘 Rendez-vous ${m.rdv.replace(':', 'h')}${m.time ? ' · coup d\'envoi ' + m.time.replace(':', 'h') : ''}` : m.time ? `🕘 Coup d'envoi ${m.time.replace(':', 'h')}` : '', m.place || (m.home && S().club.fieldName) ? `📍 ${m.place || S().club.fieldName}` : '', m.home ? '🏠 À domicile' : '🚌 À l\'extérieur'].filter(Boolean).forEach(l => { wrap(l, W - 120).forEach(s => { x.fillText(s, 60, y + 10); y += 46; }); y += 6; });
+    y += 20; x.fillStyle = '#e2c27d'; x.font = '700 34px system-ui, sans-serif'; x.fillText(`Les ${conv.length} convoqué${conv.length > 1 ? 's' : ''}`, 60, y); y += 50;
+    const col = Math.ceil(conv.length / 2) || 1, rowH = Math.min(44, Math.floor((H - y - 140) / col)); x.font = `700 ${rowH > 36 ? 30 : 26}px system-ui, sans-serif`;
+    conv.forEach((p, i) => { const cx = 60 + (i >= col ? 520 : 0), cy = y + (i % col) * rowH; const n = Store.numOf(p, m); x.fillStyle = '#e2c27d'; x.fillText(n ? String(n) : '•', cx, cy); x.fillStyle = '#fff'; x.fillText(Store.shortName(p) + (m.captain === p.id ? ' ©' : ''), cx + 60, cy); });
+    y += col * rowH + 30;
+    if (m.notes) { x.fillStyle = 'rgba(255,255,255,.85)'; x.font = '600 28px system-ui, sans-serif'; wrap('📝 ' + m.notes, W - 120).slice(0, 3).forEach(l => { x.fillText(l, 60, y); y += 38; }); }
+    x.fillStyle = 'rgba(255,255,255,.6)'; x.font = '600 26px system-ui, sans-serif'; x.fillText('Réponds Présent ou Absent dans l\'appli · ' + AppCfg.name, 60, H - 40);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png')), name = `convocation-${m.date || ''}.png`, file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Convocation' }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('Image enregistrée dans Téléchargements');
+  }
+  // (2.98) a plateau or tournament day: the same group, the lineups turn so everybody plays as much (the first match's lineup is the model)
+  function rotateDay(m) {
+    const day = Store.dayOf(m).sort((a, b) => (a.time || '').localeCompare(b.time || '')), model = m.lineupId && Store.get('schemas', m.lineupId);
+    if (!model) return toast('Fais d\'abord la compo de ce match : elle sert de modèle', 'err');
+    const st0 = model.steps[0], slots = model.objects.filter(o => o.type === 'player' && !o.bench && st0.pos[o.id]).sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st0.pos[a.id][1] - st0.pos[b.id][1]));
+    const starters = slots.map(o => o.playerId).filter(Boolean), conv = (m.convoked || []).filter(id => Store.get('players', id)), bench = conv.filter(id => !starters.includes(id)), order = [...starters, ...bench];
+    if (!bench.length) return toast('Pas de remplaçant : la même compo vaut pour tous les matchs');
+    let k = 0, made = 0;
+    day.forEach(x => { if (x.id === m.id) return; k++;
+      const shift = (k * bench.length) % order.length, rot = [...order.slice(shift), ...order.slice(0, shift)];
+      const sc = JSON.parse(JSON.stringify(model)); sc.id = Store.uid(); sc.name = `Compo contre ${x.opponent || '?'}`; delete sc.updatedAt; delete sc.created;
+      const st = sc.steps[0], sl = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]).sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
+      sc.objects = sc.objects.filter(o => !o.bench); Object.keys(st.pos).forEach(id => { if (!sc.objects.some(o => o.id === id)) delete st.pos[id]; });
+      sl.forEach((o, i) => { const p = Store.get('players', rot[i]); if (!p) { delete o.playerId; o.name = ''; o.label = o.post; return; } o.playerId = p.id; o.name = Store.shortName(p); const n = Store.numOf(p, x); o.label = n ? String(n) : o.post; });
+      sc.notes = 'Remplaçants : ' + rot.slice(sl.length).map(id => Store.shortName(Store.get('players', id))).join(', ');
+      Store.upsert('schemas', sc); x.convoked = conv.slice(); x.lineupId = sc.id; Store.upsert('matches', x); made++; });
+    toast(`${made} compo${made > 1 ? 's' : ''} tournante${made > 1 ? 's' : ''} : chacun joue à son tour`);
   }
   function copyLineup(m, src) {
     const L = src || lastLineup(m); if (!L) return;
@@ -21557,7 +21636,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 198, UPD = AppCfg.key('update-tried');
+  const BUILD = 199, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

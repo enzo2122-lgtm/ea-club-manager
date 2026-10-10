@@ -5,6 +5,14 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 156, date: '2026-10-10', title: 'Dernier tour de vis 🔧', items: [
+      ['🐛', "Compo : changer le poste d'un joueur ne bouge plus que lui, à la place standard du poste. Les autres restent où tu les as mis."],
+      ['⏱️', "Compo : les joueurs qui ont peu joué cette saison sont signalés au moment de choisir, avec leurs minutes face à la moyenne."],
+      ['✅', "Après le match, une carte « Finir le match » : score et minutes (du direct), notes des joueurs, mot du coach, résumé aux parents."],
+      ['🖼️', "Convocation en image (date, rendez-vous, lieu, convoqués) à poster dans le groupe, en plus de la notification."],
+      ['🔄', "Journée de plateau : « Compos tournantes » fabrique la compo des autres matchs du jour en faisant tourner les remplaçants."],
+      ['🎤', "Causerie : un micro à côté de l'objectif et des trois clés, tu dictes, c'est écrit (reconnaissance vocale du téléphone)."],
+    ] },
     { n: 155, date: '2026-10-10', title: 'La séance et le direct, au pouce ✋', items: [
       ['✋', "Séance : glisse le numéro d'un exercice pour changer l'ordre ; une séance vide propose « Proposer une séance » (thème, durée, et c'est rempli)."],
       ['🧩', "Match en direct : les titulaires viennent de la compo du match, avec le dessin sous les yeux avant le coup d'envoi."],

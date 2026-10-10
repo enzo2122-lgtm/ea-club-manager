@@ -2381,3 +2381,11 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 .lv-who { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; margin: 0 6px 6px 0; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .lv-who.on { background: #fde68a; border-color: #d97706; }
 .lv-field.picking .lv-who.in { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(140,16,36,.18); }
+
+/* (2.98) finish the match, dictate, the playing-time tip in the composition */
+.finish-steps { margin: 6px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; }
+.finish-steps textarea { display: block; width: 100%; margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--surface2); }
+.mic-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 50%; width: 32px; height: 32px; font-size: 15px; cursor: pointer; margin-left: 6px; vertical-align: middle; }
+.mic-btn.on { background: #fee2e2; border-color: #ef4444; animation: micPulse 1s infinite alternate; }
+@keyframes micPulse { from { box-shadow: 0 0 0 0 rgba(239,68,68,.4); } to { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
+.slots-card .playtime-tip { margin: 0 0 8px; }

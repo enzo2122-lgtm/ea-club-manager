@@ -260,5 +260,5 @@ const Quick = (() => {
     window.addEventListener('online', () => { if (pill) pill.classList.remove('show'); });
   }
 
-  return { fab, menu, search, matchDay, matchDayCard, tomorrowCard, backupCard, backupClick, summaryText, start, syncDone };
+  return { fab, menu, search, matchDay, matchDayCard, tomorrowCard, backupCard, backupClick, summaryText, sendSummary, start, syncDone };
 })();

@@ -49,6 +49,19 @@ const Prepa = (() => {
   const systemsOf = teamId => { if (foot()) return SYSTEMS[fmt(teamId)] || SYSTEMS[11]; const f = fmt(teamId), l = (typeof SesLib !== 'undefined' ? SesLib.systems() : []).filter(x => x.fmt === f).map(x => x.sys); return l.length ? l : (typeof SesLib !== 'undefined' ? [...new Set(SesLib.systems().map(x => x.sys))] : []); };
 
   const P = m => (m.prep = m.prep || {});
+  // (2.98) dictate instead of typing: the phone's speech recognition writes in the field (nothing leaves the phone except what the system does)
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = f => SR ? `<button type="button" class="mic-btn" data-mic="${f}" title="Dicter" aria-label="Dicter">🎤</button>` : '';
+  let rec = null;
+  function dictate(root, f) {
+    const input = root.querySelector(`[data-p="${f}"]`); if (!input || !SR) return;
+    if (rec) { try { rec.stop(); } catch (e) {} rec = null; }
+    const r = rec = new SR(); r.lang = 'fr-FR'; r.interimResults = false; r.maxAlternatives = 1;
+    const btn = root.querySelector(`[data-mic="${f}"]`); if (btn) btn.classList.add('on');
+    r.onresult = ev => { const txt = [...ev.results].map(x => x[0].transcript).join(' ').trim(); if (!txt) return; input.value = (input.value ? input.value.trim() + ' ' : '') + txt; input.dispatchEvent(new Event('input', { bubbles: true })); };
+    r.onend = r.onerror = () => { if (btn) btn.classList.remove('on'); rec = null; };
+    try { r.start(); UI.toast('Parle, j\'écris…'); } catch (e) { if (btn) btn.classList.remove('on'); }
+  }
   const get = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
   const set = (o, path, v) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach(k => { a = a[k] = a[k] && typeof a[k] === 'object' ? a[k] : {}; }); a[ks[ks.length - 1]] = v; };
   const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
@@ -136,6 +149,7 @@ const Prepa = (() => {
       if (b.dataset.newtr) return newSession(m, b.dataset.newtr, +b.dataset.j);
       if (b.dataset.pa === 'lineup') { location.hash = '#/match/' + m.id; return; }
       if (b.dataset.pa === 'halftimer') return halfTimer();
+      if (b.dataset.mic) return dictate(root, b.dataset.mic);
       if (b.dataset.pa === 'resetwarm') { p.day = Object.assign(p.day || {}, { warm: {} }); save(true); return page(root, id, step); }
       if (b.dataset.pa === 'allwarm') { const w = {}; WARM().forEach((x, i) => w[i] = true); p.day = Object.assign(p.day || {}, { warm: w }); save(true); return page(root, id, step); }
     };
@@ -209,9 +223,9 @@ const Prepa = (() => {
     return `<section class="card"><h2>🗣️ La causerie</h2>
       <p class="muted small">5 à 10 minutes, en 3 temps : une accroche pour capter l'attention, le rappel tactique, puis le message de confiance. 3 clés maximum, des phrases courtes.</p>
       <label class="fld"><span>1 · L'accroche (les 30 premières secondes)</span>${area('talk.hook', t.hook, 'ex : Le match aller, on a perdu 2-1 à la dernière minute. Aujourd\'hui on écrit la suite.', 2)}</label>
-      <label class="fld"><span>🎯 L'objectif du match</span><input data-p="talk.objective" value="${esc(t.objective || '')}" placeholder="ex : Gagner et garder la 3e place, ne pas encaisser sur CPA"></label>
+      <label class="fld"><span>🎯 L'objectif du match ${mic('talk.objective')}</span><input data-p="talk.objective" value="${esc(t.objective || '')}" placeholder="ex : Gagner et garder la 3e place, ne pas encaisser sur CPA"></label>
       <div class="lbl">2 · Les 3 clés</div>
-      ${[0, 1, 2].map(i => `<label class="fld inline prep-key"><b>${i + 1}</b><input data-p="talk.keys.${i}" value="${esc(keys[i] || '')}" placeholder="Clé n°${i + 1}"></label>`).join('')}
+      ${[0, 1, 2].map(i => `<label class="fld inline prep-key"><b>${i + 1}</b><input data-p="talk.keys.${i}" value="${esc(keys[i] || '')}" placeholder="Clé n°${i + 1}">${mic('talk.keys.' + i)}</label>`).join('')}
       ${chipsAdd('talk.keys', KEYS())}
       <label class="fld"><span>3 · Le mot de la fin</span>${area('talk.final', t.final, Supporters.SLOGAN, 2)}</label>
       <label class="fld"><span>🔗 Lien vidéo pour les joueurs (YouTube, Drive…)</span><input data-p="talk.videoUrl" value="${esc(t.videoUrl || '')}" placeholder="https://youtu.be/…  (visible sur la page des joueurs)" inputmode="url"></label>
