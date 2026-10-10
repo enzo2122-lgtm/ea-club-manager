@@ -982,7 +982,7 @@ const Views = (() => {
         </div>
         <div ${panel('compo')}>
         <h2 class="section">Composition</h2>
-        <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>`
+        <section class="card lineup">${lineup ? `<a href="#/schema/${lineup.id}" class="thumb"><img alt="" src="${UI.thumb(lineup)}"></a><div class="chips"><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Modifier la composition</span></a>${m.played ? '' : `<button class="btn soft" data-act="lineupredo">🗑️<span>Refaire la composition</span></button>`}</div>`
           : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><div class="chips"><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>${lastLineup(m) ? `<button class="btn" data-act="lineupcopy">♻️<span>Reprendre la compo du ${esc(fmtDate(lastLineup(m).m.date, { day: 'numeric', month: 'short' }))}</span></button>` : ''}</div>`}</section>
         ${conv.length && !m.exempt ? `<section class="card capt-card"><label class="fld"><span>©️ Capitaine</span><select data-capt><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label>
           <label class="fld"><span>Vice-capitaine</span><select data-capt2><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain2 === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label></section>` : ''}
@@ -1097,6 +1097,7 @@ const Views = (() => {
         case 'fix': return FixMatch.open(m, () => render()); // (2.11)
         case 'report': return runExport('Création du compte-rendu…', () => Exporter.pdfReport(m, teamOf(m.teamId), S().club));
         case 'lineup': return makeLineup(m);
+        case 'lineupredo': confirmBox('Supprimer cette composition ? Le schéma est jeté, les convoqués restent. Tu pourras en refaire une tout de suite.', 'Supprimer').then(ok => { if (!ok) return; const old = m.lineupId; delete m.lineupId; save(); if (old) Store.remove('schemas', old); toast('Composition supprimée'); render(); }); return;
         case 'delete': if (await confirmBox('Supprimer ce match ?')) { Store.remove('matches', m.id); Media.removeRef('match:' + m.id); location.hash = '#/matchs'; } return;
       }
     };

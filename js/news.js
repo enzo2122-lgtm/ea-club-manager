@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 147, date: '2026-10-10', title: 'Droit à l\'erreur 🗑️', items: [
+      ['🗑️', "Compo d'un match : « Refaire la composition » jette le schéma (les convoqués restent) pour en faire une nouvelle."],
+    ] },
     { n: 146, date: '2026-10-10', title: 'Rien ne se perd 🔒', items: [
       ['🔒', "Un match préparé sur un écran (causerie, compo, convoqués, capitaine) n'est plus écrasé par une version plus ancienne du même match venue d'un autre écran : les deux se complètent."],
     ] },
