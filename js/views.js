@@ -269,6 +269,23 @@ const Views = (() => {
     } else { title = 'Rien de prévu'; sub = 'Ajoute un match ou prépare une séance avec le gros +'; }
     return '<section class="card today-card"><h2>📅 Prochain rendez-vous</h2><p class="tc-title"><b>' + title + '</b><br><span class="muted">' + sub + '</span></p>' + act + '</section>';
   }
+  // (2.96) the coach's week: one line per day with something to do, the action at the end
+  function weekCard(matches, trainings, now) {
+    const end = addDays(now, 7), tn = id => (Store.get('teams', id) || {}).name || '';
+    const evs = [...matches.filter(m => !m.played && !m.exempt && m.date >= now && m.date <= end).map(m => ({ k: 'm', d: m.date, t: m.time || '', m })),
+      ...trainings.filter(t => !t.model && t.date >= now && t.date <= end).map(t => ({ k: 't', d: t.date, t: t.time || '', tr: t }))].sort((a, b) => (a.d + a.t).localeCompare(b.d + b.t));
+    if (!evs.length) return '';
+    const day = d => d === now ? "Aujourd'hui" : d === addDays(now, 1) ? 'Demain' : fmtDate(d, { weekday: 'long', day: 'numeric' }).replace(/^./, c => c.toUpperCase());
+    const row = (href, d, time, title, sub, act, soft) => `<a class="wk-row" href="${href}"><span class="wk-d">${d}${time ? '<br><small>' + esc(time) + '</small>' : ''}</span><span class="wk-t"><b>${title}</b><br><small>${sub}</small></span><span class="btn small ${soft ? 'soft' : 'primary'}">${act}</span></a>`;
+    const rows = evs.map(e => {
+      if (e.k === 'm') { const m = e.m, conv = (m.convoked || []).length;
+        const act = m.date === now ? ['🏟️ Jour de match', '#/jourj/' + m.id, false] : !conv ? ['📣 Convoquer', '#/match/' + m.id, false] : !m.convSent ? ['📣 Envoyer', '#/match/' + m.id, false] : !m.lineupId ? ['🧩 Compo', '#/match/' + m.id, false] : ['✓ Prêt', '#/jourj/' + m.id, true];
+        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : ''), act[0], act[2]); }
+      const t = e.tr, n = (t.exercises || []).length;
+      return row('#/entrainement/' + t.id, day(t.date), t.time, `${esc(tn(t.teamId))} · ${esc(t.title || 'Séance')}`, n ? n + ' exercice' + (n > 1 ? 's' : '') : "pas encore d'exercice", n ? '📝 Ouvrir' : '✍️ Préparer', !!n);
+    });
+    return `<section class="card week-card"><h2>🗓️ Ma semaine</h2><div class="wk">${rows.join('')}</div></section>`;
+  }
   function home(root) {
     const now = today();
     const matches = byTeam(S().matches), trainings = byTeam(S().trainings);
@@ -281,6 +298,7 @@ const Views = (() => {
       ${teamSwitch()}
       ${typeof News !== 'undefined' ? News.pill() : ''}
       ${todayCard(next, nextTr, now)}
+      ${weekCard(matches, trainings, now)}
       ${setupCard()}
       ${birthdayCard()}
       ${Onboard.planCard()}
@@ -1075,9 +1093,9 @@ const Views = (() => {
         <div ${panel('compo')}>
         <h2 class="section">Composition</h2>
         <section class="card lineup">${lineup ? `<div class="lineup-wrap" data-luwrap="${lineup.id}"><img class="lu-img" alt="" src="${UI.thumb(syncLabels(lineup, m))}" draggable="false">${lineupHot(lineup)}</div><p class="muted small">Glisse un joueur sur le dessin pour le déplacer (son poste suit) ; touche-le pour ouvrir sa ligne.</p>
-          <div class="chips">${conv.length ? `<button class="btn" data-act="autocomp">✨<span>Proposer une compo</span></button>` : ''}<a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Flèches et détails</span></a>${m.played ? '' : `<button class="btn soft" data-act="lineupredo">🗑️<span>Refaire</span></button>`}</div>
-          ${slotsCard(lineup, conv, m)}`
-          : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><div class="chips"><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>${lastLineup(m) ? `<button class="btn" data-act="lineupcopy">♻️<span>Reprendre la compo du ${esc(fmtDate(lastLineup(m).m.date, { day: 'numeric', month: 'short' }))}</span></button>` : ''}</div>`}</section>
+          <div class="chips">${conv.length ? `<button class="btn" data-act="autocomp">✨<span>Proposer une compo</span></button>` : ''}<button class="btn" data-act="luimg">🖼️<span>Image WhatsApp</span></button><a class="btn soft" href="#/schema/${lineup.id}">${I.edit}<span>Flèches et détails</span></a>${m.played ? '' : `<button class="btn soft" data-act="lineupredo">🗑️<span>Refaire</span></button>`}</div>
+          ${slotsCard(lineup, conv, m)}${lineupHistory(m)}`
+          : `<p class="muted">Place tes joueurs convoqués sur le terrain.</p><div class="chips"><button class="btn primary" data-act="lineup">${I.formation}<span>Faire la composition</span></button>${lastLineup(m) ? `<button class="btn" data-act="lineupcopy">♻️<span>Reprendre la compo du ${esc(fmtDate(lastLineup(m).m.date, { day: 'numeric', month: 'short' }))}</span></button>` : ''}</div>${lineupHistory(m)}`}</section>
         ${conv.length && !m.exempt ? `<section class="card capt-card"><label class="fld"><span>©️ Capitaine</span><select data-capt><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label>
           <label class="fld"><span>Vice-capitaine</span><select data-capt2><option value="">—</option>${conv.map(p => `<option value="${p.id}" ${m.captain2 === p.id ? 'selected' : ''}>${esc(Store.fullName(p))}</option>`).join('')}</select></label></section>` : ''}
         </div>
@@ -1183,6 +1201,9 @@ const Views = (() => {
         try { await navigator.clipboard.writeText(txt); toast('Brief copié 📋'); } catch (e) { toast('Copie impossible sur ce téléphone', 'err'); } return; }
       if (b.dataset.swap) { swapPick = swapPick === b.dataset.swap ? null : b.dataset.swap; if (swapPick) toast('Touche « Ici » sur la ligne du titulaire à remplacer'); return render(); }
       if (b.dataset.swapto || (b.dataset.hot && swapPick)) { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc || !swapPick) return; const pid = swapPick; swapPick = null; setSlot(sc, b.dataset.swapto || b.dataset.hot, pid, m); toast('Échangé ✓'); return render(); }
+      if (b.dataset.act === 'luimg') { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (sc) lineupImage(m, sc); return; }
+      if (b.dataset.lufrom) { const src = S().matches.find(x => x.id === b.dataset.lufrom), sc = src && Store.get('schemas', src.lineupId); if (!sc) return;
+        if (m.lineupId && !(await confirmBox('Remplacer la compo actuelle par celle de ce match ?', 'Remplacer'))) return; copyLineup(m, { m: src, sc }); return; }
       if (b.dataset.act === 'autocomp') { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return; const t = teamOf(m.teamId), conv = t ? Store.rosterOf(t.id).filter(p => (m.convoked || []).includes(p.id)) : []; const n = autoCompo(sc, conv, m); toast(`${n} joueurs placés d'après leur poste : corrige si besoin`); return render(); }
       if (b.dataset.hot) { const sel = root.querySelector(`[data-slot="${b.dataset.hot}"]`); if (!sel) return; const lab = sel.closest('.slot'); lab.scrollIntoView({ behavior: 'smooth', block: 'center' }); lab.classList.add('flash'); setTimeout(() => lab.classList.remove('flash'), 1600); setTimeout(() => { try { sel.focus(); if (sel.showPicker) sel.showPicker(); } catch (e) {} }, 350); return; }
       if (b.dataset.act === 'sameconv') { const prev = lastConv(m); if (!prev) return; const ids = new Set(Store.rosterOf(m.teamId).map(p => p.id)); m.convoked = prev.convoked.filter(id => ids.has(id)); save(); toast(`${m.convoked.length} convoqués repris du match contre ${prev.opponent || '?'}`); return render(); }
@@ -1252,8 +1273,36 @@ const Views = (() => {
     return x ? { m: x, sc: Store.get('schemas', x.lineupId) } : null;
   }
   // the same lineup, without the players who cannot play (injured, suspended, not convoked when the convocation is done)
-  function copyLineup(m) {
-    const L = lastLineup(m); if (!L) return;
+  // (2.96) the lineups of the season (same team), each one can be taken again
+  const lineupShape = sc => { const st = sc.steps[0], c = {}; sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id] && !o.gk).forEach(o => { const k = (o.post || 'M')[0]; c[k] = (c[k] || 0) + 1; }); return ['D', 'M', 'A'].map(k => c[k] || 0).join('-'); };
+  function lineupHistory(m) {
+    const list = S().matches.filter(o => o.id !== m.id && o.teamId === m.teamId && o.lineupId && Store.get('schemas', o.lineupId)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
+    if (!list.length) return '';
+    return `<details class="fold lu-hist"><summary>📚 Compos de la saison <span class="muted small">(${list.length})</span></summary><div class="list">${list.map(o => `<div class="list-item"><span class="li-main"><b>${esc(fmtDate(o.date))} · ${o.home ? 'contre' : 'chez'} ${esc(o.opponent || '?')}</b><span class="muted small">${o.played ? esc(scoreTxt(o)) + ' · ' : ''}${lineupShape(Store.get('schemas', o.lineupId))}</span></span><button type="button" class="btn small" data-lufrom="${o.id}">♻️<span>Reprendre</span></button></div>`).join('')}</div></details>`;
+  }
+  // (2.96) the lineup as one picture for the group: the pitch, the eleven by post, the substitutes
+  async function lineupImage(m, sc) {
+    const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    const t = teamOf(m.teamId), club = S().club.name || AppCfg.name;
+    const wrap = (txt, maxW) => { const words = String(txt).split(/\s+/), lines = []; let line = ''; for (const w of words) { const s = line ? line + ' ' + w : w; if (x.measureText(s).width > maxW && line) { lines.push(line); line = w; } else line = s; } if (line) lines.push(line); return lines; };
+    const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#0e1d45'); g.addColorStop(1, '#182b5e'); x.fillStyle = g; x.fillRect(0, 0, W, H); x.fillStyle = '#c9a45c'; x.fillRect(0, 0, W, 14);
+    x.fillStyle = '#e2c27d'; x.font = '700 32px system-ui, sans-serif'; x.fillText((club + (t ? ' · ' + t.name : '')).toUpperCase(), 60, 90);
+    x.fillStyle = '#fff'; x.font = '900 60px system-ui, sans-serif'; x.fillText((m.home ? 'contre ' : 'chez ') + (m.opponent || '?'), 60, 160);
+    x.fillStyle = 'rgba(255,255,255,.85)'; x.font = '600 34px system-ui, sans-serif'; x.fillText(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }) + (m.time ? ' · ' + m.time.replace(':', 'h') : '') + (m.rdv ? ' · rendez-vous ' + m.rdv.replace(':', 'h') : ''), 60, 212);
+    const pc = document.createElement('canvas'); pc.width = 960; pc.height = 620; Board.drawFrame(pc.getContext('2d'), 960, 620, syncLabels(sc, m), 0, 0, { homeBib: S().club.homeBib }); x.drawImage(pc, 60, 240);
+    const st = sc.steps[0], slots = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id] && o.playerId).sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
+    let y = 920; const col = Math.ceil(slots.length / 2) || 1; x.font = '700 30px system-ui, sans-serif';
+    slots.forEach((o, i) => { const p = Store.get('players', o.playerId); if (!p) return; const cx = 60 + (i >= col ? 520 : 0), cy = y + (i % col) * 44; x.fillStyle = '#e2c27d'; x.fillText(String(o.label || ''), cx, cy); x.fillStyle = '#fff'; x.fillText((o.post ? o.post + ' · ' : '') + Store.shortName(p) + (m.captain === p.id ? ' ©' : ''), cx + 70, cy); });
+    y += col * 44 + 30;
+    const conv = t ? Store.rosterOf(t.id).filter(p => (m.convoked || []).includes(p.id)) : [], placed = new Set(slots.map(o => o.playerId)), bench = conv.filter(p => !placed.has(p.id));
+    if (bench.length) { x.fillStyle = '#e2c27d'; x.font = '700 28px system-ui, sans-serif'; wrap('🪑 Remplaçants : ' + bench.map(p => (Store.numOf(p, m) ? Store.numOf(p, m) + ' ' : '') + Store.shortName(p)).join(', '), W - 120).slice(0, 3).forEach(l => { x.fillText(l, 60, y); y += 38; }); }
+    x.fillStyle = 'rgba(255,255,255,.55)'; x.font = '600 26px system-ui, sans-serif'; x.fillText('Préparée avec ' + AppCfg.name, 60, H - 40);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png')), name = `compo-${m.date || ''}.png`, file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Compo' }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('Image enregistrée dans Téléchargements');
+  }
+  function copyLineup(m, src) {
+    const L = src || lastLineup(m); if (!L) return;
     const conv = new Set(m.convoked || []), had = !!conv.size;
     const ok = id => { const p = Store.get('players', id); return !!p && !Health.on(p, m.date) && !suspOf(p, m.date) && (!had || conv.has(id)); };
     const sc = JSON.parse(JSON.stringify(L.sc)); sc.id = Store.uid(); sc.name = `Compo contre ${m.opponent || '?'}`; delete sc.created; delete sc.updatedAt;
@@ -1263,7 +1312,7 @@ const Views = (() => {
     if (L.m.captain && ok(L.m.captain) && !m.captain) m.captain = L.m.captain;
     Store.upsert('schemas', sc); m.lineupId = sc.id; Store.upsert('matches', m);
     toast(out ? `♻️ Compo reprise : ${out} poste${out > 1 ? 's' : ''} à remplir (blessé, suspendu ou pas convoqué)` : '♻️ Compo du dernier match reprise');
-    location.hash = '#/schema/' + sc.id;
+    App.route(true);
   }
   function makeLineup(m) {
     const t = teamOf(m.teamId); if (!t) return toast('Choisis une équipe', 'err');
@@ -1284,7 +1333,7 @@ const Views = (() => {
         sc.overlays.names = true;
         if (bench.length) sc.notes = 'Remplaçants : ' + bench.map(p => Store.shortName(p) + (People.postsLabel(p, true) ? ' (' + People.postsLabel(p, true) + ')' : '')).join(', ');
         Store.upsert('schemas', sc); m.lineupId = sc.id; Store.upsert('matches', m);
-        location.hash = '#/schema/' + sc.id;
+        App.route(true); // (2.96) the composition is finished on the match page itself
       } }] });
   }
 

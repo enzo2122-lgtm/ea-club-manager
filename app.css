@@ -2364,3 +2364,12 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 .swap-btn { border: 0; background: var(--navy); color: #fff; border-radius: 50%; width: 26px; height: 26px; font-size: 14px; cursor: pointer; margin-left: 2px; }
 .chip.picked { background: #fde68a; border-color: #d97706; box-shadow: 0 0 0 3px rgba(217,119,6,.25); }
 .slot .swapto { min-height: 34px; padding: 0 10px; }
+
+/* (2.96) the coach's week */
+.week-card .wk { display: flex; flex-direction: column; gap: 6px; }
+.wk-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--surface2); }
+.wk-row .wk-d { font-weight: 800; font-size: 14px; line-height: 1.2; } .wk-row .wk-d small { font-weight: 600; color: var(--muted); }
+.wk-row .wk-t { min-width: 0; font-size: 15px; line-height: 1.25; } .wk-row .wk-t b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .wk-row .wk-t small { color: var(--muted); }
+.wk-row .btn.small { min-height: 34px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+@media (max-width: 480px) { .wk-row { grid-template-columns: 78px minmax(0, 1fr) auto; } .wk-row .wk-d { font-size: 13px; } }
+.lu-hist { margin-top: 12px; }

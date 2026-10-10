@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 154, date: '2026-10-10', title: 'Ma semaine, mes compos 🗓️', items: [
+      ['🗓️', "Accueil : « Ma semaine », une ligne par jour avec quelque chose à faire (convoquer, envoyer, compo, préparer la séance) et le bouton au bout."],
+      ['🖼️', "Compo : « Image WhatsApp » fabrique l'affiche de la compo (terrain, titulaires par poste, remplaçants) à poster la veille."],
+      ['📚', "Compo : « Compos de la saison » liste celles des matchs passés avec leur système (4-3-3…) ; « Reprendre » en fait la base du prochain match."],
+      ['🏠', "Créer ou reprendre une compo te laisse sur la fiche du match, là où tout se règle maintenant."],
+    ] },
     { n: 153, date: '2026-10-10', title: 'La compo, un seul écran ✋', items: [
       ['✋', "Compo d'un match : glisse un joueur sur le dessin, il change de poste ; tout est sur une seule carte, le dessin en haut, les lignes dessous."],
       ['✨', "« Proposer une compo » place les convoqués d'après le poste de leur fiche (gardien d'abord). Tu corriges ensuite."],
