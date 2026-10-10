@@ -3730,7 +3730,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.87';
+  const VERSION = '2.88';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4322,7 +4322,18 @@ var Sync = (() => {
         if (same) { H[k] = fp(loc); continue; }
         const dirty = fp(loc) !== H[k];
         if (dirty && (loc.updatedAt || 0) > (r.u || 0)) continue; // our version is newer: it will be sent
+        // (2.88) a match: what was prepared here (causerie, compo, convoqués, capitaine) is never erased by a version of the match
+        // that does not have it: it is merged in, and the merged match leaves at the next push (H keeps the server's print, so it is « dirty »)
+        let merged = false;
+        if (r.col === 'matches') {
+          const full = o => o && typeof o === 'object' && Object.keys(o).length > 0;
+          if (full(loc.prep) && !full(data.prep)) { data.prep = loc.prep; merged = true; }
+          if (loc.lineupId && !data.lineupId) { data.lineupId = loc.lineupId; merged = true; }
+          if ((loc.convoked || []).length && !(data.convoked || []).length) { data.convoked = loc.convoked; merged = true; }
+          if (loc.captain && !data.captain) { data.captain = loc.captain; merged = true; }
+        }
         arr[i] = data;
+        if (merged) { changed = true; continue; }
       } else arr.push(data);
       H[k] = fp(data); changed = true;
     }
@@ -16721,6 +16732,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 146, date: '2026-10-10', title: 'Rien ne se perd 🔒', items: [
+      ['🔒', "Un match préparé sur un écran (causerie, compo, convoqués, capitaine) n'est plus écrasé par une version plus ancienne du même match venue d'un autre écran : les deux se complètent."],
+    ] },
     { n: 145, date: '2026-10-10', title: 'Cocher, décocher 🐛', items: [
       ['🐛', "Préparation du match, échauffement : le lien dit « Tout cocher » quand rien n'est coché, « Tout décocher » sinon."],
     ] },
@@ -21237,7 +21251,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 188, UPD = AppCfg.key('update-tried');
+  const BUILD = 189, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

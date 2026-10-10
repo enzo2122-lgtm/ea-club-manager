@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 146, date: '2026-10-10', title: 'Rien ne se perd 🔒', items: [
+      ['🔒', "Un match préparé sur un écran (causerie, compo, convoqués, capitaine) n'est plus écrasé par une version plus ancienne du même match venue d'un autre écran : les deux se complètent."],
+    ] },
     { n: 145, date: '2026-10-10', title: 'Cocher, décocher 🐛', items: [
       ['🐛', "Préparation du match, échauffement : le lien dit « Tout cocher » quand rien n'est coché, « Tout décocher » sinon."],
     ] },
