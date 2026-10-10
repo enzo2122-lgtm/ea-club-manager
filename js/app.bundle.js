@@ -3734,7 +3734,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '2.99';
+  const VERSION = '3.00';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -16823,6 +16823,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 158, date: '2026-10-10', title: 'Bloc haut, bloc bas 📏', items: [
+      ['📏', "Compo : à côté du système, un menu « Bloc » (très bas, bas, médian, haut, très haut) fait monter ou descendre toute l'équipe sur le terrain, le gardien reste."],
+    ] },
     { n: 157, date: '2026-10-10', title: 'Grand format 📰', items: [
       ['📰', "Réglages → Impression : A4 ou A3 pour tous les PDF (feuille de match, compte-rendu, préparation et causerie, séance). En A3, tout est agrandi, lisible depuis le banc."],
     ] },
@@ -20623,6 +20626,9 @@ var Views = (() => {
   const POSTS = [['GB', '🧤 GB'], ['DG', 'DG'], ['DC', 'DC'], ['DD', 'DD'], ['MDC', 'MDC'], ['MG', 'MG'], ['MC', 'MC'], ['MD', 'MD'], ['MOG', 'MOG'], ['MOC', 'MOC'], ['MOD', 'MOD'], ['AG', 'AG'], ['AV', 'AV'], ['AD', 'AD']];
   const POST_XY = { GB: [.04, .5], DG: [.2, .12], DC: [.17, .5], DD: [.2, .88], MDC: [.33, .5], MG: [.45, .12], MC: [.46, .5], MD: [.45, .88], MOG: [.62, .15], MOC: [.62, .5], MOD: [.62, .85], AG: [.8, .15], AV: [.88, .5], AD: [.8, .85] };
   const POST_RANK = Object.fromEntries(POSTS.map(([k], i) => [k, i]));
+  // (3.00) the block: how high the team (goalkeeper apart) stands, as a share of the pitch length away from the standard spots
+  const BLOCS = [['tbas', 'Très bas', -.18], ['bas', 'Bas', -.09], ['median', 'Médian', 0], ['haut', 'Haut', .09], ['thaut', 'Très haut', .18]];
+  const blocOff = k => (BLOCS.find(b => b[0] === k) || BLOCS[2])[2];
   // the posts of a player's card that fit each post of the drawing (for « Proposer une compo »)
   const POST_FITS = { GB: ['GB'], DG: ['LG', 'DG'], DC: ['DC'], DD: ['LD', 'DD'], MDC: ['MDC', 'MC'], MG: ['MG', 'LG', 'AG'], MC: ['MC', 'MDC', 'MOC'], MD: ['MD', 'LD', 'AD'], MOG: ['AG', 'MG'], MOC: ['MOC', 'MC', 'SA'], MOD: ['AD', 'MD'], AG: ['AG', 'MG'], AV: ['BU', 'SA'], AD: ['AD', 'MD'] };
   let swapPick = null; // (2.95) a substitute touched, waiting for the starter he replaces
@@ -20663,7 +20669,7 @@ var Views = (() => {
       if (!d) return; const was = d; d = null;
       if (!was.moving) return;
       was.wrap.classList.remove('dragging'); try { was.wrap.releasePointerCapture(e.pointerId); } catch (x) {}
-      const o = was.o, sc = was.sc; if (!o.bench) { o.post = nearestPost(sc, sc.steps[0].pos[o.id]); o.gk = o.post === 'GB'; if (o.gk) o.color = 'jaune'; else if (o.color === 'jaune') o.color = S().club.homeBib; if (!o.playerId) o.label = o.post; }
+      const o = was.o, sc = was.sc; if (sc.blocBase) sc.blocBase[o.id] = sc.steps[0].pos[o.id][0] - blocOff(sc.bloc) * Board.dims(sc.field).L; if (!o.bench) { o.post = nearestPost(sc, sc.steps[0].pos[o.id]); o.gk = o.post === 'GB'; if (o.gk) o.color = 'jaune'; else if (o.color === 'jaune') o.color = S().club.homeBib; if (!o.playerId) o.label = o.post; }
       Store.upsert('schemas', sc); toast(o.bench ? 'Déplacé' : `${o.name || 'Le poste'} → ${o.post}`);
       const h = location.hash; if (/^#\/match\//.test(h)) App.route(true);
     };
@@ -20691,10 +20697,11 @@ var Views = (() => {
     const all = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]); if (ensurePosts(sc, all, st)) Store.upsert('schemas', sc);
     const postOf = o => o.post, slots = all.slice().sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
     const fmt = Formations[sc.field.format] ? sc.field.format : null, sysSel = fmt ? `<label class="fld inline sys-sel"><span>Système</span><select data-ssys><option value="">Changer de système…</option>${Object.keys(Formations[fmt]).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select></label>` : '';
+    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc>${BLOCS.map(([k, l]) => `<option value="${k}" ${(sc.bloc || 'median') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
-    return `<div class="slots-card"><div class="row-head"><h3>👕 Qui joue où ?</h3>${sysSel}</div>
+    return `<div class="slots-card"><div class="row-head"><h3>👕 Qui joue où ?</h3><span class="sys-row">${sysSel}${blocSel}</span></div>
       ${(() => { const t = teamOf(m.teamId), low = t && !m.played ? People.lowPlaytime(t.id).filter(r => (m.convoked || []).includes(r.p.id)) : []; return low.length ? `<p class="small playtime-tip">⏱️ <b>Peu de temps de jeu cette saison :</b> ${low.slice(0, 6).map(r => `${esc(Store.shortName(r.p))} (${r.min}' contre ${r.avg}' en moyenne)`).join(' · ')}</p>` : ''; })()}
       <p class="muted small">Poste, numéro, joueur : chaque changement se dessine aussitôt. ${swapPick ? '<b>Touche « Ici » sur la ligne du titulaire à remplacer, ou ⇄ pour annuler.</b>' : 'Touche ⇄ à côté d\'un remplaçant pour l\'échanger avec un titulaire.'}</p>
       <div class="slots">${slots.map((o, i) => { const t = taken(o), pl = o.playerId && Store.get('players', o.playerId), cur = pl ? Store.numOf(pl, m) : (/^\d+$/.test(o.label || '') ? o.label : ''); return `<label class="slot"><select class="slot-post ${o.gk ? 'gk' : ''}" data-spost="${o.id}" aria-label="Poste">${POSTS.map(([k, l]) => `<option value="${k}" ${k === o.post ? 'selected' : ''}>${l}</option>`).join('')}</select>${numSel(pl, m, `data-snum="${o.id}"`, cur)}
@@ -20879,8 +20886,16 @@ var Views = (() => {
         const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return;
         const st = sc.steps[0], o = sc.objects.find(x => x.id === e.target.dataset.spost); if (!o) return;
         o.post = e.target.value; if (!o.playerId) o.label = o.post;
-        placeOne(sc, o, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st);
+        placeOne(sc, o, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st); if (sc.blocBase) sc.blocBase[o.id] = st.pos[o.id][0] - blocOff(sc.bloc) * Board.dims(sc.field).L;
         Store.upsert('schemas', sc); toast('Poste changé, le dessin suit'); return render();
+      }
+      // (3.00) the block: everybody but the goalkeeper slides up or down the pitch, the shape is kept
+      if ('sbloc' in e.target.dataset) {
+        const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return;
+        const st = sc.steps[0], { L } = Board.dims(sc.field), r = Board.tokenR(sc.field), cur = blocOff(sc.bloc) * L, off = blocOff(e.target.value) * L;
+        const B = sc.blocBase = sc.blocBase || {}; // the depth of each spot in a median block: the block slides from there and comes back exactly
+        sc.objects.filter(x => x.type === 'player' && !x.bench && !x.gk && st.pos[x.id]).forEach(x => { if (B[x.id] == null) B[x.id] = st.pos[x.id][0] - cur; st.pos[x.id][0] = Math.max(r * 1.2, Math.min(L - r * 1.2, B[x.id] + off)); });
+        sc.bloc = e.target.value; Store.upsert('schemas', sc); toast(`Bloc ${(BLOCS.find(b => b[0] === sc.bloc) || [])[1].toLowerCase()}`); return render();
       }
       // (2.94) another system: the lines are laid out again, the players keep their order (gardien, défense, milieu, attaque)
       if ('ssys' in e.target.dataset) {
@@ -20893,6 +20908,7 @@ var Views = (() => {
           if (!o) { o = { id: Store.uid(), type: 'player', color: row[3] ? 'jaune' : S().club.homeBib, gk: !!row[3], label: row[0] }; sc.objects.push(o); }
           st.pos[o.id] = [Math.min(row[1] * 1.9, .94) * L, row[2] * W]; o.gk = !!row[3]; o.color = o.gk ? 'jaune' : (o.color === 'jaune' ? S().club.homeBib : o.color); delete o.post; if (!o.playerId) o.label = row[0]; });
         cur.slice(order.length).forEach(o => { sc.objects = sc.objects.filter(x => x !== o); delete st.pos[o.id]; }); // one line less: the last spots go (their players become substitutes)
+        delete sc.bloc; delete sc.blocBase;
         Store.upsert('schemas', sc); toast(`Système ${name} : les joueurs sont replacés`); return render();
       }
       // (2.90) the number chosen in « Qui joue où ? »: for this match (and on the drawing); « — » gives back the usual one
@@ -21648,7 +21664,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 200, UPD = AppCfg.key('update-tried');
+  const BUILD = 201, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

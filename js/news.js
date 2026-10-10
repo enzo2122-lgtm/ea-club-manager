@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 158, date: '2026-10-10', title: 'Bloc haut, bloc bas 📏', items: [
+      ['📏', "Compo : à côté du système, un menu « Bloc » (très bas, bas, médian, haut, très haut) fait monter ou descendre toute l'équipe sur le terrain, le gardien reste."],
+    ] },
     { n: 157, date: '2026-10-10', title: 'Grand format 📰', items: [
       ['📰', "Réglages → Impression : A4 ou A3 pour tous les PDF (feuille de match, compte-rendu, préparation et causerie, séance). En A3, tout est agrandi, lisible depuis le banc."],
     ] },
