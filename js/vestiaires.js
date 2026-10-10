@@ -31,6 +31,7 @@ const Rooms = (() => {
   let bookings = [], loaded = '', gen = 0;
   async function load(from, to) { bookings = (await Cloud.bookings(from, to)).filter(b => ROOM_IDS.includes(b.field)); loaded = from; }
   const onRoom = (room, d) => bookings.filter(b => b.field === room && b.date === d);
+  const onDay = d => bookings.filter(b => b.date === d).sort((a, b) => a.start_min - b.start_min); // (3.19)
   const conflicts = (room, d, s, e, except) => bookings.filter(b => b.field === room && b.date === d && b.start_min < e && s < b.end_min && b.id !== except);
   const label = b => b.kind === 'adversaire' ? `${b.team_name || 'Adversaire'}` : (b.team_name || KINDS[b.kind || 'autre'][0]);
   // the rooms already given for a match (ours and the visitors')
@@ -64,18 +65,34 @@ const Rooms = (() => {
     if (my !== gen || !$('#roomGrid', root)) return;
     show();
   }
-  // (3.14) the week at a glance: each day, each room with its bookings (a tap on a day opens it)
+  // (3.19) the week like the pitch's: a column per day, the hours down the side, each room in its lane (V1, V2, VK1, VK2 side by side)
   function drawWeek(root, days) {
-    const today = iso(new Date()), mine = new Set(myTeams());
+    const today = iso(new Date()), mine = new Set(myTeams()), list = bookings.filter(b => days.includes(b.date));
+    let lo = Math.min(9 * 60, ...list.map(b => b.start_min)), hi = Math.max(21 * 60, ...list.map(b => b.end_min));
+    lo = Math.floor(lo / 60) * 60; hi = Math.ceil(hi / 60) * 60;
+    const phone = matchMedia('(max-width: 760px)').matches, top = $('#roomGrid', root).getBoundingClientRect().top + window.scrollY;
+    const px = phone ? Math.max(0.35, Math.min(PX, (innerHeight - top - 150) / (hi - lo))) : PX, H = (hi - lo) * px, hours = []; for (let m = lo; m <= hi; m += 60) hours.push(m);
+    const lane = id => Math.max(0, ROOM_IDS.indexOf(id)), W = 100 / ROOM_IDS.length, short = id => id.replace(/^V/, '').replace(/^K/, 'K');
+    const col = d => {
+      const need = homeMatchesOn(d).filter(m => { const g = forMatch(m); return !(g.some(b => b.kind === 'match') && g.some(b => b.kind === 'adversaire')); }).length;
+      return `<div class="plan-day ${d === today ? 'today' : ''}" data-col="${d}">
+        <button class="plan-head" data-rday="${d}" data-open="1">${DAYS[parse(d).getDay()].slice(0, 3)} <b>${parse(d).getDate()}</b>${need ? ' <i class="rw-need" title="Match à domicile sans vestiaire">!</i>' : ''}</button>
+        <div class="plan-body" style="height:${H}px" data-date="${d}">
+          ${hours.map(m => `<i class="hline" style="top:${(m - lo) * px}px"></i>`).join('')}
+          ${onDay(d).map(b => { const c = b.kind === 'adversaire' ? '#475569' : Planning.colorOf(b), l = lane(b.field);
+            return `<button class="bk k-${esc(b.kind || 'autre')} ${mine.has(b.team_id) ? 'mine' : ''}" data-rbk="${b.id}" title="${esc(roomName(b.field) + ' · ' + label(b) + ' · ' + hm(b.start_min) + '–' + hm(b.end_min))}"
+              style="top:${(b.start_min - lo) * px}px;height:${Math.max(phone ? 16 : 22, (b.end_min - b.start_min) * px - 2)}px;left:calc(${l * W}% + 1px);right:auto;width:calc(${W}% - 2px);padding:2px 3px${c ? ';background-color:' + c + ';color:#fff' : ''}">
+              <b>${esc(short(b.field))}</b><span>${esc(b.kind === 'adversaire' ? '🆚' : (label(b) || '').replace(/^Seniors?/, 'S').slice(0, 6))}</span></button>`; }).join('')}
+        </div></div>`;
+    };
     $('#roomMatches', root).innerHTML = '';
-    $('#roomGrid', root).innerHTML = `<div class="room-week">${days.map(d => {
-      const list = bookings.filter(b => b.date === d), ms = homeMatchesOn(d), need = ms.filter(m => { const g = forMatch(m); return !(g.some(b => b.kind === 'match') && g.some(b => b.kind === 'adversaire')); });
-      return `<section class="card rw-day ${d === today ? 'today' : ''}"><button class="rw-head" data-rday="${d}" data-open="1"><b>${esc(parse(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }))}</b>${need.length ? `<span class="badge warn">${need.length} match${need.length > 1 ? 's' : ''} sans vestiaire</span>` : ''}${I.next}</button>
-        ${list.length ? ROOMS.filter(([id]) => list.some(b => b.field === id)).map(([id, name]) => `<div class="rw-room"><span class="rw-name">${esc(name.replace('Vestiaire ', 'Vest. '))}</span><span class="rw-bks">${onRoom(id, d).map(b => { const c = b.kind === 'adversaire' ? '#475569' : Planning.colorOf(b);
-          return `<button class="rw-bk ${mine.has(b.team_id) ? 'mine' : ''}" data-rbk="${b.id}" ${c ? `style="border-left-color:${c}"` : ''}><b>${hm(b.start_min)}–${hm(b.end_min)}</b> ${KINDS[b.kind || 'autre'] ? KINDS[b.kind || 'autre'][1] + ' ' : ''}${esc(label(b))}</button>`; }).join('')}</span></div>`).join('') : '<p class="muted small">Aucun vestiaire attribué.</p>'}</section>`; }).join('')}</div>
-      <p class="muted small">Touche un jour pour le voir heure par heure et attribuer un vestiaire. 🆚 = équipe adverse.</p>`;
+    $('#roomGrid', root).innerHTML = `<div class="plan-grid room-week-grid">
+      <div class="plan-hours"><div class="plan-head">&nbsp;</div><div style="position:relative;height:${H}px">${hours.map(m => `<span style="top:${(m - lo) * px}px">${hm(m)}</span>`).join('')}</div></div>
+      ${days.map(col).join('')}</div>
+      <p class="muted small">Chaque jour, 4 couloirs : ${ROOMS.map(([id, n]) => `<b>${esc(short(id))}</b> ${esc(n.replace('Vestiaire ', 'Vest. '))}`).join(' · ')}. 🆚 = équipe adverse. Touche un jour pour l'ouvrir et attribuer.</p>`;
     bind(root, days[0]);
   }
+
   function draw(root, day) {
     // the day's home matches: their rooms, or a button to give them
     const ms = homeMatchesOn(day);

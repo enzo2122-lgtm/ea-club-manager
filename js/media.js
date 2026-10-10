@@ -34,13 +34,20 @@ const Media = (() => {
       return { blob, mime: UI.IMG, thumb: drawScaled(img, img.naturalWidth, img.naturalHeight, 360).toDataURL(UI.IMG, .7) };
     } finally { URL.revokeObjectURL(url); }
   }
+  // (3.19) the picture of a video: a moment a quarter of the way in (the first frames are often black), the next try if it is still dark
+  const dark = c => { try { const k = document.createElement('canvas'); k.width = 16; k.height = 9; const x = k.getContext('2d'); x.drawImage(c, 0, 0, 16, 9); const d = x.getImageData(0, 0, 16, 9).data; let t = 0; for (let i = 0; i < d.length; i += 4) t += d[i] + d[i + 1] + d[i + 2]; return t / (d.length / 4) / 3 < 22; } catch (e) { return false; } };
   async function videoThumb(file) {
     const url = URL.createObjectURL(file), v = document.createElement('video');
     v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
     try {
       await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(res, 4000); });
-      await new Promise(res => { v.onseeked = res; try { v.currentTime = Math.min(.5, (v.duration || 1) / 2); } catch (e) { res(); } setTimeout(res, 2500); });
-      return v.videoWidth ? drawScaled(v, v.videoWidth, v.videoHeight, 360).toDataURL(UI.IMG, .7) : '';
+      const dur = v.duration && isFinite(v.duration) ? v.duration : 2; let best = '';
+      for (const at of [Math.min(2, dur / 4), dur / 2, dur * .75, .5]) {
+        await new Promise(res => { v.onseeked = res; try { v.currentTime = at; } catch (e) { res(); } setTimeout(res, 2500); });
+        if (!v.videoWidth) continue;
+        const c = drawScaled(v, v.videoWidth, v.videoHeight, 360); best = c.toDataURL(UI.IMG, .7); if (!dark(c)) break;
+      }
+      return best;
     } catch (e) { return ''; } finally { URL.revokeObjectURL(url); }
   }
   async function add(ref, files) {

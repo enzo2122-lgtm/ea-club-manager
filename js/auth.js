@@ -528,9 +528,29 @@ const Auth = (() => {
     }).join('');
     return rows || '<p class="muted">Ajoute les dirigeants dans Équipes → Dirigeants.</p>';
   }
+  // (3.19) the same dirigeant several times (same name and first name): one card is kept, the one with a password, then a responsable's,
+  // then any account, then the oldest; it takes the others' phone / e-mail / role if it has none; the others and their unused accounts go
+  function dedupeStaff(acc) {
+    if (!isAdmin()) return 0;
+    const k = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, ''), by = {}, A = {}; (acc || []).forEach(a => { A[a.staff_id] = a; });
+    Store.state.staff.forEach(s => { const key = k(s.lastName) + '|' + k(s.firstName); if (key !== '|') (by[key] = by[key] || []).push(s); });
+    let n = 0;
+    Object.values(by).filter(g => g.length > 1).forEach(g => {
+      const score = s => (A[s.id] && A[s.id].has_pw ? 8 : 0) + (A[s.id] && A[s.id].admin ? 4 : 0) + (A[s.id] ? 2 : 0) + (user && s.id === user.id ? 16 : 0);
+      g.sort((a, b) => score(b) - score(a) || (a.updatedAt || 0) - (b.updatedAt || 0));
+      const keep = g[0];
+      g.slice(1).forEach(d => {
+        if (A[d.id] && A[d.id].has_pw) return; // someone uses that one: the responsable decides
+        ['phone', 'email', 'role', 'motto', 'club'].forEach(f => { if (!keep[f] && d[f]) keep[f] = d[f]; });
+        Store.remove('staff', d.id); if (A[d.id]) Cloud.accountSet({ staff_id: d.id, delete: true }).catch(() => {}); n++;
+      });
+      Store.upsert('staff', keep);
+    });
+    return n;
+  }
   async function mountSettings(root) {
     const box = root.querySelector('#accList'); if (!box || !serverMode()) return;
-    try { serverAcc = await Cloud.accounts() || []; box.innerHTML = accRows(serverAcc); }
+    try { serverAcc = await Cloud.accounts() || []; const n = dedupeStaff(serverAcc); box.innerHTML = accRows(serverAcc); if (n) toast(`${n} fiche${n > 1 ? 's' : ''} de dirigeant en double retirée${n > 1 ? 's' : ''}`); }
     catch (e) { serverAcc = null; box.innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
   }
   const accOf = id => (serverAcc || []).find(a => a.staff_id === id) || {};

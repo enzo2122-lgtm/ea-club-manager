@@ -2436,3 +2436,7 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .home-todo[open] > summary { margin-bottom: 8px; }
 .home-todo .card { box-shadow: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; margin: 0; padding: 12px 0 4px; background: transparent; }
 .week-card .wk-t small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* (3.19) rooms: the week like the pitch's */
+.room-week-grid .bk b { font-size: 11px; }
+.room-week-grid .bk span { font-size: 10px; }
+.rw-need { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--bad); color: #fff; font: 800 11px var(--font); font-style: normal; vertical-align: 1px; }

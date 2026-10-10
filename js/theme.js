@@ -44,12 +44,13 @@ const Theme = (() => {
       <label class="fld"><span>Mon poste</span><select id="lookPost">${POSTS.map(([k, l]) => `<option value="${k}" ${v.p === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
       <p class="muted small" id="lookTip">${v.p && POSTS.find(x => x[0] === v.p)[2] && POSTS.find(x => x[0] === v.p)[2] !== v.t ? `Pour ton poste, essaie « ${esc(LOOKS.find(x => x[0] === POSTS.find(y => y[0] === v.p)[2])[1])} ».` : ''}</p></section>`;
   }
+  // (3.19) only the buttons of the card count: the page itself carries data-look / data-heart
   // the card's hands (call after the card is in the page); onSaved(v) to keep it elsewhere too, redraw() to show the change
   function bind(root, onSaved, redraw) {
     const box = root.querySelector('#lookCard'); if (!box) return;
     const again = () => { if (redraw) redraw(); else { const n = document.createElement('div'); n.innerHTML = card(); box.replaceWith(n.firstElementChild); bind(root, onSaved); } };
     box.onclick = e => {
-      const l = e.target.closest('[data-look]'), h = e.target.closest('[data-heart]'); if (!l && !h) return;
+      const l = e.target.closest('.look-pick[data-look]'), h = e.target.closest('.heart[data-heart]'); if (!l && !h) return;
       const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); again();
     };
     const sel = box.querySelector('#lookPost'); if (sel) sel.onchange = () => { const v = get(), p = POSTS.find(x => x[0] === sel.value); v.p = sel.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); again(); };
@@ -68,7 +69,7 @@ const Theme = (() => {
     if (liveOn) return; liveOn = true;
     document.addEventListener('click', e => {
       const box = e.target.closest('#lookCard'); if (!box) return;
-      const l = e.target.closest('[data-look]'), h = e.target.closest('[data-heart]'); if (!l && !h) return;
+      const l = e.target.closest('.look-pick[data-look]'), h = e.target.closest('.heart[data-heart]'); if (!l && !h) return;
       const v = get(); if (l) { v.t = l.dataset.look; v.chosen = true; } if (h) v.h = h.dataset.heart; set(v, onSaved); redraw && redraw();
     });
     document.addEventListener('change', e => { if (e.target.id !== 'lookPost') return; const v = get(), p = POSTS.find(x => x[0] === e.target.value); v.p = e.target.value; if (p && p[2] && !v.chosen) v.t = p[2]; set(v, onSaved); redraw && redraw(); });
