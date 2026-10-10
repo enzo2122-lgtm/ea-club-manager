@@ -41,6 +41,8 @@ const Auth = (() => {
   const PREVIEW = AppCfg.key('preview');
   const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
+  // (3.14) the app's developer: the technical tools (screen measures, diagnostics, test club…), hidden from everybody else
+  const isDev = () => !!(user && (Store.get('staff', user.id) || {}).dev);
   // (2.61) « Observation » set by a responsable on a staff: he reads, he does not change anything (the server refuses too)
   const accessOf = () => !user || realAdmin() ? '' : ((Store.get('staff', user.id) || {}).access || user.access || '');
   const readOnly = () => accessOf() === 'read';
@@ -616,5 +618,5 @@ const Auth = (() => {
     if (serverMode() && isAdmin()) Cloud.accountSet({ staff_id: staffId, delete: true }).catch(() => {});
   }
 
-  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, readOnly, limited, canWrite, pageOk, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
+  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, isDev, realAdmin, readOnly, limited, canWrite, pageOk, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
 })();

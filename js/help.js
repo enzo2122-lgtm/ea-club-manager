@@ -2,7 +2,7 @@
    Errors are caught and kept so a coach can attach them to a report. */
 const Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.13';
+  const VERSION = '3.14';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -297,6 +297,6 @@ const Help = (() => {
     $$('[data-repshot]', root).forEach(b => b.onclick = () => { const x = Store.get('reports', b.dataset.repshot); if (x && x.shot) modal({ title: 'Capture d\'écran', body: `<img alt="Capture d'écran" src="${x.shot}" style="width:100%;border-radius:10px">`, actions: [{ label: 'Fermer' }] }); });
     inboxBadge();
   }
-  return { watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES, inbox, inboxBadge };
+  return { diagnostics, watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES, inbox, inboxBadge };
 })();
 Help.watch();

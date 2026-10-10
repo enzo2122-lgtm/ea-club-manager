@@ -271,7 +271,7 @@
       pollClose: (c, id, closed) => rpc('member_chat_poll_close', { p_code: code, p_cat: c, p_id: id, p_closed: closed }),
       react: (c, id, e) => rpc('member_chat_react', { p_code: code, p_cat: c, p_id: id, p_emo: e }), report: (c, id) => rpc('member_chat_report', { p_code: code, p_cat: c, p_id: id }),
       mute: on => rpc('member_chat_mute', { p_code: code, p_on: on }),
-      photo: (c, img, b) => rpc('member_chat_photo', { p_code: code, p_cat: c, p_img: img, p_body: b || null }), img: (c, id) => rpc('member_chat_img', { p_code: code, p_cat: c, p_id: id }) });
+      photo: (c, img, b) => rpc('member_chat_photo', { p_code: code, p_cat: c, p_img: img, p_body: b || null }), att: { begin: (c, n, mi, sz, pa) => rpc('member_att_begin', { p_code: code, p_cat: c, p_name: n, p_mime: mi, p_size: sz, p_parts: pa }), put: (id, n, d) => rpc('member_att_put', { p_code: code, p_id: id, p_n: n, p_data: d }), get: (id, n) => rpc('member_att_get', { p_code: code, p_id: id, p_n: n }) }, img: (c, id) => rpc('member_chat_img', { p_code: code, p_cat: c, p_id: id }) });
     // (1.61) the predictions game of his category (players and coaches)
     if (typeof Game !== 'undefined') Game.mount($('#gameBox'), { load: () => rpc('member_game', { p_code: code }), bet: (e, h, a, ko) => rpc('member_game_bet', { p_code: code, p_event: e, p_h: h, p_a: a, p_kickoff: ko }), fav: f => rpc('member_game_fav', { p_code: code, p_fav: f }), toast, quiet: true });
   }

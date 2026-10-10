@@ -587,7 +587,13 @@ const Library = (() => {
     const grid = $('#libGrid', root);
     const fill = async () => {
       const items = (await Media.list('lib')).filter(m => !filt || m.kind === filt).reverse();
-      grid.innerHTML = items.length ? items.map(card).join('') : `<div class="empty"><p>Rien ici pour l'instant. Touche « Importer » pour ajouter une vidéo, un PDF ou une image depuis Fichiers, Photos ou une autre appli.</p></div>`;
+      // (3.14) archived: what is joined only to matches / sessions already past, and the videos older than 3 weeks joined to nothing to come
+      const t0 = UI.today(), when = {}, model = new Set();
+      [...S().matches, ...S().trainings].forEach(ev => (ev.docIds || []).forEach(id => { if (ev.model) model.add(id); else (when[id] = when[id] || []).push(ev.date || ''); }));
+      const old = m => !model.has(m.id) && ((when[m.id] || []).length ? when[m.id].every(d => d && d < t0) : (m.kind === 'video' && m.createdAt && Date.now() - m.createdAt > 21 * 864e5));
+      const cur = items.filter(m => !old(m)), arch = items.filter(old);
+      grid.innerHTML = (cur.length ? cur.map(card).join('') : `<div class="empty"><p>${arch.length ? 'Rien à venir : les anciens fichiers sont dans les archives, juste en dessous.' : 'Rien ici pour l\'instant. Touche « Importer » pour ajouter une vidéo, un PDF ou une image depuis Fichiers, Photos ou une autre appli.'}</p></div>`)
+        + (arch.length ? `<details class="card fold-list lib-arch"><summary><b>🗄️ Archives (${arch.length})</b><span class="muted small"> · fichiers des matchs et séances passés, vidéos de plus de 3 semaines</span></summary><div class="lib-grid">${arch.map(card).join('')}</div></details>` : '');
     };
     await fill();
     root.onclick = e => {

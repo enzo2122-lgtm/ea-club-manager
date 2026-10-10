@@ -40,7 +40,7 @@ const Messages = (() => {
     return S().staff.filter(s => me() && s.id !== me().id && words.has(fold(firstOf(s)))).map(s => s.id);
   }
   const shotOk = v => typeof v === 'string' && /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(v); // (2.01) only a real screenshot goes into the page
-  const clean = body => String(body).replace(/\n?#rappel-[\w-]+\s*$/, '').replace(/\n?\[\[fichier:[\w,-]+\]\]/, '').replace(/\n?\[\[signalement:[\w-]+\]\]/, '').replace(/\n?\[\[tag:[\w,-]+\]\]/, '');
+  const clean = body => String(body).replace(Chat.ATT_RE, '').replace(/\n?#rappel-[\w-]+\s*$/, '').replace(/\n?\[\[fichier:[\w,-]+\]\]/, '').replace(/\n?\[\[signalement:[\w-]+\]\]/, '').replace(/\n?\[\[tag:[\w,-]+\]\]/, '');
   // @Prénom of a coach of the club, highlighted in the bubble
   const withMentions = html => html.replace(/@([A-Za-zÀ-ÿ0-9'-]+)/g, (all, w) => S().staff.some(s => fold(firstOf(s)) === fold(w)) ? `<b class="mention">@${w}</b>` : all);
   /* ---------- read receipts (club server): when each dirigeant last read a conversation ---------- */
@@ -216,7 +216,7 @@ const Messages = (() => {
       <section class="conv">${ch ? `
         <header class="conv-head"><a class="icon-btn conv-back" href="#/messages" aria-label="Retour">${I.back}</a><span class="conv-title"><b>${esc(channelName(ch))}</b>${ch.startsWith('dm:') ? UI.motto(Store.get('staff', ch.split(':').slice(1).find(id => id !== (me() || {}).id))) : ''}</span></header>
         <div class="conv-body" id="convBody"></div>
-        <form class="composer" id="composer"><textarea id="msgText" rows="1" maxlength="2000" placeholder="Écris ton message…" aria-label="Message"></textarea>
+        <form class="composer" id="composer">${Cloud.ready() ? `<button class="btn soft att-pick" type="button" id="attPick" aria-label="Joindre un fichier (PDF, vidéo, document)">📎</button><input type="file" id="attFile" accept="${Chat.ACCEPT}" hidden>` : ''}<textarea id="msgText" rows="1" maxlength="2000" placeholder="Écris ton message…" aria-label="Message"></textarea>
           <button class="btn primary" type="submit" aria-label="Envoyer">${I.upload}</button></form>`
         : '<div class="conv-empty"><p class="muted">Choisis une conversation.</p></div>'}</section></div>`;
     fitLayout(root);
@@ -249,7 +249,7 @@ const Messages = (() => {
         const d = new Date(m.created_at), ds = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
         const sep = ds !== day ? `<div class="day-sep">${esc(ds)}</div>` : ''; day = ds;
         const mine = m.author_id === me().id;
-        return `${sep}<div class="bubble ${mine ? 'mine' : ''}" data-m="${m.id}">${mine ? '' : `<span class="author-line"><b class="author">${crestOf(staffOf(m))}${esc(authorName(m))}</b>${UI.motto(staffOf(m))}</span>`}<p>${withMentions(esc(clean(m.body))).replace(/\n/g, '<br>')}</p>${filesOf(m)}
+        return `${sep}<div class="bubble ${mine ? 'mine' : ''}" data-m="${m.id}">${mine ? '' : `<span class="author-line"><b class="author">${crestOf(staffOf(m))}${esc(authorName(m))}</b>${UI.motto(staffOf(m))}</span>`}${Chat.attsOf(m.body).map(Chat.attChip).join('')}${clean(m.body).trim() ? `<p>${withMentions(esc(clean(m.body).trim())).replace(/\n/g, '<br>')}</p>` : ''}${filesOf(m)}
           <span class="time">${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}${mine ? receipt(m, m === myLast) : ''}${mine || Auth.isAdmin() ? ` · <button class="linkish" data-delm="${m.id}">supprimer</button>` : ''}</span></div>`;
       }).join('') : '<p class="muted conv-hint">Pas encore de message. Écris le premier !</p>';
       body.scrollTop = atBottom || !drawn ? body.scrollHeight : keep; drawn = true;
@@ -274,6 +274,17 @@ const Messages = (() => {
       ta.value = before + ta.value.slice(pos); ta.focus(); ta.setSelectionRange(before.length, before.length); sug.hidden = true;
     };
     ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer: fine)').matches) { e.preventDefault(); $('#composer', root).requestSubmit(); } };
+    // (3.14) a file joined: sent in pieces, then the message carries it
+    const ap = $('#attPick', root), af = $('#attFile', root);
+    if (ap && af) { ap.onclick = () => af.click(); af.onchange = async () => {
+      const file = af.files && af.files[0]; af.value = ''; if (!file) return;
+      const b = UI.busy(`📎 ${file.name}…`), cap = ta.value.trim();
+      try {
+        const tok = await Chat.attUpload({ begin: (n, mi, sz, pa) => Cloud.attBegin('msg:' + ch, n, mi, sz, pa), put: Cloud.attPut }, file, f => b.progress(f));
+        const m = await Cloud.post(ch, (cap ? cap + '\n' : '') + tok); ta.value = ''; ta.oninput();
+        if (m && !msgs.some(x => x.id === m.id)) msgs.push(m); markRead(ch); draw(); toast('Fichier envoyé');
+      } catch (err) { toast(err.message, 'err'); } finally { b.done(); }
+    }; }
     $('#composer', root).onsubmit = async e => {
       e.preventDefault();
       const text = ta.value.trim(); if (!text) return;
@@ -285,6 +296,7 @@ const Messages = (() => {
       finally { if (btn && document.contains(btn)) { btn.disabled = false; btn.classList.remove('sending'); } }
     };
     body.onclick = async e => {
+      const at = e.target.closest('[data-cxatt]'); if (at) return Chat.attOpen({ get: Cloud.attGet }, { id: at.dataset.cxatt, name: at.dataset.name, mime: at.dataset.mime, size: +at.dataset.size }, (m, err) => toast(m, err ? 'err' : ''));
       // a report's screenshot, full size
       const sh = e.target.closest('[data-shot]');
       const sb = e.target.closest('[data-seen]');

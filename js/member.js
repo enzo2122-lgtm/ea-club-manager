@@ -47,6 +47,9 @@ const Member = (() => {
       if (/TROP_VITE/.test(m)) throw new Error('Doucement : attends quelques secondes entre deux messages.');
       if (/CHAT_FERME/.test(m)) throw new Error('Le chat est fermé pour l\'instant par les coachs.');
       if (/SONDAGE_FINI/.test(m)) throw new Error('Ce sondage est terminé.');
+      if (/FICHIER_TYPE/.test(m)) throw new Error('Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).');
+      if (/FICHIER_POIDS/.test(m)) throw new Error('Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.');
+      if (/FICHIER_ABSENT/.test(m)) throw new Error('Fichier introuvable (effacé après 90 jours ?).');
       if (/PHOTOS_COACHS/.test(m)) throw new Error('Dans ce chat, seuls les coachs envoient des photos pour l\'instant.');
       if (/\bPHOTO\b/.test(m)) throw new Error('Cette photo ne passe pas : essaie avec une autre.');
       if (/CODE_EXPIRE/.test(m)) throw new Error('Cette invitation a expiré (plus de 60 jours) : demande un nouveau code au coach.');
@@ -421,7 +424,7 @@ const Member = (() => {
   }
   function updateCard() {
     return `<div class="card"><p class="info">📲 Une nouveauté annoncée par le club ? Touche le bouton pour avoir la dernière version, sans fermer l'appli.</p>
-      <button class="b yes on" data-mupdate>🔄 Mettre à jour l'appli</button> <button class="b small" type="button" onclick="window.ScreenDiag && window.ScreenDiag()">📏 Mesurer l'écran</button></div>`;
+      <button class="b yes on" data-mupdate>🔄 Mettre à jour l'appli</button> </div>`;
   }
   // a newer version online: a bar on top of the page
   let checked = false;

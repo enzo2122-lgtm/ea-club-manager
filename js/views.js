@@ -439,14 +439,22 @@ const Views = (() => {
   /* ================= Schémas ================= */
   function schemas(root) {
     const filt = S().ui.schemaFilter || '';
-    const list = S().schemas.filter(s => Auth.sees(s.teamId) && (!filt || s.field.format === filt)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    root.innerHTML = `${header('Schémas', 'Exercices et tactiques animés', `<a class="btn" href="#/bibliotheque">${I.video}<span>Bibliothèque</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="fromFile">${I.pdf}<span>Depuis un fichier (PDF, image, vidéo)</span></button><button class="btn" data-act="board">${I.edit}<span>Tableau blanc</span></button><button class="btn" data-act="models">${I.layers}<span>Modèles</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau schéma</span></button>`)}
-      <div class="chips filter">${[['', 'Tous'], ...formats(), ['zone', 'Zones libres']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
-      ${list.length ? `<div class="grid">${list.map(s => `<article class="card schema-card">
+    const all = S().schemas.filter(s => Auth.sees(s.teamId) && (!filt || s.field.format === filt)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    // (3.14) the compositions and drawings of the matches and sessions already played go to the archives (still there, folded)
+    const t0 = today(), dates = {}; S().matches.forEach(m => { if (m.lineupId) (dates[m.lineupId] = dates[m.lineupId] || []).push(m.date || ''); });
+    S().trainings.filter(t => !t.model).forEach(t => (t.exercises || []).forEach(e => { if (e.schemaId) (dates[e.schemaId] = dates[e.schemaId] || []).push(t.date || ''); }));
+    const usedInModel = new Set(S().trainings.filter(t => t.model).flatMap(t => (t.exercises || []).map(e => e.schemaId)).filter(Boolean));
+    const isOld = s => !usedInModel.has(s.id) && (dates[s.id] || []).length > 0 && dates[s.id].every(d => d && d < t0);
+    const list = all.filter(s => !isOld(s)), arch = all.filter(isOld);
+    const card = s => `<article class="card schema-card">
           <a href="#/schema/${s.id}" class="thumb"><img alt="" src="${UI.thumb(s)}"></a>
           <div class="sc-meta"><a href="#/schema/${s.id}"><b>${esc(s.name)}</b></a><span class="muted">${s.field.format === 'zone' ? `Zone ${s.field.w}×${s.field.h} m` : fmtLabel(s.field.format)} · ${s.steps.length} étape${s.steps.length > 1 ? 's' : ''}</span></div>
           <div class="sc-actions"><button class="icon-btn" data-dup="${s.id}" aria-label="Dupliquer">${I.copy}</button><button class="icon-btn danger" data-del="${s.id}" aria-label="Supprimer">${I.trash}</button></div>
-        </article>`).join('')}</div>` : empty('Aucun schéma ici.', `<button class="btn primary" data-act="new">${I.plus}<span>Dessiner un schéma</span></button>`)}`;
+        </article>`;
+    root.innerHTML = `${header('Schémas', 'Exercices et tactiques animés', `<a class="btn" href="#/bibliotheque">${I.video}<span>Bibliothèque</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="fromFile">${I.pdf}<span>Depuis un fichier (PDF, image, vidéo)</span></button><button class="btn" data-act="board">${I.edit}<span>Tableau blanc</span></button><button class="btn" data-act="models">${I.layers}<span>Modèles</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau schéma</span></button>`)}
+      <div class="chips filter">${[['', 'Tous'], ...formats(), ['zone', 'Zones libres']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
+      ${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : empty(arch.length ? 'Rien à venir : les anciens sont dans les archives, en bas.' : 'Aucun schéma ici.', `<button class="btn primary" data-act="new">${I.plus}<span>Dessiner un schéma</span></button>`)}
+      ${arch.length ? `<details class="card fold-list"><summary><b>🗄️ Archives (${arch.length})</b><span class="muted small"> · compositions et schémas des matchs et séances passés</span></summary><div class="grid">${arch.map(card).join('')}</div></details>` : ''}`;
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.f !== undefined && b.classList.contains('chip')) { S().ui.schemaFilter = b.dataset.f; Store.save(); return schemas(root); }
@@ -534,8 +542,13 @@ const Views = (() => {
       <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Séances types du club (${models.length})</b><span class="muted small"> · des séances prêtes, pour toutes les catégories</span></summary>
         ${models.length ? `<div class="list">${models.map(t => `<div class="list-item model-item"><a class="li-main" href="#/entrainement/${t.id}"><b>${esc(t.title || 'Séance type')}</b><span class="muted">${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${t.exercises.reduce((a, e) => a + (+e.duration || 0), 0)} min${t.goal ? ' · ' + esc(String(t.goal).slice(0, 60)) : ''}</span></a><button class="btn primary" data-use="${t.id}">${I.plus}<span>Utiliser</span></button></div>`).join('')}</div>`
           : '<p class="muted small">Pas encore de séance type. Dans une séance réussie, touche « Enregistrer comme séance type » (en bas) : elle servira à tous les coachs.</p>'}</details>
-      <h2 class="section">À venir</h2>${up.length ? `<div class="list">${up.map(item).join('')}</div>` : '<p class="muted">Aucun entraînement prévu.</p>'}
-      <h2 class="section">Passés</h2>${past.length ? `<div class="list">${past.map(item).join('')}</div>` : '<p class="muted">Rien pour l\'instant.</p>'}`;
+      ${(() => { // (3.14) the next two weeks in view; the rest of the season, and the old sessions, folded away
+        const lim = addDays(now, 13), soon = up.filter(t => t.date <= lim), later = up.filter(t => t.date > lim), recent = past.filter(t => t.date >= addDays(now, -14)), old = past.filter(t => t.date < addDays(now, -14));
+        const fold = (l, label) => l.length ? `<details class="card fold-list"><summary><b>${label} (${l.length})</b></summary><div class="list">${l.map(item).join('')}</div></details>` : '';
+        return `<h2 class="section">À venir · 2 semaines</h2>${soon.length ? `<div class="list">${soon.map(item).join('')}</div>` : '<p class="muted">Aucun entraînement dans les 2 semaines.</p>'}
+          ${fold(later, `🗓️ Plus tard, jusqu'au ${esc(fmtDate(later.length ? later[later.length - 1].date : now, { day: 'numeric', month: 'long' }))}`)}
+          <h2 class="section">Passés</h2>${recent.length ? `<div class="list">${recent.map(item).join('')}</div>` : '<p class="muted">Rien ces deux dernières semaines.</p>'}
+          ${fold(old, '🗄️ Plus anciens')}`; })()}`;
     bindTeamSwitch(root, () => trainings(root));
     Parents.dayBadges(root, up.slice(0, 40)); // (1.69) présents / absents annoncés de chaque jour
     $('[data-act="new"]', root).onclick = newTraining;
@@ -1640,6 +1653,9 @@ const Views = (() => {
       ${Auth.isAdmin() ? Onboard.card() : ''}
       ${tabs ? Sources.card() : ''}
       <details class="fold"><summary>🛠️ Avancé <span class="muted small">(couleurs du tableau, fichiers, exemples, effacer)</span></summary>
+      ${Auth.isAdmin() || Auth.isDev() ? `<section class="card"><h2>🧑‍💻 Compte développeur</h2>
+        <label class="switch"><input type="checkbox" id="devMode" ${Auth.isDev() ? 'checked' : ''}><span>Je développe l'appli : afficher les outils techniques (Plus → Développeur), pour moi seulement</span></label>
+        <p class="muted small">Mesures de l'écran, diagnostic, versions, club d'essai. Les autres coachs et responsables ne les voient pas.</p></section>` : ''}
       ${Auth.isAdmin() ? `<section class="card">
         <h2>${I.team}Tableau tactique</h2>
         <div class="lbl">Couleur de nos maillots</div>${bibs('home', c.homeBib)}
@@ -1666,7 +1682,8 @@ const Views = (() => {
       <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="News.all()">Nouveautés</button> · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
-    root.onchange = e => { if (e.target.dataset.notifpref || e.target.dataset.famnotif) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
+    root.onchange = e => { if (e.target.id === 'devMode') { const me = Auth.current(), st = me && Store.get('staff', me.id); if (!st) return toast('Ta fiche de dirigeant est introuvable', 'err'); st.dev = e.target.checked || undefined; Store.upsert('staff', st); toast(e.target.checked ? 'Outils développeur : Plus → Développeur' : 'Outils développeur cachés'); App.refreshChrome && App.refreshChrome(); return; }
+      if (e.target.dataset.notifpref || e.target.dataset.famnotif) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
     root.onclick = async e => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
@@ -1870,7 +1887,7 @@ const Views = (() => {
       post: (c, b, r) => Cloud.chatPost(tk, b, r), del: (c, id) => Cloud.chatDel(tk, id), edit: (c, id, b) => Cloud.chatEdit(tk, id, b), off: off => Cloud.chatOff(tk, off),
       poll: (c, q, opts, multi) => Cloud.chatPoll(tk, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(tk, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(tk, id, closed),
       react: (c, id, e) => Cloud.chatReact(tk, id, e), mute: on => Cloud.chatMute(on),
-      photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
+      photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), att: { begin: (c, n, mi, sz, pa) => Cloud.attBegin('team:' + tk, n, mi, sz, pa), put: Cloud.attPut, get: Cloud.attGet }, pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
   }
   return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat, copyTraining, lastConv };
 })();

@@ -952,7 +952,7 @@ var Store = (() => {
     if (ro(col)) { roSay(); return item; }
     item.updatedAt = Date.now();
     // who changed a match or a session: he is not notified of his own change (club server)
-    if ((col === 'matches' || col === 'trainings') && typeof Auth !== 'undefined' && Auth.current()) item.editedBy = Auth.current().id;
+    if (col !== 'club' && typeof Auth !== 'undefined' && Auth.current()) item.editedBy = Auth.current().id; // (3.14) who changed it last (the journal; the server knows it from the connection too)
     const i = state[col].findIndex(x => x.id === item.id);
     if (i < 0) state[col].push(item); else state[col][i] = item;
     if (col === 'teams') sortTeams();
@@ -2100,6 +2100,8 @@ var Auth = (() => {
   const PREVIEW = AppCfg.key('preview');
   const preview = () => { if (!realAdmin()) return null; try { const v = JSON.parse(localStorage.getItem(PREVIEW)); return v && Array.isArray(v.teamIds) ? v : null; } catch (e) { return null; } };
   const isAdmin = () => realAdmin() && !preview();
+  // (3.14) the app's developer: the technical tools (screen measures, diagnostics, test club…), hidden from everybody else
+  const isDev = () => !!(user && (Store.get('staff', user.id) || {}).dev);
   // (2.61) « Observation » set by a responsable on a staff: he reads, he does not change anything (the server refuses too)
   const accessOf = () => !user || realAdmin() ? '' : ((Store.get('staff', user.id) || {}).access || user.access || '');
   const readOnly = () => accessOf() === 'read';
@@ -2675,7 +2677,7 @@ var Auth = (() => {
     if (serverMode() && isAdmin()) Cloud.accountSet({ staff_id: staffId, delete: true }).catch(() => {});
   }
 
-  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, realAdmin, readOnly, limited, canWrite, pageOk, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
+  return { PREVIEW, startPreview, viewPage, askPassword, gate, current, isAdmin, isDev, realAdmin, readOnly, limited, canWrite, pageOk, preview, volView, stopPreview, teams, sees, seesPerson, logout, localOnly, connectServer, expired, settingsSection, mountSettings, onSettingsClick, onSettingsChange, forget, setInvite, nkey, firstKeys };
 })();
 
 ;
@@ -3469,7 +3471,13 @@ var Library = (() => {
     const grid = $('#libGrid', root);
     const fill = async () => {
       const items = (await Media.list('lib')).filter(m => !filt || m.kind === filt).reverse();
-      grid.innerHTML = items.length ? items.map(card).join('') : `<div class="empty"><p>Rien ici pour l'instant. Touche « Importer » pour ajouter une vidéo, un PDF ou une image depuis Fichiers, Photos ou une autre appli.</p></div>`;
+      // (3.14) archived: what is joined only to matches / sessions already past, and the videos older than 3 weeks joined to nothing to come
+      const t0 = UI.today(), when = {}, model = new Set();
+      [...S().matches, ...S().trainings].forEach(ev => (ev.docIds || []).forEach(id => { if (ev.model) model.add(id); else (when[id] = when[id] || []).push(ev.date || ''); }));
+      const old = m => !model.has(m.id) && ((when[m.id] || []).length ? when[m.id].every(d => d && d < t0) : (m.kind === 'video' && m.createdAt && Date.now() - m.createdAt > 21 * 864e5));
+      const cur = items.filter(m => !old(m)), arch = items.filter(old);
+      grid.innerHTML = (cur.length ? cur.map(card).join('') : `<div class="empty"><p>${arch.length ? 'Rien à venir : les anciens fichiers sont dans les archives, juste en dessous.' : 'Rien ici pour l\'instant. Touche « Importer » pour ajouter une vidéo, un PDF ou une image depuis Fichiers, Photos ou une autre appli.'}</p></div>`)
+        + (arch.length ? `<details class="card fold-list lib-arch"><summary><b>🗄️ Archives (${arch.length})</b><span class="muted small"> · fichiers des matchs et séances passés, vidéos de plus de 3 semaines</span></summary><div class="lib-grid">${arch.map(card).join('')}</div></details>` : '');
     };
     await fill();
     root.onclick = e => {
@@ -3855,7 +3863,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.13';
+  const VERSION = '3.14';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4150,7 +4158,7 @@ var Help = (() => {
     $$('[data-repshot]', root).forEach(b => b.onclick = () => { const x = Store.get('reports', b.dataset.repshot); if (x && x.shot) modal({ title: 'Capture d\'écran', body: `<img alt="Capture d'écran" src="${x.shot}" style="width:100%;border-radius:10px">`, actions: [{ label: 'Fermer' }] }); });
     inboxBadge();
   }
-  return { watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES, inbox, inboxBadge };
+  return { diagnostics, watch, tour, tourSeen, open, button, visit, guideInto, report, settingsSection, onSettings, VERSION, TYPES, inbox, inboxBadge };
 })();
 Help.watch();
 
@@ -4193,6 +4201,11 @@ var Cloud = (() => {
     LECTURE_SEULE: 'Accès en lecture seule : rien n\'est enregistré.',
     ACCES_RETIRE: 'Ton accès à l\'appli du club a été retiré par un responsable.',
     SESSION: 'Ta connexion a expiré : reconnecte-toi.',
+    FICHIER_TYPE: 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).',
+    FICHIER_POIDS: 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.',
+    FICHIER_ABSENT: 'Fichier introuvable (effacé après 90 jours ?).',
+    CRENEAU_AUTEUR: 'Seul le coach qui a réservé ce créneau, ou un responsable, peut le libérer.',
+    RESPONSABLE: 'Réservé à un responsable du club.',
     DONNEES: 'Informations incomplètes.',
     CRENEAU_PRIS: 'Ce créneau est déjà pris sur cette partie du terrain. Choisis un autre horaire ou l\'autre moitié.',
     HORS_CRENEAU: 'Cet horaire est en dehors des créneaux disponibles du terrain.',
@@ -4248,6 +4261,10 @@ var Cloud = (() => {
     setSlots: list => rpc('club_set_slots', { admin_k: adminKey(), p: list }),
     bookings: async (from, to) => ((await rpc('club_bookings', { d_from: from, d_to: to })) || []).map(normDate),
     book: async b => normDate(await rpc('club_book', { p: b })),
+    attBegin: (where, name, mime, size, parts) => rpc('club_att_begin', { p_where: where, p_name: name, p_mime: mime, p_size: size, p_parts: parts }), // (3.14) attachments
+    attPut: (id, n, data) => rpc('club_att_put', { p_id: id, p_n: n, p_data: data }),
+    attGet: (id, n) => rpc('club_att_get', { p_id: id, p_n: n }),
+    journal: (before, col, who) => rpc('club_journal', { p_before: before, p_col: col, p_who: who, admin_k: adminKey() || null }), // (3.14)
     unbook: id => rpc('club_unbook', { p_id: id, p_author: Auth.current().id, admin_k: adminKey() || null }),
     unbookSeries: series => rpc('club_unbook_series', { p_series: series, p_author: Auth.current().id, admin_k: adminKey() || null }),
     // accounts
@@ -4741,11 +4758,12 @@ var Planning = (() => {
   async function page(root) {
     if (!Cloud.ready()) return notReady(root);
     const ui = S().ui, today = iso(new Date());
+    if (!root.querySelector('[data-pg="plan"]')) { ui.planWeek = monday(today); ui.planDay = today; } // (3.14) opened from another page: this week, today
     ui.planWeek = ui.planWeek || monday(today);
     ui.planDay = ui.planDay || today;
     const week = ui.planWeek, days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.planView !== 'day';
     if (!days.includes(ui.planDay)) ui.planDay = days[0];
-    root.innerHTML = `${placeTabs('pitch')}<header class="page-head"><div><h1>Planning · ${esc(fieldName())}</h1><p class="sub">Grand terrain ou demi-terrain, sans chevauchement</p></div>
+    root.innerHTML = `${placeTabs('pitch')}<header class="page-head" data-pg="plan"><div><h1>Planning · ${esc(fieldName())}</h1><p class="sub">Grand terrain ou demi-terrain, sans chevauchement</p></div>
       <div class="head-actions plan-actions"><a class="btn" href="#/encadrement" aria-label="Qui encadre ?">${I.whistle}<span>Qui encadre ?</span></a>${Auth.isAdmin() ? `<button class="btn" data-p="slots" aria-label="Créneaux disponibles">${I.clock}<span>Créneaux disponibles</span></button>` : ''}
       <button class="btn" data-p="bookHome" id="bookHome" hidden aria-label="Réserver les matchs à domicile">${I.match}<span>Réserver les matchs à domicile</span></button>
       <button class="btn" data-p="recur" aria-label="Chaque semaine">${I.rotate}<span>Chaque semaine</span></button>
@@ -5167,7 +5185,7 @@ var Messages = (() => {
     return S().staff.filter(s => me() && s.id !== me().id && words.has(fold(firstOf(s)))).map(s => s.id);
   }
   const shotOk = v => typeof v === 'string' && /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(v); // (2.01) only a real screenshot goes into the page
-  const clean = body => String(body).replace(/\n?#rappel-[\w-]+\s*$/, '').replace(/\n?\[\[fichier:[\w,-]+\]\]/, '').replace(/\n?\[\[signalement:[\w-]+\]\]/, '').replace(/\n?\[\[tag:[\w,-]+\]\]/, '');
+  const clean = body => String(body).replace(Chat.ATT_RE, '').replace(/\n?#rappel-[\w-]+\s*$/, '').replace(/\n?\[\[fichier:[\w,-]+\]\]/, '').replace(/\n?\[\[signalement:[\w-]+\]\]/, '').replace(/\n?\[\[tag:[\w,-]+\]\]/, '');
   // @Prénom of a coach of the club, highlighted in the bubble
   const withMentions = html => html.replace(/@([A-Za-zÀ-ÿ0-9'-]+)/g, (all, w) => S().staff.some(s => fold(firstOf(s)) === fold(w)) ? `<b class="mention">@${w}</b>` : all);
   /* ---------- read receipts (club server): when each dirigeant last read a conversation ---------- */
@@ -5343,7 +5361,7 @@ var Messages = (() => {
       <section class="conv">${ch ? `
         <header class="conv-head"><a class="icon-btn conv-back" href="#/messages" aria-label="Retour">${I.back}</a><span class="conv-title"><b>${esc(channelName(ch))}</b>${ch.startsWith('dm:') ? UI.motto(Store.get('staff', ch.split(':').slice(1).find(id => id !== (me() || {}).id))) : ''}</span></header>
         <div class="conv-body" id="convBody"></div>
-        <form class="composer" id="composer"><textarea id="msgText" rows="1" maxlength="2000" placeholder="Écris ton message…" aria-label="Message"></textarea>
+        <form class="composer" id="composer">${Cloud.ready() ? `<button class="btn soft att-pick" type="button" id="attPick" aria-label="Joindre un fichier (PDF, vidéo, document)">📎</button><input type="file" id="attFile" accept="${Chat.ACCEPT}" hidden>` : ''}<textarea id="msgText" rows="1" maxlength="2000" placeholder="Écris ton message…" aria-label="Message"></textarea>
           <button class="btn primary" type="submit" aria-label="Envoyer">${I.upload}</button></form>`
         : '<div class="conv-empty"><p class="muted">Choisis une conversation.</p></div>'}</section></div>`;
     fitLayout(root);
@@ -5376,7 +5394,7 @@ var Messages = (() => {
         const d = new Date(m.created_at), ds = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
         const sep = ds !== day ? `<div class="day-sep">${esc(ds)}</div>` : ''; day = ds;
         const mine = m.author_id === me().id;
-        return `${sep}<div class="bubble ${mine ? 'mine' : ''}" data-m="${m.id}">${mine ? '' : `<span class="author-line"><b class="author">${crestOf(staffOf(m))}${esc(authorName(m))}</b>${UI.motto(staffOf(m))}</span>`}<p>${withMentions(esc(clean(m.body))).replace(/\n/g, '<br>')}</p>${filesOf(m)}
+        return `${sep}<div class="bubble ${mine ? 'mine' : ''}" data-m="${m.id}">${mine ? '' : `<span class="author-line"><b class="author">${crestOf(staffOf(m))}${esc(authorName(m))}</b>${UI.motto(staffOf(m))}</span>`}${Chat.attsOf(m.body).map(Chat.attChip).join('')}${clean(m.body).trim() ? `<p>${withMentions(esc(clean(m.body).trim())).replace(/\n/g, '<br>')}</p>` : ''}${filesOf(m)}
           <span class="time">${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}${mine ? receipt(m, m === myLast) : ''}${mine || Auth.isAdmin() ? ` · <button class="linkish" data-delm="${m.id}">supprimer</button>` : ''}</span></div>`;
       }).join('') : '<p class="muted conv-hint">Pas encore de message. Écris le premier !</p>';
       body.scrollTop = atBottom || !drawn ? body.scrollHeight : keep; drawn = true;
@@ -5401,6 +5419,17 @@ var Messages = (() => {
       ta.value = before + ta.value.slice(pos); ta.focus(); ta.setSelectionRange(before.length, before.length); sug.hidden = true;
     };
     ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer: fine)').matches) { e.preventDefault(); $('#composer', root).requestSubmit(); } };
+    // (3.14) a file joined: sent in pieces, then the message carries it
+    const ap = $('#attPick', root), af = $('#attFile', root);
+    if (ap && af) { ap.onclick = () => af.click(); af.onchange = async () => {
+      const file = af.files && af.files[0]; af.value = ''; if (!file) return;
+      const b = UI.busy(`📎 ${file.name}…`), cap = ta.value.trim();
+      try {
+        const tok = await Chat.attUpload({ begin: (n, mi, sz, pa) => Cloud.attBegin('msg:' + ch, n, mi, sz, pa), put: Cloud.attPut }, file, f => b.progress(f));
+        const m = await Cloud.post(ch, (cap ? cap + '\n' : '') + tok); ta.value = ''; ta.oninput();
+        if (m && !msgs.some(x => x.id === m.id)) msgs.push(m); markRead(ch); draw(); toast('Fichier envoyé');
+      } catch (err) { toast(err.message, 'err'); } finally { b.done(); }
+    }; }
     $('#composer', root).onsubmit = async e => {
       e.preventDefault();
       const text = ta.value.trim(); if (!text) return;
@@ -5412,6 +5441,7 @@ var Messages = (() => {
       finally { if (btn && document.contains(btn)) { btn.disabled = false; btn.classList.remove('sending'); } }
     };
     body.onclick = async e => {
+      const at = e.target.closest('[data-cxatt]'); if (at) return Chat.attOpen({ get: Cloud.attGet }, { id: at.dataset.cxatt, name: at.dataset.name, mime: at.dataset.mime, size: +at.dataset.size }, (m, err) => toast(m, err ? 'err' : ''));
       // a report's screenshot, full size
       const sh = e.target.closest('[data-shot]');
       const sb = e.target.closest('[data-seen]');
@@ -5580,6 +5610,8 @@ var People = (() => {
         <details class="posts-more" ${postsOf(p).length > 1 ? 'open' : ''}><summary>Autres postes possibles${postsOf(p).length > 1 ? ` (${postsOf(p).length - 1})` : ''}</summary><div id="pPosts">${TYPES.map(([t, l]) => `<div class="post-group"><span class="muted small">${esc(l)}</span><div class="chips">${POSTS.filter(x => x[3] === t).map(x => `<button type="button" class="chip ${postsOf(p).slice(1).includes(x[0]) ? 'on' : ''}" data-post="${x[0]}">${postChip(x)}</button>`).join('')}</div></div>`).join('')}</div></details>
         <div class="lbl">Catégories (plusieurs possibles)</div>${teamChips(p.teamIds)}
         <label class="fld"><span>Licence</span><select id="pMute">${[['', 'Non muté'], ['mute', 'Muté'], ['mute_hp', 'Muté hors période'], ['contrat', 'Sous contrat']].map(([v, l]) => `<option value="${v}" ${((x => !x || /non/.test(x) ? '' : /hors|hp/.test(x) ? 'mute_hp' : /contrat/.test(x) ? 'contrat' : 'mute')(String(p.mute || '').toLowerCase())) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <div class="row2"><label class="fld"><span>N° de licence</span><input id="pLic" inputmode="numeric" value="${esc(p.licence || '')}" placeholder="ex : 2547123456"></label>
+          <label class="fld"><span>Commune (domicile)</span><input id="pTown" value="${esc(p.town || '')}" placeholder="ex : Le Raincy" autocomplete="address-level2"></label></div>
         <label class="chk trial-chk"><input type="checkbox" id="pTrial" ${p.trial ? 'checked' : ''}> 🧪 <b>À l'essai</b> <span class="muted small">(il vient essayer : fiche légère, tu décides ensuite de le garder ou non)</span></label>
         <h3 class="sub-h">Contacts</h3>
         <div class="row2"><label class="fld"><span>Téléphone du joueur</span><input id="pTel" type="tel" inputmode="tel" value="${esc(p.phone || '')}"></label>
@@ -5613,7 +5645,7 @@ var People = (() => {
         { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           const v = id => $('#' + id, r).value.trim();
           if (!v('pLast') && !v('pFirst')) { toast('Écris au moins le nom ou le prénom', 'err'); return false; }
-          const data = { lastName: v('pLast').toUpperCase(), firstName: v('pFirst'), birth: v('pBirth'), subcat: v('pSub'), number: v('pNum') === '' ? '' : +v('pNum'), ...readPosts(r, v('pPos')), trial: $('#pTrial', r).checked ? (p.trial || { since: UI.today() }) : undefined, mute: $('#pMute', r).value, phone: v('pTel'), email: v('pMail'), notes: $('#pNotes', r).value, teamIds: pickedTeams(r, p.teamIds || []),
+          const data = { lastName: v('pLast').toUpperCase(), firstName: v('pFirst'), birth: v('pBirth'), subcat: v('pSub'), number: v('pNum') === '' ? '' : +v('pNum'), ...readPosts(r, v('pPos')), trial: $('#pTrial', r).checked ? (p.trial || { since: UI.today() }) : undefined, mute: $('#pMute', r).value, licence: v('pLic'), town: v('pTown'), phone: v('pTel'), email: v('pMail'), notes: $('#pNotes', r).value, teamIds: pickedTeams(r, p.teamIds || []),
             parents: [0, 1].map(i => ({ name: v(`par${i}n`), rel: v(`par${i}r`), phone: v(`par${i}t`) })).filter(x => x.name || x.phone) };
           // a new player who is already in the club (same name, same date of birth): add him to this category instead of a 2nd card
           const twin = isNew && twinOf(data);
@@ -6097,6 +6129,7 @@ var People = (() => {
       <div class="cards2">
         ${Health.playerCard(p)}
         ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
+        ${ClubAdmin.licenceCard(p)}
         ${Urgent.card(p)}
         ${Consent.card(p)}
         ${Level.card(p)}
@@ -7973,24 +8006,41 @@ var Rooms = (() => {
   async function page(root) {
     if (!Cloud.ready()) { root.innerHTML = `${Planning.placeTabs('rooms')}<div class="empty"><p>Le planning des vestiaires passe par le serveur du club, pas encore connecté sur cet appareil.</p></div>`; return; }
     const ui = S().ui, today = iso(new Date());
+    // (3.14) opened from another page: today's week (unless a match asked for its own day)
+    if (!root.querySelector('[data-pg="rooms"]')) { if (ui.roomPin) ui.roomPin = 0; else ui.roomDay = today; }
     ui.roomDay = ui.roomDay || today;
-    const day = ui.roomDay, week = monday(day), days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
+    const day = ui.roomDay, week = monday(day), days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.roomView === 'week';
     const my = gen = gen + 1;
+    const wkLabel = `Semaine du ${parse(week).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
     root.innerHTML = `${Planning.placeTabs('rooms')}
-      <header class="page-head"><div><h1>Vestiaires</h1><p class="sub">Qui est dans quel vestiaire, sans chevauchement</p></div>
+      <header class="page-head" data-pg="rooms"><div><h1>Vestiaires</h1><p class="sub">Qui est dans quel vestiaire, sans chevauchement</p></div>
       <div class="head-actions"><button class="btn" data-r="recur">${I.rotate}<span>Chaque semaine</span></button><button class="btn primary" data-r="new">${I.plus}<span>Attribuer</span></button></div></header>
-      <div class="plan-nav"><button class="icon-btn" data-r="prev" aria-label="Jour précédent">${I.back}</button>
-        <b>${esc(parse(day).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}</b>
-        <button class="icon-btn" data-r="next" aria-label="Jour suivant">${I.next}</button><button class="btn soft" data-r="today">Aujourd'hui</button></div>
-      <div class="day-chips">${days.map(d => `<button class="chip ${d === day ? 'on' : ''}" data-rday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} ${parse(d).getDate()}</button>`).join('')}</div>
+      <div class="chips view-tog"><button class="chip ${wk ? '' : 'on'}" data-r="vday">Jour</button><button class="chip ${wk ? 'on' : ''}" data-r="vweek">Semaine</button></div>
+      <div class="plan-nav"><button class="icon-btn" data-r="prev" aria-label="${wk ? 'Semaine précédente' : 'Jour précédent'}">${I.back}</button>
+        <b>${esc(wk ? wkLabel : parse(day).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}</b>
+        <button class="icon-btn" data-r="next" aria-label="${wk ? 'Semaine suivante' : 'Jour suivant'}">${I.next}</button><button class="btn soft" data-r="today">${wk ? 'Cette semaine' : 'Aujourd\'hui'}</button></div>
+      ${wk ? '' : `<div class="day-chips">${days.map(d => `<button class="chip ${d === day ? 'on' : ''} ${d === today ? 'today' : ''}" data-rday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} ${parse(d).getDate()}</button>`).join('')}</div>`}
       <div id="roomMatches"></div>
       <div class="plan-wrap" id="roomGrid"><p class="muted">Chargement…</p></div>`;
     const cr = $('.day-chips', root), on = $('.day-chips .chip.on', root); if (cr && on) cr.scrollLeft = on.offsetLeft - (cr.clientWidth - on.offsetWidth) / 2;
     const cached = loaded === week;
-    if (cached) draw(root, day);
+    const show = () => wk ? drawWeek(root, days) : draw(root, day);
+    if (cached) show();
     try { await load(week, addDays(week, 6)); } catch (e) { if (my === gen && !cached && $('#roomGrid', root)) $('#roomGrid', root).innerHTML = `<div class="empty"><p>${esc(e.message)}</p></div>`; return; }
     if (my !== gen || !$('#roomGrid', root)) return;
-    draw(root, day);
+    show();
+  }
+  // (3.14) the week at a glance: each day, each room with its bookings (a tap on a day opens it)
+  function drawWeek(root, days) {
+    const today = iso(new Date()), mine = new Set(myTeams());
+    $('#roomMatches', root).innerHTML = '';
+    $('#roomGrid', root).innerHTML = `<div class="room-week">${days.map(d => {
+      const list = bookings.filter(b => b.date === d), ms = homeMatchesOn(d), need = ms.filter(m => { const g = forMatch(m); return !(g.some(b => b.kind === 'match') && g.some(b => b.kind === 'adversaire')); });
+      return `<section class="card rw-day ${d === today ? 'today' : ''}"><button class="rw-head" data-rday="${d}" data-open="1"><b>${esc(parse(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }))}</b>${need.length ? `<span class="badge warn">${need.length} match${need.length > 1 ? 's' : ''} sans vestiaire</span>` : ''}${I.next}</button>
+        ${list.length ? ROOMS.filter(([id]) => list.some(b => b.field === id)).map(([id, name]) => `<div class="rw-room"><span class="rw-name">${esc(name.replace('Vestiaire ', 'Vest. '))}</span><span class="rw-bks">${onRoom(id, d).map(b => { const c = b.kind === 'adversaire' ? '#475569' : Planning.colorOf(b);
+          return `<button class="rw-bk ${mine.has(b.team_id) ? 'mine' : ''}" data-rbk="${b.id}" ${c ? `style="border-left-color:${c}"` : ''}><b>${hm(b.start_min)}–${hm(b.end_min)}</b> ${KINDS[b.kind || 'autre'] ? KINDS[b.kind || 'autre'][1] + ' ' : ''}${esc(label(b))}</button>`; }).join('')}</span></div>`).join('') : '<p class="muted small">Aucun vestiaire attribué.</p>'}</section>`; }).join('')}</div>
+      <p class="muted small">Touche un jour pour le voir heure par heure et attribuer un vestiaire. 🆚 = équipe adverse.</p>`;
+    bind(root, days[0]);
   }
   function draw(root, day) {
     // the day's home matches: their rooms, or a button to give them
@@ -8021,13 +8071,14 @@ var Rooms = (() => {
       const b = e.target.closest('button'), ui = S().ui;
       if (b && b.dataset.r) {
         const r = b.dataset.r;
-        if (r === 'prev' || r === 'next') { ui.roomDay = addDays(day, r === 'prev' ? -1 : 1); return page(root); }
+        if (r === 'prev' || r === 'next') { ui.roomDay = addDays(ui.roomDay || day, (r === 'prev' ? -1 : 1) * (ui.roomView === 'week' ? 7 : 1)); return page(root); }
         if (r === 'today') { ui.roomDay = iso(new Date()); return page(root); }
+        if (r === 'vday' || r === 'vweek') { ui.roomView = r === 'vweek' ? 'week' : 'day'; Store.save(); return page(root); }
         if (r === 'new') return form({ date: day, start: 18 * 60 }, () => page(root));
         if (r === 'recur') return recurForm(() => page(root));
         if (r === 'allmatches') return assignAll(homeMatchesOn(day).filter(m => matchWindow(m)), () => page(root));
       }
-      if (b && b.dataset.rday) { ui.roomDay = b.dataset.rday; return page(root); }
+      if (b && b.dataset.rday) { ui.roomDay = b.dataset.rday; if (b.dataset.open) { ui.roomView = 'day'; Store.save(); } return page(root); }
       if (b && b.dataset.rmatch) return matchForm(Store.get('matches', b.dataset.rmatch), () => page(root));
       if (b && b.dataset.rbk) return detail(bookings.find(x => x.id === b.dataset.rbk), () => page(root));
       const body = e.target.closest('.room-body');
@@ -8181,7 +8232,7 @@ var Rooms = (() => {
     el.innerHTML = `<p class="rooms-line">🚪 <b>Vestiaires</b> · 🏠 ${us ? esc(roomName(us.field)) : 'à attribuer'} · 🆚 ${them ? esc(roomName(them.field)) : 'à attribuer'}
       ${us && them ? '' : `<button class="linkish" data-roomfor="${m.id}">attribuer</button>`} <a class="linkish" href="#/vestiaires" data-roomday="${m.date}">planning des vestiaires</a></p>`;
     el.onclick = e => {
-      const a = e.target.closest('[data-roomday]'); if (a) { S().ui.roomDay = a.dataset.roomday; }
+      const a = e.target.closest('[data-roomday]'); if (a) { S().ui.roomDay = a.dataset.roomday; S().ui.roomPin = 1; S().ui.roomView = 'day'; }
       const b = e.target.closest('[data-roomfor]'); if (b) matchForm(m, () => matchBox(el, m));
     };
   }
@@ -12352,7 +12403,7 @@ var Gestion = (() => {
         tile('#/stats', '📈', 'Stats', 'Buts, temps de jeu, présences'), tile('#/bilan', '📘', 'Bilan de saison', 'Par catégorie'), tile('#/exercices', '📚', 'Exercices du club', 'Bibliothèque des coachs')])}
       ${group('📣 La communication', [tile('#/messages', '💬', 'Messagerie', 'Tout le club, catégories, privés'), tile('', '📣', 'Message à tout le club', 'Les dirigeants reçoivent une notification', 'announce')])}
       ${group('🛠️ Les données', [tile('', '📥', 'Importer', 'Joueurs, matchs, dirigeants (photo, PDF, Excel)', 'import'), tile('', '🛟', 'Sauvegardes', 'Automatique chaque lundi, ou à la main', 'backup'),
-        tile('#/reglages', '⚙️', 'Réglages du club', 'Couleurs, serveur, notifications, saison')])}`;
+        tile('#/journal', '📜', 'Journal des modifications', 'Qui a changé quoi, et quand'), tile('#/reglages', '⚙️', 'Réglages du club', 'Couleurs, serveur, notifications, saison')])}`;
     root.onclick = e => {
       const b = e.target.closest('[data-g]'); if (!b) return;
       const g = b.dataset.g;
@@ -15132,6 +15183,43 @@ var ClubAdmin = (() => {
   }
   const noImage = p => val(p, 'image') === 'non';
 
+  /* ---------- (3.14) the licence: its number, its real state in Footclubs, and its price ----------
+     club.fees = { town, local, ext, mute }: the price for the players living in the club's town, the others, the transferred ones (mutés).
+     A licence read in Footclubs is paid (the club only registers it once paid): the fee is marked « payée » at the import. */
+  const fees = () => S().club.fees || {};
+  const normTown = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const isMute = p => !!p.mute && /^mute/.test(p.mute);
+  const local = p => { const f = fees(); return !f.town || !p.town ? null : normTown(p.town) === normTown(f.town) || normTown(p.town).includes(normTown(f.town)); };
+  // [price, why] — null when the club has no prices or the town is unknown
+  function fee(p) {
+    const f = fees(); if (!f.local && !f.ext && !f.mute) return null;
+    if (isMute(p) && f.mute) return [+f.mute, 'muté'];
+    const l = local(p); if (l == null) return null;
+    return l ? [+f.local, f.town ? 'habite ' + f.town : 'tarif local'] : [+f.ext, 'hors ' + (f.town || 'commune')];
+  }
+  const LICS = { ok: ['✓ Validée', 'good'], attente: ['⏳ En attente', 'mid'] };
+  // the card on the player's page (coaches and responsables)
+  function licenceCard(p) {
+    if (!Auth.current() || Auth.limited()) return '';
+    const a = adm(p), fc = p.fc || null, fe = fee(p), st = LICS[a.lic], paid = a.cotis === 'ok', part = a.cotis === 'partiel';
+    return `<section class="card lic-card"><h2>🪪 Licence</h2>
+      <dl class="lic-dl">
+        <div><dt>Numéro</dt><dd>${p.licence ? `<b>${esc(p.licence)}</b>` : '<span class="muted">pas encore renseigné</span>'}</dd></div>
+        <div><dt>Dans Footclubs</dt><dd>${fc ? `<b>${esc(fc.etat || 'présente')}</b><span class="muted small"> · lu le ${esc(fmtDate(fc.at))}</span>` : '<span class="muted">pas lue (Gestion → Sources → Footclubs)</span>'}</dd></div>
+        <div><dt>État</dt><dd>${st ? `<span class="adm-b ${st[1]}">${st[0]}</span>` : '<span class="muted">–</span>'}${isMute(p) ? ' <span class="badge">muté</span>' : ''}</dd></div>
+        <div><dt>Cotisation</dt><dd>${paid ? '<span class="adm-b good">✓ Payée</span>' : part ? '<span class="adm-b mid">½ En partie</span>' : '<span class="adm-b bad">✗ Non payée</span>'}${a.paid != null && a.paid !== '' ? ` · ${esc(a.paid)} €` : ''}${fc && paid && a.paidBy === 'footclubs' ? '<span class="muted small"> (licence présente sur Footclubs)</span>' : ''}</dd></div>
+        <div><dt>Tarif</dt><dd>${fe ? `<b>${fe[0]} €</b> <span class="muted small">(${esc(fe[1])})</span>` : `<span class="muted">${fees().local || fees().ext ? 'commune inconnue : « Modifier » → Commune' : 'tarifs non réglés (Licences et cotisations)'}</span>`}</dd></div>
+        ${p.town ? `<div><dt>Commune</dt><dd>${esc(p.town)}</dd></div>` : ''}
+      </dl>${Auth.isAdmin() ? '<p><a class="btn soft" href="#/licences">🧾<span>Licences et cotisations du club</span></a></p>' : ''}</section>`;
+  }
+  // the Footclubs import: what it tells about one player (his state, and the licence there = paid)
+  function fromFootclubs(p, etat) {
+    p.fc = { etat: String(etat || '').slice(0, 60), at: today() };
+    const a = Object.assign({}, p.adm);
+    if (a.cotis !== 'ok') { a.cotis = 'ok'; a.paidBy = 'footclubs'; const fe = fee(p); if ((a.paid == null || a.paid === '') && fe) a.paid = fe[0]; }
+    p.adm = a;
+  }
+
   function licencesPage(root) {
     if (!Auth.isAdmin()) { location.hash = '#/'; return; }
     const ui = S().ui, cat = ui.admCat || '', only = ui.admOnly || '', q = (ui.admQ || '').toLowerCase();
@@ -15150,15 +15238,22 @@ var ClubAdmin = (() => {
         <select id="admCat" aria-label="Catégorie"><option value="">Toutes les catégories</option>${S().teams.map(t => `<option value="${t.id}" ${t.id === cat ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select>
         <label class="switch"><input type="checkbox" id="admOnly" ${only ? 'checked' : ''}><span>Seulement ceux qui ne sont pas en règle</span></label>
       </div>
+      <details class="card fees-card" ${fees().local || fees().ext ? '' : 'open'}><summary><b>💶 Tarifs des licences</b><span class="muted small"> · ${fees().local || fees().ext ? `${esc(fees().town || 'commune')} ${esc(fees().local || '?')} € · autres ${esc(fees().ext || '?')} € · mutés ${esc(fees().mute || '?')} €` : 'à régler'}</span></summary>
+        <div class="row2"><label class="fld"><span>Commune du club</span><input id="feeTown" value="${esc(fees().town || '')}" placeholder="ex : Le Raincy"></label>
+          <label class="fld"><span>Habitants de la commune (€)</span><input id="feeLocal" type="number" min="0" inputmode="decimal" value="${esc(fees().local || '')}"></label>
+          <label class="fld"><span>Hors commune (€)</span><input id="feeExt" type="number" min="0" inputmode="decimal" value="${esc(fees().ext || '')}"></label>
+          <label class="fld"><span>Mutés (€)</span><input id="feeMute" type="number" min="0" inputmode="decimal" value="${esc(fees().mute || '')}"></label></div>
+        <p class="muted small">La commune de chaque joueur se met sur sa fiche (« Modifier » → Commune). Une licence lue dans Footclubs compte comme payée, au tarif du joueur.</p></details>
       <p class="muted small">Touche une case pour changer son état. Les coachs voient ⚠️ à côté d'un joueur dont la licence est en attente ou le certificat à fournir (dans les convocations), et savent qui refuse le droit à l'image. Les cotisations restent entre responsables.</p>
-      <div class="table-wrap"><table class="tbl adm-tbl"><thead><tr><th>Joueur</th>${FIELDS.map(f => `<th>${esc(f[1])}</th>`).join('')}<th>Payé (€)</th></tr></thead>
+      <div class="table-wrap"><table class="tbl adm-tbl"><thead><tr><th>Joueur</th>${FIELDS.map(f => `<th>${esc(f[1])}</th>`).join('')}<th>Tarif</th><th>Payé (€)</th></tr></thead>
         <tbody>${list.map(p => `<tr><td><a href="#/joueur/${p.id}"><b>${esc(Store.fullName(p))}</b></a><br><span class="muted small">${esc((p.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '))}</span></td>
-          ${FIELDS.map(f => `<td>${cell(p, f)}</td>`).join('')}<td><input class="adm-paid" type="number" min="0" step="1" inputmode="decimal" data-paid="${p.id}" value="${adm(p).paid == null ? '' : esc(adm(p).paid)}" aria-label="Montant payé par ${esc(Store.fullName(p))}"></td></tr>`).join('') || `<tr><td colspan="6" class="muted">Personne ici.</td></tr>`}</tbody></table></div>`;
+          ${FIELDS.map(f => `<td>${cell(p, f)}</td>`).join('')}<td>${(fe => fe ? `${fe[0]} €` : '<span class="muted">?</span>')(fee(p))}</td><td><input class="adm-paid" type="number" min="0" step="1" inputmode="decimal" data-paid="${p.id}" value="${adm(p).paid == null ? '' : esc(adm(p).paid)}" aria-label="Montant payé par ${esc(Store.fullName(p))}"></td></tr>`).join('') || `<tr><td colspan="6" class="muted">Personne ici.</td></tr>`}</tbody></table></div>`;
     const again = () => { const y = window.scrollY; licencesPage(root); window.scrollTo(0, y); };
     $('#admQ', root).oninput = e => { ui.admQ = e.target.value; clearTimeout(licencesPage.t); licencesPage.t = setTimeout(() => { again(); const i = $('#admQ', root); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 400); };
     $('#admCat', root).onchange = e => { ui.admCat = e.target.value; Store.persistNow(); again(); };
     $('#admOnly', root).onchange = e => { ui.admOnly = e.target.checked ? 1 : 0; Store.persistNow(); again(); };
     root.onchange = e => {
+      if (/^fee/.test(e.target.id || '')) { const v = id => $('#' + id, root).value.trim(); S().club.fees = { town: v('feeTown'), local: +v('feeLocal') || 0, ext: +v('feeExt') || 0, mute: +v('feeMute') || 0 }; Store.save(); toast('Tarifs enregistrés'); return; }
       const i = e.target.closest('[data-paid]'); if (!i) return;
       const p = Store.get('players', i.dataset.paid); p.adm = Object.assign({}, p.adm, { paid: i.value === '' ? null : Math.max(0, +i.value) }); Store.upsert('players', p);
     };
@@ -15206,6 +15301,7 @@ var ClubAdmin = (() => {
   /* ---------- who supervises what (week) and the dirigeants' absences: staff.absences = [{ id, from, to, note }] ---------- */
   const absentOn = (s, d) => (s.absences || []).find(a => a.from <= d && d <= (a.to || a.from));
   function staffingPage(root) {
+    const ui0 = S().ui; if (!root.querySelector('[data-pg="enc"]')) ui0.encWeek = monday(today()); // (3.14) opened from another page: this week
     const ui = S().ui, me = Auth.current(), wk = ui.encWeek = ui.encWeek || monday(today()), days = Array.from({ length: 7 }, (_, i) => addDays(wk, i));
     const mine = ui.encMine && !Auth.isAdmin();
     const evs = [...S().matches.filter(m => !m.exempt && days.includes(m.date)).map(m => ({ kind: 'match', x: m, date: m.date, time: m.rdv || m.time || '', title: `⚽ ${(Store.get('teams', m.teamId) || {}).name || ''} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`, href: '#/match/' + m.id })),
@@ -15213,7 +15309,7 @@ var ClubAdmin = (() => {
       .filter(e => !mine || Auth.sees(e.x.teamId)).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     const nobody = evs.filter(e => !(e.x.staffIds || []).length).length;
     const absents = S().staff.map(s => ({ s, a: (s.absences || []).filter(a => a.from <= days[6] && (a.to || a.from) >= days[0]) })).filter(x => x.a.length);
-    root.innerHTML = `<header class="page-head"><div><h1>Qui encadre ?</h1><p class="sub">Matchs et séances de la semaine, leurs encadrants, et les absences</p></div>
+    root.innerHTML = `<header class="page-head" data-pg="enc"><div><h1>Qui encadre ?</h1><p class="sub">Matchs et séances de la semaine, leurs encadrants, et les absences</p></div>
       <div class="head-actions"><a class="btn" href="#/planning">${I.calendar}<span>Planning</span></a><button class="btn primary" data-act="absence">${I.plus}<span>Déclarer une absence</span></button></div></header>
       <div class="plan-nav"><button class="icon-btn" data-wk="-7" aria-label="Semaine précédente">${I.back}</button><b>Semaine du ${esc(fmtDate(wk, { day: 'numeric', month: 'long' }))}</b><button class="icon-btn" data-wk="7" aria-label="Semaine suivante">${I.next}</button><button class="btn soft" data-wk="0">Cette semaine</button>
         ${Auth.isAdmin() ? '' : `<span class="grow"></span><label class="switch small"><input type="checkbox" id="encMine" ${mine ? 'checked' : ''}><span>Mes catégories</span></label>`}</div>
@@ -15258,7 +15354,72 @@ var ClubAdmin = (() => {
       } }] });
   }
 
-  return { licencesPage, staffingPage, absenceDialog, problem, noImage, csv, csvSeason, tracking };
+  return { licenceCard, fromFootclubs, fee, licencesPage, staffingPage, absenceDialog, problem, noImage, csv, csvSeason, tracking };
+})();
+
+;
+/* ===== journal.js ===== */
+/* (3.14) Journal: every change made in the app (players, matches, sessions, teams, drawings, dirigeants, settings, pitch and room bookings),
+   with the date, the time and who made it. Kept by the club server (18 months); the responsables read it. */
+var Journal = (() => {
+  const { esc, $, toast } = UI;
+  const COLS = [['', 'Tout'], ['players', 'Joueurs'], ['matches', 'Matchs'], ['trainings', 'Séances'], ['bookings', 'Créneaux'], ['teams', 'Équipes'], ['staff', 'Dirigeants'], ['schemas', 'Schémas'], ['club', 'Réglages']];
+  const ICON = { players: '⚽', matches: '🏆', trainings: '🏃', bookings: '📅', teams: '👕', staff: '🧢', schemas: '🧩', club: '⚙️', reports: '🚩' };
+  const ACT = { ajout: ['ajouté', 'good'], modification: ['modifié', ''], suppression: ['supprimé', 'bad'] };
+  // the names of the fields, in words (the others: as they are)
+  const FIELD = { firstName: 'prénom', lastName: 'nom', number: 'numéro', posts: 'postes', pos: 'poste', birth: 'naissance', phone: 'téléphone', email: 'e-mail', teamIds: 'équipes',
+    licence: 'licence', adm: 'licence / cotisation', mute: 'mutation', notes: 'notes', photo: 'photo', parents: 'parents', urgent: 'fiche urgence', date: 'date', time: 'heure', rdv: 'rendez-vous',
+    opponent: 'adversaire', place: 'lieu', home: 'domicile', competition: 'compétition', convoked: 'convoqués', convSent: 'convocation envoyée', convMsg: 'message de convocation',
+    lineupId: 'composition', numbers: 'numéros du match', gf: 'score', ga: 'score', played: 'joué', stats: 'buts / passes', minutes: 'temps de jeu', live: 'match en direct', prep: 'préparation',
+    presents: 'présences', exercises: 'exercices', title: 'titre', goal: 'objectif', name: 'nom', objects: 'dessin', steps: 'dessin', category: 'catégorie', format: 'format', role: 'rôle', access: 'accès',
+    absents: 'absents', captain: 'capitaine', trial: 'essai', height: 'taille', weight: 'poids', notesCoach: 'notes du coach', cancelled: 'annulée' };
+  let rows = [], col = '', who = '', done = false, busy = false;
+
+  const fmt = at => { const d = new Date(at); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+  const dayOf = at => new Date(at).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const link = r => ({ players: '#/joueur/', matches: '#/match/', trainings: '#/entrainement/', teams: '#/equipe/', schemas: '#/schema/' }[r.col] || '') + (['players', 'matches', 'trainings', 'teams', 'schemas'].includes(r.col) ? r.item : '');
+  const nameOf = r => r.name || ((Store.get('staff', r.who) || null) && Store.fullName(Store.get('staff', r.who))) || (r.who && r.who !== '?' ? 'Quelqu\'un (compte ' + r.who.slice(0, 6) + ')' : 'Quelqu\'un');
+
+  async function more(root) {
+    if (busy || done) return; busy = true;
+    try {
+      const last = rows.length ? rows[rows.length - 1].id : null, list = await Cloud.journal(last, col || null, who || null);
+      rows = rows.concat(list || []); if (!list || list.length < 100) done = true;
+    } catch (e) { toast(e.message, 'err'); done = true; }
+    finally { busy = false; draw(root); }
+  }
+  function draw(root) {
+    const box = $('#jrList', root); if (!box) return;
+    let lastDay = '';
+    box.innerHTML = rows.length ? rows.map(r => {
+      const d = dayOf(r.at), head = d !== lastDay ? `<h3 class="sub-h">${esc(d)}</h3>` : ''; lastDay = d;
+      const a = ACT[r.action] || [r.action, ''], fl = (r.fields || []).map(f => FIELD[f] || f).filter((x, i, l) => l.indexOf(x) === i), href = link(r);
+      return `${head}<div class="list-item jr-row"><span class="jr-ic">${ICON[r.col] || '•'}</span><div class="li-main">
+        <b>${href && r.action !== 'suppression' ? `<a href="${href}">${esc(r.label || '?')}</a>` : esc(r.label || '?')}</b>
+        <span class="small"><span class="jr-act ${a[1]}">${esc(a[0])}</span> par <b>${esc(nameOf(r))}</b> · ${esc(fmt(r.at))}</span>
+        ${fl.length ? `<span class="muted small">${esc(fl.join(', '))}</span>` : ''}</div></div>`;
+    }).join('') : (busy ? '<p class="muted">Chargement…</p>' : '<p class="muted">Rien dans le journal pour l\'instant. Chaque modification faite à partir de maintenant y sera notée.</p>');
+    const mb = $('#jrMore', root); if (mb) mb.hidden = done;
+  }
+  function page(root) {
+    if (!Auth.isAdmin()) { location.hash = '#/'; return; }
+    rows = []; done = false; busy = false;
+    const staff = Store.state.staff.slice().sort(Store.byName);
+    root.innerHTML = `<header class="page-head"><div><h1>📜 Journal des modifications</h1><p class="sub">Qui a changé quoi, et quand · gardé 18 mois</p></div>
+      <div class="head-actions"><a class="btn" href="#/gestion">${I.back}<span>Gestion</span></a></div></header>
+      <div class="filters"><select id="jrCol" aria-label="Quoi">${COLS.map(([v, l]) => `<option value="${v}" ${v === col ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <select id="jrWho" aria-label="Qui"><option value="">Tout le monde</option>${staff.map(s => `<option value="${esc(s.id)}" ${s.id === who ? 'selected' : ''}>${esc(Store.fullName(s))}</option>`).join('')}</select></div>
+      <section class="card"><div id="jrList" class="list"></div><p><button class="btn soft wide" id="jrMore" hidden>Voir plus ancien</button></p></section>
+      <p class="muted small">Les modifications d'une même personne sur le même élément pendant 10 minutes forment une seule ligne. Les libérations de créneaux indiquent qui les a libérés.</p>`;
+    draw(root);
+    if (!Cloud.ready()) { $('#jrList', root).innerHTML = '<p class="muted">Le journal est tenu par le serveur du club : connecte l\'appli au serveur (Réglages).</p>'; return; }
+    const reset = () => { rows = []; done = false; draw(root); more(root); };
+    $('#jrCol', root).onchange = e => { col = e.target.value; reset(); };
+    $('#jrWho', root).onchange = e => { who = e.target.value; reset(); };
+    $('#jrMore', root).onclick = () => more(root);
+    more(root);
+  }
+  return { page };
 })();
 
 ;
@@ -16968,6 +17129,15 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 173, date: '2026-10-10', title: 'Fichiers, journal, licences et plannings rangés 🗂️', items: [
+      ['📎', "Chats des catégories et messagerie du club : joins un PDF, une vidéo (50 Mo au plus), une photo en taille réelle, un Word, un Excel… Touche-le pour l'ouvrir. Gardés 90 jours."],
+      ['📜', "Journal des modifications (Gestion → Journal) : qui a ajouté, modifié ou supprimé quoi, avec la date et l'heure. Pour les responsables."],
+      ['🔒', "Créneaux du terrain et des vestiaires : seul le coach qui a réservé, ou un responsable, peut les libérer (le serveur le vérifie)."],
+      ['🚿', "Vestiaires : nouvelle vue « Semaine ». Les plannings (terrain, vestiaires, qui encadre) s'ouvrent toujours sur la semaine en cours."],
+      ['🗄️', "Entraînements : les 2 semaines à venir en vue, le reste de la saison et les anciennes séances rangés. Schémas et bibliothèque : les compos et fichiers des matchs passés vont dans les archives."],
+      ['🪪', "Fiche joueur : numéro de licence, état réel dans Footclubs, cotisation et tarif (commune, muté). Une licence présente dans Footclubs = cotisation payée."],
+      ['🧑‍💻', "Compte développeur (Réglages → Avancé) : mesure de l'écran, diagnostic, club d'essai… visibles seulement par le développeur."],
+    ] },
     { n: 172, date: '2026-10-10', title: 'La convocation arrive dans l\'appli 📣', items: [
       ['📲', "Nouveau bouton « Envoyer dans l'appli » dans la fenêtre de convocation : chaque convoqué la reçoit dans son espace (joueur ou parents), avec une notification sur le téléphone."],
       ['📋', "Côté joueurs et familles : une partie « Mes convocations » en haut, avec le mot du coach, l'heure de rendez-vous, la liste des convoqués (par numéro) et les boutons Présent / Absent."],
@@ -17926,13 +18096,16 @@ data={club:cm[1],calendar:main.innerText,poules,logos,sheets};send();})()`;
       <ul class="src-sum"><li>🆕 <b>${fresh.length}</b> nouveau${fresh.length > 1 ? 'x' : ''} joueur${fresh.length > 1 ? 's' : ''}, rangé${fresh.length > 1 ? 's' : ''} dans ${fresh.length > 1 ? 'leur' : 'sa'} catégorie${fresh.length ? ` : <span class="muted small">${names(fresh)}</span>` : ''}</li>
       <li>✏️ <b>${upd.length}</b> joueur${upd.length > 1 ? 's' : ''} complété${upd.length > 1 ? 's' : ''} (numéro de licence, date de naissance, état de la licence)</li>
       <li>✅ <b>${known.length - upd.length}</b> déjà à jour, sans doublon</li>
+      <li>💶 <b>${rows.filter(x => !x.depart).length}</b> licence${rows.filter(x => !x.depart).length > 1 ? 's' : ''} présente${rows.filter(x => !x.depart).length > 1 ? 's' : ''} dans Footclubs : cotisation marquée <b>payée</b>, au tarif du joueur, et l'état réel noté sur sa fiche</li>
       ${P.sanctions ? `<li>⚖️ <b>${P.sanctions.length}</b> sanction${P.sanctions.length > 1 ? 's' : ''} officielle${P.sanctions.length > 1 ? 's' : ''} lue${P.sanctions.length > 1 ? 's' : ''}${sancNew.length ? ` : <b>${sancNew.length}</b> nouvelle${sancNew.length > 1 ? 's' : ''} (${sancNew.filter(r => r.susp).length} suspension${sancNew.filter(r => r.susp).length > 1 ? 's' : ''}) : <span class="muted small">${sancNew.map(r => esc(Store.shortName(r.p) + ' · ' + r.s.decision)).join(', ')}</span>` : ', rien de nouveau'}${sancLost.length ? ` · <span class="muted small">${sancLost.length} sans joueur correspondant</span>` : ''}</li>` : ''}
       ${gone.length ? `<li>👋 <b>${gone.length}</b> marqué${gone.length > 1 ? 's' : ''} « Départ » dans Footclubs (gardé${gone.length > 1 ? 's' : ''} dans l'appli, à retirer à la main si besoin) : <span class="muted small">${names(gone)}</span></li>` : ''}</ul>
       <p class="muted small">Les joueurs déjà dans l'appli ne changent pas de catégorie (un joueur surclassé reste où tu l'as mis).</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Importer', kind: 'primary', onClick: () => {
         fresh.forEach(({ x }) => { const cat = People.catOf(x), t = cat ? People.ageTeam(cat) : null;
-          Store.upsert('players', { id: Store.uid(), firstName: x.firstName, lastName: x.lastName, birth: x.birth, subcat: x.subcat, licence: x.licence || '', number: '', pos: '', phone: '', email: '', parents: [], notes: '', teamIds: t ? [t.id] : [], adm: LIC(x.etat) ? { lic: LIC(x.etat) } : {} }); });
+          { const np = { id: Store.uid(), firstName: x.firstName, lastName: x.lastName, birth: x.birth, subcat: x.subcat, licence: x.licence || '', number: '', pos: '', phone: '', email: '', parents: [], notes: '', teamIds: t ? [t.id] : [], adm: LIC(x.etat) ? { lic: LIC(x.etat) } : {} }; ClubAdmin.fromFootclubs(np, x.etat); Store.upsert('players', np); } });
         upd.forEach(({ x, p }) => { if (!p.birth && x.birth) p.birth = x.birth; if (x.licence && !p.licence) p.licence = x.licence; if (LIC(x.etat)) p.adm = Object.assign({}, p.adm, { lic: LIC(x.etat) }); if (x.subcat && !p.subcat) p.subcat = x.subcat; Store.upsert('players', p); });
+        // (3.14) every licence read there: its real state, and paid (Footclubs only holds paid licences)
+        known.filter(r => !r.x.depart).forEach(({ x, p }) => { if (x.licence && !p.licence) p.licence = x.licence; ClubAdmin.fromFootclubs(p, x.etat); Store.upsert('players', p); });
         applySanc();
         Store.sortTeams(); Store.save(); App.route();
         toast(`Footclubs : ${fresh.length} ajouté${fresh.length > 1 ? 's' : ''}, ${upd.length} complété${upd.length > 1 ? 's' : ''}`);
@@ -18331,6 +18504,7 @@ var Chat = (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ERR = [[/MOT_INTERDIT/, 'Pas envoyé : un mot grossier ou insultant n\'est pas accepté ici. Reformule gentiment 🙂'],
     [/TROP_VITE/, 'Doucement : attends une seconde entre deux messages.'], [/CHAT_FERME/, 'Les coachs ont mis le chat en lecture seule pour l\'instant.'],
+    [/FICHIER_TYPE/, 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).'], [/FICHIER_POIDS/, 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.'], [/FICHIER_ABSENT/, 'Fichier introuvable (effacé après 90 jours ?).'],
     [/LIMITE_CHAT/, 'Beaucoup de messages aujourd\'hui : réessaie demain.'], [/PHOTOS_COACHS/, 'Dans ce chat, seuls les coachs envoient des photos pour l\'instant.'], [/\bPHOTO\b/, 'Cette photo ne passe pas : essaie avec une autre.'], [/SONDAGE_FINI/, 'Ce sondage est terminé.']];
   const nice = e => { const m = String((e && ((e.code || '') + ' ' + (e.message || ''))) || ''); const x = ERR.find(([r]) => r.test(m)); return x ? x[1] : (e && e.message) || 'Le serveur ne répond pas.'; };
   const EMOJI = ['👍', '⚽', '🔥', '💪', '😂', '👏', '🙏', '❤️', '😅', '🏆', '🥅', '✅'];
@@ -18421,6 +18595,8 @@ var Chat = (() => {
       '@keyframes cxCrown{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) scale(1.08)}}@media (prefers-reduced-motion:reduce){.cx-bdc{animation:none}}',
       '.cx-row.flash .cx-b{outline:3px solid #c9a45c}.cx-mute{border:0;background:none;font-size:20px;min-width:40px;min-height:40px;cursor:pointer}',
       '.cx-img{display:block;margin:2px -4px 4px;border-radius:12px;overflow:hidden;min-height:120px;background:color-mix(in srgb,currentColor 8%,transparent);cursor:zoom-in}.cx-img img{display:block;width:100%;max-height:340px;object-fit:cover}',
+      '.cx-att{display:flex;align-items:center;gap:10px;width:100%;min-width:200px;text-align:left;margin:2px 0 4px;padding:8px 10px;border:0;border-radius:12px;background:color-mix(in srgb,currentColor 10%,transparent);color:inherit;font:inherit;cursor:pointer}.cx-att-ic{font-size:24px}.cx-att-t{display:flex;flex-direction:column;min-width:0}.cx-att-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cx-att-t small{opacity:.75}' +
+      '.cx-attbusy{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:100;background:#0e1d45;color:#fff;padding:10px 16px;border-radius:12px;font:600 14px sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.3)}' +
       '.cx-b.photo{min-width:min(70%,260px)}.cx-pin{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:13px;background:color-mix(in srgb,#c9a45c 16%,var(--surface,#fff));border-bottom:1px solid var(--line,#e3e5ea);cursor:pointer}.cx-pin span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.cx-view{position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}.cx-view img{max-width:100%;max-height:82vh;border-radius:8px}.cx-view p{color:#fff;margin:10px 0 0;font-size:14px;text-align:center}',
       '.cx-ph.off{opacity:.45}',
@@ -18540,6 +18716,71 @@ var Chat = (() => {
       catch (e) { m.pend = false; m.fail = true; drawList(false); if (/MOT_INTERDIT/.test((e.code || '') + e.message)) { view.msgs = view.msgs.filter(x => x !== m); draft = cap; drawAll(); } (o.toast || alert)(nice(e), true); }
     });
   }
+  /* ---------- (3.14) attachments: PDF, videos (50 Mo), documents, photos in full size ----------
+     The file goes to the club server in pieces of 3 Mo (begin → put × n), then the message carries [[pj:id|name|mime|size]].
+     Read back piece by piece when touched; kept 90 days, like the photos. */
+  const MB = 1048576, PART = 3 * MB;
+  const ATT_RE = /\[\[pj:([0-9a-f-]{36})\|([^|\]]{0,120})\|([^|\]]{0,80})\|(\d{1,10})\]\]/g;
+  const attLimit = mime => /^video\//.test(mime) ? 50 * MB : 20 * MB;
+  const ATT_OK = /^(application\/pdf|video\/|image\/|audio\/|text\/plain|text\/csv|application\/(msword|vnd\.openxmlformats-officedocument\.|vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.oasis\.opendocument\.))/;
+  const mimeOf = f => f.type || ({ pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', txt: 'text/plain', csv: 'text/csv', mov: 'video/quicktime', mp4: 'video/mp4', m4v: 'video/mp4', heic: 'image/heic' }[String(f.name || '').split('.').pop().toLowerCase()] || '');
+  const sizeTxt = n => n >= MB ? (Math.round(n / MB * 10) / 10).toString().replace('.', ',') + ' Mo' : Math.max(1, Math.round(n / 1024)) + ' Ko';
+  const attIcon = mime => /^video\//.test(mime) ? '🎬' : /^image\//.test(mime) ? '🖼️' : /pdf/.test(mime) ? '📄' : /^audio\//.test(mime) ? '🎧' : /sheet|excel|csv/.test(mime) ? '📊' : /presentation|powerpoint/.test(mime) ? '📽️' : '📎';
+  const attClean = body => String(body == null ? '' : body).replace(ATT_RE, (x, id, name, mime) => `${attIcon(mime)} ${name}`);
+  const attsOf = body => { const out = []; String(body || '').replace(ATT_RE, (x, id, name, mime, size) => { out.push({ id, name, mime, size: +size }); return x; }); return out; };
+  const attChip = a => `<button type="button" class="cx-att" data-cxatt="${esc(a.id)}" data-name="${esc(a.name)}" data-mime="${esc(a.mime)}" data-size="${a.size}"><span class="cx-att-ic">${attIcon(a.mime)}</span><span class="cx-att-t"><b>${esc(a.name)}</b><small>${esc(sizeTxt(a.size))} · ${/^video\//.test(a.mime) ? 'regarder' : /pdf|^image\//.test(a.mime) ? 'ouvrir' : 'télécharger'}</small></span></button>`;
+  const b64 = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(new Error('Lecture du fichier impossible')); r.readAsDataURL(blob); });
+  // send one file: api = { begin(name, mime, size, parts) → id, put(id, n, data) }; progress(0..1)
+  async function attUpload(api, file, progress) {
+    const mime = mimeOf(file), size = file.size;
+    if (!ATT_OK.test(mime)) throw new Error('Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).');
+    if (size > attLimit(mime)) throw new Error(`Fichier trop lourd (${sizeTxt(size)}) : ${/^video\//.test(mime) ? '50 Mo au plus pour une vidéo' : '20 Mo au plus'}. Pour une longue vidéo, envoie un lien YouTube ou Drive.`);
+    const parts = Math.max(1, Math.ceil(size / PART)), name = String(file.name || 'fichier').replace(/[|\][]/g, ' ').slice(0, 100);
+    const id = await api.begin(name, mime, size, parts); if (!id) throw new Error('Le serveur n\'a pas accepté le fichier');
+    for (let n = 0; n < parts; n++) {
+      const data = await b64(file.slice(n * PART, Math.min(size, (n + 1) * PART)));
+      let ok = false; for (let k = 0; k < 3 && !ok; k++) { try { await api.put(id, n, data); ok = true; } catch (e) { if (k === 2) throw e; await new Promise(r => setTimeout(r, 1500)); } }
+      progress && progress((n + 1) / parts);
+    }
+    return `[[pj:${id}|${name}|${mime}|${size}]]`;
+  }
+  // read it back: api.get(id, n) → { parts, data } ; kept while the page lives
+  const attBlobs = new Map();
+  async function attFetch(api, a, progress) {
+    if (attBlobs.has(a.id)) return attBlobs.get(a.id);
+    const first = await api.get(a.id, 0); if (!first || !first.data) throw new Error('Fichier introuvable (effacé après 90 jours ?)');
+    const parts = +first.parts || 1, chunks = [first.data]; progress && progress(1 / parts);
+    for (let n = 1; n < parts; n++) { const r = await api.get(a.id, n); chunks.push(r.data); progress && progress((n + 1) / parts); }
+    const bytes = chunks.map(c => Uint8Array.from(atob(c), ch => ch.charCodeAt(0)));
+    const blob = new Blob(bytes, { type: a.mime || first.mime || 'application/octet-stream' }); attBlobs.set(a.id, blob); return blob;
+  }
+  // open it: a video or a photo in a big view, a PDF in a new tab, the rest downloaded
+  async function attOpen(api, a, toastFn) {
+    const t = toastFn || (() => {});
+    const pr = document.createElement('div'); pr.className = 'cx-attbusy'; pr.textContent = `⬇️ ${a.name}…`; document.body.appendChild(pr);
+    try {
+      const blob = await attFetch(api, a, f => { pr.textContent = `⬇️ ${a.name} · ${Math.round(f * 100)} %`; }), url = URL.createObjectURL(blob);
+      if (/^video\/|^image\//.test(a.mime)) {
+        const v = document.createElement('div'); v.className = 'cx-view';
+        v.innerHTML = `${/^video\//.test(a.mime) ? `<video src="${url}" controls playsinline autoplay style="max-width:100%;max-height:78vh;border-radius:10px"></video>` : `<img alt="" src="${url}">`}<p>${esc(a.name)}<br><a href="${url}" download="${esc(a.name)}" style="color:#fff">Enregistrer</a> · <span data-x>Fermer</span></p>`;
+        v.onclick = e => { if (e.target.closest('video,a')) return; v.remove(); URL.revokeObjectURL(url); }; document.body.appendChild(v);
+      } else if (/pdf/.test(a.mime)) { const w = window.open(url, '_blank'); if (!w) { const l = document.createElement('a'); l.href = url; l.download = a.name; l.click(); } }
+      else { const l = document.createElement('a'); l.href = url; l.download = a.name; document.body.appendChild(l); l.click(); l.remove(); }
+    } catch (e) { t(e.message || String(e), true); } finally { pr.remove(); }
+  }
+  const ACCEPT = 'application/pdf,video/*,image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.odt,.ods';
+  async function sendAtt(file) {
+    const t = $('#cxText'), cap = (t ? t.value : '').trim();
+    if (/^image\//.test(mimeOf(file)) && o.photo && file.size < 8 * MB) return sendPhoto(file); // a photo: made lighter, shown in the chat
+    const m = { id: 'p' + (++pend), at: new Date().toISOString(), name: 'moi', kind: o.kind || 'player', mine: true, body: `${attIcon(mimeOf(file))} ${file.name} · envoi…`, pend: true };
+    view.msgs.push(m); draft = ''; if (t) { t.value = ''; grow(); } drawList(true);
+    queue = queue.then(async () => {
+      try {
+        const tok = await attUpload({ begin: (n, mi, sz, pa) => o.att.begin(view.cat, n, mi, sz, pa), put: o.att.put }, file, f => { m.body = `${attIcon(mimeOf(file))} ${file.name} · ${Math.round(f * 100)} %`; drawList(false); });
+        await o.post(view.cat, (cap ? cap + '\n' : '') + tok); m.ok = true; view.msgs = view.msgs.filter(x => x !== m); lastPoll = 0; await load(false);
+      } catch (e) { m.pend = false; m.fail = true; m.body = `${attIcon(mimeOf(file))} ${file.name}`; drawList(false); (o.toast || alert)(nice(e), true); }
+    });
+  }
   /* ---------- the messages ---------- */
   // the key of a message for the grouping: same person, less than 5 minutes after the one before, same day
   function rowHtml(m, prev) {
@@ -18548,11 +18789,12 @@ var Chat = (() => {
     const day = !prev || dayOf(prev.at) !== dayOf(m.at) ? `<div class="cx-day">${esc(dayOf(m.at))}</div>` : '';
     const big = !m.deleted && onlyEmoji(m.body);
     const pic = m.img && !m.deleted ? `<span class="cx-img" data-cximg="${m.id}">${m.local || imgs.get(m.id) ? `<img alt="Photo" src="${m.local || imgs.get(m.id)}">` : ''}</span>` : '';
-    const body = m.deleted ? '<span class="cx-gone">🚫 Message supprimé</span>' : m.poll && pollOf(m.id) ? pollHtml(pollOf(m.id)) : pic + (m.body ? linkify(m.body) : '');
+    const atts = m.deleted ? [] : attsOf(m.body), txt = atts.length ? String(m.body || '').replace(ATT_RE, '').trim() : m.body;
+    const body = m.deleted ? '<span class="cx-gone">🚫 Message supprimé</span>' : m.poll && pollOf(m.id) ? pollHtml(pollOf(m.id)) : pic + atts.map(attChip).join('') + (txt ? linkify(txt) : '');
     const av = m.mine ? '' : `<span class="cx-av ${first ? '' : 'ghost'}" style="background:${color(m.name)}" aria-hidden="true">${esc(initials(m.name))}</span>`;
     const name = !m.mine && first ? `<span class="cx-name" style="color:${color(m.name)}">${m.king ? '<span class="cx-crown" title="C\'est son anniversaire">👑</span>' : ''}${esc(m.name.replace(/^Coach\s+/, ''))}${m.kind === 'coach' ? '<span class="cx-coach">COACH</span>' : ''}</span>` : '';
     const st = m.fail ? '⚠️' : m.ok ? '✓' : m.pend ? '🕓' : '';
-    const quote = m.reply && !m.deleted ? `<span class="cx-q" data-cxgoto="${m.reply.id}"><b>↩️ ${esc(String(m.reply.name || '').replace(/^Coach\s+/, ''))}</b>${m.reply.body == null ? '<i>Message supprimé</i>' : esc(m.reply.body)}</span>` : '';
+    const quote = m.reply && !m.deleted ? `<span class="cx-q" data-cxgoto="${m.reply.id}"><b>↩️ ${esc(String(m.reply.name || '').replace(/^Coach\s+/, ''))}</b>${m.reply.body == null ? '<i>Message supprimé</i>' : esc(attClean(m.reply.body))}</span>` : '';
     const rep = view && view.mod && view.reports && view.reports[m.id], flag = rep ? `<span class="cx-flag" title="Signalé par ${esc(rep.join(', '))}">🚩 ${rep.length}</span>` : '';
     const rx = (view && view.reacts && view.reacts[m.id]) || [];
     const rxs = rx.length && !m.deleted ? `<div class="cx-rxs ${m.mine ? 'mine' : ''}">${rx.map(r => `<button class="${r.me ? 'me' : ''}" data-cxrx="${m.id}:${r.e}" title="${esc((r.who || []).join(', '))}">${r.e} ${r.n}</button>`).join('')}</div>` : '';
@@ -18597,7 +18839,7 @@ var Chat = (() => {
         ${view.mod && o.photosOk && view.filtered ? `<button class="cx-mute cx-ph ${view.photos ? '' : 'off'}" data-cxphotos="${view.photos ? 0 : 1}" title="${view.photos ? 'Les joueurs peuvent envoyer des photos : toucher pour réserver les photos aux coachs' : 'Photos réservées aux coachs : toucher pour les ouvrir aux joueurs'}" aria-label="Photos des joueurs">📷</button>` : ''}
         ${view.mod && o.off ? `<button class="cx-mod" data-cxoff="${view.off ? 0 : 1}" title="${parRoom() ? (view.off ? 'Les parents lisent sans pouvoir écrire : toucher pour leur rendre la parole' : 'Mettre tous les parents en sourdine : ils lisent, seuls les coachs écrivent') : (view.off ? 'Rouvrir le chat aux joueurs' : 'Fermer le chat : les joueurs lisent, seuls les coachs écrivent')}">${parRoom() ? (view.off ? '🔊 Parole aux parents' : '🔇 Sourdine parents') : (view.off ? '🔓 Rouvrir' : '🔒 Fermer')}</button>` : ''}</div>
       ${(view.kings || []).length && mode === 'chat' ? `<div class="cx-kings">👑 <b>King of the day</b> : ${esc(view.kings.join(', '))} · joyeux anniversaire ! 🎂</div>` : ''}
-      ${view.pin && mode === 'chat' ? `<div class="cx-pin" data-cxgoto="${view.pin.id}">📌<span><b>${esc(String(view.pin.name || '').replace(/^Coach\s+/, ''))}</b> : ${esc(view.pin.body || (view.pin.img ? '📷 Photo' : ''))}</span></div>` : ''}
+      ${view.pin && mode === 'chat' ? `<div class="cx-pin" data-cxgoto="${view.pin.id}">📌<span><b>${esc(String(view.pin.name || '').replace(/^Coach\s+/, ''))}</b> : ${esc(attClean(view.pin.body) || (view.pin.img ? '📷 Photo' : ''))}</span></div>` : ''}
       ${view.off ? `<div class="cx-off">${parRoom() ? '🔇 Parents en sourdine : seuls les coachs écrivent' : '🔒 Chat fermé par les coachs'}${view.mod ? ' (toi, tu peux écrire)' : ''}</div>` : ''}
       <div class="cx-list" id="cxList">${listHtml()}</div>
       <button class="cx-new" id="cxNew" hidden>⬇ Nouveaux messages</button>
@@ -18606,7 +18848,7 @@ var Chat = (() => {
       ${editing ? `<div class="cx-replybar cx-editbar"><span>✏️ <b>Modification</b> de ton message</span><button type="button" data-cxeditno aria-label="Annuler la modification">✕</button></div>` : ''}
       ${replyTo ? `<div class="cx-replybar"><span>↩️ Réponse à <b>${esc(String(replyTo.name).replace(/^Coach\s+/, ''))}</b> : ${esc(replyTo.body || '')}</span><button type="button" data-cxreplyno aria-label="Ne plus répondre">✕</button></div>` : ''}
       <div class="cx-ment" id="cxMent" hidden></div>
-      <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}${o.photo && (view.mod || view.photos) ? '<button type="button" class="cx-ic" data-cxphoto aria-label="Envoyer une photo">📷</button><input type="file" accept="image/*" id="cxFile" hidden>' : ''}
+      <form class="cx-bar" id="cxForm"><button type="button" class="cx-ic" data-cxemotoggle aria-label="Émojis">😊</button>${o.poll ? '<button type="button" class="cx-ic" data-cxnewpoll aria-label="Nouveau sondage">📊</button>' : ''}${o.photo && (view.mod || view.photos) ? '<button type="button" class="cx-ic" data-cxphoto aria-label="Envoyer une photo">📷</button><input type="file" accept="image/*" id="cxFile" hidden>' : ''}${o.att && (view.mod || view.photos) ? `<button type="button" class="cx-ic" data-cxattpick aria-label="Joindre un fichier (PDF, vidéo, document)">📎</button><input type="file" accept="${ACCEPT}" id="cxAttFile" hidden>` : ''}
         <textarea id="cxText" rows="1" maxlength="500" placeholder="Message" aria-label="Message" enterkeyhint="send">${esc(draft)}</textarea>
         <button type="submit" class="cx-ic cx-send" id="cxSend" aria-label="Envoyer" ${draft.trim() ? '' : 'disabled'}>➤</button></form>
       ${o.note ? `<div class="cx-note">${esc(o.note)}</div>` : ''}` : ''}
@@ -18808,7 +19050,7 @@ var Chat = (() => {
     el.addEventListener('input', e => {
       if (sheet) { if (e.target.id === 'cxPq') sheet.q = e.target.value; if (e.target.dataset.cxopt) sheet.opts[+e.target.dataset.cxopt] = e.target.value; if (e.target.id === 'cxPmulti') sheet.multi = e.target.checked; }
     });
-    el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; if (e.target.id === 'cxFile' && e.target.files && e.target.files[0]) { sendPhoto(e.target.files[0]); e.target.value = ''; } });
+    el.addEventListener('change', e => { if (sheet && e.target.id === 'cxPmulti') sheet.multi = e.target.checked; if (e.target.id === 'cxFile' && e.target.files && e.target.files[0]) { sendPhoto(e.target.files[0]); e.target.value = ''; } if (e.target.id === 'cxAttFile' && e.target.files && e.target.files[0]) { sendAtt(e.target.files[0]); e.target.value = ''; } });
     el.addEventListener('input', e => { if (e.target.id !== 'cxText') return; draft = e.target.value; grow(); const s = $('#cxSend'); if (s) s.disabled = !draft.trim(); mentionAsk(e.target); });
     // a touch on a name: the keyboard stays open
     el.addEventListener('pointerdown', e => { if (e.target.closest('[data-cxment]')) e.preventDefault(); });
@@ -18844,6 +19086,8 @@ var Chat = (() => {
       if (f && o.off) { const off = f.dataset.cxoff === '1'; try { await o.off(off); view.off = off; drawAll(); (o.toast || (() => {}))(parRoom() ? (off ? '🔇 Parents en sourdine : ils lisent, seuls les coachs écrivent.' : '🔊 Les parents peuvent de nouveau écrire.') : off ? '🔒 Chat fermé : les joueurs peuvent lire, plus écrire.' : '🔓 Chat rouvert.'); } catch (err) { (o.toast || alert)(nice(err), true); } return; }
       // (2.03) a reaction (in the menu or a chip under a bubble): shown at once
       if (q('[data-cxphoto]')) { const f = $('#cxFile'); if (f) f.click(); return; }
+      if (q('[data-cxattpick]')) { const f = $('#cxAttFile'); if (f) f.click(); return; }
+      const at = q('[data-cxatt]'); if (at && !q('.cx-menu') && o.att) { attOpen({ get: o.att.get }, { id: at.dataset.cxatt, name: at.dataset.name, mime: at.dataset.mime, size: +at.dataset.size }, o.toast); return; }
       const im = q('[data-cximg]'); if (im && !q('.cx-menu')) { const i = im.querySelector('img'); if (i) { const m = view.msgs.find(x => String(x.id) === im.dataset.cximg); viewPhoto(i.src, m && m.body); } return; }
       const pn = q('[data-cxpin]'); if (pn && o.pin) { const id = +pn.dataset.cxpin || null; armed = null; closeMenu();
         try { await o.pin(view.cat, id); view.pin = id ? (() => { const m = view.msgs.find(x => x.id === id); return m ? { id, name: m.name, body: (m.body || '').slice(0, 140), img: !!m.img } : null; })() : null; drawAll();
@@ -18889,7 +19133,7 @@ var Chat = (() => {
     if (!timer) timer = setInterval(tick, 500);
     tick();
   }
-  return { mount, nice };
+  return { mount, nice, attUpload, attOpen, attsOf, attChip, attClean, ACCEPT, ATT_RE };
 })();
 
 ;
@@ -20326,14 +20570,22 @@ var Views = (() => {
   /* ================= Schémas ================= */
   function schemas(root) {
     const filt = S().ui.schemaFilter || '';
-    const list = S().schemas.filter(s => Auth.sees(s.teamId) && (!filt || s.field.format === filt)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    root.innerHTML = `${header('Schémas', 'Exercices et tactiques animés', `<a class="btn" href="#/bibliotheque">${I.video}<span>Bibliothèque</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="fromFile">${I.pdf}<span>Depuis un fichier (PDF, image, vidéo)</span></button><button class="btn" data-act="board">${I.edit}<span>Tableau blanc</span></button><button class="btn" data-act="models">${I.layers}<span>Modèles</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau schéma</span></button>`)}
-      <div class="chips filter">${[['', 'Tous'], ...formats(), ['zone', 'Zones libres']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
-      ${list.length ? `<div class="grid">${list.map(s => `<article class="card schema-card">
+    const all = S().schemas.filter(s => Auth.sees(s.teamId) && (!filt || s.field.format === filt)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    // (3.14) the compositions and drawings of the matches and sessions already played go to the archives (still there, folded)
+    const t0 = today(), dates = {}; S().matches.forEach(m => { if (m.lineupId) (dates[m.lineupId] = dates[m.lineupId] || []).push(m.date || ''); });
+    S().trainings.filter(t => !t.model).forEach(t => (t.exercises || []).forEach(e => { if (e.schemaId) (dates[e.schemaId] = dates[e.schemaId] || []).push(t.date || ''); }));
+    const usedInModel = new Set(S().trainings.filter(t => t.model).flatMap(t => (t.exercises || []).map(e => e.schemaId)).filter(Boolean));
+    const isOld = s => !usedInModel.has(s.id) && (dates[s.id] || []).length > 0 && dates[s.id].every(d => d && d < t0);
+    const list = all.filter(s => !isOld(s)), arch = all.filter(isOld);
+    const card = s => `<article class="card schema-card">
           <a href="#/schema/${s.id}" class="thumb"><img alt="" src="${UI.thumb(s)}"></a>
           <div class="sc-meta"><a href="#/schema/${s.id}"><b>${esc(s.name)}</b></a><span class="muted">${s.field.format === 'zone' ? `Zone ${s.field.w}×${s.field.h} m` : fmtLabel(s.field.format)} · ${s.steps.length} étape${s.steps.length > 1 ? 's' : ''}</span></div>
           <div class="sc-actions"><button class="icon-btn" data-dup="${s.id}" aria-label="Dupliquer">${I.copy}</button><button class="icon-btn danger" data-del="${s.id}" aria-label="Supprimer">${I.trash}</button></div>
-        </article>`).join('')}</div>` : empty('Aucun schéma ici.', `<button class="btn primary" data-act="new">${I.plus}<span>Dessiner un schéma</span></button>`)}`;
+        </article>`;
+    root.innerHTML = `${header('Schémas', 'Exercices et tactiques animés', `<a class="btn" href="#/bibliotheque">${I.video}<span>Bibliothèque</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="fromFile">${I.pdf}<span>Depuis un fichier (PDF, image, vidéo)</span></button><button class="btn" data-act="board">${I.edit}<span>Tableau blanc</span></button><button class="btn" data-act="models">${I.layers}<span>Modèles</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouveau schéma</span></button>`)}
+      <div class="chips filter">${[['', 'Tous'], ...formats(), ['zone', 'Zones libres']].map(([v, l]) => `<button class="chip ${v === filt ? 'on' : ''}" data-f="${v}">${l}</button>`).join('')}</div>
+      ${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : empty(arch.length ? 'Rien à venir : les anciens sont dans les archives, en bas.' : 'Aucun schéma ici.', `<button class="btn primary" data-act="new">${I.plus}<span>Dessiner un schéma</span></button>`)}
+      ${arch.length ? `<details class="card fold-list"><summary><b>🗄️ Archives (${arch.length})</b><span class="muted small"> · compositions et schémas des matchs et séances passés</span></summary><div class="grid">${arch.map(card).join('')}</div></details>` : ''}`;
     root.onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.f !== undefined && b.classList.contains('chip')) { S().ui.schemaFilter = b.dataset.f; Store.save(); return schemas(root); }
@@ -20421,8 +20673,13 @@ var Views = (() => {
       <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Séances types du club (${models.length})</b><span class="muted small"> · des séances prêtes, pour toutes les catégories</span></summary>
         ${models.length ? `<div class="list">${models.map(t => `<div class="list-item model-item"><a class="li-main" href="#/entrainement/${t.id}"><b>${esc(t.title || 'Séance type')}</b><span class="muted">${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${t.exercises.reduce((a, e) => a + (+e.duration || 0), 0)} min${t.goal ? ' · ' + esc(String(t.goal).slice(0, 60)) : ''}</span></a><button class="btn primary" data-use="${t.id}">${I.plus}<span>Utiliser</span></button></div>`).join('')}</div>`
           : '<p class="muted small">Pas encore de séance type. Dans une séance réussie, touche « Enregistrer comme séance type » (en bas) : elle servira à tous les coachs.</p>'}</details>
-      <h2 class="section">À venir</h2>${up.length ? `<div class="list">${up.map(item).join('')}</div>` : '<p class="muted">Aucun entraînement prévu.</p>'}
-      <h2 class="section">Passés</h2>${past.length ? `<div class="list">${past.map(item).join('')}</div>` : '<p class="muted">Rien pour l\'instant.</p>'}`;
+      ${(() => { // (3.14) the next two weeks in view; the rest of the season, and the old sessions, folded away
+        const lim = addDays(now, 13), soon = up.filter(t => t.date <= lim), later = up.filter(t => t.date > lim), recent = past.filter(t => t.date >= addDays(now, -14)), old = past.filter(t => t.date < addDays(now, -14));
+        const fold = (l, label) => l.length ? `<details class="card fold-list"><summary><b>${label} (${l.length})</b></summary><div class="list">${l.map(item).join('')}</div></details>` : '';
+        return `<h2 class="section">À venir · 2 semaines</h2>${soon.length ? `<div class="list">${soon.map(item).join('')}</div>` : '<p class="muted">Aucun entraînement dans les 2 semaines.</p>'}
+          ${fold(later, `🗓️ Plus tard, jusqu'au ${esc(fmtDate(later.length ? later[later.length - 1].date : now, { day: 'numeric', month: 'long' }))}`)}
+          <h2 class="section">Passés</h2>${recent.length ? `<div class="list">${recent.map(item).join('')}</div>` : '<p class="muted">Rien ces deux dernières semaines.</p>'}
+          ${fold(old, '🗄️ Plus anciens')}`; })()}`;
     bindTeamSwitch(root, () => trainings(root));
     Parents.dayBadges(root, up.slice(0, 40)); // (1.69) présents / absents annoncés de chaque jour
     $('[data-act="new"]', root).onclick = newTraining;
@@ -21527,6 +21784,9 @@ var Views = (() => {
       ${Auth.isAdmin() ? Onboard.card() : ''}
       ${tabs ? Sources.card() : ''}
       <details class="fold"><summary>🛠️ Avancé <span class="muted small">(couleurs du tableau, fichiers, exemples, effacer)</span></summary>
+      ${Auth.isAdmin() || Auth.isDev() ? `<section class="card"><h2>🧑‍💻 Compte développeur</h2>
+        <label class="switch"><input type="checkbox" id="devMode" ${Auth.isDev() ? 'checked' : ''}><span>Je développe l'appli : afficher les outils techniques (Plus → Développeur), pour moi seulement</span></label>
+        <p class="muted small">Mesures de l'écran, diagnostic, versions, club d'essai. Les autres coachs et responsables ne les voient pas.</p></section>` : ''}
       ${Auth.isAdmin() ? `<section class="card">
         <h2>${I.team}Tableau tactique</h2>
         <div class="lbl">Couleur de nos maillots</div>${bibs('home', c.homeBib)}
@@ -21553,7 +21813,8 @@ var Views = (() => {
       <p class="muted small">${esc(AppCfg.name)} · créée par <b>Coach Enzo</b> · version ${Help.VERSION} · <button class="linkish" onclick="News.all()">Nouveautés</button> · <button class="linkish" onclick="App.checkUpdate(true)">Mettre à jour l'appli</button> · <a href="confidentialite.html">Confidentialité</a></p>`;
     Help.onSettings(root, () => settings(root));
     Auth.mountSettings(root); Notify.mountAccount(root); Notify.mountAdmin(root);
-    root.onchange = e => { if (e.target.dataset.notifpref || e.target.dataset.famnotif) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
+    root.onchange = e => { if (e.target.id === 'devMode') { const me = Auth.current(), st = me && Store.get('staff', me.id); if (!st) return toast('Ta fiche de dirigeant est introuvable', 'err'); st.dev = e.target.checked || undefined; Store.upsert('staff', st); toast(e.target.checked ? 'Outils développeur : Plus → Développeur' : 'Outils développeur cachés'); App.refreshChrome && App.refreshChrome(); return; }
+      if (e.target.dataset.notifpref || e.target.dataset.famnotif) return Notify.onChange(e.target); Auth.onSettingsChange(e.target); };
     root.onclick = async e => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
@@ -21757,7 +22018,7 @@ var Views = (() => {
       post: (c, b, r) => Cloud.chatPost(tk, b, r), del: (c, id) => Cloud.chatDel(tk, id), edit: (c, id, b) => Cloud.chatEdit(tk, id, b), off: off => Cloud.chatOff(tk, off),
       poll: (c, q, opts, multi) => Cloud.chatPoll(tk, q, opts, multi), vote: (c, id, i) => Cloud.chatVote(tk, id, i), pollClose: (c, id, closed) => Cloud.chatPollClose(tk, id, closed),
       react: (c, id, e) => Cloud.chatReact(tk, id, e), mute: on => Cloud.chatMute(on),
-      photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
+      photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), att: { begin: (c, n, mi, sz, pa) => Cloud.attBegin('team:' + tk, n, mi, sz, pa), put: Cloud.attPut, get: Cloud.attGet }, pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
   }
   return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat, copyTraining, lastConv };
 })();
@@ -21798,6 +22059,12 @@ var App = (() => {
   // (2.79) no network (the pitch, the gym): say it, the changes leave when it comes back
   const netState = () => document.body.classList.toggle('offline', !navigator.onLine);
   window.addEventListener('online', netState); window.addEventListener('offline', netState); setTimeout(netState, 0);
+  // (3.14) the developer's diagnostic: version, device, screen, server, session, last errors (to copy)
+  function devDiag() {
+    const d = Object.assign({}, Help.diagnostics(), { build: BUILD, club: (AppCfg.club || ''), server: Cloud.ready() ? 'connecté' : 'non connecté', admin: Auth.isAdmin(), sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller), storage: (() => { try { return Math.round(JSON.stringify(localStorage).length / 1024) + ' Ko'; } catch (e) { return '?'; } })() });
+    const txt = Object.entries(d).map(([k, v]) => `${k} : ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
+    UI.modal({ title: '🩺 Diagnostic', body: `<textarea rows="14" readonly style="font:12px monospace;width:100%">${UI.esc(txt)}</textarea>`, actions: [{ label: 'Fermer' }, { label: 'Copier', kind: 'primary', onClick: () => { navigator.clipboard.writeText(txt).then(() => UI.toast('Copié')).catch(() => UI.toast('Sélectionne et copie')); return false; } }] });
+  }
   function refreshChrome() {
     const c = Store.state.club;
     // Banner while a responsable looks at the app as a coach
@@ -21855,9 +22122,9 @@ var App = (() => {
       + `<button class="nav-more ${idx >= mainN() ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
     document.getElementById('navMore').onclick = () => {
       const close = UI.modal({ title: 'Plus', noFocus: true,
-        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(mainN()).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button><button class="more-item" data-morediag>📏<span>Mesurer l'écran</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
+        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(mainN()).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join('') + (Auth.isDev() ? `<h3 class="more-h">🧑‍💻 Développeur</h3><div class="more-grid"><button class="more-item" data-morediag>📏<span>Mesurer l'écran</span></button><button class="more-item" data-moredev="diag">🩺<span>Diagnostic</span></button><a class="more-item" href="${AppCfg.fixed ? "https://enzo2122-lgtm.github.io/ea-club-manager/demo/foot/" : "demo/foot/"}" target="_blank" rel="noopener">🧪<span>Club d'essai</span></a>${AppCfg.fixed ? '' : '<a class="more-item" href="#/proprietaire">🗝️<span>Espace propriétaire</span></a>'}<a class="more-item" href="tools/verif.html" target="_blank" rel="noopener">✅<span>Vérificateur</span></a><a class="more-item" href="#/journal">📜<span>Journal</span></a></div>` : ''),
         onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; const nw = r.querySelector('[data-morenews]'); if (nw) nw.onclick = () => { close(); setTimeout(() => News.all(), 60); };
-          const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; const dg = r.querySelector('[data-morediag]'); if (dg) dg.onclick = () => { close(); setTimeout(() => window.ScreenDiag && window.ScreenDiag(), 350); }; } }); // (1.67) the latest version in one tap
+          const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; const dg = r.querySelector('[data-morediag]'); if (dg) dg.onclick = () => { close(); setTimeout(() => window.ScreenDiag && window.ScreenDiag(), 350); }; const dd = r.querySelector('[data-moredev="diag"]'); if (dd) dd.onclick = () => { close(); setTimeout(() => devDiag(), 300); }; } }); // (1.67) the latest version in one tap
     };
     Messages.badge(); Help.inboxBadge();
   }
@@ -21878,7 +22145,7 @@ var App = (() => {
     document.body.dataset.page = name;
     const full = name === 'schema' || name === 'tableau';
     document.body.classList.toggle('editing', full);
-    const navKey = { niveau: 'equipes', urgences: 'equipes', autorisations: 'equipes', equipements: Auth.limited() === 'kit' ? 'equipements' : 'equipes', equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
+    const navKey = { niveau: 'equipes', urgences: 'equipes', autorisations: 'equipes', equipements: Auth.limited() === 'kit' ? 'equipements' : 'equipes', equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', journal: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
     renderNav(navKey);
     Quick.fab();
     // Whiteboard: a blank board, never saved (id = format of the pitch)
@@ -21892,7 +22159,7 @@ var App = (() => {
       matchs: Views.matches, match: Views.match, stats: Views.stats, reglages: Views.settings,
       planning: r => Planning.page(r), jeu: r => Views.game(r), chat: (r, x) => Views.chat(r, x), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x), signalements: r => Help.inbox(r),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
-      joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
+      joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), journal: r => Journal.page(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
       tests: (r, x) => Tests.page(r, x), athle: (r, x) => Athle.page(r, x), equilibre: (r, x) => Balance.page(r, x), niveau: (r, x) => Level.page(r, x), terrain: (r, x) => Terrain.page(r, x), urgences: (r, x) => Urgent.page(r, x), equipements: (r, x) => Kit.page(r, x), autorisations: (r, x) => Consent.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
     if (!keep) Help.visit();
     fn(root, id);
@@ -21930,7 +22197,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 214, UPD = AppCfg.key('update-tried');
+  const BUILD = 215, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

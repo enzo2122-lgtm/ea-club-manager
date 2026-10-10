@@ -32,6 +32,12 @@ const App = (() => {
   // (2.79) no network (the pitch, the gym): say it, the changes leave when it comes back
   const netState = () => document.body.classList.toggle('offline', !navigator.onLine);
   window.addEventListener('online', netState); window.addEventListener('offline', netState); setTimeout(netState, 0);
+  // (3.14) the developer's diagnostic: version, device, screen, server, session, last errors (to copy)
+  function devDiag() {
+    const d = Object.assign({}, Help.diagnostics(), { build: BUILD, club: (AppCfg.club || ''), server: Cloud.ready() ? 'connecté' : 'non connecté', admin: Auth.isAdmin(), sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller), storage: (() => { try { return Math.round(JSON.stringify(localStorage).length / 1024) + ' Ko'; } catch (e) { return '?'; } })() });
+    const txt = Object.entries(d).map(([k, v]) => `${k} : ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
+    UI.modal({ title: '🩺 Diagnostic', body: `<textarea rows="14" readonly style="font:12px monospace;width:100%">${UI.esc(txt)}</textarea>`, actions: [{ label: 'Fermer' }, { label: 'Copier', kind: 'primary', onClick: () => { navigator.clipboard.writeText(txt).then(() => UI.toast('Copié')).catch(() => UI.toast('Sélectionne et copie')); return false; } }] });
+  }
   function refreshChrome() {
     const c = Store.state.club;
     // Banner while a responsable looks at the app as a coach
@@ -89,9 +95,9 @@ const App = (() => {
       + `<button class="nav-more ${idx >= mainN() ? 'on' : ''}" id="navMore" aria-label="Plus de pages">${I.layers}<span class="sh">Plus</span></button>`;
     document.getElementById('navMore').onclick = () => {
       const close = UI.modal({ title: 'Plus', noFocus: true,
-        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(mainN()).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button><button class="more-item" data-morediag>📏<span>Mesurer l'écran</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join(''),
+        body: MORE_GROUPS.map(([g, hs]) => { const items = nav.slice(mainN()).filter(n => hs.includes(n[0])); const help = hs.includes('reglages') ? `<button class="more-item" data-morenews>🎉<span>Nouveautés</span></button><button class="more-item" data-morehelp>${I.help}<span>Aide · signaler</span></button><button class="more-item" data-moreupd>🔄<span>Mettre à jour l'appli</span></button>` : ''; return items.length || help ? `<h3 class="more-h">${g}</h3><div class="more-grid">${items.map(([h, l, ic]) => `<a class="more-item ${h === active ? 'on' : ''}" href="#/${h}">${I[ic]}<span>${l}</span></a>`).join('')}${help}</div>` : ''; }).join('') + (Auth.isDev() ? `<h3 class="more-h">🧑‍💻 Développeur</h3><div class="more-grid"><button class="more-item" data-morediag>📏<span>Mesurer l'écran</span></button><button class="more-item" data-moredev="diag">🩺<span>Diagnostic</span></button><a class="more-item" href="${AppCfg.fixed ? "https://enzo2122-lgtm.github.io/ea-club-manager/demo/foot/" : "demo/foot/"}" target="_blank" rel="noopener">🧪<span>Club d'essai</span></a>${AppCfg.fixed ? '' : '<a class="more-item" href="#/proprietaire">🗝️<span>Espace propriétaire</span></a>'}<a class="more-item" href="tools/verif.html" target="_blank" rel="noopener">✅<span>Vérificateur</span></a><a class="more-item" href="#/journal">📜<span>Journal</span></a></div>` : ''),
         onOpen: r => { r.querySelectorAll('a').forEach(a => a.addEventListener('click', () => close())); const h = r.querySelector('[data-morehelp]'); if (h) h.onclick = () => { close(); setTimeout(() => Help.open(), 60); }; const nw = r.querySelector('[data-morenews]'); if (nw) nw.onclick = () => { close(); setTimeout(() => News.all(), 60); };
-          const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; const dg = r.querySelector('[data-morediag]'); if (dg) dg.onclick = () => { close(); setTimeout(() => window.ScreenDiag && window.ScreenDiag(), 350); }; } }); // (1.67) the latest version in one tap
+          const up = r.querySelector('[data-moreupd]'); if (up) up.onclick = () => { close(); checkUpdate(true); }; const dg = r.querySelector('[data-morediag]'); if (dg) dg.onclick = () => { close(); setTimeout(() => window.ScreenDiag && window.ScreenDiag(), 350); }; const dd = r.querySelector('[data-moredev="diag"]'); if (dd) dd.onclick = () => { close(); setTimeout(() => devDiag(), 300); }; } }); // (1.67) the latest version in one tap
     };
     Messages.badge(); Help.inboxBadge();
   }
@@ -112,7 +118,7 @@ const App = (() => {
     document.body.dataset.page = name;
     const full = name === 'schema' || name === 'tableau';
     document.body.classList.toggle('editing', full);
-    const navKey = { niveau: 'equipes', urgences: 'equipes', autorisations: 'equipes', equipements: Auth.limited() === 'kit' ? 'equipements' : 'equipes', equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
+    const navKey = { niveau: 'equipes', urgences: 'equipes', autorisations: 'equipes', equipements: Auth.limited() === 'kit' ? 'equipements' : 'equipes', equipe: 'equipes', joueurs: 'equipes', joueur: 'equipes', dirigeants: 'equipes', licences: 'gestion', journal: 'gestion', president: 'gestion', codes: 'gestion', encadrement: 'planning', vestiaires: 'planning', analyse: 'bibliotheque', briefing: 'bibliotheque', prepa: 'matchs', direct: 'matchs', jourj: 'matchs', infirmerie: 'equipes', progression: 'equipes', exercices: 'entrainements', benevoles: 'club', arbitres: 'club', systemes: 'entrainements', bilan: 'stats', resultats: 'stats', tests: 'equipes', schema: 'schemas', tableau: 'schemas', entrainement: 'entrainements', match: 'matchs' }[name] || name;
     renderNav(navKey);
     Quick.fab();
     // Whiteboard: a blank board, never saved (id = format of the pitch)
@@ -126,7 +132,7 @@ const App = (() => {
       matchs: Views.matches, match: Views.match, stats: Views.stats, reglages: Views.settings,
       planning: r => Planning.page(r), jeu: r => Views.game(r), chat: (r, x) => Views.chat(r, x), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x), signalements: r => Help.inbox(r),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
-      joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
+      joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), journal: r => Journal.page(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
       tests: (r, x) => Tests.page(r, x), athle: (r, x) => Athle.page(r, x), equilibre: (r, x) => Balance.page(r, x), niveau: (r, x) => Level.page(r, x), terrain: (r, x) => Terrain.page(r, x), urgences: (r, x) => Urgent.page(r, x), equipements: (r, x) => Kit.page(r, x), autorisations: (r, x) => Consent.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
     if (!keep) Help.visit();
     fn(root, id);
@@ -164,7 +170,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 214, UPD = AppCfg.key('update-tried');
+  const BUILD = 215, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

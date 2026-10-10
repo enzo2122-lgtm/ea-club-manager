@@ -35,6 +35,11 @@ const Cloud = (() => {
     LECTURE_SEULE: 'Accès en lecture seule : rien n\'est enregistré.',
     ACCES_RETIRE: 'Ton accès à l\'appli du club a été retiré par un responsable.',
     SESSION: 'Ta connexion a expiré : reconnecte-toi.',
+    FICHIER_TYPE: 'Ce type de fichier n\'est pas accepté (PDF, photo, vidéo, Word, Excel, PowerPoint, texte).',
+    FICHIER_POIDS: 'Fichier trop lourd : 50 Mo au plus pour une vidéo, 20 Mo pour le reste.',
+    FICHIER_ABSENT: 'Fichier introuvable (effacé après 90 jours ?).',
+    CRENEAU_AUTEUR: 'Seul le coach qui a réservé ce créneau, ou un responsable, peut le libérer.',
+    RESPONSABLE: 'Réservé à un responsable du club.',
     DONNEES: 'Informations incomplètes.',
     CRENEAU_PRIS: 'Ce créneau est déjà pris sur cette partie du terrain. Choisis un autre horaire ou l\'autre moitié.',
     HORS_CRENEAU: 'Cet horaire est en dehors des créneaux disponibles du terrain.',
@@ -90,6 +95,10 @@ const Cloud = (() => {
     setSlots: list => rpc('club_set_slots', { admin_k: adminKey(), p: list }),
     bookings: async (from, to) => ((await rpc('club_bookings', { d_from: from, d_to: to })) || []).map(normDate),
     book: async b => normDate(await rpc('club_book', { p: b })),
+    attBegin: (where, name, mime, size, parts) => rpc('club_att_begin', { p_where: where, p_name: name, p_mime: mime, p_size: size, p_parts: parts }), // (3.14) attachments
+    attPut: (id, n, data) => rpc('club_att_put', { p_id: id, p_n: n, p_data: data }),
+    attGet: (id, n) => rpc('club_att_get', { p_id: id, p_n: n }),
+    journal: (before, col, who) => rpc('club_journal', { p_before: before, p_col: col, p_who: who, admin_k: adminKey() || null }), // (3.14)
     unbook: id => rpc('club_unbook', { p_id: id, p_author: Auth.current().id, admin_k: adminKey() || null }),
     unbookSeries: series => rpc('club_unbook_series', { p_series: series, p_author: Auth.current().id, admin_k: adminKey() || null }),
     // accounts

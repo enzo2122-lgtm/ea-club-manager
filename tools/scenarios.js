@@ -121,6 +121,62 @@ const SCENARIOS = [
       must(note && note.ids.length === m.convoked.length && /Convocation/.test(note.t), 'pas de notification aux convoqués');
       return note.ids.length + ' notifiés · ' + text('#toast').slice(0, 40);
     } finally { Cloud.ready = r0; Cloud.memberNote = n0; await closeModal(); }`],
+  ['Vestiaires : semaine en cours à l\u2019ouverture, vue semaine', `
+    const r0 = Cloud.ready, b0 = Cloud.bookings, t = UI.today(); Cloud.ready = () => true;
+    Cloud.bookings = async () => [{ id: 'bk1', date: t, start_min: 1080, end_min: 1170, field: 'V1', part: 'full', kind: 'entrainement', team_name: 'U12', author_id: 'x', author_name: 'Coach' }];
+    try {
+      Store.state.ui.roomDay = '2025-01-06'; Store.state.ui.roomView = 'day';
+      await go('#/matchs'); await go('#/vestiaires'); await wait(400);
+      must(Store.state.ui.roomDay === t, 'pas ouvert sur aujourd\u2019hui : ' + Store.state.ui.roomDay);
+      await click('[data-r="vweek"]', 700); must($$('.rw-day').length === 7, 'vue semaine : ' + $$('.rw-day').length + ' jours'); must($('.rw-bk'), 'le vestiaire attribué n\u2019apparaît pas');
+      Store.state.ui.planWeek = '2025-01-06'; await go('#/matchs'); await go('#/planning'); await wait(400);
+      return 'ok · planning terrain : ' + Store.state.ui.planWeek;
+    } finally { Cloud.ready = r0; Cloud.bookings = b0; Store.state.ui.roomView = 'day'; }`],
+  ['Ranger le passé : séances à 2 semaines, compos passées archivées', `
+    const t = Store.state.teams[0], far = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().slice(0, 10); })();
+    Store.upsert('trainings', { id: 'trFar', teamId: t.id, date: far, time: '18:00', title: 'Séance lointaine', exercises: [], presents: [] });
+    const sc = { id: 'scOld', name: 'Compo ancienne', teamId: t.id, field: { format: '11' }, overlays: {}, objects: [], zones: [], steps: [{ pos: {}, arrows: [], moves: {}, note: '', dur: 2 }] };
+    Store.upsert('schemas', sc); Store.upsert('matches', { id: 'mOld', teamId: t.id, date: '2025-09-01', opponent: 'Ancien', home: true, played: true, gf: 1, ga: 0, lineupId: 'scOld' });
+    Store.state.ui.activeTeam = ''; await go('#/matchs'); await go('#/entrainements');
+    const fold = $$('.fold-list').find(d => /Plus tard/.test(d.innerText)); must(fold && !fold.open, 'les séances lointaines ne sont pas rangées');
+    must(!$$('.list > a').some(a => !a.closest('details') && /Séance lointaine/.test(a.innerText)), 'séance lointaine visible en haut');
+    await go('#/schemas'); const ar = $$('.fold-list').find(d => /Archives/.test(d.innerText)); must(ar && /Compo ancienne/.test(ar.innerHTML), 'compo passée pas archivée');
+    return 'ok';`],
+  ['Licence : fiche joueur, tarif, Footclubs = payée', `
+    Store.state.club.fees = { town: 'Le Raincy', local: 250, ext: 270, mute: 365 };
+    const ps = Store.state.players.slice(0, 3); ps[0].town = 'LE RAINCY'; ps[0].mute = ''; ps[1].town = 'Villemomble'; ps[1].mute = ''; ps[2].mute = 'mute'; ps[2].town = '';
+    ps.forEach(p => { p.adm = {}; delete p.fc; });
+    const f = ps.map(p => (ClubAdmin.fee(p) || [0])[0]).join('/'); must(f === '250/270/365', 'tarifs : ' + f);
+    ClubAdmin.fromFootclubs(ps[0], 'Validée'); Store.upsert('players', ps[0]);
+    must(ps[0].adm.cotis === 'ok' && ps[0].adm.paid === 250 && ps[0].fc.etat === 'Validée', 'Footclubs ne marque pas payé : ' + JSON.stringify(ps[0].adm));
+    ps[0].licence = '2547001122'; Store.upsert('players', ps[0]);
+    await go('#/joueurs'); await go('#/joueur/' + ps[0].id); const c = $('.lic-card'); must(c, 'pas de carte Licence');
+    must(/2547001122/.test(c.innerText) && /Validée/.test(c.innerText) && /250 €/.test(c.innerText) && /Payée/.test(c.innerText), 'carte incomplète : ' + c.innerText.replace(/\s+/g, ' ').slice(0, 160));
+    return f;`],
+  ['Compte développeur : outils cachés aux autres', `
+    const me = Auth.current(), st = me && Store.get('staff', me.id); must(st, 'pas de fiche dirigeant');
+    delete st.dev; Store.upsert('staff', st); await go('#/'); await click('#navMore', 500);
+    must(!/Mesurer l.écran|Développeur/i.test(text('#modal')), 'outils techniques visibles sans être développeur'); await closeModal();
+    st.dev = true; Store.upsert('staff', st); await go('#/matchs'); await go('#/'); await click('#navMore', 500);
+    must(/Développeur/i.test(text('#modal')) && /Mesurer l.écran/.test(text('#modal')) && /Club d.essai/.test(text('#modal')), 'groupe Développeur absent');
+    await click('[data-moredev="diag"]', 600); must(/version/.test(($('#modal textarea') || {}).value || ''), 'diagnostic vide'); await closeModal();
+    delete st.dev; Store.upsert('staff', st); return 'ok';`],
+  ['Pièces jointes : envoi en morceaux, relecture identique, limites', `
+    const store = {}, api = { begin: async (n, mi, sz, pa) => { store.meta = { n, mi, sz, pa }; return '11111111-2222-3333-4444-555555555555'; }, put: async (id, n, d) => { store[n] = d; return true; },
+      get: async (id, n) => ({ parts: store.meta.pa, mime: store.meta.mi, data: store[n] }) };
+    const bytes = new Uint8Array(7 * 1048576 + 123); for (let i = 0; i < bytes.length; i++) bytes[i] = (i * 31 + 7) & 255;
+    const file = new File([bytes], 'match.mp4', { type: 'video/mp4' });
+    const tok = await Chat.attUpload(api, file); must(store.meta.pa === 3, 'morceaux : ' + store.meta.pa);
+    const a = Chat.attsOf('Le résumé ' + tok)[0]; must(a && a.name === 'match.mp4' && a.size === bytes.length, 'jeton illisible : ' + tok);
+    must(/match\.mp4/.test(Chat.attChip(a)) && /7 Mo/.test(Chat.attChip(a)), 'pastille : ' + Chat.attChip(a));
+    // read back: the same bytes
+    const win = window.open; window.open = () => ({}); let blob;
+    try { await Chat.attOpen(api, a); } finally { window.open = win; }
+    const v = document.querySelector('.cx-view video'); must(v, 'la vidéo ne s\u2019ouvre pas'); blob = await (await fetch(v.src)).arrayBuffer(); document.querySelector('.cx-view').remove();
+    const back = new Uint8Array(blob); must(back.length === bytes.length && back.every((x, i) => x === bytes[i]), 'fichier relu différent');
+    let err = ''; try { await Chat.attUpload(api, new File([new Uint8Array(51 * 1048576)], 'long.mov', { type: 'video/quicktime' })); } catch (e) { err = e.message; } must(/trop lourd/.test(err), 'vidéo de 51 Mo acceptée');
+    err = ''; try { await Chat.attUpload(api, new File([new Uint8Array(10)], 'x.exe', { type: 'application/x-msdownload' })); } catch (e) { err = e.message; } must(/pas accepté/.test(err), '.exe accepté');
+    return '3 morceaux, relu à l\u2019identique';`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);

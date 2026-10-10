@@ -134,6 +134,8 @@ const People = (() => {
         <details class="posts-more" ${postsOf(p).length > 1 ? 'open' : ''}><summary>Autres postes possibles${postsOf(p).length > 1 ? ` (${postsOf(p).length - 1})` : ''}</summary><div id="pPosts">${TYPES.map(([t, l]) => `<div class="post-group"><span class="muted small">${esc(l)}</span><div class="chips">${POSTS.filter(x => x[3] === t).map(x => `<button type="button" class="chip ${postsOf(p).slice(1).includes(x[0]) ? 'on' : ''}" data-post="${x[0]}">${postChip(x)}</button>`).join('')}</div></div>`).join('')}</div></details>
         <div class="lbl">Catégories (plusieurs possibles)</div>${teamChips(p.teamIds)}
         <label class="fld"><span>Licence</span><select id="pMute">${[['', 'Non muté'], ['mute', 'Muté'], ['mute_hp', 'Muté hors période'], ['contrat', 'Sous contrat']].map(([v, l]) => `<option value="${v}" ${((x => !x || /non/.test(x) ? '' : /hors|hp/.test(x) ? 'mute_hp' : /contrat/.test(x) ? 'contrat' : 'mute')(String(p.mute || '').toLowerCase())) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <div class="row2"><label class="fld"><span>N° de licence</span><input id="pLic" inputmode="numeric" value="${esc(p.licence || '')}" placeholder="ex : 2547123456"></label>
+          <label class="fld"><span>Commune (domicile)</span><input id="pTown" value="${esc(p.town || '')}" placeholder="ex : Le Raincy" autocomplete="address-level2"></label></div>
         <label class="chk trial-chk"><input type="checkbox" id="pTrial" ${p.trial ? 'checked' : ''}> 🧪 <b>À l'essai</b> <span class="muted small">(il vient essayer : fiche légère, tu décides ensuite de le garder ou non)</span></label>
         <h3 class="sub-h">Contacts</h3>
         <div class="row2"><label class="fld"><span>Téléphone du joueur</span><input id="pTel" type="tel" inputmode="tel" value="${esc(p.phone || '')}"></label>
@@ -167,7 +169,7 @@ const People = (() => {
         { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
           const v = id => $('#' + id, r).value.trim();
           if (!v('pLast') && !v('pFirst')) { toast('Écris au moins le nom ou le prénom', 'err'); return false; }
-          const data = { lastName: v('pLast').toUpperCase(), firstName: v('pFirst'), birth: v('pBirth'), subcat: v('pSub'), number: v('pNum') === '' ? '' : +v('pNum'), ...readPosts(r, v('pPos')), trial: $('#pTrial', r).checked ? (p.trial || { since: UI.today() }) : undefined, mute: $('#pMute', r).value, phone: v('pTel'), email: v('pMail'), notes: $('#pNotes', r).value, teamIds: pickedTeams(r, p.teamIds || []),
+          const data = { lastName: v('pLast').toUpperCase(), firstName: v('pFirst'), birth: v('pBirth'), subcat: v('pSub'), number: v('pNum') === '' ? '' : +v('pNum'), ...readPosts(r, v('pPos')), trial: $('#pTrial', r).checked ? (p.trial || { since: UI.today() }) : undefined, mute: $('#pMute', r).value, licence: v('pLic'), town: v('pTown'), phone: v('pTel'), email: v('pMail'), notes: $('#pNotes', r).value, teamIds: pickedTeams(r, p.teamIds || []),
             parents: [0, 1].map(i => ({ name: v(`par${i}n`), rel: v(`par${i}r`), phone: v(`par${i}t`) })).filter(x => x.name || x.phone) };
           // a new player who is already in the club (same name, same date of birth): add him to this category instead of a 2nd card
           const twin = isNew && twinOf(data);
@@ -651,6 +653,7 @@ const People = (() => {
       <div class="cards2">
         ${Health.playerCard(p)}
         ${p.strengths || p.weaknesses ? `<section class="card"><h2>🧍 Son profil (rempli par le joueur)</h2>${p.strengths ? `<p>💪 <b>Points forts :</b> ${esc(p.strengths)}</p>` : ''}${p.weaknesses ? `<p>🎯 <b>À travailler :</b> ${esc(p.weaknesses)}</p>` : ''}</section>` : ''}
+        ${ClubAdmin.licenceCard(p)}
         ${Urgent.card(p)}
         ${Consent.card(p)}
         ${Level.card(p)}
