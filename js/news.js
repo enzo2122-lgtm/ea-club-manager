@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 167, date: '2026-10-10', title: 'Toute l\'équipe sur le papier 📋', items: [
+      ['📄', "PDF de la préparation : sous la composition, la liste des titulaires puis celle des remplaçants, avec numéros (et postes s'ils sont renseignés). Le gardien en tête, le capitaine marqué (C), les absents retirés. Sans composition faite : la liste des convoqués."],
+    ] },
     { n: 166, date: '2026-10-10', title: 'Le PDF de la prépa sort enfin 🖨️', items: [
       ['🐛', "Préparation du match : « Créer le PDF » répondait « PDF impossible ». Deux choses portaient le même nom dans le code et se marchaient dessus. Démêlées : le PDF complet (affiche, causerie, adversaire, semaine, jour J, mi-temps, après-match) se crée à nouveau."],
     ] },

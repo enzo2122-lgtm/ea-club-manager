@@ -63,8 +63,10 @@ const H = `
 const SCENARIOS = [
   ['Préparation du match : PDF complet (toutes les parties)', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0]; must(m, 'aucun match à venir');
-    m.prep = { talk: { objective: 'Gagner', keys: ['Presser', 'Courir', 'Parler'], hook: 'Allez' }, day: { warmMin: 25 } }; Store.upsert('matches', m);
-    Exporter.deliver = async () => 'shared'; await go('#/matchs'); await go('#/prepa/' + m.id);
+    m.prep = { talk: { objective: 'Gagner', keys: ['Presser', 'Courir', 'Parler'], hook: 'Allez' }, day: { warmMin: 25 } };
+    m.lineupId = null; m.acLineup = { starters: (m.convoked || []).slice(0, 7), bench: [] }; Store.upsert('matches', m);
+    window.__lbl = []; const mk = Exporter.pdfDoc; Exporter.pdfDoc = c => { const d = mk(c), l = d.label; d.label = x => { window.__lbl.push(x); return l.call(d, x); }; return d; };
+    Exporter.deliver = async (b) => { window.__pdf = b; return 'shared'; }; await go('#/matchs'); await go('#/prepa/' + m.id);
     if (!window.jspdf) { const sc = document.createElement('script'); sc.src = '/node_modules/jspdf/dist/jspdf.umd.min.js'; document.head.appendChild(sc); await wait(1500); } // hors ligne : copie locale si elle existe
     let t = '';
     for (let n = 0; n < 4; n++) {
@@ -72,7 +74,8 @@ const SCENARIOS = [
       const ok = $$('#modal button').find(b => /Créer le PDF/.test(b.innerText)); must(ok, 'pas de bouton « Créer le PDF »'); ok.click(); await wait(4000);
       t = text('#toast'); if (!/se prépare/.test(t)) break; await wait(2500);
     }
-    must(!/impossible/i.test(t), t); return 'PDF créé';`],
+    must(!/impossible/i.test(t), t); must(window.__lbl.some(x => /^(Remplaçants|Joueurs convoqués)/.test(x)), 'pas de liste des joueurs dans le PDF');
+    return 'PDF créé · ' + window.__lbl.filter(x => /Titulaires|Remplaçants|convoqués/.test(x)).join(' · ');`],
   ['Accueil : prochain rendez-vous et menu', `
     guide(); must($('.today-card'), 'pas de carte « Prochain rendez-vous »');
     must($('#nav a'), 'pas de menu'); must(matchMedia('(max-width: 760px)').matches, 'largeur téléphone attendue');
