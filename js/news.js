@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 168, date: '2026-10-10', title: 'Les numéros sur le papier 🔢', items: [
+      ['🐛', "PDF de la préparation : les numéros donnés pour le match n'apparaissaient pas (seuls ceux de la fiche joueur étaient lus). Ils sont là, dans les listes titulaires / remplaçants et sur la feuille des présents. Le poste affiché est celui de la composition, et le capitaine choisi dans la compo est marqué (C)."],
+    ] },
     { n: 167, date: '2026-10-10', title: 'Toute l\'équipe sur le papier 📋', items: [
       ['📄', "PDF de la préparation : sous la composition, la liste des titulaires puis celle des remplaçants, avec numéros (et postes s'ils sont renseignés). Le gardien en tête, le capitaine marqué (C), les absents retirés. Sans composition faite : la liste des convoqués."],
     ] },

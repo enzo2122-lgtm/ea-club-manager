@@ -3855,7 +3855,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.08';
+  const VERSION = '3.09';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8504,7 +8504,7 @@ var Prepa = (() => {
   /* ---------- the team talk, full screen ---------- */
   function show(m) {
     const p = P(m), t = p.talk || {}, o = p.opp || {}, pl = p.plan || {}, keys = (t.keys || []).filter(Boolean);
-    const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = pl.captain && Store.get('players', pl.captain);
+    const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = (pl.captain || m.captain) && Store.get('players', pl.captain || m.captain);
     const roles = Object.entries(pl.roles || {}).filter(([, v]) => v).map(([id, v]) => [Store.get('players', id), v]).filter(([x]) => x);
     const bl = (arr, cls = '') => `<ul class="pp-list ${cls}">${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
     const slides = [
@@ -8559,16 +8559,17 @@ var Prepa = (() => {
       } }] });
   }
   // (3.08) who starts and who is on the bench: the players placed on the composition, else the AssistCoachAI line-up; the bench = the other convoked players
-  const postOf = x => { const k = (x.posts || [])[0] || x.pos || ''; const f = (Sport.POSTS || []).find(q => q[0] === k); return f ? f[1] : k; };
+  const postName = k => { const f = (Sport.POSTS || []).find(q => q[0] === k); return f ? f[1] : (k || ''); };
   function squad(m, lineup) {
     const absent = new Set(m.absents || []), get = id => Store.get('players', id), conv = (m.convoked || []).filter(id => !absent.has(id)).map(get).filter(Boolean);
-    let ids = []; const gks = new Set();
-    if (lineup) { (lineup.objects || []).forEach(o => { if (o.gk && o.playerId) gks.add(o.playerId); }); const st = (lineup.steps || [])[0] || { pos: {} }; ids = (lineup.objects || []).filter(o => o.type === 'player' && !o.bench && o.playerId && st.pos && st.pos[o.id]).sort((a, b) => (b.gk ? 1 : 0) - (a.gk ? 1 : 0)).map(o => o.playerId); }
+    let ids = []; const gks = new Set(), slot = {};
+    if (lineup) { (lineup.objects || []).forEach(o => { if (o.gk && o.playerId) gks.add(o.playerId); if (o.playerId && o.post && !o.bench) slot[o.playerId] = o.post; }); const st = (lineup.steps || [])[0] || { pos: {} }; ids = (lineup.objects || []).filter(o => o.type === 'player' && !o.bench && o.playerId && st.pos && st.pos[o.id]).sort((a, b) => (b.gk ? 1 : 0) - (a.gk ? 1 : 0)).map(o => o.playerId); }
     if (!ids.length && m.acLineup) ids = m.acLineup.starters || [];
     ids = [...new Set(ids)].filter(id => !absent.has(id));
-    const byNum = (a, b) => (+a.number || 99) - (+b.number || 99) || Store.byName(a, b), gk = x => gks.has(x.id) || /^(GB|G)$/.test((x.posts || [])[0] || x.pos || '') ? 0 : 1;
+    const byNum = (a, b) => (+Store.numOf(a, m) || 99) - (+Store.numOf(b, m) || 99) || Store.byName(a, b), gk = x => gks.has(x.id) || /^(GB|G)$/.test((x.posts || [])[0] || x.pos || '') ? 0 : 1;
     const starters = ids.map(get).filter(Boolean).sort((a, b) => gk(a) - gk(b) || byNum(a, b));
-    return { starters, bench: conv.filter(x => !ids.includes(x.id)).sort(byNum) };
+    const post = x => (slot[x.id] && postName(slot[x.id])) || People.postsLabel(x) || '';
+    return { starters, bench: conv.filter(x => !ids.includes(x.id)).sort(byNum), post };
   }
   async function pdf(m, parts) {
     const club = S().club, D = Exporter.pdfDoc(club), doc = D.doc, L = Exporter.latin;
@@ -8612,12 +8613,12 @@ var Prepa = (() => {
       if (t.objective) { D.label('Objectif du match'); D.para(t.objective, 13); }
       if (keys.length) { D.label('2 · Les 3 clés'); keys.forEach((k, i) => D.para(`${i + 1}.  ${k}`, 13)); }
       D.label('3 · Le mot de la fin'); D.para(final, 11.5);
-      const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = pl.captain && Store.get('players', pl.captain);
+      const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = (pl.captain || m.captain) && Store.get('players', pl.captain || m.captain);
       if (lineup) { await Board.ensureBg(lineup); D.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); D.image(Exporter.frameCanvas(lineup, 0, 0, { w: 1500, h: 980, names: true, homeBib: club.homeBib }), D.CW * .85); }
       else if (cap) { D.label('Capitaine'); D.para(Store.fullName(cap)); }
       { // (3.08) the list of names under the drawing: the starters, then the substitutes
-        const sq = squad(m, lineup), withPost = [...sq.starters, ...sq.bench].some(x => postOf(x));
-        const row = x => [x.number ? String(x.number) : '', Store.fullName(x) + (cap && cap.id === x.id ? ' (C)' : ''), ...(withPost ? [postOf(x)] : [])];
+        const sq = squad(m, lineup), withPost = [...sq.starters, ...sq.bench].some(x => sq.post(x));
+        const row = x => [String(Store.numOf(x, m) || ''), Store.fullName(x) + (cap && cap.id === x.id ? ' (C)' : ''), ...(withPost ? [sq.post(x)] : [])];
         const tab = list => D.table(['N°', 'Joueur', ...(withPost ? ['Poste'] : [])], list.map(row), withPost ? [.12, .63, .25] : [.12, .88]);
         if (sq.starters.length) { D.label(`Titulaires (${sq.starters.length})`); tab(sq.starters); }
         if (sq.bench.length) { D.label(sq.starters.length ? `Remplaçants (${sq.bench.length})` : `Joueurs convoqués (${sq.bench.length})`); tab(sq.bench); }
@@ -8653,8 +8654,8 @@ var Prepa = (() => {
       const k = +(dy.warmMin || 25) / 25;
       D.h2(`Échauffement (${dy.warmMin || 25} min)`); ticks(WARM().map(([l, n]) => `${Math.max(1, Math.round(n * k))} min · ${l}`)); if (dy.warmNotes) D.para(dy.warmNotes);
       D.h2('Matériel'); ticks([...KITS(), ...lines(dy.other)]);
-      const conv = (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (a.number || 99) - (b.number || 99));
-      if (conv.length) { D.h2(`Joueurs convoqués (${conv.length}) · présents`); ticks(conv.map(x => `${x.number ? x.number + '. ' : ''}${Store.fullName(x)}`)); }
+      const conv = (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (+Store.numOf(a, m) || 99) - (+Store.numOf(b, m) || 99) || Store.byName(a, b));
+      if (conv.length) { D.h2(`Joueurs convoqués (${conv.length}) · présents`); ticks(conv.map(x => { const n = Store.numOf(x, m); return `${n ? n + '. ' : ''}${Store.fullName(x)}`; })); }
     }
     if (parts.includes('half')) {
       page('Mi-temps');
@@ -16963,6 +16964,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 168, date: '2026-10-10', title: 'Les numéros sur le papier 🔢', items: [
+      ['🐛', "PDF de la préparation : les numéros donnés pour le match n'apparaissaient pas (seuls ceux de la fiche joueur étaient lus). Ils sont là, dans les listes titulaires / remplaçants et sur la feuille des présents. Le poste affiché est celui de la composition, et le capitaine choisi dans la compo est marqué (C)."],
+    ] },
     { n: 167, date: '2026-10-10', title: 'Toute l\'équipe sur le papier 📋', items: [
       ['📄', "PDF de la préparation : sous la composition, la liste des titulaires puis celle des remplaçants, avec numéros (et postes s'ils sont renseignés). Le gardien en tête, le capitaine marqué (C), les absents retirés. Sans composition faite : la liste des convoqués."],
     ] },
@@ -21894,7 +21898,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 209, UPD = AppCfg.key('update-tried');
+  const BUILD = 210, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
