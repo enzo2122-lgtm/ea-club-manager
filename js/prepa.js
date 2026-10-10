@@ -366,18 +366,18 @@ const Prepa = (() => {
       } }] });
   }
   async function pdf(m, parts) {
-    const club = S().club, P = Exporter.pdfDoc(club), doc = P.doc, L = Exporter.latin;
+    const club = S().club, D = Exporter.pdfDoc(club), doc = D.doc, L = Exporter.latin;
     const pp = P(m), t = pp.talk || {}, o = pp.opp || {}, pl = pp.plan || {}, dy = pp.day || {}, half = pp.half || {}, af = pp.after || {};
     const team = teamOf(m), who = `${(team || {}).name || club.name} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`;
     const date = UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), hh = s => String(s || '').replace(':', 'h');
     const keys = (t.keys || []).filter(Boolean), final = lines(t.final).join(' ') || Supporters.SLOGAN;
     let first = true;
-    const page = (title) => { if (!first) doc.addPage(); first = false; P.header(title, `${(team || {}).name || ''} · ${UI.fmtDate(m.date)}`); };
+    const page = (title) => { if (!first) doc.addPage(); first = false; D.header(title, `${(team || {}).name || ''} · ${UI.fmtDate(m.date)}`); };
     // lines to write on by hand
-    const writeLines = (n, label) => { if (label) P.label(label); for (let i = 0; i < n; i++) { P.ensure(9); doc.setDrawColor(190, 196, 190); doc.setLineWidth(.2); doc.line(P.M, P.y + 7, P.M + P.CW, P.y + 7); P.y += 9; } P.y += 2; };
+    const writeLines = (n, label) => { if (label) D.label(label); for (let i = 0; i < n; i++) { D.ensure(9); doc.setDrawColor(190, 196, 190); doc.setLineWidth(.2); doc.line(D.M, D.y + 7, D.M + D.CW, D.y + 7); D.y += 9; } D.y += 2; };
     // boxes to tick by hand
-    const ticks = (items) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(11); items.forEach(it => { P.ensure(8); doc.setDrawColor(80, 90, 85); doc.setLineWidth(.35); doc.rect(P.M, P.y + .6, 4.6, 4.6); doc.text(L(it), P.M + 8, P.y + 4.4, { maxWidth: P.CW - 8 }); P.y += 7.5; }); P.y += 2; };
-    const text = (label, v) => { if (!lines(v).length) return; P.label(label); P.bullets(lines(v)); };
+    const ticks = (items) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(11); items.forEach(it => { D.ensure(8); doc.setDrawColor(80, 90, 85); doc.setLineWidth(.35); doc.rect(D.M, D.y + .6, 4.6, 4.6); doc.text(L(it), D.M + 8, D.y + 4.4, { maxWidth: D.CW - 8 }); D.y += 7.5; }); D.y += 2; };
+    const text = (label, v) => { if (!lines(v).length) return; D.label(label); D.bullets(lines(v)); };
 
     if (parts.includes('poster')) {
       // the poster: navy page, crest, the match, the objective, the 3 keys, the slogan, all in big letters
@@ -400,65 +400,65 @@ const Prepa = (() => {
       doc.setTextColor(20, 30, 25);
     }
     if (parts.includes('talk')) {
-      page('Causerie et plan de jeu'); P.h2(who);
-      P.facts([['Date', UI.fmtDate(m.date)], ['Coup d\'envoi', hh(m.time) || '-'], ['Rendez-vous', hh(m.rdv) || '-'], ['Système', pl.system || '-']]);
-      if (m.place) { P.label('Lieu'); P.para(m.place); }
-      if (t.hook) { P.label('1 · L\'accroche'); P.para(t.hook, 11.5); }
-      if (t.objective) { P.label('Objectif du match'); P.para(t.objective, 13); }
-      if (keys.length) { P.label('2 · Les 3 clés'); keys.forEach((k, i) => P.para(`${i + 1}.  ${k}`, 13)); }
-      P.label('3 · Le mot de la fin'); P.para(final, 11.5);
+      page('Causerie et plan de jeu'); D.h2(who);
+      D.facts([['Date', UI.fmtDate(m.date)], ['Coup d\'envoi', hh(m.time) || '-'], ['Rendez-vous', hh(m.rdv) || '-'], ['Système', pl.system || '-']]);
+      if (m.place) { D.label('Lieu'); D.para(m.place); }
+      if (t.hook) { D.label('1 · L\'accroche'); D.para(t.hook, 11.5); }
+      if (t.objective) { D.label('Objectif du match'); D.para(t.objective, 13); }
+      if (keys.length) { D.label('2 · Les 3 clés'); keys.forEach((k, i) => D.para(`${i + 1}.  ${k}`, 13)); }
+      D.label('3 · Le mot de la fin'); D.para(final, 11.5);
       const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = pl.captain && Store.get('players', pl.captain);
-      if (lineup) { await Board.ensureBg(lineup); P.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); P.image(Exporter.frameCanvas(lineup, 0, 0, { w: 1500, h: 980, names: true, homeBib: club.homeBib }), P.CW * .85); }
-      else if (cap) { P.label('Capitaine'); P.para(Store.fullName(cap)); }
-      if (MOMENTS.some(([k]) => lines(pl[k]).length)) { P.h2('Les 4 moments du match'); MOM().forEach(([k, l]) => text(l.replace(/^\S+\s/, ''), pl[k])); }
+      if (lineup) { await Board.ensureBg(lineup); D.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); D.image(Exporter.frameCanvas(lineup, 0, 0, { w: 1500, h: 980, names: true, homeBib: club.homeBib }), D.CW * .85); }
+      else if (cap) { D.label('Capitaine'); D.para(Store.fullName(cap)); }
+      if (MOMENTS.some(([k]) => lines(pl[k]).length)) { D.h2('Les 4 moments du match'); MOM().forEach(([k, l]) => text(l.replace(/^\S+\s/, ''), pl[k])); }
       const cpa = [['Corners pour nous', pl.cpaFor], ['Corners contre nous', pl.cpaAgainst], ['Coups francs', pl.freeKicks], ['Penalty', pl.penalty]].filter(([, v]) => v);
-      if (cpa.length) { P.h2('Coups de pied arrêtés'); cpa.forEach(([l, v]) => text(l, v)); }
+      if (cpa.length) { D.h2('Coups de pied arrêtés'); cpa.forEach(([l, v]) => text(l, v)); }
       const roles = Object.entries(pl.roles || {}).filter(([, v]) => v).map(([id, v]) => [Store.get('players', id), v]).filter(([x]) => x);
-      if (roles.length) { P.h2('Rôles individuels'); P.table(['Joueur', 'Consigne'], roles.map(([x, v]) => [Store.fullName(x), v]), [.35, .65]); }
+      if (roles.length) { D.h2('Rôles individuels'); D.table(['Joueur', 'Consigne'], roles.map(([x, v]) => [Store.fullName(x), v]), [.35, .65]); }
     }
     if (parts.includes('opp')) {
       page('Adversaire : ' + (m.opponent || '?'));
       const k = norm(m.opponent), past = S().matches.filter(x => x.id !== m.id && x.played && k && norm(x.opponent) === k).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
-      if (past.length) { P.label('Nos derniers matchs contre eux'); P.table(['Date', 'Équipe', 'Score'], past.map(x => [UI.fmtDate(x.date), (teamOf(x) || {}).name || '', `${x.gf} - ${x.ga}`]), [.35, .4, .25]); }
-      P.facts([['Leur système', o.system || '?']]);
+      if (past.length) { D.label('Nos derniers matchs contre eux'); D.table(['Date', 'Équipe', 'Score'], past.map(x => [UI.fmtDate(x.date), (teamOf(x) || {}).name || '', `${x.gf} - ${x.ga}`]), [.35, .4, .25]); }
+      D.facts([['Leur système', o.system || '?']]);
       text('Leurs forces', o.strengths); text('Leurs faiblesses', o.weaknesses); text('Joueurs à surveiller', o.players); text('Leurs coups de pied arrêtés', o.cpa); text('Notes', o.notes);
       writeLines(4, 'À compléter');
     }
     if (parts.includes('week')) {
       page('Semaine d\'entraînement');
-      if (pp.week && pp.week.theme) { P.label('Thème de la semaine'); P.para(lines(pp.week.theme).join(' · '), 12); }
+      if (pp.week && pp.week.theme) { D.label('Thème de la semaine'); D.para(lines(pp.week.theme).join(' · '), 12); }
       const list = weekSessions(m);
       if (list.length) {
-        P.table(['Jour', 'Date', 'Séance', 'Durée'], list.map(x => { const j = daysBefore(m, x.date); return [DAYS[j] ? DAYS[j][0] : 'J-' + j, UI.fmtDate(x.date) + (x.time ? ' ' + x.time : ''), x.title || 'Entraînement', x.exercises.reduce((a, e) => a + (+e.duration || 0), 0) + ' min']; }), [.12, .28, .45, .15]);
-        list.forEach(x => { const j = daysBefore(m, x.date); P.h2(`${DAYS[j] ? DAYS[j][0] + ' · ' : ''}${x.title || 'Entraînement'}`); if (x.goal) P.para(x.goal); if (x.exercises.length) P.bullets(x.exercises.map(e => `${e.title || 'Exercice'} (${e.duration || 0} min)`)); });
-      } else P.para('Pas de séance enregistrée avant ce match.');
-      P.h2('Repères de la semaine'); P.bullets([1, 2, 3, 4].map(j => `${DAYS[j][0]} : ${DAYS[j][1]}`));
+        D.table(['Jour', 'Date', 'Séance', 'Durée'], list.map(x => { const j = daysBefore(m, x.date); return [DAYS[j] ? DAYS[j][0] : 'J-' + j, UI.fmtDate(x.date) + (x.time ? ' ' + x.time : ''), x.title || 'Entraînement', x.exercises.reduce((a, e) => a + (+e.duration || 0), 0) + ' min']; }), [.12, .28, .45, .15]);
+        list.forEach(x => { const j = daysBefore(m, x.date); D.h2(`${DAYS[j] ? DAYS[j][0] + ' · ' : ''}${x.title || 'Entraînement'}`); if (x.goal) D.para(x.goal); if (x.exercises.length) D.bullets(x.exercises.map(e => `${e.title || 'Exercice'} (${e.duration || 0} min)`)); });
+      } else D.para('Pas de séance enregistrée avant ce match.');
+      D.h2('Repères de la semaine'); D.bullets([1, 2, 3, 4].map(j => `${DAYS[j][0]} : ${DAYS[j][1]}`));
     }
     if (parts.includes('day')) {
       page('Jour J');
       const tl = timeline(m);
-      if (tl.length) { P.label('Le déroulé'); P.table(['Heure', 'Moment'], tl.map(([mn, l]) => [hm(mn), l.replace(/^\S+\s/, '')]), [.2, .8]); }
+      if (tl.length) { D.label('Le déroulé'); D.table(['Heure', 'Moment'], tl.map(([mn, l]) => [hm(mn), l.replace(/^\S+\s/, '')]), [.2, .8]); }
       const k = +(dy.warmMin || 25) / 25;
-      P.h2(`Échauffement (${dy.warmMin || 25} min)`); ticks(WARM().map(([l, n]) => `${Math.max(1, Math.round(n * k))} min · ${l}`)); if (dy.warmNotes) P.para(dy.warmNotes);
-      P.h2('Matériel'); ticks([...KITS(), ...lines(dy.other)]);
+      D.h2(`Échauffement (${dy.warmMin || 25} min)`); ticks(WARM().map(([l, n]) => `${Math.max(1, Math.round(n * k))} min · ${l}`)); if (dy.warmNotes) D.para(dy.warmNotes);
+      D.h2('Matériel'); ticks([...KITS(), ...lines(dy.other)]);
       const conv = (m.convoked || []).map(id => Store.get('players', id)).filter(Boolean).sort((a, b) => (a.number || 99) - (b.number || 99));
-      if (conv.length) { P.h2(`Joueurs convoqués (${conv.length}) · présents`); ticks(conv.map(x => `${x.number ? x.number + '. ' : ''}${Store.fullName(x)}`)); }
+      if (conv.length) { D.h2(`Joueurs convoqués (${conv.length}) · présents`); ticks(conv.map(x => `${x.number ? x.number + '. ' : ''}${Store.fullName(x)}`)); }
     }
     if (parts.includes('half')) {
       page('Mi-temps');
-      P.para('0-3 min : calme, s\'hydrater, souffler  ·  3-10 min : 3 points maximum  ·  10-13 min : message positif  ·  13-15 min : reprise', 10);
-      P.label('Score à la mi-temps'); writeLines(1);
-      [['Le point défensif', half.def], ['Le point offensif', half.off], ['Le point collectif', half.coll], ['Changements', half.subs]].forEach(([l, v]) => { if (v) { P.label(l); P.para(v, 11.5); writeLines(1); } else writeLines(2, l); });
-      if (half.notes) { P.label('Notes'); P.para(half.notes); }
+      D.para('0-3 min : calme, s\'hydrater, souffler  ·  3-10 min : 3 points maximum  ·  10-13 min : message positif  ·  13-15 min : reprise', 10);
+      D.label('Score à la mi-temps'); writeLines(1);
+      [['Le point défensif', half.def], ['Le point offensif', half.off], ['Le point collectif', half.coll], ['Changements', half.subs]].forEach(([l, v]) => { if (v) { D.label(l); D.para(v, 11.5); writeLines(1); } else writeLines(2, l); });
+      if (half.notes) { D.label('Notes'); D.para(half.notes); }
       writeLines(8, 'Notes de la 1re période');
     }
     if (parts.includes('after')) {
       page('Après-match');
-      P.label('Score final'); if (m.played) P.para(`${club.name}  ${m.gf} - ${m.ga}  ${m.opponent || ''}`, 13); else writeLines(1);
-      [['Ce qui a marché', af.good], ['Ce qu\'on travaille cette semaine', af.work], ['Thème du prochain entraînement', af.next]].forEach(([l, v]) => { if (lines(v).length) { P.label(l); P.bullets(lines(v)); writeLines(1); } else writeLines(3, l); });
+      D.label('Score final'); if (m.played) D.para(`${club.name}  ${m.gf} - ${m.ga}  ${m.opponent || ''}`, 13); else writeLines(1);
+      [['Ce qui a marché', af.good], ['Ce qu\'on travaille cette semaine', af.work], ['Thème du prochain entraînement', af.next]].forEach(([l, v]) => { if (lines(v).length) { D.label(l); D.bullets(lines(v)); writeLines(1); } else writeLines(3, l); });
       writeLines(6, 'Notes');
     }
-    return Exporter.deliver(P.blob(), `preparation-${norm(m.opponent || 'match').toLowerCase()}-${m.date || ''}.pdf`);
+    return Exporter.deliver(D.blob(), `preparation-${norm(m.opponent || 'match').toLowerCase()}-${m.date || ''}.pdf`);
   }
 
   // after-match: the match videos, to analyse them
