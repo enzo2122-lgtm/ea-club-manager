@@ -3855,7 +3855,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.09';
+  const VERSION = '3.10';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8559,7 +8559,9 @@ var Prepa = (() => {
       } }] });
   }
   // (3.08) who starts and who is on the bench: the players placed on the composition, else the AssistCoachAI line-up; the bench = the other convoked players
-  const postName = k => { const f = (Sport.POSTS || []).find(q => q[0] === k); return f ? f[1] : (k || ''); };
+  // the composition's own codes (views.js) that the sport list doesn't know, so every post is written out in full
+  const POST_FULL = { DG: 'Latéral gauche', DD: 'Latéral droit', PG: 'Piston gauche', PD: 'Piston droit', MOG: 'Milieu offensif gauche', MOD: 'Milieu offensif droit', AV: 'Avant-centre' };
+  const postName = k => { const f = (Sport.POSTS || []).find(q => q[0] === k); return f ? f[1] : POST_FULL[k] || (k || ''); };
   function squad(m, lineup) {
     const absent = new Set(m.absents || []), get = id => Store.get('players', id), conv = (m.convoked || []).filter(id => !absent.has(id)).map(get).filter(Boolean);
     let ids = []; const gks = new Set(), slot = {};
@@ -8567,8 +8569,9 @@ var Prepa = (() => {
     if (!ids.length && m.acLineup) ids = m.acLineup.starters || [];
     ids = [...new Set(ids)].filter(id => !absent.has(id));
     const byNum = (a, b) => (+Store.numOf(a, m) || 99) - (+Store.numOf(b, m) || 99) || Store.byName(a, b), gk = x => gks.has(x.id) || /^(GB|G)$/.test((x.posts || [])[0] || x.pos || '') ? 0 : 1;
-    const starters = ids.map(get).filter(Boolean).sort((a, b) => gk(a) - gk(b) || byNum(a, b));
-    const post = x => (slot[x.id] && postName(slot[x.id])) || People.postsLabel(x) || '';
+    const num = x => +Store.numOf(x, m) || 0; // by shirt number; the ones without a number after (the goalkeeper first among them)
+    const starters = ids.map(get).filter(Boolean).sort((a, b) => (!num(a)) - (!num(b)) || num(a) - num(b) || gk(a) - gk(b) || Store.byName(a, b));
+    const post = x => postName(slot[x.id] || (x.posts || [])[0] || x.pos || '');
     return { starters, bench: conv.filter(x => !ids.includes(x.id)).sort(byNum), post };
   }
   async function pdf(m, parts) {
@@ -16964,6 +16967,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 169, date: '2026-10-10', title: 'Une feuille bien rangée 🔢', items: [
+      ['🐛', "PDF de la préparation : les titulaires sont rangés par numéro (1, 2, 3…), comme les remplaçants. Et tous les postes sont écrits en entier : « Latéral droit » au lieu de « DD », « Avant-centre » au lieu de « AV »."],
+    ] },
     { n: 168, date: '2026-10-10', title: 'Les numéros sur le papier 🔢', items: [
       ['🐛', "PDF de la préparation : les numéros donnés pour le match n'apparaissaient pas (seuls ceux de la fiche joueur étaient lus). Ils sont là, dans les listes titulaires / remplaçants et sur la feuille des présents. Le poste affiché est celui de la composition, et le capitaine choisi dans la compo est marqué (C)."],
     ] },
@@ -21898,7 +21904,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 210, UPD = AppCfg.key('update-tried');
+  const BUILD = 211, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
