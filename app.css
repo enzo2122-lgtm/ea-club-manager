@@ -2347,3 +2347,8 @@ html[data-theme="dark"] .btn.primary, html[data-theme="dark"] .chip.on, html[dat
 .lu-hot:hover, .lu-hot:focus-visible { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--gold); outline: none; }
 .slot.flash { animation: slotFlash 1.6s ease-out; border-radius: 999px; }
 @keyframes slotFlash { 0%, 40% { box-shadow: 0 0 0 4px var(--gold); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* (2.94) the post list in « Qui joue où ? », the system chooser */
+.slot-post { min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2); font-weight: 800; padding: 0 6px; width: 78px; }
+.slot-post.gk { background: #fde68a; color: #1f1f1f; }
+.sys-sel { margin: 0; } .sys-sel select { min-height: 38px; }

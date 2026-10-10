@@ -888,16 +888,33 @@ const Views = (() => {
       line.forEach(o => { const s = side(o); out.set(o.id, { line: i, post: k === 'D' ? 'D' + s : k === 'A' ? (s === 'C' ? 'AV' : 'A' + s) : k === 'MO' ? 'MO' + s : (s === 'C' ? (midN > 1 && midI === 0 ? 'MDC' : 'MC') : 'M' + s) }); }); });
     return out;
   }
+  // (2.94) the posts a coach can give to a line, and where each one stands on the pitch (fractions of the length and the width, attack to the right)
+  const POSTS = [['GB', '🧤 GB'], ['DG', 'DG'], ['DC', 'DC'], ['DD', 'DD'], ['MDC', 'MDC'], ['MG', 'MG'], ['MC', 'MC'], ['MD', 'MD'], ['MOG', 'MOG'], ['MOC', 'MOC'], ['MOD', 'MOD'], ['AG', 'AG'], ['AV', 'AV'], ['AD', 'AD']];
+  const POST_XY = { GB: [.04, .5], DG: [.2, .12], DC: [.17, .5], DD: [.2, .88], MDC: [.33, .5], MG: [.45, .12], MC: [.46, .5], MD: [.45, .88], MOG: [.62, .15], MOC: [.62, .5], MOD: [.62, .85], AG: [.8, .15], AV: [.88, .5], AD: [.8, .85] };
+  const POST_RANK = Object.fromEntries(POSTS.map(([k], i) => [k, i]));
+  // every spot of the drawing gets its post written down (from the lines of the drawing when it has none yet)
+  function ensurePosts(sc, slots, st) {
+    if (slots.every(o => o.post && POST_RANK[o.post] != null)) return false;
+    const d = postsOfSpots(sc, slots, st); slots.forEach(o => { if (!o.post || POST_RANK[o.post] == null) o.post = (d.get(o.id) || {}).post || 'MC'; }); return true;
+  }
+  // the players sharing a post are spread across the width (two DC: one on each side of the axis)
+  function placeByPost(sc, slots, st) {
+    const { L, W } = Board.dims(sc.field), groups = {};
+    slots.forEach(o => (groups[o.post] = groups[o.post] || []).push(o));
+    Object.entries(groups).forEach(([post, list]) => { const [x, y] = POST_XY[post] || [.5, .5], n = list.length;
+      list.sort((a, b) => (st.pos[a.id] || [0, 0])[1] - (st.pos[b.id] || [0, 0])[1]).forEach((o, i) => { const off = n === 1 ? 0 : (i - (n - 1) / 2) * (n > 2 ? .18 : .26); st.pos[o.id] = [x * L, Math.min(.95, Math.max(.05, y + off)) * W]; o.gk = post === 'GB'; if (o.gk) o.color = 'jaune'; else if (o.color === 'jaune') o.color = S().club.homeBib; }); });
+  }
   function slotsCard(sc, conv, m) {
     const st = (sc.steps || [])[0] || { pos: {} };
-    const all = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]), posts = postsOfSpots(sc, all, st), postOf = o => (posts.get(o.id) || {}).post || '';
-    const slots = all.slice().sort((a, b) => ((posts.get(a.id) || {}).line - (posts.get(b.id) || {}).line) || (st.pos[a.id][1] - st.pos[b.id][1]) || (st.pos[a.id][0] - st.pos[b.id][0]));
+    const all = sc.objects.filter(o => o.type === 'player' && !o.bench && st.pos[o.id]); if (ensurePosts(sc, all, st)) Store.upsert('schemas', sc);
+    const postOf = o => o.post, slots = all.slice().sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
+    const fmt = Formations[sc.field.format] ? sc.field.format : null, sysSel = fmt ? `<label class="fld inline sys-sel"><span>Système</span><select data-ssys><option value="">Changer de système…</option>${Object.keys(Formations[fmt]).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select></label>` : '';
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
-    return `<section class="card slots-card"><h2>👕 Qui joue où ?</h2>
-      <p class="muted small">Choisis le joueur de chaque poste : son nom s'écrit sur le schéma et sur la feuille de match (PDF). Un joueur déjà placé disparaît des autres listes.</p>
-      <div class="slots">${slots.map((o, i) => { const t = taken(o), pl = o.playerId && Store.get('players', o.playerId), cur = pl ? Store.numOf(pl, m) : (/^\d+$/.test(o.label || '') ? o.label : ''); return `<label class="slot"><span class="slot-tag ${o.gk ? 'gk' : ''}" title="Poste d'après la place sur le terrain">${o.gk ? '🧤' : esc(postOf(o))}</span>${numSel(pl, m, `data-snum="${o.id}"`, cur)}
+    return `<section class="card slots-card"><div class="row-head"><h2>👕 Qui joue où ?</h2>${sysSel}</div>
+      <p class="muted small">Poste, numéro, joueur : chaque changement se dessine aussitôt sur la compo. Un joueur déjà placé disparaît des autres listes.</p>
+      <div class="slots">${slots.map((o, i) => { const t = taken(o), pl = o.playerId && Store.get('players', o.playerId), cur = pl ? Store.numOf(pl, m) : (/^\d+$/.test(o.label || '') ? o.label : ''); return `<label class="slot"><select class="slot-post ${o.gk ? 'gk' : ''}" data-spost="${o.id}" aria-label="Poste">${POSTS.map(([k, l]) => `<option value="${k}" ${k === o.post ? 'selected' : ''}>${l}</option>`).join('')}</select>${numSel(pl, m, `data-snum="${o.id}"`, cur)}
         <select data-slot="${o.id}"><option value="">— personne —</option>${players.filter(p => !t.has(p.id)).map(p => `<option value="${p.id}" ${p.id === o.playerId ? 'selected' : ''}>${esc(Store.shortName(p))}${p.number ? ' · ' + esc(p.number) : ''}</option>`).join('')}</select></label>`; }).join('')}</div>
       ${(() => { const placed = new Set(slots.map(o => o.playerId).filter(Boolean)), bench = players.filter(p => !placed.has(p.id)); // (2.85) the convoked players without a position: the bench
         return `<p class="small bench-line">🪑 <b>Remplaçants (${bench.length})</b> : ${bench.length ? bench.map(p => `<span class="chip small">${numSel(p, m, `data-bnum="${p.id}"`, Store.numOf(p, m))} ${esc(Store.shortName(p))}</span>`).join(' ') : '<span class="muted">aucun, tous les convoqués ont un poste</span>'}</p>`; })()}</section>`;
@@ -1067,6 +1084,27 @@ const Views = (() => {
     root.onchange = e => {
       if (e.target.dataset.f === 'teamId') { m.teamId = e.target.value; m.teamManual = true; save(); toast('Match rangé dans ' + (teamOf(m.teamId) || {}).name); return render(); }
       if (e.target.dataset.slot) { const sc = m.lineupId && Store.get('schemas', m.lineupId); if (sc) { setSlot(sc, e.target.dataset.slot, e.target.value, m); toast(e.target.value ? 'Placé sur le schéma ✓' : 'Poste libéré'); render(); } return; }
+      // (2.94) the post of a line: the player moves to that post on the drawing (the players sharing a post are spread across the width)
+      if (e.target.dataset.spost) {
+        const sc = m.lineupId && Store.get('schemas', m.lineupId); if (!sc) return;
+        const st = sc.steps[0], o = sc.objects.find(x => x.id === e.target.dataset.spost); if (!o) return;
+        o.post = e.target.value; if (!o.playerId) o.label = o.post;
+        placeByPost(sc, sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]), st);
+        Store.upsert('schemas', sc); toast('Poste changé, le dessin suit'); return render();
+      }
+      // (2.94) another system: the lines are laid out again, the players keep their order (gardien, défense, milieu, attaque)
+      if ('ssys' in e.target.dataset) {
+        const sc = m.lineupId && Store.get('schemas', m.lineupId), name = e.target.value; if (!sc || !name) return;
+        const rows = (Formations[sc.field.format] || {})[name]; if (!rows) return;
+        const st = sc.steps[0], { L, W } = Board.dims(sc.field);
+        const cur = sc.objects.filter(x => x.type === 'player' && !x.bench && st.pos[x.id]).sort((a, b) => (POST_RANK[a.post] - POST_RANK[b.post]) || (st.pos[a.id][1] - st.pos[b.id][1]));
+        const gkRow = rows.findIndex(r => r[3]), order = [...(gkRow >= 0 ? [rows[gkRow]] : []), ...rows.filter((r, i) => i !== gkRow)];
+        order.forEach((row, i) => { let o = cur[i];
+          if (!o) { o = { id: Store.uid(), type: 'player', color: row[3] ? 'jaune' : S().club.homeBib, gk: !!row[3], label: row[0] }; sc.objects.push(o); }
+          st.pos[o.id] = [Math.min(row[1] * 1.9, .94) * L, row[2] * W]; o.gk = !!row[3]; o.color = o.gk ? 'jaune' : (o.color === 'jaune' ? S().club.homeBib : o.color); delete o.post; if (!o.playerId) o.label = row[0]; });
+        cur.slice(order.length).forEach(o => { sc.objects = sc.objects.filter(x => x !== o); delete st.pos[o.id]; }); // one line less: the last spots go (their players become substitutes)
+        Store.upsert('schemas', sc); toast(`Système ${name} : les joueurs sont replacés`); return render();
+      }
       // (2.90) the number chosen in « Qui joue où ? »: for this match (and on the drawing); « — » gives back the usual one
       if (e.target.dataset.snum || e.target.dataset.bnum) {
         const sc = m.lineupId && Store.get('schemas', m.lineupId), o = sc && e.target.dataset.snum ? sc.objects.find(x => x.id === e.target.dataset.snum) : null;

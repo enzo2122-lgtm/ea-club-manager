@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 152, date: '2026-10-10', title: 'Qui joue où, pour de vrai 🎛️', items: [
+      ['🎛️', "Compo : sur chaque ligne, le poste se change (le joueur se déplace sur le dessin), le numéro aussi, le joueur aussi. Deux joueurs au même poste se répartissent sur la largeur."],
+      ['🔁', "« Changer de système » (4-3-3, 4-4-2…) replace toutes les lignes en gardant les joueurs dans l'ordre : gardien, défense, milieu, attaque."],
+    ] },
     { n: 151, date: '2026-10-10', title: 'Rangés par poste 🧤🛡️⚙️⚡', items: [
       ['🛡️', "« Qui joue où ? » est rangé comme sur le terrain : gardien, défense (DG, DC, DD), milieu (MG, MDC, MC, MD), attaque (AG, AV, AD), avec le poste devant chaque ligne."],
     ] },
