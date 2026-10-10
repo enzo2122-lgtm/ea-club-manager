@@ -60,7 +60,7 @@
       ${m.convoked ? `<div class="mine-box"><b>Tu es convoqué 💪</b><div class="btns"><button class="b yes ${m.answer === 'oui' ? 'on' : ''}" data-ans="oui">Je suis présent</button><button class="b no ${m.answer === 'non' ? 'on' : ''}" data-ans="non">Absent</button></div></div>`
         : dispoBox(m)}</article>`;
   function nextCard(m) {
-    const t = m.talk || {}, keys = (t.keys || []).filter(Boolean), place = m.place || (m.home ? (data.club && data.club.fieldName) || '' : '');
+    const t = m.talk || {}, keys = Object.values(t.keys || {}).filter(Boolean), place = m.place || (m.home ? (data.club && data.club.fieldName) || '' : '');
     return `<article class="card next ${m.home ? 'home' : 'away'} ${Member.kindCls(m)}" data-m="${esc(m.id)}">${Member.kindBadge(m)}
       <div class="m-date">${esc(fmt(m.date))}</div>
       <div class="m-title">${title(m)}</div>
@@ -152,7 +152,7 @@
   function homeVideos() { const v = (vids || [])[0]; return v ? `<h2>🎬 Dernières vidéos</h2><article class="card"><div class="m-title">${esc(vTitle(v))}</div>${VPlayer.list((v.clips || []).slice(0, 3))}${(v.clips || []).length > 3 ? '<p class="info">Les autres dans l\'onglet Vidéos.</p>' : ''}</article>` : ''; }
   // the team talk of his next match (Séances tab)
   function talkCard(m) {
-    const t = (m && m.talk) || {}, keys = (t.keys || []).filter(Boolean); if (!t.objective && !keys.length && !t.final) return '';
+    const t = (m && m.talk) || {}, keys = Object.values(t.keys || {}).filter(Boolean); if (!t.objective && !keys.length && !t.final) return '';
     return `<div class="card talk"><h3>🗣️ Le mot du coach · ${esc(m.home ? 'contre ' : 'chez ')}${esc(m.opponent || '?')}</h3>${t.objective ? `<p class="obj">🎯 ${esc(t.objective)}</p>` : ''}${keys.length ? `<ol class="keys">${keys.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}${t.final ? `<p class="final">${esc(t.final)}</p>` : ''}${t.video ? VPlayer.list([{ url: t.video, title: 'La vidéo du coach' }]) : ''}</div>`;
   }
   /* ---------- (1.81) write to the coach: a message, an idea for the app, a bug (the coaches get a notification) ---------- */

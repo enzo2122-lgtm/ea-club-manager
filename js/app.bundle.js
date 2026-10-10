@@ -3855,7 +3855,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.05';
+  const VERSION = '3.06';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8241,7 +8241,7 @@ var Prepa = (() => {
   // the systems of the team's sport and format (the session library's ones for the other sports)
   const systemsOf = teamId => { if (foot()) return SYSTEMS[fmt(teamId)] || SYSTEMS[11]; const f = fmt(teamId), l = (typeof SesLib !== 'undefined' ? SesLib.systems() : []).filter(x => x.fmt === f).map(x => x.sys); return l.length ? l : (typeof SesLib !== 'undefined' ? [...new Set(SesLib.systems().map(x => x.sys))] : []); };
 
-  const P = m => (m.prep = m.prep || {});
+  const P = m => { const p = m.prep = m.prep || {}; if (p.talk && p.talk.keys && !Array.isArray(p.talk.keys)) p.talk.keys = [0, 1, 2].map(i => String(p.talk.keys[i] || '')); return p; };
   // (2.98) dictate instead of typing: the phone's speech recognition writes in the field (nothing leaves the phone except what the system does)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const mic = f => SR ? `<button type="button" class="mic-btn" data-mic="${f}" title="Dicter" aria-label="Dicter">🎤</button>` : '';
@@ -8256,7 +8256,7 @@ var Prepa = (() => {
     try { r.start(); UI.toast('Parle, j\'écris…'); } catch (e) { if (btn) btn.classList.remove('on'); }
   }
   const get = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
-  const set = (o, path, v) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach(k => { a = a[k] = a[k] && typeof a[k] === 'object' ? a[k] : {}; }); a[ks[ks.length - 1]] = v; };
+  const set = (o, path, v) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach((k, i) => { a = a[k] = a[k] && typeof a[k] === 'object' ? a[k] : (k === 'keys' ? ['', '', ''] : {}); }); a[ks[ks.length - 1]] = v; };
   const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
   const hm = min => { min = ((min % 1440) + 1440) % 1440; return `${String(Math.floor(min / 60)).padStart(2, '0')}h${String(min % 60).padStart(2, '0')}`; };
   const toMin = t => { const x = /^(\d{1,2})[:h](\d{2})/.exec(t || ''); return x ? +x[1] * 60 + +x[2] : null; };
@@ -8560,7 +8560,7 @@ var Prepa = (() => {
   }
   async function pdf(m, parts) {
     const club = S().club, P = Exporter.pdfDoc(club), doc = P.doc, L = Exporter.latin;
-    const pp = m.prep || {}, t = pp.talk || {}, o = pp.opp || {}, pl = pp.plan || {}, dy = pp.day || {}, half = pp.half || {}, af = pp.after || {};
+    const pp = P(m), t = pp.talk || {}, o = pp.opp || {}, pl = pp.plan || {}, dy = pp.day || {}, half = pp.half || {}, af = pp.after || {};
     const team = teamOf(m), who = `${(team || {}).name || club.name} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`;
     const date = UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), hh = s => String(s || '').replace(':', 'h');
     const keys = (t.keys || []).filter(Boolean), final = lines(t.final).join(' ') || Supporters.SLOGAN;
@@ -16944,6 +16944,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 165, date: '2026-10-10', title: 'La prépa ne boude plus 🔑', items: [
+      ['🐛', "Préparation du match : quand une clé de la causerie était tapée à la main, elle était rangée de travers et toute la page se figeait sur l'autre appareil. Rangée droit, et les anciennes sont remises d'aplomb toutes seules."],
+    ] },
     { n: 164, date: '2026-10-10', title: 'Les blocs du document, au mètre près 📘', items: [
       ['📘', "Compo à 11 : 16 systèmes (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2…) et leurs 5 blocs placés exactement comme dans le document des hauteurs de bloc : ligne défensive à 12, 22, 33, 45 ou 55 m, ailiers qui redescendent en bloc bas, gardien qui avance."],
       ['🕷️', "Grand ménage : un robot a parcouru les 60 pages de l'appli et touché tous les boutons ; l'erreur trouvée (chrono et test VMA quittés en pleine course) est corrigée. Ce parcours rejoint les vérifications d'avant publication."],
@@ -21866,7 +21869,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 206, UPD = AppCfg.key('update-tried');
+  const BUILD = 207, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

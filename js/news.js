@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 165, date: '2026-10-10', title: 'La prépa ne boude plus 🔑', items: [
+      ['🐛', "Préparation du match : quand une clé de la causerie était tapée à la main, elle était rangée de travers et toute la page se figeait sur l'autre appareil. Rangée droit, et les anciennes sont remises d'aplomb toutes seules."],
+    ] },
     { n: 164, date: '2026-10-10', title: 'Les blocs du document, au mètre près 📘', items: [
       ['📘', "Compo à 11 : 16 systèmes (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2…) et leurs 5 blocs placés exactement comme dans le document des hauteurs de bloc : ligne défensive à 12, 22, 33, 45 ou 55 m, ailiers qui redescendent en bloc bas, gardien qui avance."],
       ['🕷️', "Grand ménage : un robot a parcouru les 60 pages de l'appli et touché tous les boutons ; l'erreur trouvée (chrono et test VMA quittés en pleine course) est corrigée. Ce parcours rejoint les vérifications d'avant publication."],

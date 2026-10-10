@@ -48,7 +48,7 @@ const Prepa = (() => {
   // the systems of the team's sport and format (the session library's ones for the other sports)
   const systemsOf = teamId => { if (foot()) return SYSTEMS[fmt(teamId)] || SYSTEMS[11]; const f = fmt(teamId), l = (typeof SesLib !== 'undefined' ? SesLib.systems() : []).filter(x => x.fmt === f).map(x => x.sys); return l.length ? l : (typeof SesLib !== 'undefined' ? [...new Set(SesLib.systems().map(x => x.sys))] : []); };
 
-  const P = m => (m.prep = m.prep || {});
+  const P = m => { const p = m.prep = m.prep || {}; if (p.talk && p.talk.keys && !Array.isArray(p.talk.keys)) p.talk.keys = [0, 1, 2].map(i => String(p.talk.keys[i] || '')); return p; };
   // (2.98) dictate instead of typing: the phone's speech recognition writes in the field (nothing leaves the phone except what the system does)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const mic = f => SR ? `<button type="button" class="mic-btn" data-mic="${f}" title="Dicter" aria-label="Dicter">🎤</button>` : '';
@@ -63,7 +63,7 @@ const Prepa = (() => {
     try { r.start(); UI.toast('Parle, j\'écris…'); } catch (e) { if (btn) btn.classList.remove('on'); }
   }
   const get = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
-  const set = (o, path, v) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach(k => { a = a[k] = a[k] && typeof a[k] === 'object' ? a[k] : {}; }); a[ks[ks.length - 1]] = v; };
+  const set = (o, path, v) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach((k, i) => { a = a[k] = a[k] && typeof a[k] === 'object' ? a[k] : (k === 'keys' ? ['', '', ''] : {}); }); a[ks[ks.length - 1]] = v; };
   const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
   const hm = min => { min = ((min % 1440) + 1440) % 1440; return `${String(Math.floor(min / 60)).padStart(2, '0')}h${String(min % 60).padStart(2, '0')}`; };
   const toMin = t => { const x = /^(\d{1,2})[:h](\d{2})/.exec(t || ''); return x ? +x[1] * 60 + +x[2] : null; };
@@ -367,7 +367,7 @@ const Prepa = (() => {
   }
   async function pdf(m, parts) {
     const club = S().club, P = Exporter.pdfDoc(club), doc = P.doc, L = Exporter.latin;
-    const pp = m.prep || {}, t = pp.talk || {}, o = pp.opp || {}, pl = pp.plan || {}, dy = pp.day || {}, half = pp.half || {}, af = pp.after || {};
+    const pp = P(m), t = pp.talk || {}, o = pp.opp || {}, pl = pp.plan || {}, dy = pp.day || {}, half = pp.half || {}, af = pp.after || {};
     const team = teamOf(m), who = `${(team || {}).name || club.name} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`;
     const date = UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), hh = s => String(s || '').replace(':', 'h');
     const keys = (t.keys || []).filter(Boolean), final = lines(t.final).join(' ') || Supporters.SLOGAN;
