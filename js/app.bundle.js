@@ -2127,6 +2127,8 @@ var Exporter = (() => {
     P.facts([['Date', fmtDate(tr.date)], ['Heure', tr.time || '-'], ['Durée', total + ' min'], ['Présents', tr.presents && tr.presents.length ? String(tr.presents.length) : '-']]);
     const staff = (tr.staffIds || []).map(id => Store.get('staff', id)).filter(Boolean);
     if (staff.length) { P.label('Encadrants'); P.para(staff.map(s => `${Store.fullName(s)}${s.role ? ' (' + s.role + ')' : ''}${People.staffPhone(s) ? ' - ' + s.phone : ''}`).join('\n')); }
+    { const sp = tr.split || {}, names = g => Object.keys(sp).filter(id => sp[id] === g).map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName).map(p => Store.shortName(p)); // (3.31) groups A / B
+      if (names('A').length || names('B').length) { P.label(`Groupe A (${names('A').length})`); P.para(names('A').join(', ') || '-'); P.label(`Groupe B (${names('B').length})`); P.para(names('B').join(', ') || '-'); } }
     if (tr.goal) { P.label('Objectif'); P.para(tr.goal); }
     P.label('Programme');
     let cum = 0;
@@ -4067,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.30';
+  const VERSION = '3.31';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17719,6 +17721,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 190, date: '2026-10-11', title: 'Groupes A / B de la séance 🅰️🅱️', items: [
+      ['👥', "Dans une séance, « Groupes A / B » : touche un joueur pour le mettre en A, puis en B. Ou « Répartir au hasard » / « Équilibrer par poste ». Les groupes sont aussi dans le PDF de la séance."],
+    ] },
     { n: 189, date: '2026-10-11', title: 'Générer une séance pour X joueurs 👥', items: [
       ['✨', "Générer une séance : nouveau champ « Joueurs ». L'aperçu montre chaque exercice adapté (ateliers, jokers, taille du terrain), et la séance garde ce nombre (modifiable à la dernière minute avec − / +)."],
     ] },
@@ -21511,6 +21516,7 @@ var Views = (() => {
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
         ${tm ? `<div id="effBox">${Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr))}</div>` : ''}
+        ${tm ? `<details class="card split-card" ${S().ui.splitOpen ? 'open' : ''}><summary><b>🅰️🅱️ Groupes A / B</b> <span class="muted small" id="splitSum">${splitSum()}</span></summary><div id="splitBox">${splitHtml()}</div></details>` : ''}
         <div class="ex-list" data-exlist="1">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice, ou laisse l\'appli en proposer.</p>'}</div>
         ${tr.exercises.length > 1 ? '<p class="muted small">Glisse le numéro d\'un exercice pour changer l\'ordre.</p>' : ''}
         <div class="chips">${!tr.exercises.length ? `<button class="btn primary" data-act="propose">✨<span>Proposer une séance</span></button>` : ''}<button class="btn ${tr.exercises.length ? 'primary' : ''}" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
@@ -21584,6 +21590,28 @@ var Views = (() => {
     const refreshEff = () => { const tm = teamOf(tr.teamId), b = $('#effBox', root); if (b && tm) b.innerHTML = Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr));
       tr.exercises.forEach(e => { const el = root.querySelector(`[data-effof="${e.id}"]`); if (el) { const tmp = document.createElement('div'); tmp.innerHTML = effLine(e); el.replaceWith(tmp.firstElementChild); } }); };
     { const dp = Parents.trainingDispo(tr); if (dp && dp.wait) dp.wait.then(() => { if (root.isConnected) refreshEff(); }); } // the answers arrive: the votes appear
+    // (3.31) groups A / B for this session: the players of the day (présents, else the « présent » answers, else the squad), a touch: A → B → none
+    const splitPlayers = () => { const tm = teamOf(tr.teamId); if (!tm) return []; const all = squad(tm.id), pres = tr.presents || [], dp = Parents.trainingDispo(tr);
+      const pick = pres.length ? all.filter(p => pres.includes(p.id)) : dp && dp.ready && dp.yes.size ? all.filter(p => dp.yes.has(p.id)) : all;
+      const sp = tr.split || {}; return [...pick, ...all.filter(p => sp[p.id] && !pick.includes(p))].sort(Store.byName); };
+    const splitSum = () => { const v = Object.values(tr.split || {}); return v.length ? `A : ${v.filter(x => x === 'A').length} · B : ${v.filter(x => x === 'B').length}` : 'pas encore faits'; };
+    const splitHtml = () => { const sp = tr.split || {}, ps = splitPlayers(), col = g => ps.filter(p => (sp[p.id] || '') === g);
+      const chip = p => `<button type="button" class="chip split-chip ${sp[p.id] ? 'g' + sp[p.id] : ''}" data-split="${p.id}">${sp[p.id] ? `<b>${sp[p.id]}</b> ` : ''}${esc(Store.shortName(p))}</button>`;
+      return `<p class="muted small">Touche un joueur : A, puis B, puis sans groupe. ${(tr.presents || []).length ? 'Les présents de la séance.' : 'Ceux qui ont répondu présent (sinon tout l\'effectif).'}</p>
+        <div class="chips"><button type="button" class="btn soft" data-splitdo="mix">🎲<span>Répartir au hasard</span></button><button type="button" class="btn soft" data-splitdo="post">⚖️<span>Équilibrer par poste</span></button><button type="button" class="btn soft" data-splitdo="clear">Effacer</button></div>
+        <div class="split-cols"><div><h3 class="sub-h split-h gA">Groupe A (${col('A').length})</h3><div class="chips">${col('A').map(chip).join('') || '<span class="muted small">—</span>'}</div></div>
+          <div><h3 class="sub-h split-h gB">Groupe B (${col('B').length})</h3><div class="chips">${col('B').map(chip).join('') || '<span class="muted small">—</span>'}</div></div></div>
+        ${col('').length ? `<h3 class="sub-h">Sans groupe (${col('').length})</h3><div class="chips">${col('').map(chip).join('')}</div>` : ''}`; };
+    root.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('split-card')) { S().ui.splitOpen = e.target.open ? 1 : 0; Store.persistNow(); } }, true);
+    const splitRedraw = () => { const b = $('#splitBox', root), s2 = $('#splitSum', root); if (b) b.innerHTML = splitHtml(); if (s2) s2.textContent = splitSum(); };
+    const splitDo = how => {
+      const ps = splitPlayers(); if (how === 'clear') { delete tr.split; save(); return splitRedraw(); }
+      let list = ps.slice();
+      if (how === 'mix') list.sort(() => Math.random() - .5);
+      else { const line = p => { const k = String((p.posts || [])[0] || p.pos || ''); return /^(GB|G)$/.test(k) ? 0 : /^(D|L|DC|DEF)/.test(k) ? 1 : /^(M|MIL|MDC|MOC|MC|MD|MG)/.test(k) ? 2 : /^(A|ATT|BU|SA|AD|AG)/.test(k) ? 3 : 4; };
+        list.sort((a, b) => line(a) - line(b) || Math.random() - .5); }
+      tr.split = {}; list.forEach((p, i) => { tr.split[p.id] = how === 'mix' ? (i < Math.ceil(list.length / 2) ? 'A' : 'B') : (Math.floor(i / 1) % 2 ? 'B' : 'A'); }); save(); splitRedraw();
+    };
     const exerciseCard = (e, i, n) => {
       const sc = e.schemaId && Store.get('schemas', e.schemaId), open = openEx.has(e.id);
       const hint = String(e.consignes || e.org || '').split('\n').map(x => x.trim()).filter(Boolean)[0];
@@ -21639,9 +21667,11 @@ var Views = (() => {
         $$('[data-present]', root).forEach(c => { const pl = Store.get('players', c.dataset.present); c.classList.toggle('on', p.includes(c.dataset.present)); c.classList.toggle('late', (tr.late || []).includes(c.dataset.present)); if (pl) c.innerHTML = presChip(pl, tr.teamId); });
         const lt = (tr.late || []).length; $('#presH', root).textContent = `Présents (${p.length}/${squad(tr.teamId).length})${lt ? ` · ⏰ ${lt} en retard` : ''}`;
         const ab = $('.abs-fold', root); if (ab) { const open = ab.open; const tmp = document.createElement('div'); tmp.innerHTML = absBox(tr.teamId); const nb = tmp.firstElementChild; if (nb) { nb.open = open; ab.replaceWith(nb); } else ab.remove(); }
-        rateTr(); refreshEff(); return;
+        rateTr(); refreshEff(); splitRedraw(); return;
       }
       if (b.dataset.effn != null) { const d = +b.dataset.effn; if (!d) delete tr.nPlayers; else tr.nPlayers = Math.max(1, Math.min(60, effN() + d)); save(); refreshEff(); return; } // (3.28) one more, one less, or back to automatic
+      if (b.dataset.split) { const id = b.dataset.split, sp = tr.split = Object.assign({}, tr.split), v = sp[id]; if (!v) sp[id] = 'A'; else if (v === 'A') sp[id] = 'B'; else delete sp[id]; if (!Object.keys(sp).length) delete tr.split; save(); return splitRedraw(); }
+      if (b.dataset.splitdo) return splitDo(b.dataset.splitdo);
       if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.allpres) {
@@ -23000,7 +23030,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 231, UPD = AppCfg.key('update-tried');
+  const BUILD = 232, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

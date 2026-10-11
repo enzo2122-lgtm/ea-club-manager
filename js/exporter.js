@@ -324,6 +324,8 @@ const Exporter = (() => {
     P.facts([['Date', fmtDate(tr.date)], ['Heure', tr.time || '-'], ['Durée', total + ' min'], ['Présents', tr.presents && tr.presents.length ? String(tr.presents.length) : '-']]);
     const staff = (tr.staffIds || []).map(id => Store.get('staff', id)).filter(Boolean);
     if (staff.length) { P.label('Encadrants'); P.para(staff.map(s => `${Store.fullName(s)}${s.role ? ' (' + s.role + ')' : ''}${People.staffPhone(s) ? ' - ' + s.phone : ''}`).join('\n')); }
+    { const sp = tr.split || {}, names = g => Object.keys(sp).filter(id => sp[id] === g).map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName).map(p => Store.shortName(p)); // (3.31) groups A / B
+      if (names('A').length || names('B').length) { P.label(`Groupe A (${names('A').length})`); P.para(names('A').join(', ') || '-'); P.label(`Groupe B (${names('B').length})`); P.para(names('B').join(', ') || '-'); } }
     if (tr.goal) { P.label('Objectif'); P.para(tr.goal); }
     P.label('Programme');
     let cum = 0;
