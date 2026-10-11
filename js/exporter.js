@@ -408,7 +408,9 @@ const Exporter = (() => {
     // the coach's comments on the players, then the word of the coach
     const coms = ids.map(id => { const c = Object.values(((m.ratings || {})[id]) || {}).map(x => x.c).filter(Boolean); return c.length ? `${pn(id)} : ${c.join(' / ')}` : ''; }).filter(Boolean);
     if (coms.length) { P.label('Commentaires sur les joueurs'); P.bullets(coms); }
-    if (m.notes) { P.label('Le mot du coach'); P.para(m.notes); }
+    // (3.26) the coach's notes (« Notes » under the score) and his word (« Après » → Finir le match): both, each with its title
+    if (String(m.notes || '').trim()) { P.label('Les notes du coach'); P.para(String(m.notes).trim()); }
+    if (String(m.word || '').trim()) { P.label('Le mot du coach'); P.para(String(m.word).trim(), 13); }
     return deliver(P.blob(), safeName(`compte-rendu-${m.opponent || ''}-${m.date || ''}`) + '.pdf');
   }
   async function json(text, name) { return deliver(new Blob([text], { type: 'application/json' }), safeName(name) + '.raincy.json'); }
