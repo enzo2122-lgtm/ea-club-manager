@@ -212,14 +212,17 @@ const Exos = (() => {
   function generator(pre = {}) {
     const teams = Auth.teams(), g = Object.assign({ theme: 'pressing', teamId: S().ui.teamId || (teams[0] || {}).id, minutes: 75, date: UI.today() }, S().ui.exGen || {}, pre);
     if (!coreThemes().includes(g.theme)) g.theme = coreThemes()[0]; // a theme of another sport (the club changed sport)
-    const body = () => `<div class="lbl">Thème</div><div class="chips">${TH().filter(t => !['echauffement', 'calme', 'jeu'].includes(t[0])).map(([k, l]) => `<button class="chip ${g.theme === k ? 'on' : ''}" data-gth="${k}">${l}</button>`).join('')}</div>
+    // (3.27) several kinds of work in one session (« moitié physique, moitié conservation »): up to 3 themes, the core time shared between them
+    g.themes = (Array.isArray(g.themes) ? g.themes : [g.theme]).filter(k => coreThemes().includes(k)).slice(0, 3); if (!g.themes.length) g.themes = [g.theme];
+    const body = () => `<div class="lbl">Thème${g.themes.length > 1 ? `s · ${g.themes.length} parties de ${Math.round(100 / g.themes.length)} %` : ''} <span class="muted small">(jusqu'à 3 : touche-en plusieurs pour mélanger, ex. physique + conservation)</span></div><div class="chips">${TH().filter(t => !['echauffement', 'calme', 'jeu'].includes(t[0])).map(([k, l]) => `<button class="chip ${g.themes.includes(k) ? 'on' : ''}" data-gth="${k}">${g.themes.length > 1 && g.themes.includes(k) ? (g.themes.indexOf(k) + 1) + '. ' : ''}${l}</button>`).join('')}</div>
       <div class="row2"><label class="fld"><span>Catégorie</span><select id="gTeam">${teams.map(t => `<option value="${t.id}" ${t.id === g.teamId ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
         <label class="fld"><span>Durée</span><select id="gMin">${[45, 60, 75, 90, 105].map(n => `<option ${n === +g.minutes ? 'selected' : ''} value="${n}">${n} min</option>`).join('')}</select></label>
         <label class="fld"><span>Date</span><input type="date" id="gDate" value="${esc(g.date)}"></label></div>
       <p class="muted small">L'appli prend d'abord les exercices des coachs du club, puis ceux de la base. Tu pourras tout changer ensuite.</p>`;
     modal({ title: '✨ Générer une séance', noFocus: true, body: `<div id="genBody">${body()}</div>`,
-      onOpen: r => { r.querySelector('#genBody').onclick = e => { const b = e.target.closest('[data-gth]'); if (!b) return; keep(r); g.theme = b.dataset.gth; r.querySelector('#genBody').innerHTML = body(); }; },
-      actions: [{ label: 'Annuler' }, { label: 'Générer', kind: 'primary', onClick: (c, r) => { keep(r); if (g.target && (Store.get('trainings', g.target) || {}).teamId !== g.teamId) delete g.target; S().ui.exGen = { theme: g.theme, minutes: g.minutes }; Store.persistNow(); setTimeout(() => build(g), 60); } }] });
+      onOpen: r => { r.querySelector('#genBody').onclick = e => { const b = e.target.closest('[data-gth]'); if (!b) return; keep(r); const k = b.dataset.gth;
+        g.themes = g.themes.includes(k) ? (g.themes.length > 1 ? g.themes.filter(x => x !== k) : g.themes) : [...g.themes, k].slice(-3); g.theme = g.themes[0]; r.querySelector('#genBody').innerHTML = body(); }; },
+      actions: [{ label: 'Annuler' }, { label: 'Générer', kind: 'primary', onClick: (c, r) => { keep(r); if (g.target && (Store.get('trainings', g.target) || {}).teamId !== g.teamId) delete g.target; S().ui.exGen = { theme: g.themes[0], themes: g.themes, minutes: g.minutes }; Store.persistNow(); setTimeout(() => build(g), 60); } }] });
     function keep(r) { g.teamId = $('#gTeam', r).value; g.minutes = +$('#gMin', r).value; g.date = $('#gDate', r).value || UI.today(); }
   }
   // (2.30) a session that changes every time: a draw among all the exercises of the theme (the club's and the library's, those with a written
@@ -239,15 +242,18 @@ const Exos = (() => {
     };
     const NEAR = { defense: ['pressing', 'physique'], pressing: ['transitions', 'defense'], transitions: ['pressing', 'finition'], finition: ['technique', 'transitions'],
       conservation: ['construction', 'technique'], construction: ['conservation', 'technique'], technique: ['conservation', 'finition'], cpa: ['finition', 'defense'], physique: ['pressing', 'transitions'], gardien: ['finition', 'technique'] };
+    const lab = k => (TH().find(t => t[0] === k) || ['', k])[1].replace(/^\S+\s/, '');
     const make = () => {
       const used = new Set(), total = g.minutes, warm = total >= 75 ? 15 : 10, calm = 5, game = total >= 75 ? 20 : 15, core = total - warm - calm - game;
-      const nCore = core >= 40 ? 3 : core >= 25 ? 2 : 1;
-      const coreEx = pick(g.theme, used, nCore).map(e => [e, g.theme]);
+      const ths = g.themes && g.themes.length ? g.themes : [g.theme];
+      const nCore = Math.max(ths.length, core >= 40 ? 3 : core >= 25 ? 2 : 1);
+      // each theme its share of the exercises (2 themes: half and half), in the order chosen
+      const coreEx = []; ths.forEach((th, i) => { const n = Math.floor(nCore / ths.length) + (i < nCore % ths.length ? 1 : 0); coreEx.push(...pick(th, used, n).map(e => [e, th])); });
       // too few exercises of the theme for this category: a close theme completes (never one exercise of 45 min)
       for (const alt of Sport.isFoot() ? [...(NEAR[g.theme] || []), 'conservation', 'technique'] : coreThemes().filter(k => k !== g.theme)) { if (coreEx.length >= nCore) break; coreEx.push(...pick(alt, used, nCore - coreEx.length).map(e => [e, alt])); }
       const each = Math.max(5, Math.floor(core / Math.max(1, coreEx.length) / 5) * 5);
       const plan = [...pick('echauffement', used).map(e => ({ e, d: warm, th: 'echauffement', ph: 'Échauffement' })),
-        ...coreEx.map(([e, th], i) => ({ e, th, d: i === coreEx.length - 1 ? core - each * (coreEx.length - 1) : each, ph: `Exercice ${i + 1}` })),
+        ...coreEx.map(([e, th], i) => ({ e, th, d: i === coreEx.length - 1 ? core - each * (coreEx.length - 1) : each, ph: `Exercice ${i + 1}${ths.length > 1 ? " · " + lab(th) : ""}` })),
         ...pick('jeu', used).map(e => ({ e, d: game, th: 'jeu', ph: 'Jeu' })), ...pick('calme', used).map(e => ({ e, d: calm, th: 'calme', ph: 'Retour au calme' }))];
       const have = plan.reduce((x, p) => x + p.d, 0);
       if (have < total - 10) { const th = Sport.isFoot() ? 'conservation' : coreThemes()[0], extra = pick(th, used)[0]; if (extra) plan.splice(1 + nCore, 0, { e: extra, d: total - have, th, ph: 'Exercice +' }); }
@@ -256,7 +262,7 @@ const Exos = (() => {
     let cur = make();
     const remember = () => { S().ui.genShown = [...cur.plan.map(p => p.e.title), ...(S().ui.genShown || [])].slice(0, 40); Store.persistNow(); };
     remember();
-    const thLabel = (TH().find(t => t[0] === g.theme) || ['', g.theme])[1].replace(/^\S+\s/, '');
+    const thLabel = (g.themes && g.themes.length ? g.themes : [g.theme]).map(lab).join(' + ');
     const row = (p, i) => { const sc = p.e.schemaId && Store.get('schemas', p.e.schemaId);
       return `<div class="gen-row"><button type="button" class="gen-thumb" data-genbig="${i}" title="Voir le schéma en grand"><img alt="" src="${UI.thumb(sc || AutoSchema.preview(p.e), 180, 117)}"></button>
         <div class="gen-txt"><span class="muted small">${esc(p.ph)} · ${p.d} min${p.e.club ? ' · 📚 club' : ''}</span><b>${esc(p.e.title)}</b><span class="small">${esc(String(p.e.org || '').slice(0, 110))}${String(p.e.org || '').length > 110 ? '…' : ''}</span></div>
@@ -284,7 +290,7 @@ const Exos = (() => {
         { label: 'Valider la séance', kind: 'primary', onClick: (c, r) => { const d = dest(r); setTimeout(() => create(d), 60); } }] });
     function create(d) {
       const plan = cur.plan, nCore = plan.filter(p => /^Exercice/.test(p.ph)).length, exs = plan.map(p => Object.assign(copyEx(p.e), { duration: p.d }));
-      const goal = `Thème : ${thLabel}. Séance générée : échauffement, ${nCore} exercice${nCore > 1 ? 's' : ''} du thème, jeu à thème, retour au calme.`, min = plan.reduce((x, p) => x + p.d, 0);
+      const goal = `Thème${(g.themes || []).length > 1 ? 's' : ''} : ${thLabel}. Séance générée : échauffement, ${nCore} exercice${nCore > 1 ? 's' : ''} ${(g.themes || []).length > 1 ? `(${g.themes.map(k => `${lab(k)} ${Math.round(plan.filter(p => /^Exercice/.test(p.ph) && p.th === k).reduce((x, p) => x + p.d, 0))} min`).join(', ')})` : 'du thème'}, jeu à thème, retour au calme.`, min = plan.reduce((x, p) => x + p.d, 0);
       const t = d && d.to !== 'new' && Store.get('trainings', d.to);
       if (t) {
         // (2.31) into the training already planned: its date, time, place and attendance stay; the exercises are added (or replace)
