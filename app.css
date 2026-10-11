@@ -2510,3 +2510,10 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
   .card.lineup .slots { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   .card.lineup .slots-card .row-head { flex-wrap: wrap; gap: 8px; }
 }
+/* (3.28) the players of the day, each exercise adapted */
+.eff-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 12px; margin: 0 0 10px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border: 1px solid var(--line); }
+.eff-l { font-weight: 700; }
+.eff-step { display: inline-flex; align-items: center; gap: 6px; }
+.eff-step b { min-width: 2ch; text-align: center; font: 700 24px var(--display, var(--round)); font-variant-numeric: tabular-nums; }
+.eff-step .icon-btn { width: 40px; height: 40px; font-size: 22px; font-weight: 800; }
+.ex-eff { margin: 4px 0 6px; padding: 6px 10px; border-radius: 10px; background: var(--surface2); font-size: 14px; line-height: 1.35; }

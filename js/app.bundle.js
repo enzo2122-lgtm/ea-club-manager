@@ -4067,7 +4067,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.27';
+  const VERSION = '3.28';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17717,6 +17717,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 187, date: '2026-10-11', title: 'Les exercices s\'adaptent aux joueurs du jour 👥', items: [
+      ['👥', "Dans une séance, « Joueurs à la séance » avec − / + : l'appli part des présents (ou des réponses « présent », sinon de l'effectif). Change-le à la dernière minute quand un joueur arrive ou se désiste."],
+      ['📐', "Chaque exercice s'adapte : combien d'ateliers, qui joue joker ou tourne, un terrain agrandi ou réduit, et s'il tient dans le demi-terrain (sinon la taille à prendre)."],
+    ] },
     { n: 186, date: '2026-10-11', title: 'Une séance, plusieurs types de travail 🔀', items: [
       ['✨', "Générer une séance : touche jusqu'à 3 thèmes (ex. physique + conservation). Le temps du corps de séance est partagé entre eux, chaque exercice dit à quel thème il appartient."],
     ] },
@@ -20769,6 +20773,80 @@ var BodyMap = (() => {
 })();
 
 ;
+/* ===== effectif.js ===== */
+/* (3.28) Effectif: each exercise adapted to the number of players of the day. The coach sets « joueurs à la séance » (or the app takes the
+   présents, else the « présent » answers, else the squad), and changes it at the last minute (+ / −) when someone joins or drops out.
+   The exercise's text is read (« 4 contre 4 + 2 jokers », « par 3 », « 25 × 25 m ») → how many workshops, who is left over
+   (jokers or rotation), the size of each area, and whether it all fits in half the pitch. */
+var Effectif = (() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // half a pitch, in m² (11: 68 × 52, 8: about 45 × 32, 5: about 20 × 18)
+  const HALF = { '11': [68, 52], '8': [45, 32], '5': [20, 18] };
+  function read(e) {
+    const t = `${e.title || ''} ${e.org || ''}`.replace(/\s+/g, ' '), low = t.toLowerCase();
+    const vs = /(\d{1,2})\s*(?:contre|c|v|vs|x)\s*(\d{1,2})(?!\s*m)/i.exec(t);
+    const jok = +((/\+\s*(\d{1,2})\s*(?:joker|appui|neutre)/i.exec(t) || [])[1] || 0) || (/\+\s*(?:un|1)\s*(?:joker|appui|neutre)/i.test(t) ? 1 : 0);
+    const gk = /gardiens?/i.test(t) && vs ? (/\+\s*(?:2\s*)?gardiens/i.test(t) || /\+\s*gk/i.test(low) ? 2 : 0) : 0;
+    const par = /par\s+(\d{1,2})\b/i.exec(t) || /groupes?\s+de\s+(\d{1,2})/i.exec(t) || /(\d)\s+joueurs\s+par\s+(?:carr|atelier|groupe)/i.exec(t);
+    const sz = /(\d{1,3})\s*(?:m\s*)?[x×]\s*(\d{1,3})\s*m/i.exec(t);
+    return { a: vs ? +vs[1] : 0, b: vs ? +vs[2] : 0, jok, gk, par: par ? +par[1] : 0, w: sz ? +sz[1] : 0, h: sz ? +sz[2] : 0 };
+  }
+  const round5 = x => Math.max(5, Math.round(x / 5) * 5);
+  // the advice for n players, or '' when the text says nothing about the players
+  function adapt(e, n, format) {
+    n = Math.max(0, Math.round(+n || 0)); if (!n) return '';
+    const r = read(e), half = HALF[format] || HALF['11'], halfArea = half[0] * half[1];
+    let line = '', groups = 1, per = 0, w = r.w, h = r.h;
+    if (r.a && r.b) {
+      per = r.a + r.b + r.jok + r.gk;
+      if (per > 30) return '';
+      groups = Math.floor(n / per);
+      if (!groups) { // fewer players than the exercise: one game, smaller
+        const field = n - r.jok - r.gk, a = Math.ceil(field / 2), b = Math.max(1, field - a);
+        line = `1 atelier à ${a} contre ${b}${r.jok ? ` + ${r.jok} joker${r.jok > 1 ? 's' : ''}` : ''}${r.gk ? ' + gardiens' : ''}`;
+        if (w && h) { const k = Math.sqrt(n / per); w = round5(w * k); h = round5(h * k); }
+        groups = 1;
+      } else if (groups === 1 && r.a >= 4 && n - per > 2 && n < per * 1.6) { // one game and several more players: the game gets bigger, nobody waits
+        const field = n - r.jok - r.gk, a = Math.ceil(field / 2), b = field - a;
+        line = `1 atelier à ${a} contre ${b}${r.jok ? ` + ${r.jok} joker${r.jok > 1 ? 's' : ''}` : ''}${r.gk ? ' + gardiens' : ''} (terrain agrandi)`;
+        if (w && h) { const k = Math.sqrt(n / per); w = round5(w * k); h = round5(h * k); }
+      } else {
+        const rest = n - groups * per;
+        line = `${groups} atelier${groups > 1 ? 's' : ''} de ${r.a} contre ${r.b}${r.jok ? ` + ${r.jok} joker${r.jok > 1 ? 's' : ''}` : ''}${r.gk ? ' + gardiens' : ''}`;
+        if (rest) line += rest <= 2 * groups ? ` · ${rest} en plus : joker${rest > 1 ? 's' : ''}${groups > 1 ? ' (1 par atelier)' : ''}` : rest >= Math.ceil(per * .6) ? ` · ${rest} en plus : un atelier de plus à ${Math.ceil((rest - r.jok) / 2)} contre ${Math.floor((rest - r.jok) / 2)}` : ` · ${rest} en plus : rotation (on change toutes les 2-3 min)`;
+        if (rest >= Math.ceil(per * .6)) groups++;
+      }
+    } else if (r.par) {
+      per = r.par; groups = Math.floor(n / per); const rest = n - groups * per;
+      if (!groups) return `${n} joueur${n > 1 ? 's' : ''} : un seul groupe`;
+      line = `${groups} groupe${groups > 1 ? 's' : ''} de ${per}${rest ? ` · ${rest} en plus : ${rest === 1 ? 'il rejoint un groupe' : `un groupe de ${rest}` }` : ''}`;
+      if (rest > 1) groups++;
+    } else return '';
+    if (w && h) {
+      const need = groups * w * h, fits = need <= halfArea * 1.05;
+      line += ` · ${w} × ${h} m${groups > 1 ? ' chacun' : ''}`;
+      if (groups > 1 || need > halfArea * .6) line += fits ? ' · tient dans le demi-terrain ✓' : ` · ⚠️ trop grand pour le demi-terrain : réduis à ${round5(w * Math.sqrt(halfArea / need))} × ${round5(h * Math.sqrt(halfArea / need))} m`;
+    }
+    return line;
+  }
+  // the number of the day and where it comes from
+  function count(tr, squad, dispo) {
+    if (tr.nPlayers) return [+tr.nPlayers, 'choisi'];
+    if ((tr.presents || []).length) return [tr.presents.length, 'présents'];
+    if (dispo && dispo.yes && dispo.yes.size) return [dispo.yes.size, 'ont répondu présent'];
+    return [squad, 'effectif'];
+  }
+  // the bar above the exercises: − n +, and where the number comes from
+  function bar(tr, squad, dispo) {
+    const [n, from] = count(tr, squad, dispo);
+    return `<div class="eff-bar"><span class="eff-l">👥 Joueurs à la séance</span>
+      <span class="eff-step"><button type="button" class="icon-btn" data-effn="-1" aria-label="Un joueur de moins">−</button><b>${n}</b><button type="button" class="icon-btn" data-effn="1" aria-label="Un joueur de plus">+</button></span>
+      <span class="muted small">${tr.nPlayers ? `choisi à la main · <button type="button" class="linkish" data-effn="0">reprendre ${(tr.presents || []).length ? 'les présents' : 'le compte automatique'}</button>` : esc(from)} · les exercices s'adaptent</span></div>`;
+  }
+  return { read, adapt, count, bar };
+})();
+
+;
 /* ===== views.js ===== */
 /* Views: every screen of the app except the board editor. */
 var Views = (() => {
@@ -21423,6 +21501,7 @@ var Views = (() => {
         </section>
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
+        ${tm && tr.exercises.length ? `<div id="effBox">${Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr))}</div>` : ''}
         <div class="ex-list" data-exlist="1">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice, ou laisse l\'appli en proposer.</p>'}</div>
         ${tr.exercises.length > 1 ? '<p class="muted small">Glisse le numéro d\'un exercice pour changer l\'ordre.</p>' : ''}
         <div class="chips">${!tr.exercises.length ? `<button class="btn primary" data-act="propose">✨<span>Proposer une séance</span></button>` : ''}<button class="btn ${tr.exercises.length ? 'primary' : ''}" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
@@ -21490,6 +21569,11 @@ var Views = (() => {
     const rateTr = () => { const box = $('#rateBox', root); if (box) box.innerHTML = Ratings.section(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)), 'training'); rpeTr(); };
     // the effort of the players present (RPE), for the training load
     const rpeTr = () => { const box = $('#rpeBox', root); if (box) box.innerHTML = Health.rpeBox(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)).map(p => p.id), 'training'); };
+    // (3.28) the players of the day, and each exercise adapted to them
+    const effN = () => { const tm = teamOf(tr.teamId); return tm ? Effectif.count(tr, squad(tm.id).length, Parents.trainingDispo(tr))[0] : 0; };
+    const effLine = e => { const tm = teamOf(tr.teamId), l = tm && !tr.model ? Effectif.adapt(e, effN(), tm.format) : ''; return `<p class="ex-eff" data-effof="${e.id}" ${l ? '' : 'hidden'}>👥 <b>Pour ${effN()}</b> : ${esc(l)}</p>`; };
+    const refreshEff = () => { const tm = teamOf(tr.teamId), b = $('#effBox', root); if (b && tm) b.innerHTML = Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr));
+      tr.exercises.forEach(e => { const el = root.querySelector(`[data-effof="${e.id}"]`); if (el) { const tmp = document.createElement('div'); tmp.innerHTML = effLine(e); el.replaceWith(tmp.firstElementChild); } }); };
     const exerciseCard = (e, i, n) => {
       const sc = e.schemaId && Store.get('schemas', e.schemaId), open = openEx.has(e.id);
       const hint = String(e.consignes || e.org || '').split('\n').map(x => x.trim()).filter(Boolean)[0];
@@ -21499,6 +21583,7 @@ var Views = (() => {
           <span class="ex-tools"><button class="icon-btn" data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${I.up}</button><button class="icon-btn" data-mv="1" ${i === n - 1 ? 'disabled' : ''} aria-label="Descendre">${I.down}</button>
           <button class="icon-btn danger" data-delex aria-label="Supprimer l'exercice">${I.trash}</button></span>
           <button class="btn soft ex-tog" data-togex aria-expanded="${open}">${open ? 'Fermer' : 'Ouvrir'}</button></div>
+        ${effLine(e)}
         ${open ? '' : `<button type="button" class="ex-mini" data-togex><img alt="" src="${UI.thumb(sc || AutoSchema.preview(e), 120, 78)}"><span>${hint ? esc(hint) : '<i>Touche pour l\'organisation, les consignes et le schéma</i>'}</span></button>`}
         <div class="ex-body">
           <div class="ex-fields">
@@ -21544,8 +21629,9 @@ var Views = (() => {
         $$('[data-present]', root).forEach(c => { const pl = Store.get('players', c.dataset.present); c.classList.toggle('on', p.includes(c.dataset.present)); c.classList.toggle('late', (tr.late || []).includes(c.dataset.present)); if (pl) c.innerHTML = presChip(pl, tr.teamId); });
         const lt = (tr.late || []).length; $('#presH', root).textContent = `Présents (${p.length}/${squad(tr.teamId).length})${lt ? ` · ⏰ ${lt} en retard` : ''}`;
         const ab = $('.abs-fold', root); if (ab) { const open = ab.open; const tmp = document.createElement('div'); tmp.innerHTML = absBox(tr.teamId); const nb = tmp.firstElementChild; if (nb) { nb.open = open; ab.replaceWith(nb); } else ab.remove(); }
-        rateTr(); return;
+        rateTr(); refreshEff(); return;
       }
+      if (b.dataset.effn != null) { const d = +b.dataset.effn; if (!d) delete tr.nPlayers; else tr.nPlayers = Math.max(1, Math.min(60, effN() + d)); save(); refreshEff(); return; } // (3.28) one more, one less, or back to automatic
       if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.allpres) {
@@ -22904,7 +22990,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 228, UPD = AppCfg.key('update-tried');
+  const BUILD = 229, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

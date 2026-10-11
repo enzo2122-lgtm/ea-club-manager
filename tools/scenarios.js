@@ -216,6 +216,15 @@ const SCENARIOS = [
     const db = $('#libDups'); must(db && !db.hidden, 'doublon non repéré');
     await go('#/equipes'); const d = $('details.more-acts'); if (d) { d.querySelector('summary').click(); await wait(300); const r = d.querySelector('.more-pop').getBoundingClientRect(); must(r.height > 20 && document.elementFromPoint(r.left + 10, r.top + 10) && d.querySelector('.more-pop').contains(document.elementFromPoint(r.left + 10, r.top + 10)), 'menu ⋯ caché'); d.removeAttribute('open'); }
     for (const id of ['lb1', 'lb2', 'lb3']) await Media.del(id); return 'ok';`],
+  ['Séance : nombre de joueurs du jour, exercices adaptés', `
+    const t = Store.state.teams.find(x => x.format === '11') || Store.state.teams[0];
+    const tr = Store.upsert('trainings', { id: 'trEff', teamId: t.id, date: UI.today(), time: '18:00', title: 'Effectif', presents: [], exercises: [{ id: 'xe1', title: 'Rondo 5 contre 2', duration: 12, org: 'Carré de 12 × 12 m', consignes: '', materiel: '' }] });
+    await go('#/entrainements'); await go('#/entrainement/trEff');
+    must($('.eff-bar'), 'pas de barre « Joueurs à la séance »');
+    const n0 = +text('.eff-step b'); await click('[data-effn="1"]', 300); must(+text('.eff-step b') === n0 + 1, 'le + ne marche pas');
+    tr.nPlayers = 14; Store.upsert('trainings', tr); await go('#/entrainements'); await go('#/entrainement/trEff');
+    must(/2 ateliers de 5 contre 2/.test(text('[data-effof="xe1"]')), 'exercice non adapté : ' + text('[data-effof="xe1"]'));
+    Store.remove('trainings', 'trEff'); return text('[data-effof="xe1"]') || 'ok';`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);
