@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 192, date: '2026-10-11', title: 'Groupe A = Seniors A, groupe B = Seniors B 🧩', items: [
+      ['🧩', "Groupes de la séance : choisis quelle équipe est le groupe A et le groupe B (Seniors A, Seniors B…). « Selon les équipes » range chaque joueur dans le groupe de son équipe ; les noms des équipes s'affichent partout, jusque dans le message envoyé."],
+    ] },
     { n: 191, date: '2026-10-11', title: 'Un message pour un seul groupe 📣', items: [
       ['📣', "Groupes A / B de la séance : « Envoyer au groupe A » (ou B) prévient seulement les joueurs de ce groupe, dans l'appli ou sur WhatsApp, avec un message que tu peux modifier."],
     ] },

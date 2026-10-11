@@ -4069,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.32';
+  const VERSION = '3.33';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17721,6 +17721,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 192, date: '2026-10-11', title: 'Groupe A = Seniors A, groupe B = Seniors B 🧩', items: [
+      ['🧩', "Groupes de la séance : choisis quelle équipe est le groupe A et le groupe B (Seniors A, Seniors B…). « Selon les équipes » range chaque joueur dans le groupe de son équipe ; les noms des équipes s'affichent partout, jusque dans le message envoyé."],
+    ] },
     { n: 191, date: '2026-10-11', title: 'Un message pour un seul groupe 📣', items: [
       ['📣', "Groupes A / B de la séance : « Envoyer au groupe A » (ou B) prévient seulement les joueurs de ce groupe, dans l'appli ou sur WhatsApp, avec un message que tu peux modifier."],
     ] },
@@ -21594,24 +21597,30 @@ var Views = (() => {
       tr.exercises.forEach(e => { const el = root.querySelector(`[data-effof="${e.id}"]`); if (el) { const tmp = document.createElement('div'); tmp.innerHTML = effLine(e); el.replaceWith(tmp.firstElementChild); } }); };
     { const dp = Parents.trainingDispo(tr); if (dp && dp.wait) dp.wait.then(() => { if (root.isConnected) refreshEff(); }); } // the answers arrive: the votes appear
     // (3.31) groups A / B for this session: the players of the day (présents, else the « présent » answers, else the squad), a touch: A → B → none
-    const splitPlayers = () => { const tm = teamOf(tr.teamId); if (!tm) return []; const all = squad(tm.id), pres = tr.presents || [], dp = Parents.trainingDispo(tr);
+    // (3.33) the teams of the category (Seniors → Seniors A, Seniors B): group A = which team, group B = which team
+    const famTeams = () => { const tm = teamOf(tr.teamId); if (!tm) return []; const g = Store.teamGroups(S().teams).find(x => x.some(t => t.id === tm.id)) || [tm]; return g; };
+    const splitTeam = g => { const st = tr.splitTeams || {}; if (st[g] !== undefined) return st[g] ? teamOf(st[g]) : null; return famTeams().find(t => new RegExp('\\s' + g + '$', 'i').test(String(t.name || '').trim())) || null; };
+    const gName = g => { const t = splitTeam(g); return t ? `Groupe ${g} · ${t.name}` : `Groupe ${g}`; };
+    const splitPlayers = () => { const tm = teamOf(tr.teamId); if (!tm) return []; const fam = famTeams(), all = [...new Map([...squad(tm.id), ...fam.flatMap(t => squad(t.id))].map(p => [p.id, p])).values()], pres = tr.presents || [], dp = Parents.trainingDispo(tr);
       const pick = pres.length ? all.filter(p => pres.includes(p.id)) : dp && dp.ready && dp.yes.size ? all.filter(p => dp.yes.has(p.id)) : all;
       const sp = tr.split || {}; return [...pick, ...all.filter(p => sp[p.id] && !pick.includes(p))].sort(Store.byName); };
-    const splitSum = () => { const v = Object.values(tr.split || {}); return v.length ? `A : ${v.filter(x => x === 'A').length} · B : ${v.filter(x => x === 'B').length}` : 'pas encore faits'; };
+    const splitSum = () => { const v = Object.values(tr.split || {}), nm = g => (splitTeam(g) || {}).name || g; return v.length ? `${nm('A')} : ${v.filter(x => x === 'A').length} · ${nm('B')} : ${v.filter(x => x === 'B').length}` : 'pas encore faits'; };
     const splitHtml = () => { const sp = tr.split || {}, ps = splitPlayers(), col = g => ps.filter(p => (sp[p.id] || '') === g);
       const chip = p => `<button type="button" class="chip split-chip ${sp[p.id] ? 'g' + sp[p.id] : ''}" data-split="${p.id}">${sp[p.id] ? `<b>${sp[p.id]}</b> ` : ''}${esc(Store.shortName(p))}</button>`;
       return `<p class="muted small">Touche un joueur : A, puis B, puis sans groupe. ${(tr.presents || []).length ? 'Les présents de la séance.' : 'Ceux qui ont répondu présent (sinon tout l\'effectif).'}</p>
         <div class="chips"><button type="button" class="btn soft" data-splitdo="mix">🎲<span>Répartir au hasard</span></button><button type="button" class="btn soft" data-splitdo="post">⚖️<span>Équilibrer par poste</span></button><button type="button" class="btn soft" data-splitdo="clear">Effacer</button></div>
-        <div class="split-cols"><div><h3 class="sub-h split-h gA">Groupe A (${col('A').length})</h3><div class="chips">${col('A').map(chip).join('') || '<span class="muted small">—</span>'}</div></div>
-          <div><h3 class="sub-h split-h gB">Groupe B (${col('B').length})</h3><div class="chips">${col('B').map(chip).join('') || '<span class="muted small">—</span>'}</div></div></div>
+        ${famTeams().length > 1 ? `<div class="split-teams">${['A', 'B'].map(g => `<label class="fld inline"><span>Groupe ${g} =</span><select data-splitteam="${g}"><option value="">aucune équipe</option>${famTeams().map(t => `<option value="${t.id}" ${(splitTeam(g) || {}).id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>`).join('')}
+          ${splitTeam('A') || splitTeam('B') ? `<button type="button" class="btn soft" data-splitdo="teams">🧩<span>Selon les équipes (${[splitTeam('A'), splitTeam('B')].filter(Boolean).map(t => esc(t.name)).join(' / ')})</span></button>` : ''}</div>` : ''}
+        <div class="split-cols"><div><h3 class="sub-h split-h gA">${esc(gName('A'))} (${col('A').length})</h3><div class="chips">${col('A').map(chip).join('') || '<span class="muted small">—</span>'}</div></div>
+          <div><h3 class="sub-h split-h gB">${esc(gName('B'))} (${col('B').length})</h3><div class="chips">${col('B').map(chip).join('') || '<span class="muted small">—</span>'}</div></div></div>
         ${col('').length ? `<h3 class="sub-h">Sans groupe (${col('').length})</h3><div class="chips">${col('').map(chip).join('')}</div>` : ''}
-        ${col('A').length || col('B').length ? `<div class="chips split-send">${['A', 'B'].filter(g => col(g).length).map(g => `<button type="button" class="btn ${g === 'A' ? 'primary' : ''}" data-splitsend="${g}">📣<span>Envoyer au groupe ${g} (${col(g).length})</span></button>`).join('')}</div>` : ''}`; };
+        ${col('A').length || col('B').length ? `<div class="chips split-send">${['A', 'B'].filter(g => col(g).length).map(g => `<button type="button" class="btn ${g === 'A' ? 'primary' : ''}" data-splitsend="${g}">📣<span>Envoyer au ${esc(splitTeam(g) ? splitTeam(g).name : 'groupe ' + g)} (${col(g).length})</span></button>`).join('')}</div>` : ''}`; };
     // (3.32) a message to one group only: in the app (notification to those players / their families), or WhatsApp
     const splitSend = g => {
       const sp = tr.split || {}, ids = Object.keys(sp).filter(id => sp[id] === g), ps = ids.map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName), tm = teamOf(tr.teamId);
       const when = `${fmtDate(tr.date, { weekday: 'long', day: 'numeric', month: 'long' })}${tr.time ? ' à ' + String(tr.time).replace(':', 'h') : ''}`;
-      const def = `Séance ${tm ? tm.name + ' ' : ''}du ${when} : tu es dans le groupe ${g}.${tr.place ? ' Lieu : ' + tr.place + '.' : ''} À tout à l'heure !`;
-      modal({ title: `📣 Groupe ${g} · ${ps.length} joueur${ps.length > 1 ? 's' : ''}`, noFocus: true,
+      const def = `Séance ${tm ? tm.name + ' ' : ''}du ${when} : tu es dans le groupe ${splitTeam(g) ? splitTeam(g).name : g}.${tr.place ? ' Lieu : ' + tr.place + '.' : ''} À tout à l'heure !`;
+      modal({ title: `📣 ${gName(g)} · ${ps.length} joueur${ps.length > 1 ? 's' : ''}`, noFocus: true,
         body: `<p class="muted small">${esc(ps.map(p => Store.shortName(p)).join(', '))}</p><label class="fld"><span>Le message</span><textarea id="spTxt" rows="4">${esc(def)}</textarea></label>
           <p class="muted small">« Dans l'appli » : seuls les joueurs du groupe ${g} (et leurs parents) le reçoivent, en notification. WhatsApp : le message avec la liste du groupe.</p>`,
         actions: [
@@ -21623,6 +21632,8 @@ var Views = (() => {
     const splitRedraw = () => { const b = $('#splitBox', root), s2 = $('#splitSum', root); if (b) b.innerHTML = splitHtml(); if (s2) s2.textContent = splitSum(); };
     const splitDo = how => {
       const ps = splitPlayers(); if (how === 'clear') { delete tr.split; save(); return splitRedraw(); }
+      if (how === 'teams') { const ta = splitTeam('A'), tb = splitTeam('B'), inT = (p, t) => t && (p.teamIds || []).includes(t.id); tr.split = {};
+        ps.forEach(p => { if (inT(p, ta)) tr.split[p.id] = 'A'; else if (inT(p, tb)) tr.split[p.id] = 'B'; }); if (!Object.keys(tr.split).length) delete tr.split; save(); toast('Groupes faits selon les équipes'); return splitRedraw(); }
       let list = ps.slice();
       if (how === 'mix') list.sort(() => Math.random() - .5);
       else { const line = p => { const k = String((p.posts || [])[0] || p.pos || ''); return /^(GB|G)$/.test(k) ? 0 : /^(D|L|DC|DEF)/.test(k) ? 1 : /^(M|MIL|MDC|MOC|MC|MD|MG)/.test(k) ? 2 : /^(A|ATT|BU|SA|AD|AG)/.test(k) ? 3 : 4; };
@@ -21659,6 +21670,7 @@ var Views = (() => {
       if (map[t.id]) { tr[map[t.id]] = t.value; save(); }
     };
     root.onchange = e => {
+      if (e.target.dataset.splitteam) { tr.splitTeams = Object.assign({}, tr.splitTeams, { [e.target.dataset.splitteam]: e.target.value }); save(); return splitRedraw(); } // (3.33)
       if (e.target.id === 'trTeam') { tr.teamId = e.target.value || null; save(); render(); }
       if (e.target.dataset.abswhy) { const v = e.target.value.trim(); tr.absWhy = Object.assign({}, tr.absWhy); if (v) tr.absWhy[e.target.dataset.abswhy] = v.slice(0, 80); else delete tr.absWhy[e.target.dataset.abswhy]; if (!Object.keys(tr.absWhy).length) delete tr.absWhy; save(); return; }
       if (e.target.hasAttribute('data-staffpick') && e.target.value) { tr.staffIds = [...new Set([...(tr.staffIds || []), e.target.value])]; save(); render(); }
@@ -23048,7 +23060,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 233, UPD = AppCfg.key('update-tried');
+  const BUILD = 234, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
