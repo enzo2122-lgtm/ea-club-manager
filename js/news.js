@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 183, date: '2026-10-11', title: 'La compo prend ses aises 🖥️', items: [
+      ['🖥️', "Sur ordinateur : le dessin de la compo à gauche, « Qui joue où ? » à droite, et les noms en entier (le poste et le numéro gardent leur taille)."],
+    ] },
     { n: 182, date: '2026-10-11', title: 'La FMI en 2 minutes 📋', items: [
       ['📋', "Match → « Préparer la FMI » : titulaires et remplaçants par numéro, capitaine, gardien, licences, encadrement (dirigeants, délégué, arbitre assistant), et ce qui manque (numéro en double, licence absente, pas de gardien…). Tu recopies sur la tablette FFF, ou tu copies le texte."],
     ] },
