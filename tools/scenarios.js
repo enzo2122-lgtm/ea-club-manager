@@ -45,7 +45,9 @@ async function page(cdp) {
     if (r.exceptionDetails) throw new Error('dans la page : ' + ((r.exceptionDetails.exception || {}).description || r.exceptionDetails.text).split('\n')[0]);
     return r.result.value;
   };
-  const goto = async (url) => { await cdp.send('Page.navigate', { url }, sessionId); await sleep(2500); for (let i = 0; i < 40; i++) { try { if (await evalIn('typeof Store !== "undefined" && !!Store.state')) break; } catch (e) {} await sleep(250); } }; // a busy computer: wait until the app is loaded
+  // the app loaded and steady: the demo club is built then the page reloads once, so its teams must be there and the same page must answer twice, 1.5 s apart
+  const goto = async (url) => { await cdp.send('Page.navigate', { url }, sessionId); await sleep(2500); let last = null;
+    for (let i = 0; i < 30; i++) { let t = null; try { t = await evalIn('typeof Store !== "undefined" && Store.state && (Store.state.teams || []).length ? performance.timeOrigin : null'); } catch (e) {} if (t && t === last) break; last = t; await sleep(1500); } };
   const close = () => cdp.send('Target.closeTarget', { targetId });
   return { evalIn, goto, errors, close };
 }
