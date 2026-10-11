@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 186, date: '2026-10-11', title: 'Une séance, plusieurs types de travail 🔀', items: [
+      ['✨', "Générer une séance : touche jusqu'à 3 thèmes (ex. physique + conservation). Le temps du corps de séance est partagé entre eux, chaque exercice dit à quel thème il appartient."],
+    ] },
     { n: 185, date: '2026-10-11', title: 'Le compte-rendu complet 📄', items: [
       ['📄', "Compte-rendu du match (PDF) : les notes du coach et le mot du coach (onglet « Après ») y sont tous les deux, chacun avec son titre."],
     ] },
