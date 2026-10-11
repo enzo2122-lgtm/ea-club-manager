@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 188, date: '2026-10-11', title: 'Qui vient, qui ne vient pas 🟢🔴', items: [
+      ['🗳️', "Séance : le total des réponses en un coup d'œil, à côté des joueurs du jour : les présents en vert, les absents en rouge."],
+    ] },
     { n: 187, date: '2026-10-11', title: 'Les exercices s\'adaptent aux joueurs du jour 👥', items: [
       ['👥', "Dans une séance, « Joueurs à la séance » avec − / + : l'appli part des présents (ou des réponses « présent », sinon de l'effectif). Change-le à la dernière minute quand un joueur arrive ou se désiste."],
       ['📐', "Chaque exercice s'adapte : combien d'ateliers, qui joue joker ou tourne, un terrain agrandi ou réduit, et s'il tient dans le demi-terrain (sinon la taille à prendre)."],

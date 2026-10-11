@@ -651,7 +651,7 @@ const Views = (() => {
         </section>
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
-        ${tm && tr.exercises.length ? `<div id="effBox">${Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr))}</div>` : ''}
+        ${tm ? `<div id="effBox">${Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr))}</div>` : ''}
         <div class="ex-list" data-exlist="1">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice, ou laisse l\'appli en proposer.</p>'}</div>
         ${tr.exercises.length > 1 ? '<p class="muted small">Glisse le numéro d\'un exercice pour changer l\'ordre.</p>' : ''}
         <div class="chips">${!tr.exercises.length ? `<button class="btn primary" data-act="propose">✨<span>Proposer une séance</span></button>` : ''}<button class="btn ${tr.exercises.length ? 'primary' : ''}" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
@@ -724,6 +724,7 @@ const Views = (() => {
     const effLine = e => { const tm = teamOf(tr.teamId), l = tm && !tr.model ? Effectif.adapt(e, effN(), tm.format) : ''; return `<p class="ex-eff" data-effof="${e.id}" ${l ? '' : 'hidden'}>👥 <b>Pour ${effN()}</b> : ${esc(l)}</p>`; };
     const refreshEff = () => { const tm = teamOf(tr.teamId), b = $('#effBox', root); if (b && tm) b.innerHTML = Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr));
       tr.exercises.forEach(e => { const el = root.querySelector(`[data-effof="${e.id}"]`); if (el) { const tmp = document.createElement('div'); tmp.innerHTML = effLine(e); el.replaceWith(tmp.firstElementChild); } }); };
+    { const dp = Parents.trainingDispo(tr); if (dp && dp.wait) dp.wait.then(() => { if (root.isConnected) refreshEff(); }); } // the answers arrive: the votes appear
     const exerciseCard = (e, i, n) => {
       const sc = e.schemaId && Store.get('schemas', e.schemaId), open = openEx.has(e.id);
       const hint = String(e.consignes || e.org || '').split('\n').map(x => x.trim()).filter(Boolean)[0];

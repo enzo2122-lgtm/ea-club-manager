@@ -65,6 +65,7 @@ const Effectif = (() => {
     const [n, from] = count(tr, squad, dispo);
     return `<div class="eff-bar"><span class="eff-l">👥 Joueurs à la séance</span>
       <span class="eff-step"><button type="button" class="icon-btn" data-effn="-1" aria-label="Un joueur de moins">−</button><b>${n}</b><button type="button" class="icon-btn" data-effn="1" aria-label="Un joueur de plus">+</button></span>
+      ${dispo && dispo.ready && (dispo.yes.size || dispo.no.size) ? `<span class="eff-votes"><b class="eff-yes">✓ ${dispo.yes.size} présent${dispo.yes.size > 1 ? 's' : ''}</b><b class="eff-no">✗ ${dispo.no.size} absent${dispo.no.size > 1 ? 's' : ''}</b><span class="muted small">ont répondu</span></span>` : ''}
       <span class="muted small">${tr.nPlayers ? `choisi à la main · <button type="button" class="linkish" data-effn="0">reprendre ${(tr.presents || []).length ? 'les présents' : 'le compte automatique'}</button>` : esc(from)} · les exercices s'adaptent</span></div>`;
   }
   return { read, adapt, count, bar };
