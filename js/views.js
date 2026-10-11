@@ -737,7 +737,21 @@ const Views = (() => {
         <div class="chips"><button type="button" class="btn soft" data-splitdo="mix">🎲<span>Répartir au hasard</span></button><button type="button" class="btn soft" data-splitdo="post">⚖️<span>Équilibrer par poste</span></button><button type="button" class="btn soft" data-splitdo="clear">Effacer</button></div>
         <div class="split-cols"><div><h3 class="sub-h split-h gA">Groupe A (${col('A').length})</h3><div class="chips">${col('A').map(chip).join('') || '<span class="muted small">—</span>'}</div></div>
           <div><h3 class="sub-h split-h gB">Groupe B (${col('B').length})</h3><div class="chips">${col('B').map(chip).join('') || '<span class="muted small">—</span>'}</div></div></div>
-        ${col('').length ? `<h3 class="sub-h">Sans groupe (${col('').length})</h3><div class="chips">${col('').map(chip).join('')}</div>` : ''}`; };
+        ${col('').length ? `<h3 class="sub-h">Sans groupe (${col('').length})</h3><div class="chips">${col('').map(chip).join('')}</div>` : ''}
+        ${col('A').length || col('B').length ? `<div class="chips split-send">${['A', 'B'].filter(g => col(g).length).map(g => `<button type="button" class="btn ${g === 'A' ? 'primary' : ''}" data-splitsend="${g}">📣<span>Envoyer au groupe ${g} (${col(g).length})</span></button>`).join('')}</div>` : ''}`; };
+    // (3.32) a message to one group only: in the app (notification to those players / their families), or WhatsApp
+    const splitSend = g => {
+      const sp = tr.split || {}, ids = Object.keys(sp).filter(id => sp[id] === g), ps = ids.map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName), tm = teamOf(tr.teamId);
+      const when = `${fmtDate(tr.date, { weekday: 'long', day: 'numeric', month: 'long' })}${tr.time ? ' à ' + String(tr.time).replace(':', 'h') : ''}`;
+      const def = `Séance ${tm ? tm.name + ' ' : ''}du ${when} : tu es dans le groupe ${g}.${tr.place ? ' Lieu : ' + tr.place + '.' : ''} À tout à l'heure !`;
+      modal({ title: `📣 Groupe ${g} · ${ps.length} joueur${ps.length > 1 ? 's' : ''}`, noFocus: true,
+        body: `<p class="muted small">${esc(ps.map(p => Store.shortName(p)).join(', '))}</p><label class="fld"><span>Le message</span><textarea id="spTxt" rows="4">${esc(def)}</textarea></label>
+          <p class="muted small">« Dans l'appli » : seuls les joueurs du groupe ${g} (et leurs parents) le reçoivent, en notification. WhatsApp : le message avec la liste du groupe.</p>`,
+        actions: [
+          ...(Cloud.ready() ? [{ label: 'Dans l\'appli', kind: 'primary', icon: I.check, onClick: (c, r) => { const t = $('#spTxt', r).value.trim(); if (!t) return false;
+            Cloud.memberNote(ids, `📣 Groupe ${g} · séance ${tm ? tm.name : ''}`.trim(), t).then(res => { const n = ((res && res.sent) || []).length; toast(`Groupe ${g} prévenu : ${n} notifié${n > 1 ? 's' : ''}${ids.length - n ? ` (${ids.length - n} sans notifications)` : ''}`); }).catch(e => toast(e.message, 'err')); } }] : []),
+          { label: 'WhatsApp', kind: Cloud.ready() ? '' : 'primary', icon: I.share, onClick: (c, r) => { const t = `${$('#spTxt', r).value.trim()}\n\nGroupe ${g} : ${ps.map(p => Store.shortName(p)).join(', ')}`; window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); return false; } }] });
+    };
     root.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('split-card')) { S().ui.splitOpen = e.target.open ? 1 : 0; Store.persistNow(); } }, true);
     const splitRedraw = () => { const b = $('#splitBox', root), s2 = $('#splitSum', root); if (b) b.innerHTML = splitHtml(); if (s2) s2.textContent = splitSum(); };
     const splitDo = how => {
@@ -808,6 +822,7 @@ const Views = (() => {
       if (b.dataset.effn != null) { const d = +b.dataset.effn; if (!d) delete tr.nPlayers; else tr.nPlayers = Math.max(1, Math.min(60, effN() + d)); save(); refreshEff(); return; } // (3.28) one more, one less, or back to automatic
       if (b.dataset.split) { const id = b.dataset.split, sp = tr.split = Object.assign({}, tr.split), v = sp[id]; if (!v) sp[id] = 'A'; else if (v === 'A') sp[id] = 'B'; else delete sp[id]; if (!Object.keys(sp).length) delete tr.split; save(); return splitRedraw(); }
       if (b.dataset.splitdo) return splitDo(b.dataset.splitdo);
+      if (b.dataset.splitsend) return splitSend(b.dataset.splitsend);
       if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.allpres) {

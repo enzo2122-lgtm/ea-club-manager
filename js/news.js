@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 191, date: '2026-10-11', title: 'Un message pour un seul groupe 📣', items: [
+      ['📣', "Groupes A / B de la séance : « Envoyer au groupe A » (ou B) prévient seulement les joueurs de ce groupe, dans l'appli ou sur WhatsApp, avec un message que tu peux modifier."],
+    ] },
     { n: 190, date: '2026-10-11', title: 'Groupes A / B de la séance 🅰️🅱️', items: [
       ['👥', "Dans une séance, « Groupes A / B » : touche un joueur pour le mettre en A, puis en B. Ou « Répartir au hasard » / « Équilibrer par poste ». Les groupes sont aussi dans le PDF de la séance."],
     ] },
