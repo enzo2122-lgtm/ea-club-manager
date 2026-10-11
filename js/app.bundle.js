@@ -4065,7 +4065,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.21';
+  const VERSION = '3.22';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17671,6 +17671,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 181, date: '2026-10-11', title: 'Le sac est prêt 🎒', items: [
+      ['🎒', "Convocation : « À prévoir et caisse de l'équipe » se choisit d'un toucher (protège-tibias, chaussettes, short, crampons… retard 2 €, oubli d'équipement 2 €…), ou s'écrit. C'est gardé pour chaque équipe et écrit dans chaque convocation."],
+    ] },
     { n: 180, date: '2026-10-11', title: 'Les vacances, version club 🏕️', items: [
       ['🏕️', "Stages vacances (Plus → Stages vacances) : les semaines, les horaires, le prix, le programme. Les familles inscrivent leur enfant depuis leur espace, le responsable valide quand le paiement est reçu. Feuille d'appel, message et affiche pour WhatsApp. Pas de stage le week-end : c'est repos."],
       ['🌴', "Planning : la saison a ses dates (modifiables) et ses jours de repos (vacances, trêve, jours fériés), ajoutés d'un « ＋ ». « Chaque semaine » saute les jours de repos."],
@@ -21585,6 +21588,13 @@ var Views = (() => {
   // (3.12) adult teams (Seniors, Vétérans, Loisirs…): the message goes to the players themselves, not to the parents
   const PARENT_ASK = 'Merci de confirmer la présence de votre enfant en répondant à ce message.';
   const adultTeam = t => !!t && /senior|v[ée]t[ée]ran|veteran|loisir|\+\s?\d{2}|foot\s?entreprise/i.test(`${t.name || ''} ${t.category || ''}`);
+  // (3.22) what to bring and the team's fines: chosen once per team from suggestions, written in every convocation
+  const BRING = ['Tenue du club', 'Short du club', 'Chaussettes du club', 'Protège-tibias', 'Crampons', 'Baskets (terrain synthétique)', 'Gourde', 'K-way', 'Serviette et gel douche', 'Licence ou pièce d\'identité', 'Survêtement du club'];
+  const FINES = ['Retard : 2 €', 'Oubli d\'équipement : 2 €', 'Absence non prévenue : 5 €', 'Carton jaune pour contestation : 5 €', 'Téléphone au vestiaire : 2 €'];
+  const bringOf = t => (t && Array.isArray(t.convBring) ? t.convBring : ['Tenue du club', 'Protège-tibias', 'Gourde']);
+  const finesOf = t => (t && Array.isArray(t.convFines) ? t.convFines : []);
+  const bringLine = t => bringOf(t).length ? `🎒 Prévoir : ${bringOf(t).map((x, i) => i ? x.charAt(0).toLowerCase() + x.slice(1) : x).join(', ')}.` : '';
+  const finesLine = t => finesOf(t).length ? `💶 Caisse de l'équipe : ${finesOf(t).map(x => x.charAt(0).toLowerCase() + x.slice(1)).join(' · ')}.` : '';
   function convocationText(m) {
     const t = teamOf(m.teamId), conv = (t ? Store.rosterOf(t.id) : []).filter(p => (m.convoked || []).includes(p.id)), club = S().club.name || 'Le club';
     const hh = x => String(x || '').replace(':', 'h'), me = Auth.current();
@@ -21593,7 +21603,7 @@ var Views = (() => {
       m.place || m.home ? `📍 ${m.place || S().club.fieldName || 'Stade du club'}` : '',
       m.rdv || m.time ? `🕘 ${m.rdv ? 'Rendez-vous ' + hh(m.rdv) : ''}${m.rdv && m.time ? ' · ' : ''}${m.time ? 'coup d\'envoi ' + hh(m.time) : ''}` : '🕘 Horaire à confirmer', '',
       `*Joueurs convoqués (${conv.length}) :*`, ...conv.map((p, i) => `${i + 1}. ${p.firstName || ''} ${p.lastName || ''}`.trim()), '',
-      '🎒 Prévoir : tenue du club, protège-tibias, gourde.', adultTeam(t) ? '' : PARENT_ASK,
+      bringLine(t), finesLine(t), adultTeam(t) ? '' : PARENT_ASK,
       me ? `${Messages.coachName(me)}` : ''].filter((l, i, a) => l !== '' || (a[i - 1] !== '' && i > 0)).join('\n').replace(/\n+$/, '');
   }
   function sendConvocation(m) {
@@ -21602,8 +21612,19 @@ var Views = (() => {
     modal({ title: 'Envoyer la convocation', noFocus: true, body: `<p class="muted small">${Cloud.ready() ? '« Envoyer dans l\'appli » : la convocation arrive dans l\'espace de chaque convoqué (joueur ou parents), avec une notification, et ils répondent présent / absent. Tu peux aussi la partager sur WhatsApp.' : 'Le message est prêt : choisis où l\'envoyer (le groupe WhatsApp des parents, par exemple).'}</p>
       ${m.convHow && m.convHow.includes('appli') ? `<p class="small ans-yes">✓ Déjà envoyée dans l'appli${m.convSent ? ' le ' + esc(fmtDate(new Date(m.convSent).toISOString().slice(0, 10))) : ''} : renvoyer la met à jour et notifie à nouveau.</p>` : ''}
       ${Cloud.ready() ? `<button class="btn soft wide" id="convLink" type="button">${I.check}<span>Ajouter le lien pour répondre présent / absent</span></button>` : ''}
+      <details class="fold conv-bring"><summary>🎒 À prévoir et caisse de l'équipe <span class="muted small">(gardé pour les prochaines convocations)</span></summary>
+        <div class="lbl">À prévoir</div><div class="chips">${[...new Set([...BRING, ...bringOf(teamOf(m.teamId))])].map(x => `<button type="button" class="chip ${bringOf(teamOf(m.teamId)).includes(x) ? 'on' : ''}" data-bring="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+        <div class="lbl">Caisse de l'équipe (amendes)</div><div class="chips">${[...new Set([...FINES, ...finesOf(teamOf(m.teamId))])].map(x => `<button type="button" class="chip ${finesOf(teamOf(m.teamId)).includes(x) ? 'on' : ''}" data-fine="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+        <div class="row2"><input id="convAdd" placeholder="Autre : ex. Ballon n°5, Retard : 1 €" maxlength="50"><button type="button" class="btn soft" id="convAddB">${I.plus}<span>Ajouter</span></button></div></details>
       <textarea id="convTxt" rows="12">${esc(text)}</textarea>`,
-      onOpen: r => { const lb = $('#convLink', r); if (lb) lb.onclick = async () => {
+      onOpen: r => {
+        // a suggestion touched: kept with the team, and the two lines of the message written again
+        const t = teamOf(m.teamId), redo = () => { const ta = $('#convTxt', r), ls = ta.value.split('\n').filter(l => !/^(🎒|💶) /.test(l)), at = ls.findIndex(l => l === PARENT_ASK || l === (Auth.current() ? Messages.coachName(Auth.current()) : '\u0000'));
+          const add = [bringLine(t), finesLine(t)].filter(Boolean); ls.splice(at < 0 ? ls.length : at, 0, ...add); ta.value = ls.join('\n'); };
+        const toggle = (key, x) => { if (!t) return toast('Choisis d\'abord la catégorie du match', 'err'); const l = key === 'b' ? bringOf(t).slice() : finesOf(t).slice(), i = l.indexOf(x); if (i < 0) l.push(x); else l.splice(i, 1); if (key === 'b') t.convBring = l; else t.convFines = l; Store.upsert('teams', t); redo(); };
+        $$('[data-bring]', r).forEach(b => b.onclick = () => { toggle('b', b.dataset.bring); b.classList.toggle('on'); });
+        $$('[data-fine]', r).forEach(b => b.onclick = () => { toggle('f', b.dataset.fine); b.classList.toggle('on'); });
+        $('#convAddB', r).onclick = () => { const v = $('#convAdd', r).value.trim(); if (!v || !t) return; const fine = /€|euro/i.test(v); toggle(fine ? 'f' : 'b', v); const b = document.createElement('button'); b.type = 'button'; b.className = 'chip on'; b.textContent = v; b.onclick = () => { toggle(fine ? 'f' : 'b', v); b.classList.toggle('on'); }; $$('.conv-bring .chips', r)[fine ? 1 : 0].appendChild(b); $('#convAdd', r).value = ''; }; const lb = $('#convLink', r); if (lb) lb.onclick = async () => {
         lb.disabled = true;
         try {
           const t = Store.get('teams', m.teamId), url = Codes.catUrl(Parents.familyName ? Parents.familyName(m.teamId) : (t || {}).name || ''), ta = $('#convTxt', r); // the category's page: each family types its personal code
@@ -22822,7 +22843,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 222, UPD = AppCfg.key('update-tried');
+  const BUILD = 223, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

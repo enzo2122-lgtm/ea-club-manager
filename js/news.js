@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 181, date: '2026-10-11', title: 'Le sac est prêt 🎒', items: [
+      ['🎒', "Convocation : « À prévoir et caisse de l'équipe » se choisit d'un toucher (protège-tibias, chaussettes, short, crampons… retard 2 €, oubli d'équipement 2 €…), ou s'écrit. C'est gardé pour chaque équipe et écrit dans chaque convocation."],
+    ] },
     { n: 180, date: '2026-10-11', title: 'Les vacances, version club 🏕️', items: [
       ['🏕️', "Stages vacances (Plus → Stages vacances) : les semaines, les horaires, le prix, le programme. Les familles inscrivent leur enfant depuis leur espace, le responsable valide quand le paiement est reçu. Feuille d'appel, message et affiche pour WhatsApp. Pas de stage le week-end : c'est repos."],
       ['🌴', "Planning : la saison a ses dates (modifiables) et ses jours de repos (vacances, trêve, jours fériés), ajoutés d'un « ＋ ». « Chaque semaine » saute les jours de repos."],
