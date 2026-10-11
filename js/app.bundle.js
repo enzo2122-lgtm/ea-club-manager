@@ -4069,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.31';
+  const VERSION = '3.32';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17721,6 +17721,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 191, date: '2026-10-11', title: 'Un message pour un seul groupe 📣', items: [
+      ['📣', "Groupes A / B de la séance : « Envoyer au groupe A » (ou B) prévient seulement les joueurs de ce groupe, dans l'appli ou sur WhatsApp, avec un message que tu peux modifier."],
+    ] },
     { n: 190, date: '2026-10-11', title: 'Groupes A / B de la séance 🅰️🅱️', items: [
       ['👥', "Dans une séance, « Groupes A / B » : touche un joueur pour le mettre en A, puis en B. Ou « Répartir au hasard » / « Équilibrer par poste ». Les groupes sont aussi dans le PDF de la séance."],
     ] },
@@ -21601,7 +21604,21 @@ var Views = (() => {
         <div class="chips"><button type="button" class="btn soft" data-splitdo="mix">🎲<span>Répartir au hasard</span></button><button type="button" class="btn soft" data-splitdo="post">⚖️<span>Équilibrer par poste</span></button><button type="button" class="btn soft" data-splitdo="clear">Effacer</button></div>
         <div class="split-cols"><div><h3 class="sub-h split-h gA">Groupe A (${col('A').length})</h3><div class="chips">${col('A').map(chip).join('') || '<span class="muted small">—</span>'}</div></div>
           <div><h3 class="sub-h split-h gB">Groupe B (${col('B').length})</h3><div class="chips">${col('B').map(chip).join('') || '<span class="muted small">—</span>'}</div></div></div>
-        ${col('').length ? `<h3 class="sub-h">Sans groupe (${col('').length})</h3><div class="chips">${col('').map(chip).join('')}</div>` : ''}`; };
+        ${col('').length ? `<h3 class="sub-h">Sans groupe (${col('').length})</h3><div class="chips">${col('').map(chip).join('')}</div>` : ''}
+        ${col('A').length || col('B').length ? `<div class="chips split-send">${['A', 'B'].filter(g => col(g).length).map(g => `<button type="button" class="btn ${g === 'A' ? 'primary' : ''}" data-splitsend="${g}">📣<span>Envoyer au groupe ${g} (${col(g).length})</span></button>`).join('')}</div>` : ''}`; };
+    // (3.32) a message to one group only: in the app (notification to those players / their families), or WhatsApp
+    const splitSend = g => {
+      const sp = tr.split || {}, ids = Object.keys(sp).filter(id => sp[id] === g), ps = ids.map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName), tm = teamOf(tr.teamId);
+      const when = `${fmtDate(tr.date, { weekday: 'long', day: 'numeric', month: 'long' })}${tr.time ? ' à ' + String(tr.time).replace(':', 'h') : ''}`;
+      const def = `Séance ${tm ? tm.name + ' ' : ''}du ${when} : tu es dans le groupe ${g}.${tr.place ? ' Lieu : ' + tr.place + '.' : ''} À tout à l'heure !`;
+      modal({ title: `📣 Groupe ${g} · ${ps.length} joueur${ps.length > 1 ? 's' : ''}`, noFocus: true,
+        body: `<p class="muted small">${esc(ps.map(p => Store.shortName(p)).join(', '))}</p><label class="fld"><span>Le message</span><textarea id="spTxt" rows="4">${esc(def)}</textarea></label>
+          <p class="muted small">« Dans l'appli » : seuls les joueurs du groupe ${g} (et leurs parents) le reçoivent, en notification. WhatsApp : le message avec la liste du groupe.</p>`,
+        actions: [
+          ...(Cloud.ready() ? [{ label: 'Dans l\'appli', kind: 'primary', icon: I.check, onClick: (c, r) => { const t = $('#spTxt', r).value.trim(); if (!t) return false;
+            Cloud.memberNote(ids, `📣 Groupe ${g} · séance ${tm ? tm.name : ''}`.trim(), t).then(res => { const n = ((res && res.sent) || []).length; toast(`Groupe ${g} prévenu : ${n} notifié${n > 1 ? 's' : ''}${ids.length - n ? ` (${ids.length - n} sans notifications)` : ''}`); }).catch(e => toast(e.message, 'err')); } }] : []),
+          { label: 'WhatsApp', kind: Cloud.ready() ? '' : 'primary', icon: I.share, onClick: (c, r) => { const t = `${$('#spTxt', r).value.trim()}\n\nGroupe ${g} : ${ps.map(p => Store.shortName(p)).join(', ')}`; window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); return false; } }] });
+    };
     root.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('split-card')) { S().ui.splitOpen = e.target.open ? 1 : 0; Store.persistNow(); } }, true);
     const splitRedraw = () => { const b = $('#splitBox', root), s2 = $('#splitSum', root); if (b) b.innerHTML = splitHtml(); if (s2) s2.textContent = splitSum(); };
     const splitDo = how => {
@@ -21672,6 +21689,7 @@ var Views = (() => {
       if (b.dataset.effn != null) { const d = +b.dataset.effn; if (!d) delete tr.nPlayers; else tr.nPlayers = Math.max(1, Math.min(60, effN() + d)); save(); refreshEff(); return; } // (3.28) one more, one less, or back to automatic
       if (b.dataset.split) { const id = b.dataset.split, sp = tr.split = Object.assign({}, tr.split), v = sp[id]; if (!v) sp[id] = 'A'; else if (v === 'A') sp[id] = 'B'; else delete sp[id]; if (!Object.keys(sp).length) delete tr.split; save(); return splitRedraw(); }
       if (b.dataset.splitdo) return splitDo(b.dataset.splitdo);
+      if (b.dataset.splitsend) return splitSend(b.dataset.splitsend);
       if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.allpres) {
@@ -23030,7 +23048,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 232, UPD = AppCfg.key('update-tried');
+  const BUILD = 233, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
