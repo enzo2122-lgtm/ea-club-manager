@@ -2211,7 +2211,9 @@ var Exporter = (() => {
     // the coach's comments on the players, then the word of the coach
     const coms = ids.map(id => { const c = Object.values(((m.ratings || {})[id]) || {}).map(x => x.c).filter(Boolean); return c.length ? `${pn(id)} : ${c.join(' / ')}` : ''; }).filter(Boolean);
     if (coms.length) { P.label('Commentaires sur les joueurs'); P.bullets(coms); }
-    if (m.notes) { P.label('Le mot du coach'); P.para(m.notes); }
+    // (3.26) the coach's notes (« Notes » under the score) and his word (« Après » → Finir le match): both, each with its title
+    if (String(m.notes || '').trim()) { P.label('Les notes du coach'); P.para(String(m.notes).trim()); }
+    if (String(m.word || '').trim()) { P.label('Le mot du coach'); P.para(String(m.word).trim(), 13); }
     return deliver(P.blob(), safeName(`compte-rendu-${m.opponent || ''}-${m.date || ''}`) + '.pdf');
   }
   async function json(text, name) { return deliver(new Blob([text], { type: 'application/json' }), safeName(name) + '.raincy.json'); }
@@ -4065,7 +4067,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.25';
+  const VERSION = '3.26';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17709,6 +17711,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 185, date: '2026-10-11', title: 'Le compte-rendu complet 📄', items: [
+      ['📄', "Compte-rendu du match (PDF) : les notes du coach et le mot du coach (onglet « Après ») y sont tous les deux, chacun avec son titre."],
+    ] },
     { n: 184, date: '2026-10-11', title: "Monsieur l'arbitre 🟨", items: [
       ['🟨', "L'arbitre désigné par la FFF s'affiche sur la fiche du match et dans la fiche FMI (relevé sur Footclubs pour les matchs joués du club)."],
     ] },
@@ -22890,7 +22895,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 226, UPD = AppCfg.key('update-tried');
+  const BUILD = 227, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

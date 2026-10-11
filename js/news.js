@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 185, date: '2026-10-11', title: 'Le compte-rendu complet 📄', items: [
+      ['📄', "Compte-rendu du match (PDF) : les notes du coach et le mot du coach (onglet « Après ») y sont tous les deux, chacun avec son titre."],
+    ] },
     { n: 184, date: '2026-10-11', title: "Monsieur l'arbitre 🟨", items: [
       ['🟨', "L'arbitre désigné par la FFF s'affiche sur la fiche du match et dans la fiche FMI (relevé sur Footclubs pour les matchs joués du club)."],
     ] },
