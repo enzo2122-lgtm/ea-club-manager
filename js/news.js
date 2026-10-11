@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 189, date: '2026-10-11', title: 'Générer une séance pour X joueurs 👥', items: [
+      ['✨', "Générer une séance : nouveau champ « Joueurs ». L'aperçu montre chaque exercice adapté (ateliers, jokers, taille du terrain), et la séance garde ce nombre (modifiable à la dernière minute avec − / +)."],
+    ] },
     { n: 188, date: '2026-10-11', title: 'Qui vient, qui ne vient pas 🟢🔴', items: [
       ['🗳️', "Séance : le total des réponses en un coup d'œil, à côté des joueurs du jour : les présents en vert, les absents en rouge."],
     ] },

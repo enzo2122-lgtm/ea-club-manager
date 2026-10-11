@@ -4067,7 +4067,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.29';
+  const VERSION = '3.30';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -11468,13 +11468,15 @@ var Exos = (() => {
     const body = () => `<div class="lbl">Thème${g.themes.length > 1 ? `s · ${g.themes.length} parties de ${Math.round(100 / g.themes.length)} %` : ''} <span class="muted small">(jusqu'à 3 : touche-en plusieurs pour mélanger, ex. physique + conservation)</span></div><div class="chips">${TH().filter(t => !['echauffement', 'calme', 'jeu'].includes(t[0])).map(([k, l]) => `<button class="chip ${g.themes.includes(k) ? 'on' : ''}" data-gth="${k}">${g.themes.length > 1 && g.themes.includes(k) ? (g.themes.indexOf(k) + 1) + '. ' : ''}${l}</button>`).join('')}</div>
       <div class="row2"><label class="fld"><span>Catégorie</span><select id="gTeam">${teams.map(t => `<option value="${t.id}" ${t.id === g.teamId ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select></label>
         <label class="fld"><span>Durée</span><select id="gMin">${[45, 60, 75, 90, 105].map(n => `<option ${n === +g.minutes ? 'selected' : ''} value="${n}">${n} min</option>`).join('')}</select></label>
-        <label class="fld"><span>Date</span><input type="date" id="gDate" value="${esc(g.date)}"></label></div>
+        <label class="fld"><span>Date</span><input type="date" id="gDate" value="${esc(g.date)}"></label>
+        <label class="fld"><span>Joueurs</span><input type="number" id="gPlayers" min="2" max="60" inputmode="numeric" placeholder="ex : 14" value="${g.players ? esc(g.players) : ''}"></label></div>
+      <p class="muted small">Le nombre de joueurs adapte chaque exercice (ateliers, jokers, taille du terrain, demi-terrain). Tu pourras le changer dans la séance à la dernière minute.</p>
       <p class="muted small">L'appli prend d'abord les exercices des coachs du club, puis ceux de la base. Tu pourras tout changer ensuite.</p>`;
     modal({ title: '✨ Générer une séance', noFocus: true, body: `<div id="genBody">${body()}</div>`,
       onOpen: r => { r.querySelector('#genBody').onclick = e => { const b = e.target.closest('[data-gth]'); if (!b) return; keep(r); const k = b.dataset.gth;
         g.themes = g.themes.includes(k) ? (g.themes.length > 1 ? g.themes.filter(x => x !== k) : g.themes) : [...g.themes, k].slice(-3); g.theme = g.themes[0]; r.querySelector('#genBody').innerHTML = body(); }; },
-      actions: [{ label: 'Annuler' }, { label: 'Générer', kind: 'primary', onClick: (c, r) => { keep(r); if (g.target && (Store.get('trainings', g.target) || {}).teamId !== g.teamId) delete g.target; S().ui.exGen = { theme: g.themes[0], themes: g.themes, minutes: g.minutes }; Store.persistNow(); setTimeout(() => build(g), 60); } }] });
-    function keep(r) { g.teamId = $('#gTeam', r).value; g.minutes = +$('#gMin', r).value; g.date = $('#gDate', r).value || UI.today(); }
+      actions: [{ label: 'Annuler' }, { label: 'Générer', kind: 'primary', onClick: (c, r) => { keep(r); if (g.target && (Store.get('trainings', g.target) || {}).teamId !== g.teamId) delete g.target; S().ui.exGen = { theme: g.themes[0], themes: g.themes, minutes: g.minutes, players: g.players || undefined }; Store.persistNow(); setTimeout(() => build(g), 60); } }] });
+    function keep(r) { g.teamId = $('#gTeam', r).value; g.minutes = +$('#gMin', r).value; g.date = $('#gDate', r).value || UI.today(); const np = +($('#gPlayers', r) || {}).value || 0; if (np > 1) g.players = Math.min(60, np); else delete g.players; }
   }
   // (2.30) a session that changes every time: a draw among all the exercises of the theme (the club's and the library's, those with a written
   // schema a little more often), never those of the team's last sessions; then a preview where each exercise can be swapped before creating
@@ -11516,7 +11518,7 @@ var Exos = (() => {
     const thLabel = (g.themes && g.themes.length ? g.themes : [g.theme]).map(lab).join(' + ');
     const row = (p, i) => { const sc = p.e.schemaId && Store.get('schemas', p.e.schemaId);
       return `<div class="gen-row"><button type="button" class="gen-thumb" data-genbig="${i}" title="Voir le schéma en grand"><img alt="" src="${UI.thumb(sc || AutoSchema.preview(p.e), 180, 117)}"></button>
-        <div class="gen-txt"><span class="muted small">${esc(p.ph)} · ${p.d} min${p.e.club ? ' · 📚 club' : ''}</span><b>${esc(p.e.title)}</b><span class="small">${esc(String(p.e.org || '').slice(0, 110))}${String(p.e.org || '').length > 110 ? '…' : ''}</span></div>
+        <div class="gen-txt"><span class="muted small">${esc(p.ph)} · ${p.d} min${p.e.club ? ' · 📚 club' : ''}</span><b>${esc(p.e.title)}</b><span class="small">${esc(String(p.e.org || '').slice(0, 110))}${String(p.e.org || '').length > 110 ? '…' : ''}</span>${(() => { const l = g.players && typeof Effectif !== 'undefined' ? Effectif.adapt(p.e, g.players, fmtOf(g.teamId)) : ''; return l ? `<span class="small gen-eff">👥 <b>Pour ${g.players}</b> : ${esc(l)}</span>` : ''; })()}</div>
         <button type="button" class="btn small" data-genswap="${i}" title="Un autre exercice">🔄</button></div>`; };
     // the trainings already planned for this team (from today, 6 weeks), the one asked first, then the next without exercises
     const planned = S().trainings.filter(t => t.teamId === g.teamId && !t.model && (t.date || '') >= UI.today() && (t.date || '') <= new Date(Date.now() + 42 * 864e5).toISOString().slice(0, 10))
@@ -11531,7 +11533,7 @@ var Exos = (() => {
     const body = (d = { to: defDest, how: 'add' }) => `${destHtml(d)}<p class="muted small">Touche 🔄 pour changer un exercice, ou 🎲 pour tout retirer au sort. Touche un schéma pour l'agrandir ; il s'anime une fois la séance créée.</p>
       <style>.gen-row{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line,#e3e5ea)}.gen-thumb{border:0;padding:0;background:none;cursor:pointer;flex:none}.gen-thumb img{width:120px;border-radius:8px;display:block}.gen-row:has(.gen-thumb.on){flex-wrap:wrap}.gen-thumb.on{flex-basis:100%}.gen-thumb.on img{width:100%}.gen-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.gen-txt b{font-size:15px}@media(max-width:480px){.gen-thumb img{width:88px}}</style>
       ${cur.plan.map(row).join('')}<p class="muted small">Total : ${cur.plan.reduce((x, p) => x + p.d, 0)} min</p>`;
-    modal({ title: `✨ ${thLabel} · ${g.minutes} min`, noFocus: true, body: `<div id="genPrev">${body()}</div>`,
+    modal({ title: `✨ ${thLabel} · ${g.minutes} min${g.players ? ` · ${g.players} joueurs` : ''}`, noFocus: true, body: `<div id="genPrev">${body()}</div>`,
       onOpen: r => { r.querySelector('#genPrev').onclick = ev => {
         const big = ev.target.closest('[data-genbig]'); if (big) { const p = cur.plan[+big.dataset.genbig], img = big.querySelector('img'), on = big.classList.toggle('on'); img.src = UI.thumb((p.e.schemaId && Store.get('schemas', p.e.schemaId)) || AutoSchema.preview(p.e), on ? 640 : 180, on ? 416 : 117); return; }
         const sw = ev.target.closest('[data-genswap]'); if (!sw) return; const p = cur.plan[+sw.dataset.genswap];
@@ -11546,14 +11548,14 @@ var Exos = (() => {
       if (t) {
         // (2.31) into the training already planned: its date, time, place and attendance stay; the exercises are added (or replace)
         const keep = d.how === 'replace' ? [] : (t.exercises || []);
-        t.exercises = [...keep, ...exs];
+        t.exercises = [...keep, ...exs]; if (g.players) t.nPlayers = g.players;
         if (!t.title || /^entra[iî]nement$/i.test(t.title)) t.title = thLabel;
         if (!String(t.goal || '').includes(goal)) t.goal = [d.how === 'replace' ? '' : t.goal, goal].filter(Boolean).join('\n');
         Store.upsert('trainings', t);
         toast(`Séance « ${thLabel} » mise dans l'entraînement du ${UI.fmtDate(t.date, { weekday: 'long', day: 'numeric', month: 'long' })} : ${exs.length} exercices, ${min} min`);
         location.hash = '#/entrainement/' + t.id; return;
       }
-      const tr = Store.upsert('trainings', { id: Store.uid(), title: thLabel, date: g.date, time: '', teamId: g.teamId, goal, exercises: exs, presents: [] });
+      const tr = Store.upsert('trainings', { id: Store.uid(), title: thLabel, date: g.date, time: '', teamId: g.teamId, goal, exercises: exs, presents: [], ...(g.players ? { nPlayers: g.players } : {}) });
       toast(`Séance « ${thLabel} » créée : ${exs.length} exercices, ${min} min`);
       location.hash = '#/entrainement/' + tr.id;
     }
@@ -17717,6 +17719,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 189, date: '2026-10-11', title: 'Générer une séance pour X joueurs 👥', items: [
+      ['✨', "Générer une séance : nouveau champ « Joueurs ». L'aperçu montre chaque exercice adapté (ateliers, jokers, taille du terrain), et la séance garde ce nombre (modifiable à la dernière minute avec − / +)."],
+    ] },
     { n: 188, date: '2026-10-11', title: 'Qui vient, qui ne vient pas 🟢🔴', items: [
       ['🗳️', "Séance : le total des réponses en un coup d'œil, à côté des joueurs du jour : les présents en vert, les absents en rouge."],
     ] },
@@ -22995,7 +23000,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 230, UPD = AppCfg.key('update-tried');
+  const BUILD = 231, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
