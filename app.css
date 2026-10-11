@@ -2522,3 +2522,11 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .eff-yes { background: color-mix(in srgb, var(--good) 16%, var(--surface)); color: var(--good); }
 .eff-no { background: color-mix(in srgb, var(--bad) 13%, var(--surface)); color: var(--bad); }
 .gen-eff { display: block; margin-top: 3px; padding: 3px 8px; border-radius: 8px; background: var(--surface2); }
+/* (3.31) groups A / B of a session */
+.split-card > summary { cursor: pointer; }
+.split-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.split-h.gA { color: #1d4ed8; } .split-h.gB { color: #c2410c; }
+.split-chip.gA { background: color-mix(in srgb, #1d4ed8 14%, var(--surface)); border-color: #1d4ed8; }
+.split-chip.gB { background: color-mix(in srgb, #c2410c 14%, var(--surface)); border-color: #c2410c; }
+.split-chip b { font-weight: 800; }
+@media (max-width: 520px) { .split-cols { grid-template-columns: 1fr; } }

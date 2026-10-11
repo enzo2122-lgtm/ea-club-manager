@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 190, date: '2026-10-11', title: 'Groupes A / B de la séance 🅰️🅱️', items: [
+      ['👥', "Dans une séance, « Groupes A / B » : touche un joueur pour le mettre en A, puis en B. Ou « Répartir au hasard » / « Équilibrer par poste ». Les groupes sont aussi dans le PDF de la séance."],
+    ] },
     { n: 189, date: '2026-10-11', title: 'Générer une séance pour X joueurs 👥', items: [
       ['✨', "Générer une séance : nouveau champ « Joueurs ». L'aperçu montre chaque exercice adapté (ateliers, jokers, taille du terrain), et la séance garde ce nombre (modifiable à la dernière minute avec − / +)."],
     ] },
