@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 182, date: '2026-10-11', title: 'La FMI en 2 minutes 📋', items: [
+      ['📋', "Match → « Préparer la FMI » : titulaires et remplaçants par numéro, capitaine, gardien, licences, encadrement (dirigeants, délégué, arbitre assistant), et ce qui manque (numéro en double, licence absente, pas de gardien…). Tu recopies sur la tablette FFF, ou tu copies le texte."],
+    ] },
     { n: 181, date: '2026-10-11', title: 'Le sac est prêt 🎒', items: [
       ['🎒', "Convocation : « À prévoir et caisse de l'équipe » se choisit d'un toucher (protège-tibias, chaussettes, short, crampons… retard 2 €, oubli d'équipement 2 €…), ou s'écrit. C'est gardé pour chaque équipe et écrit dans chaque convocation."],
     ] },

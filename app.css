@@ -2482,3 +2482,12 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .tb-tile span:not(.tb-ic) { color: var(--muted); font-size: 16px; }
 .tb-tile.board { background: linear-gradient(160deg, #1f7a3a, #145a2a); color: #fff; border-color: transparent; }
 .tb-tile.board span:not(.tb-ic) { color: rgba(255, 255, 255, .85); }
+
+/* (3.23) the FMI sheet */
+.fmi-tab { width: 100%; border-collapse: collapse; margin: 4px 0 10px; }
+.fmi-tab td { padding: 6px 4px; border-top: 1px solid var(--line); vertical-align: middle; }
+.fmi-n { width: 44px; font-weight: 800; font-size: 18px; text-align: center; }
+.fmi-miss { color: var(--draw); font-weight: 700; }
+.fmi-issues { background: var(--surface2); border: 1px solid var(--draw); border-radius: 12px; padding: 6px 12px; margin: 8px 0; }
+.fmi-issues p { margin: 6px 0; }
+.fmi-enc { margin: 4px 0 0; padding-left: 18px; }

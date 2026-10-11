@@ -4065,7 +4065,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.22';
+  const VERSION = '3.23';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8608,7 +8608,7 @@ var Prepa = (() => {
     return `<section class="card prep-card"><div class="row-head"><h2>🎯 Préparation du match</h2><b class="prep-pc">${pc} %</b></div>
       <div class="prep-bar"><i style="width:${pc}%"></i></div>
       <div class="prep-steps-mini">${STEPS.map(([k, ic, l]) => `<a href="#/prepa/${m.id}/${k}" class="${d[k] ? 'ok' : ''}">${ic}<span>${l}</span></a>`).join('')}</div>
-      <div class="chips"><a class="btn primary" href="#/prepa/${m.id}">${I.edit}<span>Préparer le match</span></a><button class="btn soft" data-prep-show="${m.id}">${I.play}<span>Lancer la causerie</span></button><button class="btn soft" data-prep-print="${m.id}">${I.pdf}<span>Imprimer</span></button></div></section>`;
+      <div class="chips"><a class="btn primary" href="#/prepa/${m.id}">${I.edit}<span>Préparer le match</span></a><button class="btn soft" data-prep-show="${m.id}">${I.play}<span>Lancer la causerie</span></button><button class="btn soft" data-prep-fmi="${m.id}">📋<span>Préparer la FMI</span></button><button class="btn soft" data-prep-print="${m.id}">${I.pdf}<span>Imprimer</span></button></div></section>`;
   }
 
   /* ---------- the sessions of the week before the match ---------- */
@@ -8634,7 +8634,7 @@ var Prepa = (() => {
     const save = (now) => { clearTimeout(t); m.editedBy = (Auth.current() || {}).id; if (now) Store.upsert('matches', m); else t = setTimeout(() => Store.upsert('matches', m), 500); };
     const d = done(m), pc = score(m), ix = STEPS.findIndex(s => s[0] === step);
     root.innerHTML = `<header class="page-head"><div><h1>🎯 Préparation</h1><p class="sub">${title(m)} · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${m.time ? ' · ' + esc(m.time.replace(':', 'h')) : ''}</p></div>
-      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Le match</span></a><button class="btn" data-pa="share">${I.share}<span>Résumé aux joueurs</span></button><button class="btn" data-pa="print">${I.pdf}<span>Imprimer</span></button><button class="btn primary" data-pa="show">${I.play}<span>Lancer la causerie</span></button></div></header>
+      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Le match</span></a><button class="btn" data-pa="share">${I.share}<span>Résumé aux joueurs</span></button><button class="btn" data-pa="fmi">📋<span>FMI</span></button><button class="btn" data-pa="print">${I.pdf}<span>Imprimer</span></button><button class="btn primary" data-pa="show">${I.play}<span>Lancer la causerie</span></button></div></header>
       <div class="prep-top"><div class="prep-bar"><i style="width:${pc}%"></i></div><b>${pc} %</b></div>
       <nav class="prep-steps" aria-label="Étapes">${STEPS.map(([k, ic, l], i) => `<a href="#/prepa/${m.id}/${k}" class="${k === step ? 'on' : ''} ${d[k] ? 'ok' : ''}" ${k === step ? 'aria-current="step"' : ''}><b>${d[k] ? '✓' : i + 1}</b><span>${ic} ${l}</span></a>`).join('')}</nav>
       <div id="prepBody">${({ semaine: stWeek, adversaire: stOpp, plan: stPlan, causerie: stTalk, jourj: stDay, mitemps: stHalf, apres: stAfter })[step](m)}</div>
@@ -8652,6 +8652,7 @@ var Prepa = (() => {
       if (b.dataset.pa === 'show') return show(m);
       if (b.dataset.pa === 'share') return share(m);
       if (b.dataset.pa === 'print') return printDialog(m);
+      if (b.dataset.pa === 'fmi') return fmi(m);
       if (b.dataset.players) return Parents.sharePlayers(b.dataset.players);
       // a proposition added as a new line of a text box, or put in the first empty key
       if (b.dataset.add) {
@@ -8884,6 +8885,43 @@ var Prepa = (() => {
   // the composition's own codes (views.js) that the sport list doesn't know, so every post is written out in full
   const POST_FULL = { DG: 'Latéral gauche', DD: 'Latéral droit', PG: 'Piston gauche', PD: 'Piston droit', MOG: 'Milieu offensif gauche', MOD: 'Milieu offensif droit', AV: 'Avant-centre' };
   const postName = k => { const f = (Sport.POSTS || []).find(q => q[0] === k); return f ? f[1] : POST_FULL[k] || (k || ''); };
+  /* ---------- (3.23) the FMI (Feuille de Match Informatisée of the FFF): what to type, in its order, and what is missing ----------
+     The app doesn't touch the FFF's tablet or site: the coach copies from here in two minutes (numbers, captain, goalkeeper, licences, staff). */
+  function fmiData(m) {
+    const lineup = m.lineupId && Store.get('schemas', m.lineupId), sq = squad(m, lineup), pl = (P(m).plan || {}), capId = pl.captain || m.captain;
+    const gks = new Set(lineup ? (lineup.objects || []).filter(o => o.gk && o.playerId && !o.bench).map(o => o.playerId) : []);
+    const t = teamOf(m) || Store.get('teams', m.teamId), size = { '11': 11, '8': 8, '5': 5 }[(t || {}).format] || 11;
+    const all = [...sq.starters, ...sq.bench], nums = all.map(x => String(Store.numOf(x, m) || '')).filter(Boolean);
+    const vol = k => ((m.vol || {})[k] || []).map(v => v.name || (v.staffId && Store.fullName(Store.get('staff', v.staffId) || {})) || '').filter(Boolean);
+    const issues = [];
+    if (!all.length) issues.push('Personne n\'est convoqué : convoque les joueurs sur la fiche du match.');
+    if (sq.starters.length && sq.starters.length !== size) issues.push(`${sq.starters.length} titulaires sur la compo (il en faut ${size}).`);
+    const noNum = all.filter(x => !Store.numOf(x, m)); if (noNum.length) issues.push('Sans numéro : ' + noNum.map(x => Store.shortName(x)).join(', ') + '.');
+    const dup = nums.filter((n, i) => nums.indexOf(n) !== i); if (dup.length) issues.push('Numéro en double : ' + [...new Set(dup)].join(', ') + '.');
+    const noLic = all.filter(x => !String(x.licence || '').trim()); if (noLic.length) issues.push('Sans numéro de licence dans l\'appli : ' + noLic.map(x => Store.shortName(x)).join(', ') + ' (vérifie sur la tablette qu\'il apparaît bien).');
+    if (!capId) issues.push('Pas de capitaine choisi (Préparation → Plan de jeu).');
+    if (sq.starters.length && !sq.starters.some(x => gks.has(x.id))) issues.push('Pas de gardien sur la compo.');
+    return { lineup, sq, capId, gks, t, size, vol, issues, staff: t ? Store.staffOf(t.id) : [] };
+  }
+  function fmiText(m) {
+    const d = fmiData(m), hh = s => String(s || '').replace(':', 'h'), line = x => `${Store.numOf(x, m) || '—'}  ${Store.fullName(x)}${x.id === d.capId ? ' (C)' : ''}${d.gks.has(x.id) ? ' (G)' : ''}${x.licence ? ' · licence ' + x.licence : ''}`;
+    return [`📋 FMI · ${(d.t || {}).name || ''} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`, `${UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}${m.time ? ' · ' + hh(m.time) : ''}${m.competition ? ' · ' + m.competition : ''}`, '',
+      ...(d.sq.starters.length ? [`TITULAIRES (${d.sq.starters.length})`, ...d.sq.starters.map(line), '', `REMPLAÇANTS (${d.sq.bench.length})`] : [`JOUEURS CONVOQUÉS (${d.sq.bench.length})`]), ...d.sq.bench.map(line), '',
+      'ENCADREMENT', ...d.staff.map(s => '• ' + Store.fullName(s) + (s.role ? ' · ' + s.role : '')), ...d.vol('delegue').map(n => '• Délégué : ' + n), ...d.vol('touche').map(n => '• Arbitre assistant : ' + n),
+      ...(d.issues.length ? ['', 'À VÉRIFIER', ...d.issues.map(x => '⚠️ ' + x)] : [])].join('\n');
+  }
+  function fmi(m) {
+    const d = fmiData(m), row = x => `<tr><td class="fmi-n">${esc(String(Store.numOf(x, m) || '—'))}</td><td><b>${esc(Store.fullName(x))}</b>${x.id === d.capId ? ' <span class="pill">C</span>' : ''}${d.gks.has(x.id) ? ' <span class="pill">G</span>' : ''}</td><td class="muted small">${x.licence ? esc(x.licence) : '<span class="fmi-miss">sans licence</span>'}</td></tr>`;
+    const tab = (title, l) => l.length ? `<div class="lbl">${title} (${l.length})</div><table class="fmi-tab">${l.map(row).join('')}</table>` : '';
+    const enc = [...d.staff.map(s => esc(Store.fullName(s)) + (s.role ? ` <span class="muted small">${esc(s.role)}</span>` : '')), ...d.vol('delegue').map(n => 'Délégué : ' + esc(n)), ...d.vol('touche').map(n => 'Arbitre assistant : ' + esc(n))];
+    modal({ title: '📋 Préparer la FMI', noFocus: true, body: `<p class="muted small">Tout ce qu'il faut saisir dans la Feuille de Match Informatisée (tablette FFF), dans l'ordre. L'appli ne touche pas à la FMI : tu recopies d'ici.</p>
+      ${d.issues.length ? `<div class="fmi-issues">${d.issues.map(x => `<p>⚠️ ${esc(x)}</p>`).join('')}</div>` : '<p class="ans-yes small">✓ Rien ne manque : numéros, capitaine, gardien et licences sont prêts.</p>'}
+      <p><b>${esc((d.t || {}).name || '')}</b> ${m.home ? 'contre' : 'chez'} <b>${esc(m.opponent || '?')}</b> · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${m.time ? ' · ' + esc(String(m.time).replace(':', 'h')) : ''}</p>
+      ${tab('Titulaires', d.sq.starters)}${tab(d.sq.starters.length ? 'Remplaçants' : 'Joueurs convoqués', d.sq.bench)}
+      ${enc.length ? `<div class="lbl">Encadrement</div><ul class="fmi-enc">${enc.map(x => `<li>${x}</li>`).join('')}</ul>` : '<p class="muted small">Encadrement : aucun dirigeant rattaché à la catégorie, ni délégué ou arbitre assistant inscrit (Bénévoles du match).</p>'}`,
+      actions: [{ label: 'Fermer' }, { label: 'Ouvrir la compo', onClick: () => { location.hash = '#/match/' + m.id; } },
+        { label: 'Copier', kind: 'primary', icon: I.copy, onClick: () => { const t = fmiText(m); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Fiche FMI copiée')).catch(() => modal({ title: 'Fiche FMI', body: `<textarea rows="16" style="width:100%">${esc(t)}</textarea>`, actions: [{ label: 'Fermer' }] })); return false; } }] });
+  }
   function squad(m, lineup) {
     const absent = new Set(m.absents || []), get = id => Store.get('players', id), conv = (m.convoked || []).filter(id => !absent.has(id)).map(get).filter(Boolean);
     let ids = []; const gks = new Set(), slot = {};
@@ -9010,11 +9048,11 @@ var Prepa = (() => {
 
   // « Lancer la causerie » from the match page
   document.addEventListener('click', e => {
-    const b = e.target.closest && e.target.closest('[data-prep-show], [data-prep-print]'); if (!b) return;
-    const m = Store.get('matches', b.dataset.prepShow || b.dataset.prepPrint); if (!m) return;
-    if (b.dataset.prepShow) show(m); else printDialog(m);
+    const b = e.target.closest && e.target.closest('[data-prep-show], [data-prep-print], [data-prep-fmi]'); if (!b) return;
+    const m = Store.get('matches', b.dataset.prepShow || b.dataset.prepPrint || b.dataset.prepFmi); if (!m) return;
+    if (b.dataset.prepShow) show(m); else if (b.dataset.prepFmi) fmi(m); else printDialog(m);
   });
-  return { page: route, card, show, summary, done, score, pdf };
+  return { page: route, card, show, summary, done, score, pdf, fmi, fmiText };
 })();
 
 ;
@@ -17671,6 +17709,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 182, date: '2026-10-11', title: 'La FMI en 2 minutes 📋', items: [
+      ['📋', "Match → « Préparer la FMI » : titulaires et remplaçants par numéro, capitaine, gardien, licences, encadrement (dirigeants, délégué, arbitre assistant), et ce qui manque (numéro en double, licence absente, pas de gardien…). Tu recopies sur la tablette FFF, ou tu copies le texte."],
+    ] },
     { n: 181, date: '2026-10-11', title: 'Le sac est prêt 🎒', items: [
       ['🎒', "Convocation : « À prévoir et caisse de l'équipe » se choisit d'un toucher (protège-tibias, chaussettes, short, crampons… retard 2 €, oubli d'équipement 2 €…), ou s'écrit. C'est gardé pour chaque équipe et écrit dans chaque convocation."],
     ] },
@@ -22843,7 +22884,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 223, UPD = AppCfg.key('update-tried');
+  const BUILD = 224, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
