@@ -2517,3 +2517,7 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .eff-step b { min-width: 2ch; text-align: center; font: 700 24px var(--display, var(--round)); font-variant-numeric: tabular-nums; }
 .eff-step .icon-btn { width: 40px; height: 40px; font-size: 22px; font-weight: 800; }
 .ex-eff { margin: 4px 0 6px; padding: 6px 10px; border-radius: 10px; background: var(--surface2); font-size: 14px; line-height: 1.35; }
+.eff-votes { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.eff-votes b { padding: 3px 10px; border-radius: 999px; font-size: 14px; }
+.eff-yes { background: color-mix(in srgb, var(--good) 16%, var(--surface)); color: var(--good); }
+.eff-no { background: color-mix(in srgb, var(--bad) 13%, var(--surface)); color: var(--bad); }

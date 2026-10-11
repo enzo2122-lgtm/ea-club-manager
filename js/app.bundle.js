@@ -4067,7 +4067,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.28';
+  const VERSION = '3.29';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17717,6 +17717,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 188, date: '2026-10-11', title: 'Qui vient, qui ne vient pas 🟢🔴', items: [
+      ['🗳️', "Séance : le total des réponses en un coup d'œil, à côté des joueurs du jour : les présents en vert, les absents en rouge."],
+    ] },
     { n: 187, date: '2026-10-11', title: 'Les exercices s\'adaptent aux joueurs du jour 👥', items: [
       ['👥', "Dans une séance, « Joueurs à la séance » avec − / + : l'appli part des présents (ou des réponses « présent », sinon de l'effectif). Change-le à la dernière minute quand un joueur arrive ou se désiste."],
       ['📐', "Chaque exercice s'adapte : combien d'ateliers, qui joue joker ou tourne, un terrain agrandi ou réduit, et s'il tient dans le demi-terrain (sinon la taille à prendre)."],
@@ -20841,6 +20844,7 @@ var Effectif = (() => {
     const [n, from] = count(tr, squad, dispo);
     return `<div class="eff-bar"><span class="eff-l">👥 Joueurs à la séance</span>
       <span class="eff-step"><button type="button" class="icon-btn" data-effn="-1" aria-label="Un joueur de moins">−</button><b>${n}</b><button type="button" class="icon-btn" data-effn="1" aria-label="Un joueur de plus">+</button></span>
+      ${dispo && dispo.ready && (dispo.yes.size || dispo.no.size) ? `<span class="eff-votes"><b class="eff-yes">✓ ${dispo.yes.size} présent${dispo.yes.size > 1 ? 's' : ''}</b><b class="eff-no">✗ ${dispo.no.size} absent${dispo.no.size > 1 ? 's' : ''}</b><span class="muted small">ont répondu</span></span>` : ''}
       <span class="muted small">${tr.nPlayers ? `choisi à la main · <button type="button" class="linkish" data-effn="0">reprendre ${(tr.presents || []).length ? 'les présents' : 'le compte automatique'}</button>` : esc(from)} · les exercices s'adaptent</span></div>`;
   }
   return { read, adapt, count, bar };
@@ -21501,7 +21505,7 @@ var Views = (() => {
         </section>
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
-        ${tm && tr.exercises.length ? `<div id="effBox">${Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr))}</div>` : ''}
+        ${tm ? `<div id="effBox">${Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr))}</div>` : ''}
         <div class="ex-list" data-exlist="1">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice, ou laisse l\'appli en proposer.</p>'}</div>
         ${tr.exercises.length > 1 ? '<p class="muted small">Glisse le numéro d\'un exercice pour changer l\'ordre.</p>' : ''}
         <div class="chips">${!tr.exercises.length ? `<button class="btn primary" data-act="propose">✨<span>Proposer une séance</span></button>` : ''}<button class="btn ${tr.exercises.length ? 'primary' : ''}" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
@@ -21574,6 +21578,7 @@ var Views = (() => {
     const effLine = e => { const tm = teamOf(tr.teamId), l = tm && !tr.model ? Effectif.adapt(e, effN(), tm.format) : ''; return `<p class="ex-eff" data-effof="${e.id}" ${l ? '' : 'hidden'}>👥 <b>Pour ${effN()}</b> : ${esc(l)}</p>`; };
     const refreshEff = () => { const tm = teamOf(tr.teamId), b = $('#effBox', root); if (b && tm) b.innerHTML = Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr));
       tr.exercises.forEach(e => { const el = root.querySelector(`[data-effof="${e.id}"]`); if (el) { const tmp = document.createElement('div'); tmp.innerHTML = effLine(e); el.replaceWith(tmp.firstElementChild); } }); };
+    { const dp = Parents.trainingDispo(tr); if (dp && dp.wait) dp.wait.then(() => { if (root.isConnected) refreshEff(); }); } // the answers arrive: the votes appear
     const exerciseCard = (e, i, n) => {
       const sc = e.schemaId && Store.get('schemas', e.schemaId), open = openEx.has(e.id);
       const hint = String(e.consignes || e.org || '').split('\n').map(x => x.trim()).filter(Boolean)[0];
@@ -22990,7 +22995,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 229, UPD = AppCfg.key('update-tried');
+  const BUILD = 230, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
