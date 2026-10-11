@@ -1228,7 +1228,7 @@ const Views = (() => {
       const t = teamOf(m.teamId), roster = t ? Store.rosterOf(t.id) : [], conv = roster.filter(p => (m.convoked || []).includes(p.id));
       const lineup = m.lineupId && Store.get('schemas', m.lineupId);
       const tab = matchTabs[m.id] || (m.played ? 'apres' : 'avant'), editOpen = mEdit[m.id] != null ? mEdit[m.id] : !m.opponent;
-      const sum = [m.home ? '🏠 Domicile' : '🚌 Extérieur', m.competition, m.time ? 'début ' + m.time.replace(':', 'h') : '', m.rdv ? 'RDV ' + m.rdv.replace(':', 'h') : '', m.place].filter(Boolean).map(esc).join(' · ');
+      const sum = [m.home ? '🏠 Domicile' : '🚌 Extérieur', m.competition, m.time ? 'début ' + m.time.replace(':', 'h') : '', m.rdv ? 'RDV ' + m.rdv.replace(':', 'h') : '', m.place, m.offRef ? '🟨 ' + m.offRef : ''].filter(Boolean).map(esc).join(' · ');
       const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
       const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,

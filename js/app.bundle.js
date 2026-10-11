@@ -4065,7 +4065,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.24';
+  const VERSION = '3.25';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8907,13 +8907,13 @@ var Prepa = (() => {
     const d = fmiData(m), hh = s => String(s || '').replace(':', 'h'), line = x => `${Store.numOf(x, m) || '—'}  ${Store.fullName(x)}${x.id === d.capId ? ' (C)' : ''}${d.gks.has(x.id) ? ' (G)' : ''}${x.licence ? ' · licence ' + x.licence : ''}`;
     return [`📋 FMI · ${(d.t || {}).name || ''} ${m.home ? 'contre' : 'chez'} ${m.opponent || '?'}`, `${UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' })}${m.time ? ' · ' + hh(m.time) : ''}${m.competition ? ' · ' + m.competition : ''}`, '',
       ...(d.sq.starters.length ? [`TITULAIRES (${d.sq.starters.length})`, ...d.sq.starters.map(line), '', `REMPLAÇANTS (${d.sq.bench.length})`] : [`JOUEURS CONVOQUÉS (${d.sq.bench.length})`]), ...d.sq.bench.map(line), '',
-      'ENCADREMENT', ...d.staff.map(s => '• ' + Store.fullName(s) + (s.role ? ' · ' + s.role : '')), ...d.vol('delegue').map(n => '• Délégué : ' + n), ...d.vol('touche').map(n => '• Arbitre assistant : ' + n),
+      'ENCADREMENT', ...d.staff.map(s => '• ' + Store.fullName(s) + (s.role ? ' · ' + s.role : '')), ...d.vol('delegue').map(n => '• Délégué : ' + n), ...d.vol('touche').map(n => '• Arbitre assistant : ' + n), ...(m.offRef ? ['• ' + m.offRef + ' (désigné par la FFF)'] : []),
       ...(d.issues.length ? ['', 'À VÉRIFIER', ...d.issues.map(x => '⚠️ ' + x)] : [])].join('\n');
   }
   function fmi(m) {
     const d = fmiData(m), row = x => `<tr><td class="fmi-n">${esc(String(Store.numOf(x, m) || '—'))}</td><td><b>${esc(Store.fullName(x))}</b>${x.id === d.capId ? ' <span class="pill">C</span>' : ''}${d.gks.has(x.id) ? ' <span class="pill">G</span>' : ''}</td><td class="muted small">${x.licence ? esc(x.licence) : '<span class="fmi-miss">sans licence</span>'}</td></tr>`;
     const tab = (title, l) => l.length ? `<div class="lbl">${title} (${l.length})</div><table class="fmi-tab">${l.map(row).join('')}</table>` : '';
-    const enc = [...d.staff.map(s => esc(Store.fullName(s)) + (s.role ? ` <span class="muted small">${esc(s.role)}</span>` : '')), ...d.vol('delegue').map(n => 'Délégué : ' + esc(n)), ...d.vol('touche').map(n => 'Arbitre assistant : ' + esc(n))];
+    const enc = [...d.staff.map(s => esc(Store.fullName(s)) + (s.role ? ` <span class="muted small">${esc(s.role)}</span>` : '')), ...d.vol('delegue').map(n => 'Délégué : ' + esc(n)), ...d.vol('touche').map(n => 'Arbitre assistant : ' + esc(n)), ...(m.offRef ? [esc(m.offRef) + ' <span class="muted small">désigné par la FFF</span>'] : [])];
     modal({ title: '📋 Préparer la FMI', noFocus: true, body: `<p class="muted small">Tout ce qu'il faut saisir dans la Feuille de Match Informatisée (tablette FFF), dans l'ordre. L'appli ne touche pas à la FMI : tu recopies d'ici.</p>
       ${d.issues.length ? `<div class="fmi-issues">${d.issues.map(x => `<p>⚠️ ${esc(x)}</p>`).join('')}</div>` : '<p class="ans-yes small">✓ Rien ne manque : numéros, capitaine, gardien et licences sont prêts.</p>'}
       <p><b>${esc((d.t || {}).name || '')}</b> ${m.home ? 'contre' : 'chez'} <b>${esc(m.opponent || '?')}</b> · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${m.time ? ' · ' + esc(String(m.time).replace(':', 'h')) : ''}</p>
@@ -17709,6 +17709,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 184, date: '2026-10-11', title: "Monsieur l'arbitre 🟨", items: [
+      ['🟨', "L'arbitre désigné par la FFF s'affiche sur la fiche du match et dans la fiche FMI (relevé sur Footclubs pour les matchs joués du club)."],
+    ] },
     { n: 183, date: '2026-10-11', title: 'La compo prend ses aises 🖥️', items: [
       ['🖥️', "Sur ordinateur : le dessin de la compo à gauche, « Qui joue où ? » à droite, et les noms en entier (le poste et le numéro gardent leur taille)."],
     ] },
@@ -21983,7 +21986,7 @@ var Views = (() => {
       const t = teamOf(m.teamId), roster = t ? Store.rosterOf(t.id) : [], conv = roster.filter(p => (m.convoked || []).includes(p.id));
       const lineup = m.lineupId && Store.get('schemas', m.lineupId);
       const tab = matchTabs[m.id] || (m.played ? 'apres' : 'avant'), editOpen = mEdit[m.id] != null ? mEdit[m.id] : !m.opponent;
-      const sum = [m.home ? '🏠 Domicile' : '🚌 Extérieur', m.competition, m.time ? 'début ' + m.time.replace(':', 'h') : '', m.rdv ? 'RDV ' + m.rdv.replace(':', 'h') : '', m.place].filter(Boolean).map(esc).join(' · ');
+      const sum = [m.home ? '🏠 Domicile' : '🚌 Extérieur', m.competition, m.time ? 'début ' + m.time.replace(':', 'h') : '', m.rdv ? 'RDV ' + m.rdv.replace(':', 'h') : '', m.place, m.offRef ? '🟨 ' + m.offRef : ''].filter(Boolean).map(esc).join(' · ');
       const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
       const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
@@ -22887,7 +22890,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 225, UPD = AppCfg.key('update-tried');
+  const BUILD = 226, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

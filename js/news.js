@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 184, date: '2026-10-11', title: "Monsieur l'arbitre 🟨", items: [
+      ['🟨', "L'arbitre désigné par la FFF s'affiche sur la fiche du match et dans la fiche FMI (relevé sur Footclubs pour les matchs joués du club)."],
+    ] },
     { n: 183, date: '2026-10-11', title: 'La compo prend ses aises 🖥️', items: [
       ['🖥️', "Sur ordinateur : le dessin de la compo à gauche, « Qui joue où ? » à droite, et les noms en entier (le poste et le numéro gardent leur taille)."],
     ] },
