@@ -543,7 +543,9 @@ const Views = (() => {
         <div class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${grp ? `<b class="tr-grp">${esc(grp)}</b> · ` : ''}${tm ? esc(tm.name) + ' · ' : ''}${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span>${t.date >= now ? `<span class="tr-ans" data-trans="${t.id}"></span>` : ''}</div>${I.next}</a>`; };
     root.innerHTML = `${header('Entraînements', 'Séances, exercices et présences', `<a class="btn primary" href="#/systemes">📚<span>Séances par système de jeu</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="ics">${I.calendar}<span>Agenda (.ics)</span></button><a class="btn" href="#/bibliotheque">${I.pdf}<span>Importer une fiche PDF</span></a><a class="btn" href="#/exercices">📚<span>Exercices du club</span></a><button class="btn" data-exgen>✨<span>Générer une séance</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouvel entraînement</span></button>`)}
       ${teamSwitch()}
-      <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Séances types du club (${models.length})</b><span class="muted small"> · des séances prêtes, pour toutes les catégories</span></summary>
+      <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Bibliothèque du club</b><span class="muted small"> · les séances types et les séances de tous les coachs, pour toutes les catégories</span></summary>
+        ${libBox()}
+        <h3 class="lib-sub">Séances types (${models.length})</h3>
         ${models.length ? `<div class="list">${models.map(t => `<div class="list-item model-item"><a class="li-main" href="#/entrainement/${t.id}"><b>${esc(t.title || 'Séance type')}</b><span class="muted">${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${t.exercises.reduce((a, e) => a + (+e.duration || 0), 0)} min${t.goal ? ' · ' + esc(String(t.goal).slice(0, 60)) : ''}</span></a><button class="btn primary" data-use="${t.id}">${I.plus}<span>Utiliser</span></button></div>`).join('')}</div>`
           : '<p class="muted small">Pas encore de séance type. Dans une séance réussie, touche « Enregistrer comme séance type » (en bas) : elle servira à tous les coachs.</p>'}</details>
       ${(() => { // (3.14) the next two weeks in view; the rest of the season, and the old sessions, folded away
@@ -559,7 +561,45 @@ const Views = (() => {
     $('[data-act="import"]', root).onclick = importFile;
     $('[data-act="ics"]', root).onclick = () => Importer.trainingsFromICS(() => trainings(root));
     $('.models-card', root).ontoggle = e => { S().ui.modelsOpen = e.target.open; Store.persistNow(); };
+    bindLib(root);
     $$('[data-use]', root).forEach(b => b.onclick = () => copyTraining(Store.get('trainings', b.dataset.use), 'use'));
+  }
+  /* ---------- (3.21) the club's library: the sessions of every coach, every category ---------- */
+  const libList = () => S().trainings.filter(t => !t.model && t.date && (t.exercises || []).some(e => e.title)).map(t => ({ t, dur: t.exercises.reduce((a, e) => a + (+e.duration || 0), 0) }));
+  const libStars = n => n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '';
+  function libBox() {
+    const ui = S().ui, by = ui.libBy || 'recent';
+    return `<div class="lib-box"><div class="chips"><button class="chip ${by === 'recent' ? 'on' : ''}" data-libby="recent">🕒 Récentes</button><button class="chip ${by === 'stars' ? 'on' : ''}" data-libby="stars">⭐ Mieux notées</button><button class="chip ${by === 'mine' ? 'on' : ''}" data-libby="mine">👤 Les miennes</button></div>
+      <input class="lib-q" data-libq placeholder="Chercher : pressing, conservation, U11…" value="${esc(ui.libQ || '')}" autocomplete="off"><div class="list lib-list" id="libList">${libItems()}</div></div>`;
+  }
+  function libItems() {
+    const ui = S().ui, by = ui.libBy || 'recent', me = (Auth.current() || {}).id, q = String(ui.libQ || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    let l = libList();
+    if (by === 'mine') l = l.filter(x => x.t.by === me || (x.t.staffIds || []).includes(me));
+    if (by === 'stars') l = l.filter(x => x.t.stars);
+    if (q) l = l.filter(({ t }) => [t.title, t.goal, (teamOf(t.teamId) || {}).name, ...t.exercises.map(e => e.title + ' ' + (e.theme || ''))].join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(q));
+    l.sort((a, b) => by === 'stars' ? (b.t.stars - a.t.stars) || b.t.date.localeCompare(a.t.date) : b.t.date.localeCompare(a.t.date));
+    if (!l.length) return `<p class="muted small">${by === 'stars' && !q ? 'Aucune séance notée pour l\'instant : après une séance, donne-lui une note dans « Après la séance ».' : 'Rien ne correspond.'}</p>`;
+    return l.slice(0, 30).map(({ t, dur }) => { const st = Store.get('staff', t.by || (t.staffIds || [])[0] || ''); return `<div class="list-item lib-item"><button class="li-main" data-libsee="${t.id}"><b>${esc(t.title || 'Entraînement')}${t.stars ? ` <span class="lib-stars">${libStars(t.stars)}</span>` : ''}</b>
+      <span class="muted">${esc((teamOf(t.teamId) || {}).name || '')}${st ? ' · ' + esc(Store.shortName(st)) : ''} · ${esc(fmtDate(t.date, { day: 'numeric', month: 'short' }))} · ${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span></button><button class="btn soft" data-libuse="${t.id}">${I.copy}<span>Utiliser</span></button></div>`; }).join('');
+  }
+  // a session of another coach: seen in a window (its exercises, its schemas, the coach's logbook), then « Utiliser »
+  function libSee(t) {
+    const st = Store.get('staff', t.by || (t.staffIds || [])[0] || ''), first = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '';
+    modal({ title: t.title || 'Entraînement', body: `<p class="muted">${esc((teamOf(t.teamId) || {}).name || '')}${st ? ' · ' + esc(Store.fullName(st)) : ''} · ${esc(fmtDate(t.date))}${t.stars ? ' · ' + libStars(t.stars) : ''}</p>
+      ${t.goal ? `<p><b>Objectif :</b> ${esc(t.goal)}</p>` : ''}${t.logbook ? `<p class="tip">📓 <b>Carnet de bord du coach :</b> ${esc(t.logbook)}</p>` : ''}
+      <div class="lib-exs">${t.exercises.map((e, i) => { const sc = e.schemaId && Store.get('schemas', e.schemaId); return `<div class="lib-ex">${sc ? `<img alt="" src="${UI.thumb(sc, 240, 156, { step: 0 })}">` : ''}<div><b>${i + 1}. ${esc(e.title || 'Exercice')}</b> <span class="muted">${+e.duration || 0} min</span>${first(e.consignes || e.org) ? `<br><span class="muted small">${esc(first(e.consignes || e.org))}</span>` : ''}</div></div>`; }).join('')}</div>`,
+      actions: [{ label: 'Fermer' }, ...(Auth.sees(t.teamId) ? [{ label: 'Ouvrir', onClick: () => { location.hash = '#/entrainement/' + t.id; } }] : []), { label: 'Utiliser cette séance', kind: 'primary', icon: I.copy, onClick: () => { setTimeout(() => copyTraining(t, 'use'), 60); } }] });
+  }
+  function bindLib(root) {
+    const box = $('.lib-box', root); if (!box) return;
+    box.onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.libby) { S().ui.libBy = b.dataset.libby; Store.persistNow(); $$('[data-libby]', box).forEach(x => x.classList.toggle('on', x === b)); $('#libList', box).innerHTML = libItems(); return; }
+      if (b.dataset.libsee) { const t = Store.get('trainings', b.dataset.libsee); if (t) libSee(t); return; }
+      if (b.dataset.libuse) { const t = Store.get('trainings', b.dataset.libuse); if (t) copyTraining(t, 'use'); }
+    };
+    const q = $('[data-libq]', box); if (q) q.oninput = () => { S().ui.libQ = q.value; $('#libList', box).innerHTML = libItems(); };
   }
   // A session copied for a category and a date (from a template session, or « Dupliquer » towards another category)
   // (2.79) the next day with the same weekday as a session (this week's Tuesday for last Tuesday's session)
@@ -571,7 +611,7 @@ const Views = (() => {
       <div class="row2"><label class="fld"><span>Date</span><input type="date" id="cpDate" value="${how === 'again' ? nextSameDay(tr.date) : today()}"></label><label class="fld"><span>Heure</span><input type="time" id="cpTime" value="${esc(tr.time || '18:00')}"></label></div>
       <p class="muted small">Les exercices, consignes et schémas${how === 'use' ? ' et documents' : ''} sont copiés. Les présences et les notes repartent à zéro.</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Créer la séance', kind: 'primary', onClick: (c, r) => {
-        const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); delete n.model; delete n.ratings; if (how !== 'use') delete n.docIds;
+        const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); delete n.model; delete n.ratings; delete n.stars; delete n.logbook; if (how !== 'use') delete n.docIds;
         Object.assign(n, { teamId: $('#cpTeam', r).value || null, date: $('#cpDate', r).value || today(), time: $('#cpTime', r).value, presents: [], staffIds: [] });
         if (how === 'dup') n.title = tr.title + (n.teamId === tr.teamId ? ' (copie)' : '');
         n.exercises.forEach(x => x.id = Store.uid()); Store.upsert('trainings', n); toast('Séance créée'); location.hash = '#/entrainement/' + n.id;
@@ -622,7 +662,9 @@ const Views = (() => {
           ${absBox(tm.id)}` : ''}
         <div id="trAnsBox"></div>
         <div id="evFeed"></div>
-        <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">notes des joueurs, effort, documents, photos et vidéos</span></summary>
+        <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length || tr.stars || tr.logbook ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">ta note, ton carnet de bord, notes des joueurs, effort, documents, photos et vidéos</span></summary>
+        <div class="tr-log"><div class="lbl">Ta note de la séance <span class="muted small">(la bibliothèque du club montre les mieux notées)</span></div><div class="tr-stars">${[1, 2, 3, 4, 5].map(n => `<button class="star ${(tr.stars || 0) >= n ? 'on' : ''}" data-trstar="${n}" aria-label="${n} sur 5">★</button>`).join('')}</div>
+          <label class="fld"><span>📓 Carnet de bord : ce qui a marché, ce que tu changerais</span><textarea id="trLog" rows="3" placeholder="ex : le rondo 4c2 trop facile pour les U13, passer à 2 touches">${esc(tr.logbook || '')}</textarea></label></div>
         <div id="rateBox"></div>
         <div id="rpeBox"></div>
         <div id="docsBox">${Library.docsPlaceholder()}</div>
@@ -630,6 +672,9 @@ const Views = (() => {
         </details>
 `;
       const box = $('#rateBox', root); if (box) Ratings.bind(box, tr, save);
+      // (3.21) the coach's mark and logbook
+      $$('[data-trstar]', root).forEach(b => b.onclick = () => { const n = +b.dataset.trstar; tr.stars = tr.stars === n ? 0 : n; if (!tr.stars) delete tr.stars; save(); $$('[data-trstar]', root).forEach(x => x.classList.toggle('on', (tr.stars || 0) >= +x.dataset.trstar)); });
+      { const lg = $('#trLog', root); if (lg) { let tm = null; lg.oninput = () => { clearTimeout(tm); tm = setTimeout(() => { tr.logbook = lg.value.trim(); if (!tr.logbook) delete tr.logbook; save(); }, 500); }; } }
       gagesInto($('#gageBox', root), tr);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
       Parents.mountTraining($('#trAnsBox', root), tr, ids => { tr.presents = [...new Set([...(tr.presents || []), ...ids])]; save(); render(); toast('Présents annoncés cochés'); });
@@ -755,7 +800,7 @@ const Views = (() => {
         case 'use': return copyTraining(tr, 'use');
         case 'model': {
           const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); n.model = true;
-          Object.assign(n, { date: '', teamId: null, presents: [], staffIds: [], by: (Auth.current() || {}).id || null }); delete n.ratings; delete n.docIds;
+          Object.assign(n, { date: '', teamId: null, presents: [], staffIds: [], by: (Auth.current() || {}).id || null }); delete n.ratings; delete n.docIds; delete n.stars; delete n.logbook;
           n.exercises.forEach(x => x.id = Store.uid()); Store.upsert('trainings', n); S().ui.modelsOpen = true;
           toast('Séance type enregistrée : tous les coachs la trouvent dans Séances'); return;
         }

@@ -18,6 +18,12 @@ const Planning = (() => {
   const hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
   const fieldName = () => S().club.fieldName || 'Terrain';
+  // (3.21) the season of the club, changeable (by default 1 September → 30 June), and its rest days (holidays, winter break, bank holidays)
+  const seasonY = () => { const d = new Date(); return d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; };
+  const seasonOf = () => Object.assign({ start: seasonY() + '-09-01', end: (seasonY() + 1) + '-06-30' }, S().club.season || {});
+  const rests = () => (S().club.rest || []).filter(x => x && x.id && x.from && x.to);
+  const restOn = d => rests().find(x => d >= x.from && d <= x.to) || null;
+  const outOfSeason = d => { const s = seasonOf(); return d < s.start || d > s.end; };
   const myTeams = () => { const u = Auth.current(); return u ? (u.teamIds || []) : []; };
   // One colour per category, close colours for close ages (U6-U9 greens, U10-U13 blues, U14-U17 purples/pinks)
   // (key order = legend order: Seniors and Vétérans first, then U6 … U17)
@@ -102,7 +108,7 @@ const Planning = (() => {
     const week = ui.planWeek, days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.planView !== 'day';
     if (!days.includes(ui.planDay)) ui.planDay = days[0];
     root.innerHTML = `${placeTabs('pitch')}<header class="page-head" data-pg="plan"><div><h1>Planning · ${esc(fieldName())}</h1><p class="sub">Grand terrain ou demi-terrain, sans chevauchement</p></div>
-      <div class="head-actions plan-actions"><a class="btn" href="#/encadrement" aria-label="Qui encadre ?">${I.whistle}<span>Qui encadre ?</span></a>${Auth.isAdmin() ? `<button class="btn" data-p="slots" aria-label="Créneaux disponibles">${I.clock}<span>Créneaux disponibles</span></button>` : ''}
+      <div class="head-actions plan-actions"><a class="btn" href="#/encadrement" aria-label="Qui encadre ?">${I.whistle}<span>Qui encadre ?</span></a>${Auth.isAdmin() ? `<button class="btn" data-p="slots" aria-label="Créneaux disponibles">${I.clock}<span>Créneaux disponibles</span></button><button class="btn" data-p="rest" aria-label="Saison et jours de repos">🌴<span>Saison et repos</span></button>` : ''}
       <button class="btn" data-p="bookHome" id="bookHome" hidden aria-label="Réserver les matchs à domicile">${I.match}<span>Réserver les matchs à domicile</span></button>
       <button class="btn" data-p="recur" aria-label="Chaque semaine">${I.rotate}<span>Chaque semaine</span></button>
       <button class="btn primary" data-p="new">${I.plus}<span>Réserver</span></button></div></header>
@@ -140,8 +146,9 @@ const Planning = (() => {
     const col = d => {
       const free = slotsOf(d), list = bookings.filter(b => b.date === d);
       const ghosts = ms.filter(m => m.date === d && m.home && matchStart(m) !== null && !bookingFor(m));
-      return `<div class="plan-day ${d === ui.planDay ? 'sel' : ''} ${d === iso(new Date()) ? 'today' : ''}" data-col="${d}">
-        <button class="plan-head" data-openday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} <b>${parse(d).getDate()}</b></button>
+      const rest = restOn(d), off = !rest && outOfSeason(d), camp = typeof Stages !== 'undefined' && Stages.onDay(d).length;
+      return `<div class="plan-day ${d === ui.planDay ? 'sel' : ''} ${d === iso(new Date()) ? 'today' : ''} ${rest || off ? 'rest' : ''}" data-col="${d}" ${rest ? `title="${esc(rest.label || 'Repos')}"` : ''}>
+        <button class="plan-head" data-openday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} <b>${parse(d).getDate()}</b>${rest || off ? ' 🌴' : ''}${camp ? ' 🏕️' : ''}</button>
         ${awayRows ? `<div class="plan-away" style="height:${awayRows * 24}px">${away(d).map(m => `<button class="mt-away ${m.home ? 'notime' : ''} ${mine.has(m.teamId) ? 'mine' : ''}" data-mt="${m.id}" style="background:${colorOf({ team_id: m.teamId }) || '#0e1d45'}" title="${esc(teamNameOf(m))} ${m.home ? 'à domicile, heure à préciser' : 'à l\'extérieur'} contre ${esc(m.opponent || '?')}"><i class="ic">${m.home ? '⏱' : '🚌'}</i><b>${esc(shortOf({ team_id: m.teamId, team_name: teamNameOf(m), kind: 'match' }))}</b></button>`).join('')}</div>` : ''}
         <div class="plan-body" style="height:${H}px" data-date="${d}">
           ${hours.map(m => `<i class="hline" style="top:${(m - lo) * px}px"></i>`).join('')}
@@ -152,7 +159,15 @@ const Planning = (() => {
             <b>${esc(teamNameOf(m))}</b><i class="bk-s">${esc(shortOf({ team_id: m.teamId, team_name: teamNameOf(m), kind: 'match' }))}</i><span>Match · ${hm(s)} · à réserver</span></button>`; }).join('')}
         </div></div>`;
     };
-    $('#planGrid', root).innerHTML = `<div class="plan-grid">
+    // (3.21) the rest periods and the camps of the week, in one line each above the grid; « ＋ » adds a rest period
+    const wRest = rests().filter(x => x.from <= days[6] && x.to >= days[0]), wCamps = typeof Stages !== 'undefined' ? Stages.list().filter(s => (s.weeks || []).some(w => w.from <= days[6] && w.to >= days[0])) : [];
+    const offDays = days.filter(d => !restOn(d) && outOfSeason(d)).length;
+    const fd = (s, o) => parse(s).toLocaleDateString('fr-FR', o || { day: 'numeric', month: 'long' });
+    const notes = `<div class="plan-notes">${wRest.map(x => `<div class="plan-note rest">🌴 <b>${esc(x.label || 'Repos')}</b> · du ${esc(fd(x.from))} au ${esc(fd(x.to))}${Auth.isAdmin() ? ` <button class="link" data-p="rest">modifier</button>` : ''}</div>`).join('')}
+      ${offDays ? `<div class="plan-note rest">🌴 Hors saison (${esc(fd(seasonOf().start))} – ${esc(fd(seasonOf().end))})</div>` : ''}
+      ${wCamps.map(s => `<a class="plan-note camp" href="#/stages/${s.id}">🏕️ <b>${esc(s.title || 'Stage')}</b> · ${esc(String(s.start || '').replace(':', 'h'))} – ${esc(String(s.end_h || '').replace(':', 'h'))} · les inscrits</a>`).join('')}
+      ${Auth.isAdmin() ? '<button class="chip plan-addrest" data-p="addrest">＋ Jour de repos</button>' : ''}</div>`;
+    $('#planGrid', root).innerHTML = notes + `<div class="plan-grid">
       <div class="plan-hours"><div class="plan-head">&nbsp;</div>${awayRows ? `<div class="plan-away" style="height:${awayRows * 24}px"></div>` : ''}<div style="position:relative;height:${H}px">${hours.map(m => `<span style="top:${(m - lo) * px}px">${hm(m)}</span>`).join('')}</div></div>
       ${days.map(col).join('')}</div>
       ${!slots.length ? '<p class="tip">Aucun créneau défini : le terrain est réservable à toute heure. Le responsable peut fixer les créneaux disponibles.</p>' : ''}`;
@@ -177,6 +192,8 @@ const Planning = (() => {
         if (p === 'retry') return page(root);
         if (p === 'vday' || p === 'vweek') { ui.planView = p === 'vweek' ? 'week' : 'day'; Store.save(); return page(root); }
         if (p === 'new') return bookForm({ date: ui.planDay, start: 18 * 60 }, () => page(root));
+        if (p === 'rest') return restForm(() => page(root));
+        if (p === 'addrest') return restAdd({ from: ui.planDay, to: ui.planDay }, () => page(root));
         if (p === 'slots') return slotsForm(() => page(root));
         if (p === 'recur') return recurForm(() => page(root));
         if (p === 'bookHome') {
@@ -274,7 +291,33 @@ const Planning = (() => {
   }
 
   /* ---------- weekly training slot until the end of the season (30 June) ---------- */
-  const seasonEnd = () => { const d = new Date(), y = d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear(); return `${y}-06-30`; };
+  const seasonEnd = () => seasonOf().end;
+  /* ---------- (3.21) the season and its rest days ---------- */
+  function restAdd(def, done, after) {
+    modal({ title: 'Jour de repos', body: `<p class="muted small">Vacances, trêve, jour férié : le planning le montre, et « Chaque semaine » ne réserve pas ces jours-là.</p>
+      <label class="fld"><span>Nom</span><input id="rsL" maxlength="50" placeholder="ex : Vacances de la Toussaint, 11 novembre, trêve"></label>
+      <div class="row2"><label class="fld"><span>Du</span><input type="date" id="rsF" value="${esc(def.from)}"></label><label class="fld"><span>Au</span><input type="date" id="rsT" value="${esc(def.to)}"></label></div>`,
+      actions: [{ label: 'Annuler', onClick: () => { if (after) setTimeout(after, 50); } }, { label: 'Ajouter', kind: 'primary', onClick: (c, r) => {
+        const f = $('#rsF', r).value, t = $('#rsT', r).value || f; if (!f || t < f) { toast('Vérifie les dates', 'err'); return false; }
+        (S().club.rest = rests()).push({ id: Store.uid(), from: f, to: t, label: $('#rsL', r).value.trim() || 'Repos' }); S().club.rest.sort((a, b) => a.from.localeCompare(b.from));
+        Store.save(); toast('Jour de repos ajouté'); done(); if (after) setTimeout(after, 50); } }] });
+  }
+  function restForm(done) {
+    const s = seasonOf(), fd = d => parse(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    modal({ title: 'Saison et jours de repos', body: `
+      <div class="row2"><label class="fld"><span>Début de la saison</span><input type="date" id="ssS" value="${esc(s.start)}"></label><label class="fld"><span>Fin de la saison</span><input type="date" id="ssE" value="${esc(s.end)}"></label></div>
+      <p class="muted small">« Chaque semaine » réserve jusqu'à la fin de la saison. En dehors, le planning est marqué « hors saison ».</p>
+      <div class="lbl">Jours de repos</div>
+      <div class="list" id="rsList">${rests().map(x => `<div class="list-item"><div class="li-main"><b>🌴 ${esc(x.label || 'Repos')}</b><span class="muted">${x.from === x.to ? esc(fd(x.from)) : `du ${esc(fd(x.from))} au ${esc(fd(x.to))}`}</span></div><button class="icon-btn" data-rsdel="${x.id}" aria-label="Retirer">${I.x}</button></div>`).join('') || '<p class="muted small">Aucun pour l\'instant.</p>'}</div>
+      <button class="btn soft" id="rsAdd">${I.plus}<span>Ajouter des jours de repos</span></button>`,
+      onOpen: (r, close) => {
+        $('#rsList', r).onclick = e => { const b = e.target.closest('[data-rsdel]'); if (!b) return; S().club.rest = rests().filter(x => x.id !== b.dataset.rsdel); Store.save(); b.closest('.list-item').remove(); done(); };
+        $('#rsAdd', r).onclick = () => { close(); setTimeout(() => restAdd({ from: iso(new Date()), to: iso(new Date()) }, done, () => restForm(done)), 60); };
+      },
+      actions: [{ label: 'Fermer' }, { label: 'Enregistrer la saison', kind: 'primary', onClick: (c, r) => {
+        const a = $('#ssS', r).value, b = $('#ssE', r).value; if (!a || !b || b <= a) { toast('Vérifie les dates de la saison', 'err'); return false; }
+        S().club.season = { start: a, end: b }; Store.save(); toast('Saison enregistrée'); done(); } }] });
+  }
   function recurForm(done) {
     const mine = myTeams(), teams = S().teams, order = [1, 2, 3, 4, 5, 6, 0];
     modal({ title: 'Entraînement chaque semaine', body: `
@@ -295,7 +338,9 @@ const Planning = (() => {
         if (!days.length) { toast('Choisis au moins un jour', 'err'); return false; }
         if (e0 <= s0) { toast('L\'heure de fin doit être après le début', 'err'); return false; }
         if (!from || !to || to < from) { toast('Vérifie les dates', 'err'); return false; }
-        const dates = []; for (let d = from; d <= to; d = addDays(d, 1)) if (days.includes(parse(d).getDay())) dates.push(d);
+        const dates = [], skipped = []; for (let d = from; d <= to; d = addDays(d, 1)) if (days.includes(parse(d).getDay())) (restOn(d) ? skipped : dates).push(d);
+        if (!dates.length) { toast('Toutes ces dates tombent sur des jours de repos', 'err'); return false; }
+        if (skipped.length) toast(`${skipped.length} jour${skipped.length > 1 ? 's' : ''} de repos sauté${skipped.length > 1 ? 's' : ''}`);
         if (dates.length > 120) { toast('Trop de dates : réduis la période', 'err'); return false; }
         const u = Auth.current(), team = Store.get('teams', $('#rTeam', r).value), part = $('#rPart .on', r).dataset.v, series = Store.uid();
         close();
@@ -362,5 +407,7 @@ const Planning = (() => {
   const placeTabs = cur => `<div class="seg place-tabs"><a class="seg-b ${cur === 'pitch' ? 'on' : ''}" href="#/planning">⚽ Terrain</a><a class="seg-b ${cur === 'rooms' ? 'on' : ''}" href="#/vestiaires">🚪 Vestiaires</a></div>`;
   // Colour of a category (results page, legend…)
   const teamColor = teamId => colorOf({ team_id: teamId }) || '#0e1d45';
-  return { page, upcoming, teamColor, colorOf, placeTabs };
+  // the rest day of a date (for the other pages), the season
+  const restInfo = d => restOn(d);
+  return { restInfo, seasonOf, page, upcoming, teamColor, colorOf, placeTabs };
 })();

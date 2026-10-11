@@ -5,6 +5,13 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 180, date: '2026-10-11', title: 'Les vacances, version club 🏕️', items: [
+      ['🏕️', "Stages vacances (Plus → Stages vacances) : les semaines, les horaires, le prix, le programme. Les familles inscrivent leur enfant depuis leur espace, le responsable valide quand le paiement est reçu. Feuille d'appel, message et affiche pour WhatsApp. Pas de stage le week-end : c'est repos."],
+      ['🌴', "Planning : la saison a ses dates (modifiables) et ses jours de repos (vacances, trêve, jours fériés), ajoutés d'un « ＋ ». « Chaque semaine » saute les jours de repos."],
+      ['📚', "Séances : la bibliothèque du club montre les séances de tous les coachs (récentes, mieux notées, les miennes, recherche). Après la séance : ta note en étoiles et ton carnet de bord."],
+      ['📱', "Mode tablette (Plus → Mode tablette) : de grosses tuiles pour le banc et le vestiaire, tableau à 11, à 8 ou à 5, séance du jour, prochain match, plein écran."],
+      ['🔒', "Page confidentialité relue : pièces jointes, journal des modifications, convocations dans l'appli, notifications sobres, stages."],
+    ] },
     { n: 179, date: '2026-10-10', title: 'Vestiaires comme le terrain, et 100 clubs de cœur 🚿⚽', items: [
       ['🚿', "Planning des vestiaires : la même présentation que le terrain. En Semaine, les 7 jours côte à côte avec les heures, chaque vestiaire dans son couloir (1, 2, K1, K2). En Jour, un vestiaire par colonne. Touche un jour pour l'ouvrir."],
       ['⚽', "Plus de 100 clubs de cœur, rangés par pays : France, Angleterre, Espagne, Italie, Allemagne, et les autres. Les joueurs et les parents les ont aussi dans « Ma page »."],

@@ -4065,7 +4065,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.20';
+  const VERSION = '3.21';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4882,6 +4882,12 @@ var Planning = (() => {
   const hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
   const fieldName = () => S().club.fieldName || 'Terrain';
+  // (3.21) the season of the club, changeable (by default 1 September → 30 June), and its rest days (holidays, winter break, bank holidays)
+  const seasonY = () => { const d = new Date(); return d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; };
+  const seasonOf = () => Object.assign({ start: seasonY() + '-09-01', end: (seasonY() + 1) + '-06-30' }, S().club.season || {});
+  const rests = () => (S().club.rest || []).filter(x => x && x.id && x.from && x.to);
+  const restOn = d => rests().find(x => d >= x.from && d <= x.to) || null;
+  const outOfSeason = d => { const s = seasonOf(); return d < s.start || d > s.end; };
   const myTeams = () => { const u = Auth.current(); return u ? (u.teamIds || []) : []; };
   // One colour per category, close colours for close ages (U6-U9 greens, U10-U13 blues, U14-U17 purples/pinks)
   // (key order = legend order: Seniors and Vétérans first, then U6 … U17)
@@ -4966,7 +4972,7 @@ var Planning = (() => {
     const week = ui.planWeek, days = Array.from({ length: 7 }, (_, i) => addDays(week, i)), wk = ui.planView !== 'day';
     if (!days.includes(ui.planDay)) ui.planDay = days[0];
     root.innerHTML = `${placeTabs('pitch')}<header class="page-head" data-pg="plan"><div><h1>Planning · ${esc(fieldName())}</h1><p class="sub">Grand terrain ou demi-terrain, sans chevauchement</p></div>
-      <div class="head-actions plan-actions"><a class="btn" href="#/encadrement" aria-label="Qui encadre ?">${I.whistle}<span>Qui encadre ?</span></a>${Auth.isAdmin() ? `<button class="btn" data-p="slots" aria-label="Créneaux disponibles">${I.clock}<span>Créneaux disponibles</span></button>` : ''}
+      <div class="head-actions plan-actions"><a class="btn" href="#/encadrement" aria-label="Qui encadre ?">${I.whistle}<span>Qui encadre ?</span></a>${Auth.isAdmin() ? `<button class="btn" data-p="slots" aria-label="Créneaux disponibles">${I.clock}<span>Créneaux disponibles</span></button><button class="btn" data-p="rest" aria-label="Saison et jours de repos">🌴<span>Saison et repos</span></button>` : ''}
       <button class="btn" data-p="bookHome" id="bookHome" hidden aria-label="Réserver les matchs à domicile">${I.match}<span>Réserver les matchs à domicile</span></button>
       <button class="btn" data-p="recur" aria-label="Chaque semaine">${I.rotate}<span>Chaque semaine</span></button>
       <button class="btn primary" data-p="new">${I.plus}<span>Réserver</span></button></div></header>
@@ -5004,8 +5010,9 @@ var Planning = (() => {
     const col = d => {
       const free = slotsOf(d), list = bookings.filter(b => b.date === d);
       const ghosts = ms.filter(m => m.date === d && m.home && matchStart(m) !== null && !bookingFor(m));
-      return `<div class="plan-day ${d === ui.planDay ? 'sel' : ''} ${d === iso(new Date()) ? 'today' : ''}" data-col="${d}">
-        <button class="plan-head" data-openday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} <b>${parse(d).getDate()}</b></button>
+      const rest = restOn(d), off = !rest && outOfSeason(d), camp = typeof Stages !== 'undefined' && Stages.onDay(d).length;
+      return `<div class="plan-day ${d === ui.planDay ? 'sel' : ''} ${d === iso(new Date()) ? 'today' : ''} ${rest || off ? 'rest' : ''}" data-col="${d}" ${rest ? `title="${esc(rest.label || 'Repos')}"` : ''}>
+        <button class="plan-head" data-openday="${d}">${DAYS[parse(d).getDay()].slice(0, 3)} <b>${parse(d).getDate()}</b>${rest || off ? ' 🌴' : ''}${camp ? ' 🏕️' : ''}</button>
         ${awayRows ? `<div class="plan-away" style="height:${awayRows * 24}px">${away(d).map(m => `<button class="mt-away ${m.home ? 'notime' : ''} ${mine.has(m.teamId) ? 'mine' : ''}" data-mt="${m.id}" style="background:${colorOf({ team_id: m.teamId }) || '#0e1d45'}" title="${esc(teamNameOf(m))} ${m.home ? 'à domicile, heure à préciser' : 'à l\'extérieur'} contre ${esc(m.opponent || '?')}"><i class="ic">${m.home ? '⏱' : '🚌'}</i><b>${esc(shortOf({ team_id: m.teamId, team_name: teamNameOf(m), kind: 'match' }))}</b></button>`).join('')}</div>` : ''}
         <div class="plan-body" style="height:${H}px" data-date="${d}">
           ${hours.map(m => `<i class="hline" style="top:${(m - lo) * px}px"></i>`).join('')}
@@ -5016,7 +5023,15 @@ var Planning = (() => {
             <b>${esc(teamNameOf(m))}</b><i class="bk-s">${esc(shortOf({ team_id: m.teamId, team_name: teamNameOf(m), kind: 'match' }))}</i><span>Match · ${hm(s)} · à réserver</span></button>`; }).join('')}
         </div></div>`;
     };
-    $('#planGrid', root).innerHTML = `<div class="plan-grid">
+    // (3.21) the rest periods and the camps of the week, in one line each above the grid; « ＋ » adds a rest period
+    const wRest = rests().filter(x => x.from <= days[6] && x.to >= days[0]), wCamps = typeof Stages !== 'undefined' ? Stages.list().filter(s => (s.weeks || []).some(w => w.from <= days[6] && w.to >= days[0])) : [];
+    const offDays = days.filter(d => !restOn(d) && outOfSeason(d)).length;
+    const fd = (s, o) => parse(s).toLocaleDateString('fr-FR', o || { day: 'numeric', month: 'long' });
+    const notes = `<div class="plan-notes">${wRest.map(x => `<div class="plan-note rest">🌴 <b>${esc(x.label || 'Repos')}</b> · du ${esc(fd(x.from))} au ${esc(fd(x.to))}${Auth.isAdmin() ? ` <button class="link" data-p="rest">modifier</button>` : ''}</div>`).join('')}
+      ${offDays ? `<div class="plan-note rest">🌴 Hors saison (${esc(fd(seasonOf().start))} – ${esc(fd(seasonOf().end))})</div>` : ''}
+      ${wCamps.map(s => `<a class="plan-note camp" href="#/stages/${s.id}">🏕️ <b>${esc(s.title || 'Stage')}</b> · ${esc(String(s.start || '').replace(':', 'h'))} – ${esc(String(s.end_h || '').replace(':', 'h'))} · les inscrits</a>`).join('')}
+      ${Auth.isAdmin() ? '<button class="chip plan-addrest" data-p="addrest">＋ Jour de repos</button>' : ''}</div>`;
+    $('#planGrid', root).innerHTML = notes + `<div class="plan-grid">
       <div class="plan-hours"><div class="plan-head">&nbsp;</div>${awayRows ? `<div class="plan-away" style="height:${awayRows * 24}px"></div>` : ''}<div style="position:relative;height:${H}px">${hours.map(m => `<span style="top:${(m - lo) * px}px">${hm(m)}</span>`).join('')}</div></div>
       ${days.map(col).join('')}</div>
       ${!slots.length ? '<p class="tip">Aucun créneau défini : le terrain est réservable à toute heure. Le responsable peut fixer les créneaux disponibles.</p>' : ''}`;
@@ -5041,6 +5056,8 @@ var Planning = (() => {
         if (p === 'retry') return page(root);
         if (p === 'vday' || p === 'vweek') { ui.planView = p === 'vweek' ? 'week' : 'day'; Store.save(); return page(root); }
         if (p === 'new') return bookForm({ date: ui.planDay, start: 18 * 60 }, () => page(root));
+        if (p === 'rest') return restForm(() => page(root));
+        if (p === 'addrest') return restAdd({ from: ui.planDay, to: ui.planDay }, () => page(root));
         if (p === 'slots') return slotsForm(() => page(root));
         if (p === 'recur') return recurForm(() => page(root));
         if (p === 'bookHome') {
@@ -5138,7 +5155,33 @@ var Planning = (() => {
   }
 
   /* ---------- weekly training slot until the end of the season (30 June) ---------- */
-  const seasonEnd = () => { const d = new Date(), y = d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear(); return `${y}-06-30`; };
+  const seasonEnd = () => seasonOf().end;
+  /* ---------- (3.21) the season and its rest days ---------- */
+  function restAdd(def, done, after) {
+    modal({ title: 'Jour de repos', body: `<p class="muted small">Vacances, trêve, jour férié : le planning le montre, et « Chaque semaine » ne réserve pas ces jours-là.</p>
+      <label class="fld"><span>Nom</span><input id="rsL" maxlength="50" placeholder="ex : Vacances de la Toussaint, 11 novembre, trêve"></label>
+      <div class="row2"><label class="fld"><span>Du</span><input type="date" id="rsF" value="${esc(def.from)}"></label><label class="fld"><span>Au</span><input type="date" id="rsT" value="${esc(def.to)}"></label></div>`,
+      actions: [{ label: 'Annuler', onClick: () => { if (after) setTimeout(after, 50); } }, { label: 'Ajouter', kind: 'primary', onClick: (c, r) => {
+        const f = $('#rsF', r).value, t = $('#rsT', r).value || f; if (!f || t < f) { toast('Vérifie les dates', 'err'); return false; }
+        (S().club.rest = rests()).push({ id: Store.uid(), from: f, to: t, label: $('#rsL', r).value.trim() || 'Repos' }); S().club.rest.sort((a, b) => a.from.localeCompare(b.from));
+        Store.save(); toast('Jour de repos ajouté'); done(); if (after) setTimeout(after, 50); } }] });
+  }
+  function restForm(done) {
+    const s = seasonOf(), fd = d => parse(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    modal({ title: 'Saison et jours de repos', body: `
+      <div class="row2"><label class="fld"><span>Début de la saison</span><input type="date" id="ssS" value="${esc(s.start)}"></label><label class="fld"><span>Fin de la saison</span><input type="date" id="ssE" value="${esc(s.end)}"></label></div>
+      <p class="muted small">« Chaque semaine » réserve jusqu'à la fin de la saison. En dehors, le planning est marqué « hors saison ».</p>
+      <div class="lbl">Jours de repos</div>
+      <div class="list" id="rsList">${rests().map(x => `<div class="list-item"><div class="li-main"><b>🌴 ${esc(x.label || 'Repos')}</b><span class="muted">${x.from === x.to ? esc(fd(x.from)) : `du ${esc(fd(x.from))} au ${esc(fd(x.to))}`}</span></div><button class="icon-btn" data-rsdel="${x.id}" aria-label="Retirer">${I.x}</button></div>`).join('') || '<p class="muted small">Aucun pour l\'instant.</p>'}</div>
+      <button class="btn soft" id="rsAdd">${I.plus}<span>Ajouter des jours de repos</span></button>`,
+      onOpen: (r, close) => {
+        $('#rsList', r).onclick = e => { const b = e.target.closest('[data-rsdel]'); if (!b) return; S().club.rest = rests().filter(x => x.id !== b.dataset.rsdel); Store.save(); b.closest('.list-item').remove(); done(); };
+        $('#rsAdd', r).onclick = () => { close(); setTimeout(() => restAdd({ from: iso(new Date()), to: iso(new Date()) }, done, () => restForm(done)), 60); };
+      },
+      actions: [{ label: 'Fermer' }, { label: 'Enregistrer la saison', kind: 'primary', onClick: (c, r) => {
+        const a = $('#ssS', r).value, b = $('#ssE', r).value; if (!a || !b || b <= a) { toast('Vérifie les dates de la saison', 'err'); return false; }
+        S().club.season = { start: a, end: b }; Store.save(); toast('Saison enregistrée'); done(); } }] });
+  }
   function recurForm(done) {
     const mine = myTeams(), teams = S().teams, order = [1, 2, 3, 4, 5, 6, 0];
     modal({ title: 'Entraînement chaque semaine', body: `
@@ -5159,7 +5202,9 @@ var Planning = (() => {
         if (!days.length) { toast('Choisis au moins un jour', 'err'); return false; }
         if (e0 <= s0) { toast('L\'heure de fin doit être après le début', 'err'); return false; }
         if (!from || !to || to < from) { toast('Vérifie les dates', 'err'); return false; }
-        const dates = []; for (let d = from; d <= to; d = addDays(d, 1)) if (days.includes(parse(d).getDay())) dates.push(d);
+        const dates = [], skipped = []; for (let d = from; d <= to; d = addDays(d, 1)) if (days.includes(parse(d).getDay())) (restOn(d) ? skipped : dates).push(d);
+        if (!dates.length) { toast('Toutes ces dates tombent sur des jours de repos', 'err'); return false; }
+        if (skipped.length) toast(`${skipped.length} jour${skipped.length > 1 ? 's' : ''} de repos sauté${skipped.length > 1 ? 's' : ''}`);
         if (dates.length > 120) { toast('Trop de dates : réduis la période', 'err'); return false; }
         const u = Auth.current(), team = Store.get('teams', $('#rTeam', r).value), part = $('#rPart .on', r).dataset.v, series = Store.uid();
         close();
@@ -5226,7 +5271,9 @@ var Planning = (() => {
   const placeTabs = cur => `<div class="seg place-tabs"><a class="seg-b ${cur === 'pitch' ? 'on' : ''}" href="#/planning">⚽ Terrain</a><a class="seg-b ${cur === 'rooms' ? 'on' : ''}" href="#/vestiaires">🚪 Vestiaires</a></div>`;
   // Colour of a category (results page, legend…)
   const teamColor = teamId => colorOf({ team_id: teamId }) || '#0e1d45';
-  return { page, upcoming, teamColor, colorOf, placeTabs };
+  // the rest day of a date (for the other pages), the season
+  const restInfo = d => restOn(d);
+  return { restInfo, seasonOf, page, upcoming, teamColor, colorOf, placeTabs };
 })();
 
 ;
@@ -8410,7 +8457,7 @@ var Rooms = (() => {
   }
 
   /* ---------- training: the same room every week ---------- */
-  const seasonEnd = () => { const d = new Date(), y = d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear(); return `${y}-06-30`; };
+  const seasonEnd = () => (typeof Planning !== 'undefined' && Planning.seasonOf ? Planning.seasonOf().end : (() => { const d = new Date(), y = d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear(); return `${y}-06-30`; })()); // (3.21) the season of the club
   function recurForm(done) {
     const mine = myTeams(), order = [1, 2, 3, 4, 5, 6, 0];
     modal({ title: 'Vestiaire chaque semaine', body: `
@@ -12185,6 +12232,268 @@ var Vol = (() => {
     return `<a class="card vol-card ${f >= n ? 'ok' : ''}" href="#/benevoles"><b>🙋 Bénévoles ${f}/${n}</b><span class="muted small">${tasksFor(m).map(t => `${t.icon} ${list(m, t.key).length}/${t.need}`).join(' · ')}</span></a>`;
   }
   return { page, card, mine, click, tasks, DEFAULT };
+})();
+
+;
+/* ===== stages.js ===== */
+/* Stages: the club's holiday camps (Toussaint, Noël, hiver, printemps, été) for the children.
+   A camp: its weeks, its hours, its price per week, the places per week, the categories it is open to, the contact, the programme of a day.
+   The families register their child week by week from their space (club server, supabase/stages.sql); a coach can register a child too.
+   A responsable validates the registration once the payment is received (camp.paidIds = ['<child>:<week>', …]); the family sees it.
+   A registration is kept on the child's own card (player.stageIds = ['<camp>:<week>', …]: merged like any list of ids by the sync),
+   a child from outside the club in the camp (camp.guests). The camps themselves live with the club settings (club.stages). */
+var Stages = (() => {
+  const { esc, $, $$, toast, modal, confirmBox } = UI;
+  const S = () => Store.state;
+  const list = () => (S().club.stages || []).filter(s => s && s.id);
+  const today = () => UI.today();
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const parse = s => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d, 12); };
+  const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+  const nextMonday = () => { const d = new Date(); d.setHours(12); const add = (8 - d.getDay()) % 7 || 7; d.setDate(d.getDate() + add); return iso(d); };
+  const day = (s, o) => parse(s).toLocaleDateString('fr-FR', o || { weekday: 'short', day: 'numeric', month: 'short' });
+  const weekLabel = w => `du ${day(w.from, { weekday: 'long', day: 'numeric' })} au ${day(w.to, { weekday: 'long', day: 'numeric', month: 'long' })}`;
+  const hh = t => String(t || '').replace(':', 'h');
+  const lastDay = s => (s.weeks || []).reduce((a, w) => (w.to > a ? w.to : a), '');
+  const firstDay = s => (s.weeks || []).reduce((a, w) => (!a || w.from < a ? w.from : a), '');
+  const keyOf = (s, w) => s.id + ':' + w.id;
+  const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  // the name of the holidays from the month of the first day
+  const season = d => { const m = d ? parse(d).getMonth() : new Date().getMonth(); return m === 9 || m === 10 ? 'de la Toussaint' : m === 11 || m === 0 ? 'de Noël' : m === 1 || m === 2 ? "d'hiver" : m === 3 || m === 4 ? 'de printemps' : "d'été"; };
+  const PROGRAMME = '08:00 - 09:30 Accueil du matin\n09:00 - 11:30 Entraînements\n11:30 - 12:00 Temps libre\n12:00 - 13:00 Repas\n13:00 - 14:00 Jeux, quiz\n14:00 - 16:00 Tournois, challenges\n16:30 - 17:00 Goûter et accueil du soir';
+  const prog = s => String(s.programme || '').split('\n').map(x => x.trim()).filter(Boolean).map(x => { const m = /^(\d{1,2}[:h]\d{2}\s*[-–]\s*\d{1,2}[:h]\d{2}|\d{1,2}[:h]\d{2})\s*(.*)$/.exec(x); return m ? [m[1].replace(/\s+/g, ' '), m[2]] : ['', x]; });
+  // who is registered for one week: the club's children (their card) and the children from outside
+  const kids = (s, w) => S().players.filter(p => Array.isArray(p.stageIds) && p.stageIds.includes(keyOf(s, w))).sort(Store.byName);
+  const guests = (s, w) => ((s.guests || {})[w.id] || []).filter(g => g && g.id);
+  const count = (s, w) => kids(s, w).length + guests(s, w).length;
+  const paid = (s, id, w) => (s.paidIds || []).includes(id + ':' + w.id);
+  const teamName = p => (p.teamIds || []).map(id => Store.get('teams', id)).filter(Boolean).map(t => t.name).join(' · ');
+  const canEdit = () => !Auth.readOnly();
+  const canValidate = () => Auth.isAdmin(); // the responsable validates, once the payment is received
+  const save = () => { list().forEach(s => { s.end = lastDay(s); s.begin = firstDay(s); }); Store.save(); };
+  // the camps of a day (for the planning of the pitch)
+  // no camp at the weekend: Saturday and Sunday are rest days, even inside the dates of a week
+  const weekend = d => [0, 6].includes(parse(d).getDay());
+  const onDay = d => weekend(d) ? [] : list().filter(s => (s.weeks || []).some(w => d >= w.from && d <= w.to));
+  const ic = n => I[n] || I.plus;
+  const youthTeams = () => S().teams.filter(t => !/senior|v[ée]t[ée]ran|loisir/i.test(t.name + ' ' + (t.category || ''))).sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr', { numeric: true }));
+
+  /* ---------- the page ---------- */
+  function page(root, id) {
+    if (id) { const s = list().find(x => x.id === id); if (s) return detail(root, s); }
+    const now = today(), up = list().filter(s => (lastDay(s) || now) >= now).sort((a, b) => firstDay(a).localeCompare(firstDay(b))), past = list().filter(s => lastDay(s) && lastDay(s) < now).sort((a, b) => firstDay(b).localeCompare(firstDay(a)));
+    const card = s => {
+      const ws = s.weeks || [];
+      return `<article class="card stage-card"><div class="row-head"><h2>🏕️ ${esc(s.title || 'Stage')}</h2>${s.open === false ? '<span class="pill">Inscriptions fermées</span>' : ''}</div>
+        <p class="muted">${esc(hh(s.start) || '?')} – ${esc(hh(s.end_h) || '?')}${s.price ? ` · ${esc(s.price)} € la semaine` : ''}${+s.max ? ` · ${+s.max} places par semaine` : ''}</p>
+        <div class="stage-weeks">${ws.map(w => { const n = count(s, w), v = kids(s, w).filter(p => paid(s, p.id, w)).length + guests(s, w).filter(g => paid(s, g.id, w)).length; return `<a class="stage-week" href="#/stages/${s.id}/${w.id}"><b>Semaine ${esc(weekLabel(w))}</b><span>${n} inscrit${n > 1 ? 's' : ''}${+s.max ? ' / ' + (+s.max) : ''}${n > v ? ` · <i class="stage-wait">${n - v} à valider</i>` : ''}</span></a>`; }).join('') || '<p class="muted small">Aucune semaine : touche « Modifier ».</p>'}</div>
+        <div class="chips"><a class="btn primary" href="#/stages/${s.id}">${ic('team')}<span>Les inscrits</span></a><button class="btn" data-sshare="${s.id}">${ic('share')}<span>Message aux familles</span></button><button class="btn" data-simg="${s.id}">${ic('image')}<span>Affiche</span></button>${canEdit() ? `<button class="btn" data-sedit="${s.id}">${ic('edit')}<span>Modifier</span></button>` : ''}</div></article>`;
+    };
+    root.innerHTML = `<header class="page-head"><div><h1>🏕️ Stages vacances</h1><p class="sub">Les stages du club pendant les vacances scolaires : semaines, programme, inscriptions</p></div>
+      <div class="head-actions">${canEdit() ? `<button class="btn primary" data-snew>${ic('plus')}<span>Nouveau stage</span></button>` : ''}</div></header>
+      ${up.length ? up.map(card).join('') : `<div class="empty card"><p>Pas de stage prévu.</p>${canEdit() ? '<p class="muted small">« Nouveau stage » : les semaines, les horaires, le prix et le programme. Les familles inscrivent ensuite leur enfant depuis leur espace.</p>' : ''}</div>`}
+      ${past.length ? `<details class="card fold-list"><summary><b>🗄️ Stages passés (${past.length})</b></summary>${past.map(card).join('')}</details>` : ''}
+      <p class="tip">Les familles voient le stage dans leur espace (onglet Matchs) et inscrivent leur enfant semaine par semaine. Un responsable valide l'inscription quand le paiement est reçu : la famille le voit. Un coach peut aussi inscrire un enfant, ou un enfant extérieur au club.</p>`;
+    root.onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if ('snew' in b.dataset) return edit(null, () => page(root));
+      if (b.dataset.sedit) return edit(list().find(x => x.id === b.dataset.sedit), () => page(root));
+      if (b.dataset.sshare) return share(list().find(x => x.id === b.dataset.sshare));
+      if (b.dataset.simg) return poster(list().find(x => x.id === b.dataset.simg));
+    };
+  }
+
+  /* ---------- one camp: the registered children, week by week ---------- */
+  function detail(root, s, wid) {
+    const ws = s.weeks || []; wid = location.hash.split('/')[3] || wid || (S().ui.stageWeek || {})[s.id];
+    const w = ws.find(x => x.id === wid) || ws.find(x => x.to >= today()) || ws[0];
+    if (!w) { root.innerHTML = `<header class="page-head"><div><h1>🏕️ ${esc(s.title || 'Stage')}</h1></div><div class="head-actions"><a class="btn" href="#/stages">${ic('back')}<span>Les stages</span></a></div></header><p class="muted">Aucune semaine pour ce stage.</p>`; return; }
+    S().ui.stageWeek = Object.assign(S().ui.stageWeek || {}, { [s.id]: w.id });
+    const ks = kids(s, w), gs = guests(s, w), n = ks.length + gs.length, np = ks.filter(p => paid(s, p.id, w)).length + gs.filter(g => paid(s, g.id, w)).length;
+    const tel = p => { const par = Array.isArray(p.parents) ? p.parents.find(x => x && x.phone) : null; return (par && par.phone) || p.phone || ''; };
+    const state = id => paid(s, id, w) ? `<button class="chip on" data-spaid="${esc(id)}" ${canValidate() ? '' : 'disabled'}>✓ Validé</button>` : `<button class="chip stage-wait" data-spaid="${esc(id)}" ${canValidate() ? '' : 'disabled'}>${canValidate() ? 'Valider (payé)' : 'À valider'}</button>`;
+    const row = (id, name, sub, ph) => `<div class="list-item stage-kid"><div class="li-main"><b>${esc(name)}</b><span class="muted">${esc(sub)}${ph ? ` · <a href="tel:${esc(ph)}">${esc(ph)}</a>` : ''}</span></div>
+      ${state(id)}${canEdit() ? `<button class="icon-btn" data-sdel="${esc(id)}" aria-label="Retirer">${ic('x')}</button>` : ''}</div>`;
+    // the registrations still to validate first
+    const order = (a, b) => (paid(s, a.id, w) ? 1 : 0) - (paid(s, b.id, w) ? 1 : 0);
+    root.innerHTML = `<header class="page-head"><div><h1>🏕️ ${esc(s.title || 'Stage')}</h1><p class="sub">${esc(hh(s.start))} – ${esc(hh(s.end_h))}${s.price ? ` · ${esc(s.price)} € la semaine` : ''}${s.contact ? ` · inscriptions : ${esc(s.contact)}` : ''}</p></div>
+      <div class="head-actions"><a class="btn" href="#/stages">${ic('back')}<span>Les stages</span></a><button class="btn" data-spdf>${ic('pdf')}<span>Feuille d'appel</span></button><button class="btn" data-scopy>${ic('copy')}<span>Copier la liste</span></button></div></header>
+      ${ws.length > 1 ? `<div class="chips stage-tabs">${ws.map(x => `<a class="chip ${x.id === w.id ? 'on' : ''}" href="#/stages/${s.id}/${x.id}">${esc(day(x.from, { day: 'numeric', month: 'short' }))} – ${esc(day(x.to, { day: 'numeric', month: 'short' }))} · ${count(s, x)}</a>`).join('')}</div>` : ''}
+      <section class="card"><div class="row-head"><h2>Semaine ${esc(weekLabel(w))}</h2><b>${n}${+s.max ? ' / ' + (+s.max) : ''}</b></div>
+        <p class="muted small">${np} validé${np > 1 ? 's' : ''} sur ${n}${s.price ? ` · ${np * (+s.price || 0)} € reçus sur ${n * (+s.price || 0)} €` : ''}${canValidate() ? ' · touche « Valider » quand le paiement est reçu : la famille le voit dans son espace' : ' · un responsable valide chaque inscription quand le paiement est reçu'}</p>
+        ${n ? `<div class="list">${ks.slice().sort(order).map(p => row(p.id, Store.fullName(p), teamName(p), tel(p))).join('')}${gs.slice().sort(order).map(g => row(g.id, g.name, 'Extérieur au club', g.phone)).join('')}</div>` : '<p class="muted">Personne pour l\'instant.</p>'}
+        ${canEdit() ? `<div class="chips"><button class="btn primary" data-sadd>${ic('plus')}<span>Inscrire un enfant du club</span></button><button class="btn" data-sguest>${ic('plus')}<span>Enfant extérieur</span></button></div>` : ''}</section>
+      ${prog(s).length ? `<details class="card"><summary><b>🗓️ Le programme d'une journée</b></summary><ul class="stage-prog">${prog(s).map(([t, l]) => `<li><b>${esc(t)}</b> ${esc(l)}</li>`).join('')}</ul></details>` : ''}`;
+    const redraw = () => detail(root, s, w.id);
+    root.onclick = async e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.spaid) { if (!canValidate()) return toast('Un responsable du club valide les inscriptions', 'err'); const k = b.dataset.spaid + ':' + w.id, l = s.paidIds = s.paidIds || []; const i = l.indexOf(k); if (i < 0) l.push(k); else l.splice(i, 1); save(); toast(i < 0 ? 'Inscription validée' : 'Validation retirée'); return redraw(); }
+      if (b.dataset.sdel) {
+        const id = b.dataset.sdel, p = Store.get('players', id), g = guests(s, w).find(x => x.id === id);
+        if (!(await confirmBox(`Retirer ${p ? Store.fullName(p) : g ? g.name : 'cet enfant'} de la semaine ${weekLabel(w)} ?`))) return;
+        if (p) { p.stageIds = (p.stageIds || []).filter(x => x !== keyOf(s, w)); Store.upsert('players', p); }
+        if (g) s.guests[w.id] = s.guests[w.id].filter(x => x.id !== id);
+        s.paidIds = (s.paidIds || []).filter(x => x !== id + ':' + w.id); save(); toast('Retiré'); return redraw();
+      }
+      if ('sadd' in b.dataset) return addKid(s, w, redraw);
+      if ('sguest' in b.dataset) return addGuest(s, w, redraw);
+      if ('scopy' in b.dataset) {
+        const txt = `${s.title} · semaine ${weekLabel(w)} (${n})\n` + [...ks.map(p => `- ${Store.fullName(p)} (${teamName(p)})${paid(s, p.id, w) ? ' ✓' : ' · à valider'}`), ...gs.map(g => `- ${g.name} (extérieur)${paid(s, g.id, w) ? ' ✓' : ' · à valider'}`)].join('\n');
+        try { await navigator.clipboard.writeText(txt); toast('Liste copiée'); } catch (x) { modal({ title: 'La liste', body: `<textarea rows="12" style="width:100%">${esc(txt)}</textarea>`, actions: [{ label: 'Fermer' }] }); }
+        return;
+      }
+      if ('spdf' in b.dataset) return callSheet(s, w, ks, gs);
+    };
+  }
+  // a child of the club: the categories the camp is open to, a search box
+  function addKid(s, w, done) {
+    // the categories ticked for the camp, otherwise every youth category (no seniors, veterans, leisure)
+    const open = new Set((s.teamIds || []).length ? s.teamIds : youthTeams().map(t => t.id)), have = new Set(kids(s, w).map(p => p.id));
+    const pool = S().players.filter(p => !have.has(p.id) && (p.teamIds || []).some(t => open.has(t))).sort(Store.byName);
+    let close = null;
+    modal({ title: 'Inscrire un enfant', body: `<input id="skQ" placeholder="Nom ou prénom" autocomplete="off"><div class="list stage-pick" id="skL"></div>`,
+      onOpen: (r, c) => {
+        close = c;
+        const draw = () => { const q = norm($('#skQ', r).value); const l = pool.filter(p => !q || norm(Store.fullName(p)).includes(q)).slice(0, 40);
+          $('#skL', r).innerHTML = l.map(p => `<button class="list-item" data-skp="${p.id}"><div class="li-main"><b>${esc(Store.fullName(p))}</b><span class="muted">${esc(teamName(p))}</span></div></button>`).join('') || '<p class="muted">Personne.</p>'; };
+        $('#skQ', r).oninput = draw; draw();
+        $('#skL', r).onclick = e => { const b = e.target.closest('[data-skp]'); if (!b) return; const p = Store.get('players', b.dataset.skp); if (!p) return;
+          if (+s.max && count(s, w) >= +s.max) { toast('La semaine est complète', 'err'); return; }
+          p.stageIds = [...new Set([...(p.stageIds || []), keyOf(s, w)])]; Store.upsert('players', p); toast(`${Store.shortName(p)} inscrit`);
+          b.remove(); done(); };
+      }, actions: [{ label: 'Fermer' }] });
+  }
+  function addGuest(s, w, done) {
+    modal({ title: 'Enfant extérieur au club', body: `<label class="fld"><span>Nom et prénom</span><input id="sgN" maxlength="60"></label><label class="fld"><span>Téléphone d'un parent (facultatif)</span><input id="sgT" maxlength="20" inputmode="tel"></label>`,
+      actions: [{ label: 'Annuler' }, { label: 'Inscrire', kind: 'primary', onClick: (c, r) => {
+        const name = $('#sgN', r).value.trim(); if (!name) { toast("Le nom de l'enfant", 'err'); return false; }
+        if (+s.max && count(s, w) >= +s.max) { toast('La semaine est complète', 'err'); return false; }
+        s.guests = s.guests || {}; (s.guests[w.id] = s.guests[w.id] || []).push({ id: Store.uid(), name, phone: $('#sgT', r).value.trim() }); save(); toast(`${name} inscrit`); done(); } }] });
+  }
+
+  /* ---------- create / change a camp ---------- */
+  function edit(s, done) {
+    const isNew = !s, m0 = nextMonday();
+    const cur = s ? JSON.parse(JSON.stringify(s)) : { id: Store.uid(), title: 'Stage ' + season(m0), weeks: [{ id: Store.uid(), from: m0, to: addDays(m0, 4) }], start: '08:45', end_h: '16:30', price: 60, max: 0, teamIds: [], contact: '', programme: PROGRAMME, info: '', open: true };
+    const youth = youthTeams();
+    const weekRow = (w, i) => `<div class="row2 stage-wrow" data-wi="${i}"><label class="fld"><span>Du</span><input type="date" data-wf value="${esc(w.from)}"></label><label class="fld"><span>Au</span><input type="date" data-wt value="${esc(w.to)}"></label><button class="icon-btn" data-wdel="${i}" aria-label="Retirer la semaine">${ic('x')}</button></div>`;
+    let read = () => cur.weeks;
+    modal({ title: isNew ? 'Nouveau stage' : 'Modifier le stage', body: `
+      <label class="fld"><span>Nom</span><input id="stT" value="${esc(cur.title)}" maxlength="60"></label>
+      <div class="lbl">Les semaines</div><div id="stW">${cur.weeks.map(weekRow).join('')}</div><button class="btn soft" id="stWadd">${ic('plus')}<span>Une semaine de plus</span></button>
+      <div class="row2"><label class="fld"><span>Arrivée</span><input type="time" id="stS" value="${esc(cur.start)}"></label><label class="fld"><span>Départ</span><input type="time" id="stE" value="${esc(cur.end_h)}"></label></div>
+      <div class="row2"><label class="fld"><span>Prix par semaine (€)</span><input type="number" id="stP" min="0" value="${esc(cur.price)}"></label><label class="fld"><span>Places par semaine (0 : sans limite)</span><input type="number" id="stM" min="0" value="${esc(cur.max || 0)}"></label></div>
+      <div class="lbl">Ouvert aux catégories <span class="muted small">(aucune cochée : toutes)</span></div><div class="chips" id="stC">${youth.map(t => `<button class="chip ${(cur.teamIds || []).includes(t.id) ? 'on' : ''}" data-tid="${t.id}">${esc(t.name)}</button>`).join('')}</div>
+      <label class="fld"><span>Paiement et questions auprès de (facultatif)</span><input id="stK" value="${esc(cur.contact)}" maxlength="80" placeholder="ex : William, président"></label>
+      <label class="fld"><span>Le programme d'une journée (une ligne par moment)</span><textarea id="stG" rows="7">${esc(cur.programme)}</textarea></label>
+      <label class="fld"><span>À savoir (facultatif)</span><textarea id="stI" rows="3" placeholder="ex : prévoir le repas, une gourde, une tenue de rechange">${esc(cur.info || '')}</textarea></label>
+      <label class="prep-check"><input type="checkbox" id="stO" ${cur.open !== false ? 'checked' : ''}><span>Inscriptions ouvertes aux familles</span></label>`,
+      onOpen: r => {
+        read = () => $$('.stage-wrow', r).map((x, i) => ({ id: (cur.weeks[i] || {}).id || Store.uid(), from: $('[data-wf]', x).value, to: $('[data-wt]', x).value }));
+        $('#stWadd', r).onclick = () => { cur.weeks = read(); const last = cur.weeks[cur.weeks.length - 1], f = last && last.from ? addDays(last.from, 7) : nextMonday(); cur.weeks.push({ id: Store.uid(), from: f, to: addDays(f, 4) }); $('#stW', r).innerHTML = cur.weeks.map(weekRow).join(''); };
+        $('#stW', r).onclick = e => { const b = e.target.closest('[data-wdel]'); if (!b) return; cur.weeks = read(); cur.weeks.splice(+b.dataset.wdel, 1); $('#stW', r).innerHTML = cur.weeks.map(weekRow).join(''); };
+        $('#stW', r).onchange = e => { if (!e.target.matches('[data-wf]')) return; const to = $('[data-wt]', e.target.closest('.stage-wrow')); if (e.target.value && (!to.value || to.value < e.target.value)) to.value = addDays(e.target.value, 4); };
+        $$('#stC .chip', r).forEach(b => b.onclick = () => b.classList.toggle('on'));
+      },
+      actions: [...(!isNew ? [{ label: 'Supprimer', kind: 'danger', onClick: async () => {
+          if (!(await confirmBox(`Supprimer « ${cur.title} » et ses inscriptions ?`))) return false;
+          S().club.stages = list().filter(x => x.id !== cur.id);
+          S().players.forEach(p => { if ((p.stageIds || []).some(k => k.startsWith(cur.id + ':'))) { p.stageIds = p.stageIds.filter(k => !k.startsWith(cur.id + ':')); Store.upsert('players', p); } });
+          save(); toast('Stage supprimé'); done(); } }] : []),
+        { label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
+          const weeks = read().filter(w => w.from && w.to);
+          if (!weeks.length) { toast('Au moins une semaine, avec ses dates', 'err'); return false; }
+          if (weeks.some(w => w.to < w.from)) { toast('Une semaine finit avant de commencer', 'err'); return false; }
+          Object.assign(cur, { title: $('#stT', r).value.trim() || 'Stage ' + season(weeks[0].from), weeks: weeks.sort((a, b) => a.from.localeCompare(b.from)), start: $('#stS', r).value, end_h: $('#stE', r).value,
+            price: Math.max(0, +$('#stP', r).value || 0), max: Math.max(0, Math.round(+$('#stM', r).value || 0)), teamIds: $$('#stC .chip.on', r).map(b => b.dataset.tid),
+            contact: $('#stK', r).value.trim(), programme: $('#stG', r).value.trim(), info: $('#stI', r).value.trim(), open: $('#stO', r).checked });
+          const all = S().club.stages = list(), i = all.findIndex(x => x.id === cur.id); if (i < 0) all.push(cur); else all[i] = Object.assign(all[i], cur);
+          save(); toast(isNew ? 'Stage créé : les familles le voient dans leur espace' : 'Stage enregistré'); done(); } }] });
+  }
+
+  /* ---------- for the families: a message to paste, a poster to share ---------- */
+  function text(s) {
+    const ws = s.weeks || [];
+    return [`🏕️ ${s.title}`, ws.map(w => `📅 Semaine ${weekLabel(w)}`).join('\n'), `⏰ De ${hh(s.start)} à ${hh(s.end_h)}`, s.price ? `💶 ${s.price} € la semaine` : '',
+      prog(s).length ? '🗓️ Le programme :\n' + prog(s).map(([t, l]) => `${t ? t + ' · ' : ''}${l}`).join('\n') : '', s.info ? 'ℹ️ ' + s.info : '',
+      `✍️ Inscriptions dans l'appli : espace parents, onglet Matchs, puis « Inscrire ». L'inscription est validée à la réception du paiement${s.contact ? ' (' + s.contact + ')' : ''}.`].filter(Boolean).join('\n\n');
+  }
+  async function share(s) {
+    if (!s) return; const t = text(s);
+    try { if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ text: t }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(t); toast('Message copié : colle-le dans WhatsApp'); } catch (e) { modal({ title: 'Message aux familles', body: `<textarea rows="14" style="width:100%">${esc(t)}</textarea>`, actions: [{ label: 'Fermer' }] }); }
+  }
+  // the poster: navy, the club's name, the weeks, the hours, the programme, the price (1080 × 1350, like the convocations)
+  async function poster(s) {
+    if (!s) return;
+    const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    x.fillStyle = '#0e1d45'; x.fillRect(0, 0, W, H); x.fillStyle = '#e2c27d'; x.fillRect(0, H - 18, W, 18);
+    x.textAlign = 'center'; x.fillStyle = '#e2c27d'; x.font = '700 34px system-ui, sans-serif'; x.fillText(String(S().club.name || '').toUpperCase(), W / 2, 90);
+    x.fillStyle = '#fff'; x.font = '800 70px system-ui, sans-serif'; x.fillText(String(s.title || 'Stage').toUpperCase().slice(0, 26), W / 2, 190);
+    let y = 270; x.font = '600 38px system-ui, sans-serif'; (s.weeks || []).slice(0, 4).forEach(w => { x.fillText('Semaine ' + weekLabel(w), W / 2, y); y += 54; });
+    x.fillStyle = '#e2c27d'; x.font = '700 40px system-ui, sans-serif'; x.fillText(`${hh(s.start)} – ${hh(s.end_h)}${s.price ? '  ·  ' + s.price + ' € la semaine' : ''}`, W / 2, y + 20); y += 110;
+    const lines = prog(s).slice(0, 9);
+    if (lines.length) {
+      x.strokeStyle = '#e2c27d'; x.lineWidth = 3; x.strokeRect(80, y - 55, W - 160, lines.length * 62 + 40); x.textAlign = 'left';
+      lines.forEach(([t, l]) => { x.fillStyle = '#e2c27d'; x.font = '600 30px system-ui, sans-serif'; x.fillText(t, 115, y); x.fillStyle = '#fff'; x.font = '800 34px system-ui, sans-serif'; x.fillText(String(l).toUpperCase().slice(0, 28), 420, y); y += 62; });
+      y += 40; x.textAlign = 'center';
+    }
+    x.fillStyle = '#fff'; x.font = '600 32px system-ui, sans-serif'; x.fillText("Inscriptions dans l'appli : espace parents", W / 2, Math.min(H - 60, y + 30));
+    const blob = await new Promise(r => c.toBlob(r, 'image/png')), name = `stage-${firstDay(s)}.png`, file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: s.title }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('Affiche enregistrée dans Téléchargements');
+  }
+  // the call sheet: one line per child, one box per day of the week, and the validation
+  async function callSheet(s, w, ks, gs) {
+    const b = UI.busy('Création du PDF…');
+    try {
+      await Exporter.loadPdf(); const P = Exporter.pdfDoc(S().club), days = []; for (let d = w.from; d <= w.to; d = addDays(d, 1)) if (!weekend(d)) days.push(day(d, { weekday: 'short', day: 'numeric' }));
+      P.header(s.title || 'Stage', 'Semaine ' + weekLabel(w));
+      const rows = [...ks.map(p => [Store.fullName(p), teamName(p), ...days.map(() => ''), paid(s, p.id, w) ? 'validé' : 'à valider']), ...gs.map(g => [g.name, 'extérieur', ...days.map(() => ''), paid(s, g.id, w) ? 'validé' : 'à valider'])];
+      const wd = .45 / (days.length + 1.5);
+      P.table(['Enfant', 'Catégorie', ...days, 'Paiement'], rows.length ? rows : [['Personne', '', ...days.map(() => ''), '']], [.33, .22, ...days.map(() => wd), wd * 1.5]);
+      const r = await Exporter.deliver(P.blob(), `stage-${w.from}.pdf`); if (r === 'downloaded') toast('PDF enregistré dans Téléchargements');
+    } catch (e) { toast('PDF impossible : ' + (e.message || e), 'err'); } finally { b.done(); }
+  }
+  return { page, onDay, list, text };
+})();
+
+;
+/* ===== tablet.js ===== */
+/* Tablet: the « mode tablette » (iPad on the bench, in the locker room): a few big tiles, readable by a 10-year-old,
+   to open at once the tactical board (11, 8 or 5 a side), today's session, the next match and its lineup, the clock, the results.
+   Full screen in one touch. Nothing new behind: the app's own pages, reached without menus. */
+var Tablet = (() => {
+  const { esc } = UI;
+  const S = () => Store.state;
+  const tablet = () => matchMedia('(min-width: 700px) and (pointer: coarse)').matches;
+  function page(root) {
+    const now = UI.today(), team = S().ui.teamId, mine = x => !team || x.teamId === team;
+    const trs = S().trainings.filter(t => !t.model && t.date && Auth.sees(t.teamId) && mine(t)), ms = S().matches.filter(m => m.date && Auth.sees(m.teamId) && mine(m) && !m.exempt);
+    const tr = trs.filter(t => t.date === now)[0] || trs.filter(t => t.date > now).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const m = ms.filter(x => !x.played && x.date >= now).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))[0];
+    const fmts = typeof Sport !== 'undefined' && Sport.id && Sport.id() !== 'foot' ? [] : [['11', 'à 11'], ['8', 'à 8'], ['5', 'à 5']];
+    const tile = (href, icon, title, sub, cls = '') => `<a class="tb-tile ${cls}" href="${href}"><span class="tb-ic">${icon}</span><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}</a>`;
+    root.innerHTML = `<header class="page-head"><div><h1>📱 Mode tablette</h1><p class="sub">Tout en grand, sans menu : pour le banc, le vestiaire ou montrer aux joueurs</p></div>
+      <div class="head-actions"><button class="btn primary" data-tbfull>⛶<span>Plein écran</span></button></div></header>
+      <div class="tb-grid">
+        ${fmts.length ? fmts.map(([f, l]) => tile(`#/tableau/${f}`, '🟩', `Tableau ${l}`, 'Dessiner, déplacer les joueurs, flèches et zones', 'board')).join('') : tile('#/tableau', '🟩', 'Tableau tactique', 'Dessiner, déplacer les joueurs', 'board')}
+        ${tile(tr ? `#/entrainement/${tr.id}` : '#/entrainements', '🏃', tr ? (tr.date === now ? 'La séance du jour' : 'La prochaine séance') : 'Les séances', tr ? esc(tr.title || 'Entraînement') + ' · ' + esc(UI.fmtDate(tr.date, { weekday: 'long', day: 'numeric' })) : 'Aucune séance prévue')}
+        ${tile(m ? `#/match/${m.id}` : '#/matchs', '⚽', m ? 'Le prochain match' : 'Les matchs', m ? `${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')} · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric' }))}` : 'Aucun match prévu')}
+        ${m ? tile(`#/prepa/${m.id}/causerie`, '🗣️', 'La causerie', 'Objectif, 3 clés, plan de jeu') : ''}
+        ${tile('#/terrain', '⏱️', 'Chrono et score', 'Chrono d\'exercice sonore, score par chasubles')}
+        ${tile('#/schemas', '🎬', 'Schémas animés', 'Les exercices et les systèmes de jeu')}
+        ${tile('#/stats', '🏆', 'Résultats et classement', 'Les scores de la saison')}
+      </div>
+      ${tablet() ? '' : '<p class="tip">Fait pour une tablette (iPad) : sur un ordinateur, les tuiles marchent pareil.</p>'}`;
+    root.onclick = e => {
+      if (!e.target.closest('[data-tbfull]')) return;
+      const d = document.documentElement;
+      try { if (document.fullscreenElement) document.exitFullscreen(); else { const p = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (p && p.catch) p.catch(() => UI.toast('Sur iPad : Partager → « Sur l\'écran d\'accueil » ouvre l\'appli en plein écran')); } }
+      catch (x) { UI.toast('Sur iPad : Partager → « Sur l\'écran d\'accueil » ouvre l\'appli en plein écran'); }
+    };
+  }
+  return { page, tablet };
 })();
 
 ;
@@ -17362,6 +17671,13 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 180, date: '2026-10-11', title: 'Les vacances, version club 🏕️', items: [
+      ['🏕️', "Stages vacances (Plus → Stages vacances) : les semaines, les horaires, le prix, le programme. Les familles inscrivent leur enfant depuis leur espace, le responsable valide quand le paiement est reçu. Feuille d'appel, message et affiche pour WhatsApp. Pas de stage le week-end : c'est repos."],
+      ['🌴', "Planning : la saison a ses dates (modifiables) et ses jours de repos (vacances, trêve, jours fériés), ajoutés d'un « ＋ ». « Chaque semaine » saute les jours de repos."],
+      ['📚', "Séances : la bibliothèque du club montre les séances de tous les coachs (récentes, mieux notées, les miennes, recherche). Après la séance : ta note en étoiles et ton carnet de bord."],
+      ['📱', "Mode tablette (Plus → Mode tablette) : de grosses tuiles pour le banc et le vestiaire, tableau à 11, à 8 ou à 5, séance du jour, prochain match, plein écran."],
+      ['🔒', "Page confidentialité relue : pièces jointes, journal des modifications, convocations dans l'appli, notifications sobres, stages."],
+    ] },
     { n: 179, date: '2026-10-10', title: 'Vestiaires comme le terrain, et 100 clubs de cœur 🚿⚽', items: [
       ['🚿', "Planning des vestiaires : la même présentation que le terrain. En Semaine, les 7 jours côte à côte avec les heures, chaque vestiaire dans son couloir (1, 2, K1, K2). En Jour, un vestiaire par colonne. Touche un jour pour l'ouvrir."],
       ['⚽', "Plus de 100 clubs de cœur, rangés par pays : France, Angleterre, Espagne, Italie, Allemagne, et les autres. Les joueurs et les parents les ont aussi dans « Ma page »."],
@@ -20935,7 +21251,9 @@ var Views = (() => {
         <div class="li-main"><b>${esc(t.title || 'Entraînement')}</b><span class="muted">${grp ? `<b class="tr-grp">${esc(grp)}</b> · ` : ''}${tm ? esc(tm.name) + ' · ' : ''}${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span>${t.date >= now ? `<span class="tr-ans" data-trans="${t.id}"></span>` : ''}</div>${I.next}</a>`; };
     root.innerHTML = `${header('Entraînements', 'Séances, exercices et présences', `<a class="btn primary" href="#/systemes">📚<span>Séances par système de jeu</span></a><button class="btn" data-act="import">${I.upload}<span>Recevoir</span></button><button class="btn" data-act="ics">${I.calendar}<span>Agenda (.ics)</span></button><a class="btn" href="#/bibliotheque">${I.pdf}<span>Importer une fiche PDF</span></a><a class="btn" href="#/exercices">📚<span>Exercices du club</span></a><button class="btn" data-exgen>✨<span>Générer une séance</span></button><button class="btn primary" data-act="new">${I.plus}<span>Nouvel entraînement</span></button>`)}
       ${teamSwitch()}
-      <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Séances types du club (${models.length})</b><span class="muted small"> · des séances prêtes, pour toutes les catégories</span></summary>
+      <details class="card models-card" ${S().ui.modelsOpen ? 'open' : ''}><summary><b>📚 Bibliothèque du club</b><span class="muted small"> · les séances types et les séances de tous les coachs, pour toutes les catégories</span></summary>
+        ${libBox()}
+        <h3 class="lib-sub">Séances types (${models.length})</h3>
         ${models.length ? `<div class="list">${models.map(t => `<div class="list-item model-item"><a class="li-main" href="#/entrainement/${t.id}"><b>${esc(t.title || 'Séance type')}</b><span class="muted">${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${t.exercises.reduce((a, e) => a + (+e.duration || 0), 0)} min${t.goal ? ' · ' + esc(String(t.goal).slice(0, 60)) : ''}</span></a><button class="btn primary" data-use="${t.id}">${I.plus}<span>Utiliser</span></button></div>`).join('')}</div>`
           : '<p class="muted small">Pas encore de séance type. Dans une séance réussie, touche « Enregistrer comme séance type » (en bas) : elle servira à tous les coachs.</p>'}</details>
       ${(() => { // (3.14) the next two weeks in view; the rest of the season, and the old sessions, folded away
@@ -20951,7 +21269,45 @@ var Views = (() => {
     $('[data-act="import"]', root).onclick = importFile;
     $('[data-act="ics"]', root).onclick = () => Importer.trainingsFromICS(() => trainings(root));
     $('.models-card', root).ontoggle = e => { S().ui.modelsOpen = e.target.open; Store.persistNow(); };
+    bindLib(root);
     $$('[data-use]', root).forEach(b => b.onclick = () => copyTraining(Store.get('trainings', b.dataset.use), 'use'));
+  }
+  /* ---------- (3.21) the club's library: the sessions of every coach, every category ---------- */
+  const libList = () => S().trainings.filter(t => !t.model && t.date && (t.exercises || []).some(e => e.title)).map(t => ({ t, dur: t.exercises.reduce((a, e) => a + (+e.duration || 0), 0) }));
+  const libStars = n => n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '';
+  function libBox() {
+    const ui = S().ui, by = ui.libBy || 'recent';
+    return `<div class="lib-box"><div class="chips"><button class="chip ${by === 'recent' ? 'on' : ''}" data-libby="recent">🕒 Récentes</button><button class="chip ${by === 'stars' ? 'on' : ''}" data-libby="stars">⭐ Mieux notées</button><button class="chip ${by === 'mine' ? 'on' : ''}" data-libby="mine">👤 Les miennes</button></div>
+      <input class="lib-q" data-libq placeholder="Chercher : pressing, conservation, U11…" value="${esc(ui.libQ || '')}" autocomplete="off"><div class="list lib-list" id="libList">${libItems()}</div></div>`;
+  }
+  function libItems() {
+    const ui = S().ui, by = ui.libBy || 'recent', me = (Auth.current() || {}).id, q = String(ui.libQ || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    let l = libList();
+    if (by === 'mine') l = l.filter(x => x.t.by === me || (x.t.staffIds || []).includes(me));
+    if (by === 'stars') l = l.filter(x => x.t.stars);
+    if (q) l = l.filter(({ t }) => [t.title, t.goal, (teamOf(t.teamId) || {}).name, ...t.exercises.map(e => e.title + ' ' + (e.theme || ''))].join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(q));
+    l.sort((a, b) => by === 'stars' ? (b.t.stars - a.t.stars) || b.t.date.localeCompare(a.t.date) : b.t.date.localeCompare(a.t.date));
+    if (!l.length) return `<p class="muted small">${by === 'stars' && !q ? 'Aucune séance notée pour l\'instant : après une séance, donne-lui une note dans « Après la séance ».' : 'Rien ne correspond.'}</p>`;
+    return l.slice(0, 30).map(({ t, dur }) => { const st = Store.get('staff', t.by || (t.staffIds || [])[0] || ''); return `<div class="list-item lib-item"><button class="li-main" data-libsee="${t.id}"><b>${esc(t.title || 'Entraînement')}${t.stars ? ` <span class="lib-stars">${libStars(t.stars)}</span>` : ''}</b>
+      <span class="muted">${esc((teamOf(t.teamId) || {}).name || '')}${st ? ' · ' + esc(Store.shortName(st)) : ''} · ${esc(fmtDate(t.date, { day: 'numeric', month: 'short' }))} · ${t.exercises.length} exercice${t.exercises.length > 1 ? 's' : ''} · ${dur} min</span></button><button class="btn soft" data-libuse="${t.id}">${I.copy}<span>Utiliser</span></button></div>`; }).join('');
+  }
+  // a session of another coach: seen in a window (its exercises, its schemas, the coach's logbook), then « Utiliser »
+  function libSee(t) {
+    const st = Store.get('staff', t.by || (t.staffIds || [])[0] || ''), first = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '';
+    modal({ title: t.title || 'Entraînement', body: `<p class="muted">${esc((teamOf(t.teamId) || {}).name || '')}${st ? ' · ' + esc(Store.fullName(st)) : ''} · ${esc(fmtDate(t.date))}${t.stars ? ' · ' + libStars(t.stars) : ''}</p>
+      ${t.goal ? `<p><b>Objectif :</b> ${esc(t.goal)}</p>` : ''}${t.logbook ? `<p class="tip">📓 <b>Carnet de bord du coach :</b> ${esc(t.logbook)}</p>` : ''}
+      <div class="lib-exs">${t.exercises.map((e, i) => { const sc = e.schemaId && Store.get('schemas', e.schemaId); return `<div class="lib-ex">${sc ? `<img alt="" src="${UI.thumb(sc, 240, 156, { step: 0 })}">` : ''}<div><b>${i + 1}. ${esc(e.title || 'Exercice')}</b> <span class="muted">${+e.duration || 0} min</span>${first(e.consignes || e.org) ? `<br><span class="muted small">${esc(first(e.consignes || e.org))}</span>` : ''}</div></div>`; }).join('')}</div>`,
+      actions: [{ label: 'Fermer' }, ...(Auth.sees(t.teamId) ? [{ label: 'Ouvrir', onClick: () => { location.hash = '#/entrainement/' + t.id; } }] : []), { label: 'Utiliser cette séance', kind: 'primary', icon: I.copy, onClick: () => { setTimeout(() => copyTraining(t, 'use'), 60); } }] });
+  }
+  function bindLib(root) {
+    const box = $('.lib-box', root); if (!box) return;
+    box.onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.libby) { S().ui.libBy = b.dataset.libby; Store.persistNow(); $$('[data-libby]', box).forEach(x => x.classList.toggle('on', x === b)); $('#libList', box).innerHTML = libItems(); return; }
+      if (b.dataset.libsee) { const t = Store.get('trainings', b.dataset.libsee); if (t) libSee(t); return; }
+      if (b.dataset.libuse) { const t = Store.get('trainings', b.dataset.libuse); if (t) copyTraining(t, 'use'); }
+    };
+    const q = $('[data-libq]', box); if (q) q.oninput = () => { S().ui.libQ = q.value; $('#libList', box).innerHTML = libItems(); };
   }
   // A session copied for a category and a date (from a template session, or « Dupliquer » towards another category)
   // (2.79) the next day with the same weekday as a session (this week's Tuesday for last Tuesday's session)
@@ -20963,7 +21319,7 @@ var Views = (() => {
       <div class="row2"><label class="fld"><span>Date</span><input type="date" id="cpDate" value="${how === 'again' ? nextSameDay(tr.date) : today()}"></label><label class="fld"><span>Heure</span><input type="time" id="cpTime" value="${esc(tr.time || '18:00')}"></label></div>
       <p class="muted small">Les exercices, consignes et schémas${how === 'use' ? ' et documents' : ''} sont copiés. Les présences et les notes repartent à zéro.</p>`,
       actions: [{ label: 'Annuler' }, { label: 'Créer la séance', kind: 'primary', onClick: (c, r) => {
-        const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); delete n.model; delete n.ratings; if (how !== 'use') delete n.docIds;
+        const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); delete n.model; delete n.ratings; delete n.stars; delete n.logbook; if (how !== 'use') delete n.docIds;
         Object.assign(n, { teamId: $('#cpTeam', r).value || null, date: $('#cpDate', r).value || today(), time: $('#cpTime', r).value, presents: [], staffIds: [] });
         if (how === 'dup') n.title = tr.title + (n.teamId === tr.teamId ? ' (copie)' : '');
         n.exercises.forEach(x => x.id = Store.uid()); Store.upsert('trainings', n); toast('Séance créée'); location.hash = '#/entrainement/' + n.id;
@@ -21014,7 +21370,9 @@ var Views = (() => {
           ${absBox(tm.id)}` : ''}
         <div id="trAnsBox"></div>
         <div id="evFeed"></div>
-        <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">notes des joueurs, effort, documents, photos et vidéos</span></summary>
+        <details class="fold" ${(tr.ratings && Object.keys(tr.ratings).length) || (tr.docIds || []).length || tr.stars || tr.logbook ? 'open' : ''}><summary>⭐ Après la séance <span class="muted small">ta note, ton carnet de bord, notes des joueurs, effort, documents, photos et vidéos</span></summary>
+        <div class="tr-log"><div class="lbl">Ta note de la séance <span class="muted small">(la bibliothèque du club montre les mieux notées)</span></div><div class="tr-stars">${[1, 2, 3, 4, 5].map(n => `<button class="star ${(tr.stars || 0) >= n ? 'on' : ''}" data-trstar="${n}" aria-label="${n} sur 5">★</button>`).join('')}</div>
+          <label class="fld"><span>📓 Carnet de bord : ce qui a marché, ce que tu changerais</span><textarea id="trLog" rows="3" placeholder="ex : le rondo 4c2 trop facile pour les U13, passer à 2 touches">${esc(tr.logbook || '')}</textarea></label></div>
         <div id="rateBox"></div>
         <div id="rpeBox"></div>
         <div id="docsBox">${Library.docsPlaceholder()}</div>
@@ -21022,6 +21380,9 @@ var Views = (() => {
         </details>
 `;
       const box = $('#rateBox', root); if (box) Ratings.bind(box, tr, save);
+      // (3.21) the coach's mark and logbook
+      $$('[data-trstar]', root).forEach(b => b.onclick = () => { const n = +b.dataset.trstar; tr.stars = tr.stars === n ? 0 : n; if (!tr.stars) delete tr.stars; save(); $$('[data-trstar]', root).forEach(x => x.classList.toggle('on', (tr.stars || 0) >= +x.dataset.trstar)); });
+      { const lg = $('#trLog', root); if (lg) { let tm = null; lg.oninput = () => { clearTimeout(tm); tm = setTimeout(() => { tr.logbook = lg.value.trim(); if (!tr.logbook) delete tr.logbook; save(); }, 500); }; } }
       gagesInto($('#gageBox', root), tr);
       rateTr(); Media.mount(root); Library.mountDocs($('#docsBox', root), tr, save);
       Parents.mountTraining($('#trAnsBox', root), tr, ids => { tr.presents = [...new Set([...(tr.presents || []), ...ids])]; save(); render(); toast('Présents annoncés cochés'); });
@@ -21147,7 +21508,7 @@ var Views = (() => {
         case 'use': return copyTraining(tr, 'use');
         case 'model': {
           const n = JSON.parse(JSON.stringify(tr)); n.id = Store.uid(); n.model = true;
-          Object.assign(n, { date: '', teamId: null, presents: [], staffIds: [], by: (Auth.current() || {}).id || null }); delete n.ratings; delete n.docIds;
+          Object.assign(n, { date: '', teamId: null, presents: [], staffIds: [], by: (Auth.current() || {}).id || null }); delete n.ratings; delete n.docIds; delete n.stars; delete n.logbook;
           n.exercises.forEach(x => x.id = Store.uid()); Store.upsert('trainings', n); S().ui.modelsOpen = true;
           toast('Séance type enregistrée : tous les coachs la trouvent dans Séances'); return;
         }
@@ -22293,12 +22654,12 @@ var App = (() => {
   // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
     ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
-    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['terrain', 'Chrono et score', 'clock', 'Chrono'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['signalements', 'Signalements et idées', 'help', 'Signalements'], ['reglages', 'Réglages', 'settings'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['terrain', 'Chrono et score', 'clock', 'Chrono'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['signalements', 'Signalements et idées', 'help', 'Signalements'], ['reglages', 'Réglages', 'settings'], ['stages', 'Stages vacances', 'calendar', 'Stages'], ['tablette', 'Mode tablette', 'board', 'Tablette'],
   ];
   const PHONE_MAIN = 5, DESK_MAIN = 9; // (2.73) a phone shows 5 pages in the bar, a computer 9 in the sidebar; « Plus » holds the rest
   const mainN = () => innerWidth > 760 ? DESK_MAIN : PHONE_MAIN;
   // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
-  const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain']], ['Réglages et aide', ['signalements', 'reglages']]];
+  const MORE_GROUPS = [['Le club', ['planning', 'stages', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain', 'tablette']], ['Réglages et aide', ['signalements', 'reglages']]];
   const view = () => document.getElementById('view');
 
   // (2.80) phone gestures: a swipe from the left edge goes back, a pull from the top of the page refreshes
@@ -22424,7 +22785,7 @@ var App = (() => {
       planning: r => Planning.page(r), jeu: r => Views.game(r), chat: (r, x) => Views.chat(r, x), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x), signalements: r => Help.inbox(r),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), journal: r => Journal.page(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
-      tests: (r, x) => Tests.page(r, x), athle: (r, x) => Athle.page(r, x), equilibre: (r, x) => Balance.page(r, x), niveau: (r, x) => Level.page(r, x), terrain: (r, x) => Terrain.page(r, x), urgences: (r, x) => Urgent.page(r, x), equipements: (r, x) => Kit.page(r, x), autorisations: (r, x) => Consent.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
+      tests: (r, x) => Tests.page(r, x), athle: (r, x) => Athle.page(r, x), equilibre: (r, x) => Balance.page(r, x), niveau: (r, x) => Level.page(r, x), terrain: (r, x) => Terrain.page(r, x), urgences: (r, x) => Urgent.page(r, x), equipements: (r, x) => Kit.page(r, x), autorisations: (r, x) => Consent.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), stages: (r, x) => Stages.page(r, x), tablette: r => Tablet.page(r), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
     if (!keep) Help.visit();
     fn(root, id);
     Help.guideInto(root);
@@ -22461,7 +22822,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 221, UPD = AppCfg.key('update-tried');
+  const BUILD = 222, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

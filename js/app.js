@@ -3,12 +3,12 @@ const App = (() => {
   // [hash, label, icon, short label for phones]; the first five are always in the menu, the others in « Plus » (phone and computer)
   const NAV = [
     ['', 'Accueil', 'home'], ['entrainements', 'Séances', 'training'], ['matchs', 'Matchs', 'match'], ['equipes', 'Joueurs', 'team'], ['messages', 'Messages', 'chat'],
-    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['terrain', 'Chrono et score', 'clock', 'Chrono'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['signalements', 'Signalements et idées', 'help', 'Signalements'], ['reglages', 'Réglages', 'settings'],
+    ['planning', 'Planning', 'calendar'], ['club', 'Vie du club', 'pin', 'Club'], ['stats', 'Résultats et stats', 'stats', 'Résultats'], ['chat', 'Chat des joueurs et des parents', 'chat', 'Chat'], ['schemas', 'Schémas', 'board'], ['bibliotheque', 'Bibliothèque', 'video', 'Biblio'], ['terrain', 'Chrono et score', 'clock', 'Chrono'], ['jeu', 'Jeu des pronos', 'medal', 'Pronos'], ['signalements', 'Signalements et idées', 'help', 'Signalements'], ['reglages', 'Réglages', 'settings'], ['stages', 'Stages vacances', 'calendar', 'Stages'], ['tablette', 'Mode tablette', 'board', 'Tablette'],
   ];
   const PHONE_MAIN = 5, DESK_MAIN = 9; // (2.73) a phone shows 5 pages in the bar, a computer 9 in the sidebar; « Plus » holds the rest
   const mainN = () => innerWidth > 760 ? DESK_MAIN : PHONE_MAIN;
   // (1.37) « Plus », by theme (a page not listed here goes in « Outils »)
-  const MORE_GROUPS = [['Le club', ['planning', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain']], ['Réglages et aide', ['signalements', 'reglages']]];
+  const MORE_GROUPS = [['Le club', ['planning', 'stages', 'club', 'stats', 'chat', 'jeu', 'gestion', 'benevoles']], ['Outils du coach', ['schemas', 'bibliotheque', 'terrain', 'tablette']], ['Réglages et aide', ['signalements', 'reglages']]];
   const view = () => document.getElementById('view');
 
   // (2.80) phone gestures: a swipe from the left edge goes back, a pull from the top of the page refreshes
@@ -134,7 +134,7 @@ const App = (() => {
       planning: r => Planning.page(r), jeu: r => Views.game(r), chat: (r, x) => Views.chat(r, x), resultats: r => Results.page(r), club: (r, x) => ClubLife.page(r, x), messages: (r, x) => Messages.page(r, x), signalements: r => Help.inbox(r),
       bibliotheque: r => Library.page(r), joueurs: r => People.listPage(r, 'player'), dirigeants: r => People.listPage(r, 'staff'),
       joueur: (r, x) => People.playerPage(r, x), president: r => President.page(r), licences: r => ClubAdmin.licencesPage(r), journal: r => Journal.page(r), encadrement: r => ClubAdmin.staffingPage(r), vestiaires: r => Rooms.page(r),
-      tests: (r, x) => Tests.page(r, x), athle: (r, x) => Athle.page(r, x), equilibre: (r, x) => Balance.page(r, x), niveau: (r, x) => Level.page(r, x), terrain: (r, x) => Terrain.page(r, x), urgences: (r, x) => Urgent.page(r, x), equipements: (r, x) => Kit.page(r, x), autorisations: (r, x) => Consent.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
+      tests: (r, x) => Tests.page(r, x), athle: (r, x) => Athle.page(r, x), equilibre: (r, x) => Balance.page(r, x), niveau: (r, x) => Level.page(r, x), terrain: (r, x) => Terrain.page(r, x), urgences: (r, x) => Urgent.page(r, x), equipements: (r, x) => Kit.page(r, x), autorisations: (r, x) => Consent.page(r, x), bilan: (r, x) => Season.page(r, x), benevoles: r => Vol.page(r), arbitres: r => Refs.page(r), systemes: r => SesLib.page(r), gestion: r => Gestion.page(r), exercices: r => Exos.page(r), infirmerie: r => Health.page(r), progression: (r, x) => Progress.page(r, x), prepa: (r, x) => Prepa.page(r, x, sub), stages: (r, x) => Stages.page(r, x), tablette: r => Tablet.page(r), direct: (r, x) => Live.page(r, x), jourj: (r, x) => Quick.matchDay(r, x), analyse: (r, x) => Analyse.page(r, x), briefing: (r, x) => Analyse.briefingPage(r, x), codes: (r, x) => Codes.page(r, x), proprietaire: r => Owner.page(r) }[name] || Views.home;
     if (!keep) Help.visit();
     fn(root, id);
     Help.guideInto(root);
@@ -171,7 +171,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 221, UPD = AppCfg.key('update-tried');
+  const BUILD = 222, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -268,6 +268,22 @@ const SCENARIOS = [
   ['Hors connexion : le bandeau', `
     document.body.classList.add('offline'); const c = getComputedStyle(document.body, '::before').content; document.body.classList.remove('offline');
     must(/Hors connexion/.test(c), 'pas de bandeau'); return 'ok';`],
+  ['Stages vacances : créer, inscrire, valider, pas de stage le week-end', `
+    await go('#/stages'); await click('[data-snew]', 400);
+    $$('#modal button').find(b => /Enregistrer/.test(b.innerText)).click(); await wait(400);
+    const s = Store.state.club.stages.slice(-1)[0]; must(s && s.weeks.length === 1, 'stage non créé');
+    await go('#/stages/' + s.id); await click('[data-sadd]', 400); const k = $('[data-skp]'); must(k, 'aucun enfant proposé'); k.click(); await wait(300); await closeModal();
+    const p = Store.state.players.find(x => (x.stageIds || []).includes(s.id + ':' + s.weeks[0].id)); must(p, 'inscription absente de la fiche');
+    must(!/senior/i.test(((Store.get('teams', (p.teamIds || [])[0]) || {}).name || '')), 'un senior proposé');
+    await go('#/stages/' + s.id); await click('[data-spaid]', 300); must((s.paidIds || []).includes(p.id + ':' + s.weeks[0].id), 'validation non enregistrée');
+    const sat = new Date(s.weeks[0].from + 'T12:00'); sat.setDate(sat.getDate() + 5); const iso = sat.toISOString().slice(0, 10);
+    must(!Stages.onDay(iso).length && Stages.onDay(s.weeks[0].from).length, 'stage le week-end');
+    must(/Inscriptions dans l'appli/.test(Stages.text(s)), 'message aux familles'); return 'ok';`],
+  ['Bibliothèque du club : note, carnet, mieux notées', `
+    const tr = Store.state.trainings.find(t => !t.model && t.date && t.exercises.some(e => e.title)); must(tr, 'pas de séance');
+    await go('#/entrainement/' + tr.id); await click('[data-trstar="5"]', 200); must(tr.stars === 5, 'note non enregistrée');
+    await go('#/entrainements'); $('.models-card').open = true; await click('[data-libby="stars"]', 200);
+    must($$('.lib-item').length >= 1, 'séance notée absente'); await click('[data-libsee]', 300); must(/Utiliser cette séance/.test(modal().innerText), 'aperçu'); await closeModal(); return 'ok';`],
 ];
 
 /* ---------- crawl: every page, every button (option --crawl) ---------- */

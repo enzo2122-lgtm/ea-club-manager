@@ -2440,3 +2440,45 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .room-week-grid .bk b { font-size: 11px; }
 .room-week-grid .bk span { font-size: 10px; }
 .rw-need { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--bad); color: #fff; font: 800 11px var(--font); font-style: normal; vertical-align: 1px; }
+
+/* (3.21) holiday camps */
+.stage-weeks { display: grid; gap: 8px; margin: 10px 0; }
+.stage-week { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface2); color: inherit; text-decoration: none; }
+.stage-wait { color: var(--draw); font-style: normal; font-weight: 700; }
+.chip.stage-wait { border-color: var(--draw); }
+.stage-kid { gap: 8px; }
+.stage-tabs { margin: 0 0 12px; }
+.stage-prog { margin: 8px 0 0; padding-left: 18px; }
+.stage-prog b { color: var(--muted); font-weight: 600; margin-right: 6px; }
+.stage-wrow { align-items: end; grid-template-columns: 1fr 1fr auto; }
+.stage-pick { max-height: 50vh; overflow: auto; margin-top: 8px; }
+/* (3.21) the planning: rest days and camps */
+.plan-notes { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 0 0 8px; }
+.plan-note { padding: 6px 10px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--line); font-size: 14px; color: inherit; text-decoration: none; }
+.plan-note.rest { border-color: #9ccc65; }
+.plan-note.camp { border-color: var(--gold); }
+.plan-note .link { background: none; border: 0; color: var(--accent); font-weight: 700; cursor: pointer; padding: 0 2px; }
+.plan-addrest { min-height: 34px; font-size: 14px; }
+.plan-day.rest .plan-body { background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(124, 179, 66, .14) 8px 16px); }
+/* (3.21) the club's library of sessions, the coach's mark */
+.lib-box { margin: 10px 0 4px; }
+.lib-q { width: 100%; margin: 10px 0 6px; }
+.lib-list { max-height: 420px; overflow: auto; }
+.lib-item .li-main { background: none; border: 0; text-align: left; color: inherit; cursor: pointer; padding: 0; font: inherit; }
+.lib-stars, .tr-stars .star.on { color: #d4a017; }
+.lib-sub { margin: 16px 0 6px; font-size: 16px; }
+.lib-exs { display: grid; gap: 10px; margin-top: 10px; }
+.lib-ex { display: flex; gap: 10px; align-items: flex-start; }
+.lib-ex img { width: 120px; border-radius: 8px; flex: none; }
+.tr-log { margin: 6px 0 12px; }
+.tr-stars { display: flex; gap: 4px; margin: 4px 0 10px; }
+.tr-stars .star { font-size: 30px; line-height: 1; background: none; border: 0; color: var(--line); cursor: pointer; padding: 2px 4px; }
+/* (3.21) the tablet mode: big tiles */
+.tb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+.tb-tile { display: flex; flex-direction: column; gap: 6px; min-height: 170px; padding: 22px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); color: inherit; text-decoration: none; box-shadow: 0 2px 10px rgba(0, 0, 0, .05); }
+.tb-tile:active { transform: scale(.98); }
+.tb-tile .tb-ic { font-size: 46px; line-height: 1; }
+.tb-tile b { font-size: 23px; line-height: 1.2; }
+.tb-tile span:not(.tb-ic) { color: var(--muted); font-size: 16px; }
+.tb-tile.board { background: linear-gradient(160deg, #1f7a3a, #145a2a); color: #fff; border-color: transparent; }
+.tb-tile.board span:not(.tb-ic) { color: rgba(255, 255, 255, .85); }

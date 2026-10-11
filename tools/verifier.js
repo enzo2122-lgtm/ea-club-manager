@@ -125,6 +125,8 @@ async function server() {
   const dummy = k => /^(p_players|p_matches|p_renew|p_team_ids|p_ids)$/.test(k) ? [] : /^(p_new|p_on|p_preview|p_remove)$/.test(k) ? false
     : /^(p_seats|p_mood|p_mental|p_sleep|p_legs|p_sore|p_rev|p_since|since|p_start|p_end)$/.test(k) ? 0 : k === 'p' ? {} : /^(p_id)$/.test(k) ? null
     : /^(d_from|d_to|p_date)$/.test(k) ? '2000-01-01' : /^p_at$/.test(k) ? '2000-01-01T00:00:00Z' : 'ZZZZ9999';
+  // the functions written in the SQL files of supabase/ (installed or not): their parameters
+  const pending = name => { for (const file of fs.readdirSync(path.join(ROOT, 'supabase')).filter(x => x.endsWith('.sql'))) { const s = read('supabase/' + file), a = s.indexOf('function ' + name + '('); if (a < 0) continue; const b = s.indexOf(')', a); return { file: 'supabase/' + file, params: s.slice(a + name.length + 10, b).split(',').map(x => x.trim().split(" ")[0]).filter(Boolean) }; } return null; };
   let n = 0;
   for (const c of calls.values()) {
     if (SKIP.has(c.name)) { if (sql && !new RegExp(`function ${c.name}\\(`).test(sql)) bad('serveur', `${c.name} introuvable dans le fichier SQL du serveur`); continue; }
@@ -133,7 +135,12 @@ async function server() {
     try { const r = await fetch(`${url}/rest/v1/rpc/${c.name}`, { method: 'POST', headers: { apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); status = r.status; txt = await r.text(); }
     catch (e) { bad('serveur', `pas de réseau (${e.message}) : relance ou ajoute --sans-serveur`); return; }
     n++;
-    if (/PGRST202|Could not find the function/i.test(txt)) bad('serveur', `${c.name}(${c.keys.join(', ')}) appelé dans ${c.where} : le serveur n'a pas cette fonction avec ces paramètres`);
+    if (/PGRST202|Could not find the function/i.test(txt)) {
+      // a function written in a SQL file of supabase/ but not installed yet: « à installer » when its parameters are exactly the call's, otherwise a problem
+      const p = pending(c.name);
+      if (p && p.params.slice().sort().join(',') === c.keys.slice().sort().join(',')) notes.push(`à installer sur le serveur : ${c.name} (${p.file}) · appelé dans ${c.where}`);
+      else bad('serveur', `${c.name}(${c.keys.join(', ')}) appelé dans ${c.where} : le serveur n'a pas cette fonction avec ces paramètres${p ? ` (${p.file} attend ${p.params.join(', ')})` : ''}`);
+    }
     else if (status >= 500) bad('serveur', `${c.name} : erreur du serveur ${status} ${txt.slice(0, 120)}`);
   }
   notes.push(`serveur : ${n} appels vérifiés (${url.replace(/^https:\/\//, '').split('.')[0]})`);

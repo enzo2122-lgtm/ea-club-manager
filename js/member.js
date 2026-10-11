@@ -58,7 +58,10 @@ const Member = (() => {
       if (/EN_ATTENTE/.test(m)) { const e = new Error('Ta fiche n\'est pas encore validée par le coach.'); e.code = 'WAIT'; throw e; }
       if (/CODE_PERSO/.test(m)) { const e = new Error('Ce code ne fonctionne pas. Vérifie-le, ou demande ton code au coach.'); e.code = 'CODE'; throw e; }
       if (/MATCH_PASSE/.test(m)) throw new Error('C\'est passé : les réponses sont fermées.');
-      if (/COMPLET/.test(m)) throw new Error('Cette tâche est déjà complète. Merci quand même !');
+      if (/STAGE_FERME/.test(m)) throw new Error('Les inscriptions à ce stage sont fermées.');
+      if (/STAGE_COMMENCE/.test(m)) throw new Error('Cette semaine a commencé : demande au club.');
+      if (/STAGE_VALIDE/.test(m)) throw new Error('Cette inscription est validée (payée) : pour l\'annuler, demande au club.');
+      if (/COMPLET/.test(m)) throw new Error(args && args.p_week ? 'Cette semaine du stage est complète.' : 'Cette tâche est déjà complète. Merci quand même !');
       if (r.status === 404 || /could not find the function/i.test(m)) throw new Error('Cet espace n\'est pas encore prêt : le club doit mettre à jour son serveur.');
       throw new Error('Le serveur ne répond pas. Réessaie dans un instant.');
     }
@@ -691,11 +694,44 @@ const Member = (() => {
     </article>`;
   }
   // the « Convocations » part on top: the convocations of the matches to come (the ones without an answer first)
+  /* ---------- (3.21) the club's holiday camps ---------- */
+  // read with the rest of the space; an old server (no member_stages): null, nothing shown
+  async function stages(code) { try { const r = await rpc('member_stages', { p_code: code }); return r && Array.isArray(r.stages) ? r : null; } catch (e) { return null; } }
+  const sDay = (s, o) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d, 12).toLocaleDateString('fr-FR', o); };
+  function stagesHtml(st, kid) {
+    if (!st || !st.stages || !st.stages.length) return '';
+    const mine = new Set(st.mine || []), today = new Date().toISOString().slice(0, 10), hh = t => String(t || '').replace(':', 'h');
+    return st.stages.map(s => {
+      const ok = new Set(s.validated || []), prog = String(s.programme || '').split('\n').map(x => x.trim()).filter(Boolean);
+      const week = w => {
+        const k = s.id + ':' + w.id, on = mine.has(k), n = (s.counts || {})[w.id] || 0, full = +s.max && n >= +s.max, started = w.from <= today;
+        const label = `Semaine du ${esc(sDay(w.from, { weekday: 'long', day: 'numeric' }))} au ${esc(sDay(w.to, { weekday: 'long', day: 'numeric', month: 'long' }))}`;
+        const state = on ? (ok.has(w.id) ? '<b class="st-ok">✓ Inscription validée</b>' : '<b class="st-wait">⏳ Inscrit · en attente de validation (paiement)</b>') : '';
+        const btn = on ? (ok.has(w.id) || started ? '' : `<button class="b small" data-stage="${esc(s.id)}" data-week="${esc(w.id)}" data-rm="1">Annuler</button>`)
+          : started ? '<span class="info">Commencée</span>' : s.open === false ? '<span class="info">Inscriptions fermées</span>' : full ? '<span class="info">Complet</span>'
+          : `<button class="b yes" data-stage="${esc(s.id)}" data-week="${esc(w.id)}">Inscrire ${esc(kid)}</button>`;
+        return `<div class="st-week"><div><b>${label}</b>${state ? '<br>' + state : ''}</div>${btn}</div>`;
+      };
+      return `<div class="card st-card"><h3>🏕️ ${esc(s.title || 'Stage vacances')}</h3><p class="info">⏰ ${esc(hh(s.start))} – ${esc(hh(s.end_h))}${s.price ? ` · 💶 ${esc(s.price)} € la semaine` : ''}</p>
+        ${(s.weeks || []).filter(w => w.to >= today).map(week).join('')}
+        <p class="info">L'inscription est validée par le club à la réception du paiement${s.contact ? ' (' + esc(s.contact) + ')' : ''}.</p>
+        ${prog.length ? `<details><summary>Le programme d'une journée</summary><ul class="st-prog">${prog.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}${s.info ? `<p class="info">ℹ️ ${esc(s.info)}</p>` : ''}</div>`;
+    }).join('');
+  }
+  // a tap on « Inscrire » / « Annuler »: true when it was one
+  function stageClick(e, code, done, toast) {
+    const b = e.target.closest('[data-stage]'); if (!b) return false;
+    const rm = !!b.dataset.rm; b.disabled = true;
+    rpc('member_stage', { p_code: code, p_stage: b.dataset.stage, p_week: b.dataset.week, p_remove: rm })
+      .then(() => { toast(rm ? 'Inscription annulée' : 'Inscription envoyée : le club la valide à la réception du paiement'); done(); })
+      .catch(err => { b.disabled = false; toast(err.message, true); });
+    return true;
+  }
   function convocsHtml(d, o) {
     const now = o.today, l = (d.matches || []).filter(m => m.conv && !m.played && m.date >= now).sort((a, b) => (a.answer ? 1 : 0) - (b.answer ? 1 : 0) || (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
     return l.length ? `<h2>📣 Mes convocations</h2>${l.map(m => convocCard(m, o)).join('')}` : '';
   }
   // (2.29) the service worker is registered as soon as the page opens (offline copy, and what the stores check), not only with the notifications
   if (location.protocol !== 'file:' && 'serviceWorker' in navigator && !PREVIEW) navigator.serviceWorker.register('sw.js').catch(() => {});
-  return { convocs, applyConvocs, convocsHtml, convocCard, pendingCard, bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, guestForm, bar, onBar, pretty, clean, pageFor, list, crest, family };
+  return { stages, stagesHtml, stageClick, convocs, applyConvocs, convocsHtml, convocCard, pendingCard, bday, isBday, badgesOf, shareMatch, installCard, optoutCard, leaders, askText, sheetCss, tabs, tabPosCard, trList, programme, kindBadge, kindCls, trBadge, updateCard, tipsHtml, tips, notifyCard, privacy, askReason, reply, replies, current, remember, forget, rpc, form, guestForm, bar, onBar, pretty, clean, pageFor, list, crest, family };
 })();

@@ -93,3 +93,10 @@ html.ios-app:has(body.has-tabs:not(.tabs-top)) { background: var(--navy); } html
 .vol { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .vol-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 0; }
 .vol-row .vt { font-weight: 700; min-width: 170px; } .vol-row .vt b { font-size: 13px; color: var(--no, #b91c1c); } .vol-row .vt b.ok { color: var(--yes, #15803d); }
+
+/* (3.21) holiday camps in the families' space */
+.st-card h3 { margin-top: 0; }
+.st-week { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+.st-ok { color: var(--good, #15803d); }
+.st-wait { color: #a16207; }
+.st-prog { margin: 6px 0 0; padding-left: 18px; }

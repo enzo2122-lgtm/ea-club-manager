@@ -238,7 +238,7 @@ const Rooms = (() => {
   }
 
   /* ---------- training: the same room every week ---------- */
-  const seasonEnd = () => { const d = new Date(), y = d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear(); return `${y}-06-30`; };
+  const seasonEnd = () => (typeof Planning !== 'undefined' && Planning.seasonOf ? Planning.seasonOf().end : (() => { const d = new Date(), y = d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear(); return `${y}-06-30`; })()); // (3.21) the season of the club
   function recurForm(done) {
     const mine = myTeams(), order = [1, 2, 3, 4, 5, 6, 0];
     modal({ title: 'Vestiaire chaque semaine', body: `
