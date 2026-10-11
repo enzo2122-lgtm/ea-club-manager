@@ -651,6 +651,7 @@ const Views = (() => {
         </section>
         <div id="gageBox"></div>
         <h2 class="section">Exercices</h2>
+        ${tm && tr.exercises.length ? `<div id="effBox">${Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr))}</div>` : ''}
         <div class="ex-list" data-exlist="1">${tr.exercises.map((e, i) => exerciseCard(e, i, tr.exercises.length)).join('') || '<p class="muted">Ajoute ton premier exercice, ou laisse l\'appli en proposer.</p>'}</div>
         ${tr.exercises.length > 1 ? '<p class="muted small">Glisse le numéro d\'un exercice pour changer l\'ordre.</p>' : ''}
         <div class="chips">${!tr.exercises.length ? `<button class="btn primary" data-act="propose">✨<span>Proposer une séance</span></button>` : ''}<button class="btn ${tr.exercises.length ? 'primary' : ''}" data-act="addEx">${I.plus}<span>Ajouter un exercice</span></button><button class="btn" data-act="exClub">📚<span>Exercices du club</span></button><button class="btn" data-act="exGen">✨<span>Générer la séance</span></button><button class="btn" data-act="exFile">📥<span>Depuis un fichier (PDF, photo)</span></button></div>
@@ -718,6 +719,11 @@ const Views = (() => {
     const rateTr = () => { const box = $('#rateBox', root); if (box) box.innerHTML = Ratings.section(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)), 'training'); rpeTr(); };
     // the effort of the players present (RPE), for the training load
     const rpeTr = () => { const box = $('#rpeBox', root); if (box) box.innerHTML = Health.rpeBox(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)).map(p => p.id), 'training'); };
+    // (3.28) the players of the day, and each exercise adapted to them
+    const effN = () => { const tm = teamOf(tr.teamId); return tm ? Effectif.count(tr, squad(tm.id).length, Parents.trainingDispo(tr))[0] : 0; };
+    const effLine = e => { const tm = teamOf(tr.teamId), l = tm && !tr.model ? Effectif.adapt(e, effN(), tm.format) : ''; return `<p class="ex-eff" data-effof="${e.id}" ${l ? '' : 'hidden'}>👥 <b>Pour ${effN()}</b> : ${esc(l)}</p>`; };
+    const refreshEff = () => { const tm = teamOf(tr.teamId), b = $('#effBox', root); if (b && tm) b.innerHTML = Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr));
+      tr.exercises.forEach(e => { const el = root.querySelector(`[data-effof="${e.id}"]`); if (el) { const tmp = document.createElement('div'); tmp.innerHTML = effLine(e); el.replaceWith(tmp.firstElementChild); } }); };
     const exerciseCard = (e, i, n) => {
       const sc = e.schemaId && Store.get('schemas', e.schemaId), open = openEx.has(e.id);
       const hint = String(e.consignes || e.org || '').split('\n').map(x => x.trim()).filter(Boolean)[0];
@@ -727,6 +733,7 @@ const Views = (() => {
           <span class="ex-tools"><button class="icon-btn" data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${I.up}</button><button class="icon-btn" data-mv="1" ${i === n - 1 ? 'disabled' : ''} aria-label="Descendre">${I.down}</button>
           <button class="icon-btn danger" data-delex aria-label="Supprimer l'exercice">${I.trash}</button></span>
           <button class="btn soft ex-tog" data-togex aria-expanded="${open}">${open ? 'Fermer' : 'Ouvrir'}</button></div>
+        ${effLine(e)}
         ${open ? '' : `<button type="button" class="ex-mini" data-togex><img alt="" src="${UI.thumb(sc || AutoSchema.preview(e), 120, 78)}"><span>${hint ? esc(hint) : '<i>Touche pour l\'organisation, les consignes et le schéma</i>'}</span></button>`}
         <div class="ex-body">
           <div class="ex-fields">
@@ -772,8 +779,9 @@ const Views = (() => {
         $$('[data-present]', root).forEach(c => { const pl = Store.get('players', c.dataset.present); c.classList.toggle('on', p.includes(c.dataset.present)); c.classList.toggle('late', (tr.late || []).includes(c.dataset.present)); if (pl) c.innerHTML = presChip(pl, tr.teamId); });
         const lt = (tr.late || []).length; $('#presH', root).textContent = `Présents (${p.length}/${squad(tr.teamId).length})${lt ? ` · ⏰ ${lt} en retard` : ''}`;
         const ab = $('.abs-fold', root); if (ab) { const open = ab.open; const tmp = document.createElement('div'); tmp.innerHTML = absBox(tr.teamId); const nb = tmp.firstElementChild; if (nb) { nb.open = open; ab.replaceWith(nb); } else ab.remove(); }
-        rateTr(); return;
+        rateTr(); refreshEff(); return;
       }
+      if (b.dataset.effn != null) { const d = +b.dataset.effn; if (!d) delete tr.nPlayers; else tr.nPlayers = Math.max(1, Math.min(60, effN() + d)); save(); refreshEff(); return; } // (3.28) one more, one less, or back to automatic
       if (b.dataset.rview) { S().ui.rosterView = b.dataset.rview; Store.persistNow(); return render(); }
       if (b.dataset.rsort) { S().ui.rosterSort = b.dataset.rsort; Store.persistNow(); return render(); }
       if (b.dataset.allpres) {
