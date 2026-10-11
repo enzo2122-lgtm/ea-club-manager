@@ -2521,3 +2521,4 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .eff-votes b { padding: 3px 10px; border-radius: 999px; font-size: 14px; }
 .eff-yes { background: color-mix(in srgb, var(--good) 16%, var(--surface)); color: var(--good); }
 .eff-no { background: color-mix(in srgb, var(--bad) 13%, var(--surface)); color: var(--bad); }
+.gen-eff { display: block; margin-top: 3px; padding: 3px 8px; border-radius: 8px; background: var(--surface2); }
