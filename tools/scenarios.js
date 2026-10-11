@@ -45,7 +45,7 @@ async function page(cdp) {
     if (r.exceptionDetails) throw new Error('dans la page : ' + ((r.exceptionDetails.exception || {}).description || r.exceptionDetails.text).split('\n')[0]);
     return r.result.value;
   };
-  const goto = async (url) => { await cdp.send('Page.navigate', { url }, sessionId); await sleep(2500); };
+  const goto = async (url) => { await cdp.send('Page.navigate', { url }, sessionId); await sleep(2500); for (let i = 0; i < 40; i++) { try { if (await evalIn('typeof Store !== "undefined" && !!Store.state')) break; } catch (e) {} await sleep(250); } }; // a busy computer: wait until the app is loaded
   const close = () => cdp.send('Target.closeTarget', { targetId });
   return { evalIn, goto, errors, close };
 }
