@@ -538,5 +538,6 @@ const Prepa = (() => {
     const m = Store.get('matches', b.dataset.prepShow || b.dataset.prepPrint || b.dataset.prepFmi); if (!m) return;
     if (b.dataset.prepShow) show(m); else if (b.dataset.prepFmi) fmi(m); else printDialog(m);
   });
-  return { page: route, card, show, summary, done, score, pdf, fmi, fmiText };
+  const fmiIssues = m => { try { return fmiData(m).issues; } catch (e) { return []; } }; // (3.34) for « Ma semaine »
+  return { page: route, card, show, summary, done, score, pdf, fmi, fmiText, fmiIssues };
 })();

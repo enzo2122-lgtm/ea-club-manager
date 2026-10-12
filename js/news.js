@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 193, date: '2026-10-12', title: "La semaine sans oubli ✅", items: [
+      ['✅', "Accueil, « Ma semaine » : 3 jours avant un match, tout ce qui reste à faire (convocation, compo, causerie, points de la FMI) ou « tout est prêt », et l'arbitre quand la FFF l'a désigné."],
+    ] },
     { n: 192, date: '2026-10-11', title: 'Groupe A = Seniors A, groupe B = Seniors B 🧩', items: [
       ['🧩', "Groupes de la séance : choisis quelle équipe est le groupe A et le groupe B (Seniors A, Seniors B…). « Selon les équipes » range chaque joueur dans le groupe de son équipe ; les noms des équipes s'affichent partout, jusque dans le message envoyé."],
     ] },

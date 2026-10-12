@@ -283,8 +283,10 @@ const Views = (() => {
     const rows = evs.map((e, i) => {
       if (e.k === 'm') { const m = e.m, conv = (m.convoked || []).length;
         const act = m.date === now ? ['🏟️ Jour de match', '#/jourj/' + m.id, false] : !conv ? ['📣 Convoquer', '#/match/' + m.id, false] : !m.convSent ? ['📣 Envoyer', '#/match/' + m.id, false] : !m.lineupId ? ['🧩 Compo', '#/match/' + m.id, false] : ['🏟️ Préparer', '#/jourj/' + m.id, true];
-        const miss = soon(m.date) ? [conv && !m.convSent && 'convocation pas envoyée', !m.lineupId && 'compo à faire'].filter(Boolean) : [];
-        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : '') + (miss.length ? ' · ⚠️ ' + miss.join(', ') : ''), act[0], act[2], i === 0); }
+        // (3.34) the 3 days before a match: everything still to do (convocation, compo, causerie, FMI), and the referee when the FFF named him
+        const near = m.date <= addDays(now, 3), fi = near && conv ? Prepa.fmiIssues(m).length : 0;
+        const miss = near ? [conv && !m.convSent && 'convocation pas envoyée', !m.lineupId && 'compo à faire', conv && !Prepa.done(m).causerie && 'causerie à préparer', fi && `FMI : ${fi} point${fi > 1 ? 's' : ''} à régler`].filter(Boolean) : [];
+        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : '') + (miss.length ? ' · ⚠️ ' + miss.join(', ') : (near && conv && m.convSent && m.lineupId ? ' · ✅ tout est prêt' : '')) + (m.offRef ? ' · 🟨 ' + esc(m.offRef.replace(/^Arbitre centre : /, 'arbitre ')) : ''), act[0], act[2], i === 0); }
       const t = e.tr, ex = t.exercises || [], n = ex.length;
       const kit = soon(t.date) ? [...new Set(ex.map(x => x.materiel).filter(Boolean).join(', ').split(/\s*,\s*/).map(x => x.trim()).filter(Boolean))].slice(0, 5) : [];
       return row('#/entrainement/' + t.id, day(t.date), t.time, `${esc(tn(t.teamId))} · ${esc(t.title || 'Séance')}`, (n ? n + ' exercice' + (n > 1 ? 's' : '') : (soon(t.date) ? "⚠️ pas encore d'exercice" : "pas encore d'exercice")) + (kit.length ? ' · 🎒 ' + esc(kit.join(', ')) : ''), n ? '📝 Ouvrir' : '✍️ Préparer', !!n, i === 0);

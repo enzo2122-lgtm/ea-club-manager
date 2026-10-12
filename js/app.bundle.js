@@ -4069,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.33';
+  const VERSION = '3.34';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -9056,7 +9056,8 @@ var Prepa = (() => {
     const m = Store.get('matches', b.dataset.prepShow || b.dataset.prepPrint || b.dataset.prepFmi); if (!m) return;
     if (b.dataset.prepShow) show(m); else if (b.dataset.prepFmi) fmi(m); else printDialog(m);
   });
-  return { page: route, card, show, summary, done, score, pdf, fmi, fmiText };
+  const fmiIssues = m => { try { return fmiData(m).issues; } catch (e) { return []; } }; // (3.34) for « Ma semaine »
+  return { page: route, card, show, summary, done, score, pdf, fmi, fmiText, fmiIssues };
 })();
 
 ;
@@ -17721,6 +17722,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 193, date: '2026-10-12', title: "La semaine sans oubli ✅", items: [
+      ['✅', "Accueil, « Ma semaine » : 3 jours avant un match, tout ce qui reste à faire (convocation, compo, causerie, points de la FMI) ou « tout est prêt », et l'arbitre quand la FFF l'a désigné."],
+    ] },
     { n: 192, date: '2026-10-11', title: 'Groupe A = Seniors A, groupe B = Seniors B 🧩', items: [
       ['🧩', "Groupes de la séance : choisis quelle équipe est le groupe A et le groupe B (Seniors A, Seniors B…). « Selon les équipes » range chaque joueur dans le groupe de son équipe ; les noms des équipes s'affichent partout, jusque dans le message envoyé."],
     ] },
@@ -21153,8 +21157,10 @@ var Views = (() => {
     const rows = evs.map((e, i) => {
       if (e.k === 'm') { const m = e.m, conv = (m.convoked || []).length;
         const act = m.date === now ? ['🏟️ Jour de match', '#/jourj/' + m.id, false] : !conv ? ['📣 Convoquer', '#/match/' + m.id, false] : !m.convSent ? ['📣 Envoyer', '#/match/' + m.id, false] : !m.lineupId ? ['🧩 Compo', '#/match/' + m.id, false] : ['🏟️ Préparer', '#/jourj/' + m.id, true];
-        const miss = soon(m.date) ? [conv && !m.convSent && 'convocation pas envoyée', !m.lineupId && 'compo à faire'].filter(Boolean) : [];
-        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : '') + (miss.length ? ' · ⚠️ ' + miss.join(', ') : ''), act[0], act[2], i === 0); }
+        // (3.34) the 3 days before a match: everything still to do (convocation, compo, causerie, FMI), and the referee when the FFF named him
+        const near = m.date <= addDays(now, 3), fi = near && conv ? Prepa.fmiIssues(m).length : 0;
+        const miss = near ? [conv && !m.convSent && 'convocation pas envoyée', !m.lineupId && 'compo à faire', conv && !Prepa.done(m).causerie && 'causerie à préparer', fi && `FMI : ${fi} point${fi > 1 ? 's' : ''} à régler`].filter(Boolean) : [];
+        return row(act[1], day(m.date), m.time, `${esc(tn(m.teamId))} · ${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}`, (conv ? conv + ' convoqués' : "personne n'est convoqué") + (m.convSent ? ' · convocation envoyée' : '') + (miss.length ? ' · ⚠️ ' + miss.join(', ') : (near && conv && m.convSent && m.lineupId ? ' · ✅ tout est prêt' : '')) + (m.offRef ? ' · 🟨 ' + esc(m.offRef.replace(/^Arbitre centre : /, 'arbitre ')) : ''), act[0], act[2], i === 0); }
       const t = e.tr, ex = t.exercises || [], n = ex.length;
       const kit = soon(t.date) ? [...new Set(ex.map(x => x.materiel).filter(Boolean).join(', ').split(/\s*,\s*/).map(x => x.trim()).filter(Boolean))].slice(0, 5) : [];
       return row('#/entrainement/' + t.id, day(t.date), t.time, `${esc(tn(t.teamId))} · ${esc(t.title || 'Séance')}`, (n ? n + ' exercice' + (n > 1 ? 's' : '') : (soon(t.date) ? "⚠️ pas encore d'exercice" : "pas encore d'exercice")) + (kit.length ? ' · 🎒 ' + esc(kit.join(', ')) : ''), n ? '📝 Ouvrir' : '✍️ Préparer', !!n, i === 0);
@@ -23060,7 +23066,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 234, UPD = AppCfg.key('update-tried');
+  const BUILD = 235, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
