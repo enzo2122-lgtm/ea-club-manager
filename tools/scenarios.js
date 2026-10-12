@@ -23,6 +23,7 @@ class CDP {
   send(method, params = {}, sessionId) { const id = ++this.id; return new Promise((res, rej) => { this.waiting.set(id, { res, rej }); this.ws.send(JSON.stringify({ id, method, params, sessionId })); }); }
 }
 async function openBrowser() {
+  for (let i = 0; i < 40; i++) { try { await get(`http://127.0.0.1:${DBG}/json/version`); await sleep(500); } catch (e) { break; } } // the previous browser still closing: wait for its port
   const exe = BROWSERS.find(p => fs.existsSync(p)); if (!exe) throw new Error('Chrome ou Edge introuvable');
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'clubbo-scen-'));
   const proc = spawn(exe, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', ...(process.getuid && process.getuid() === 0 ? ['--no-sandbox'] : []), '--window-size=540,960', '--remote-debugging-port=' + DBG, '--user-data-dir=' + profile, 'about:blank'], { stdio: 'ignore' });
