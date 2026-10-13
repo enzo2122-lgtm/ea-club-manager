@@ -195,6 +195,31 @@ const Sync = (() => {
     Object.entries(current()).forEach(([k, [col, x]]) => { if (col !== 'club' && !H[k] && (x.updatedAt || 0) < old) { H[k] = fp(x); if (base) base[k] = clone(x); } });
   }
 
+  /* ---------- (3.35) old copies of a dirigeant kept on this device only ----------
+     A club file imported long ago can leave copies of a dirigeant that were never sent to the server (adoptStale keeps old things
+     here), so the server's own clean-up never reaches them: « Coach Celia » ten times in « Écrire à un éducateur ».
+     Once a day: the cards with the same name and first name; the one with an account is kept (else the most recent); the others,
+     without an account, leave this device only: nothing is sent to the server, so no real card can be deleted there by mistake. */
+  async function dropLocalDupStaff() {
+    const m = meta(); if (Date.now() - (m.dupAt || 0) < 12 * 3600e3) return false;
+    let acc; try { acc = await Cloud.accounts(); } catch (e) { return false; } if (!Array.isArray(acc)) return false;
+    m.dupAt = Date.now();
+    const A = {}; acc.forEach(a => { A[a.staff_id] = a; });
+    const key = s => String((s.lastName || '') + '|' + (s.firstName || '')).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z|]/g, '');
+    const by = {}; S().staff.forEach(s => { const k = key(s); if (k !== '|') (by[k] = by[k] || []).push(s); });
+    const H = m.h, B = await loadBase(), score = s => (A[s.id] && A[s.id].has_pw ? 8 : 0) + (A[s.id] && A[s.id].admin ? 4 : 0) + (A[s.id] ? 2 : 0) + (me && s.id === me ? 16 : 0);
+    const me = (typeof Auth !== 'undefined' && Auth.current && Auth.current() || {}).id;
+    let n = 0;
+    Object.values(by).filter(g => g.length > 1).forEach(g => {
+      g.sort((a, b) => score(b) - score(a) || (b.updatedAt || 0) - (a.updatedAt || 0));
+      g.slice(1).filter(d => !A[d.id] && d.id !== me).forEach(d => {
+        S().staff = S().staff.filter(x => x !== d); delete H['staff/' + d.id]; delete B['staff/' + d.id]; n++;
+      });
+    });
+    if (n) { saveBase(); Store.persistNow(); }
+    return n > 0;
+  }
+
   /* ---------- run ---------- */
   function run() {
     if (running) { again = true; return running; }
@@ -209,6 +234,7 @@ const Sync = (() => {
         const sent = await push();
         if (changed || sent) Store.persistNow();
         lastOk = Date.now(); lastErr = '';
+        try { if (await dropLocalDupStaff()) changed = true; } catch (e) {}
       } catch (e) {
         lastErr = e.message || 'erreur';
         if (e.code === 'SESSION' || e.code === 'CLE_CLUB') Auth.expired();
@@ -252,5 +278,5 @@ const Sync = (() => {
   }
   const forget = () => { S().sync = { rev: 0, h: {} }; base = {}; saveBase(); };
 
-  return { start, run, firstLoad, status, forget, fp, merge3, merged };
+  return { start, run, firstLoad, status, forget, fp, merge3, merged, dropLocalDupStaff };
 })();

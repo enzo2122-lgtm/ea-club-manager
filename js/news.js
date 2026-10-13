@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 194, date: '2026-10-13', title: "Une seule Celia 👯", items: [
+      ['🐛', "Messagerie : un dirigeant pouvait apparaître dix fois dans « Écrire à un éducateur » (vieilles copies gardées sur l'appareil, jamais envoyées au serveur). Une fois par jour, l'appli les retire de l'appareil et garde la vraie fiche, celle qui a un compte."],
+    ] },
     { n: 193, date: '2026-10-12', title: "La semaine sans oubli ✅", items: [
       ['✅', "Accueil, « Ma semaine » : 3 jours avant un match, tout ce qui reste à faire (convocation, compo, causerie, points de la FMI) ou « tout est prêt », et l'arbitre quand la FFF l'a désigné."],
     ] },

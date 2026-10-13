@@ -296,6 +296,13 @@ const SCENARIOS = [
     await go('#/entrainement/' + tr.id); await click('[data-trstar="5"]', 200); must(tr.stars === 5, 'note non enregistrée');
     await go('#/entrainements'); $('.models-card').open = true; await click('[data-libby="stars"]', 200);
     must($$('.lib-item').length >= 1, 'séance notée absente'); await click('[data-libsee]', 300); must(/Utiliser cette séance/.test(modal().innerText), 'aperçu'); await closeModal(); return 'ok';`],
+  ['Dirigeants en double sur cet appareil : seule la fiche avec un compte reste', `
+    const S = Store.state, mk = id => ({ id, firstName: 'Celia', lastName: 'SOARES', role: 'Trésorière', teamIds: [], updatedAt: 1700000000000 });
+    S.staff.push(mk('dup-keep'), mk('dup-a'), mk('dup-b')); S.sync = S.sync || { rev: 0, h: {} }; S.sync.dupAt = 0;
+    const was = Cloud.accounts; Cloud.accounts = async () => [{ staff_id: 'dup-keep', admin: true }];
+    const r = await Sync.dropLocalDupStaff(); Cloud.accounts = was;
+    must(r, 'rien retiré'); const left = S.staff.filter(s => s.lastName === 'SOARES').map(s => s.id);
+    must(left.length === 1 && left[0] === 'dup-keep', 'mauvaise fiche gardée : ' + left.join(',')); return 'ok';`],
 ];
 
 /* ---------- crawl: every page, every button (option --crawl) ---------- */
