@@ -224,7 +224,8 @@ const People = (() => {
         <label class="fld"><span>E-mail</span><input id="sMail" type="email" inputmode="email" value="${esc(p.email || '')}"></label>
         ${S().players.length ? (() => { const sel = p.playerId || (playerLike(p) || {}).id || ''; return `<label class="fld"><span>Aussi joueur licencié ?</span><select id="sPlayer"><option value="">Non</option>
           ${S().players.slice().sort(Store.byName).map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(name(x))}${x.teamIds && x.teamIds.length ? ' · ' + esc(teamNames(x.teamIds)) : ''}</option>`).join('')}</select></label>`; })() : ''}
-        <label class="fld"><span>Infos (diplôme, licence, disponibilités…)</span><textarea id="sNotes" rows="3">${esc(p.notes || '')}</textarea></label>`,
+        <label class="fld"><span>Infos (diplôme, licence, disponibilités…)</span><textarea id="sNotes" rows="3">${esc(p.notes || '')}</textarea></label>
+        <label class="prep-check"><input type="checkbox" id="sNoCoach" ${p.noCoach ? 'checked' : ''}><span>Pas de « Coach » devant son prénom dans la messagerie (il n'entraîne pas)</span></label>`,
       onOpen: bindChips,
       actions: [
         ...(!isNew && Auth.isAdmin() && Cloud.ready() && !p.blocked ? [{ label: '📲 Envoyer son lien', onClick: () => { setTimeout(() => Cloud.invitePerson(p), 60); } }] : []),
@@ -237,7 +238,7 @@ const People = (() => {
           const nk = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
           const twin = isNew && Store.state.staff.find(x => x.id !== p.id && nk(x.lastName) === nk(v('sLast')) && nk(x.firstName) === nk(v('sFirst')));
           if (twin) { toast(`${name(twin)} est déjà dans les dirigeants : voici sa fiche`); setTimeout(() => editStaff(twin, opts), 350); return; }
-          Object.assign(p, { lastName: v('sLast').toUpperCase(), firstName: v('sFirst'), role: v('sRole'), club: v('sClub'), motto: v('sMotto').replace(/\s+/g, ' '), email: v('sMail'), notes: $('#sNotes', r).value });
+          Object.assign(p, { lastName: v('sLast').toUpperCase(), firstName: v('sFirst'), role: v('sRole'), club: v('sClub'), motto: v('sMotto').replace(/\s+/g, ' '), email: v('sMail'), notes: $('#sNotes', r).value }); if ($('#sNoCoach', r) && $('#sNoCoach', r).checked) p.noCoach = true; else delete p.noCoach;
           if ($('#sTel', r)) { p.phone = v('sTel'); p.phoneShow = v('sShow') || 'club'; }
           if ($('#sAccess', r)) { if (v('sAccess')) p.access = v('sAccess'); else delete p.access; }
           if (Auth.isAdmin() || isNew) p.teamIds = pickedTeams(r, p.teamIds || []);

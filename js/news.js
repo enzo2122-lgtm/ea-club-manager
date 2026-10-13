@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 196, date: '2026-10-13', title: "Pas coach, juste dirigeant 🙂", items: [
+      ['👤', "Fiche d'un dirigeant : « Pas de Coach devant son prénom » pour ceux qui n'entraînent pas (trésorière, secrétaire) : la messagerie écrit « Celia », pas « Coach Celia »."],
+    ] },
     { n: 195, date: '2026-10-13', title: "Une seule Celia, pour de bon 👯", items: [
       ['🐛', "« Écrire à un éducateur » et les @mentions : une même personne n'apparaît plus qu'une fois, même s'il reste de vieilles copies sur l'appareil."],
     ] },

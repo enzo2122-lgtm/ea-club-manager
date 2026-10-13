@@ -4069,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.36';
+  const VERSION = '3.37';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -5453,7 +5453,8 @@ var Messages = (() => {
   // In the messaging everybody is « Coach » + first name (« Coach Karim »); « Giova (Christian) » shows as « Coach Giova »
   function coachName(s) {
     const f = String(s.firstName || '').replace(/\(.*?\)/g, '').trim().split(/\s+/)[0];
-    return 'Coach ' + (f ? f.charAt(0).toUpperCase() + f.slice(1) : String(s.lastName || '').charAt(0) + String(s.lastName || '').slice(1).toLowerCase());
+    const n = f ? f.charAt(0).toUpperCase() + f.slice(1) : String(s.lastName || '').charAt(0) + String(s.lastName || '').slice(1).toLowerCase();
+    return s.noCoach ? n : 'Coach ' + n; // (3.37) a dirigeant who doesn't coach (trésorière, secrétaire): his first name alone, chosen on his card
   }
   const staffOf = m => m.author_id && Store.get('staff', m.author_id);
   /* ---------- @mentions: « @Karim » in a message; the app adds [[tag:id]] so the server notifies Karim in any case ---------- */
@@ -5981,7 +5982,8 @@ var People = (() => {
         <label class="fld"><span>E-mail</span><input id="sMail" type="email" inputmode="email" value="${esc(p.email || '')}"></label>
         ${S().players.length ? (() => { const sel = p.playerId || (playerLike(p) || {}).id || ''; return `<label class="fld"><span>Aussi joueur licencié ?</span><select id="sPlayer"><option value="">Non</option>
           ${S().players.slice().sort(Store.byName).map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(name(x))}${x.teamIds && x.teamIds.length ? ' · ' + esc(teamNames(x.teamIds)) : ''}</option>`).join('')}</select></label>`; })() : ''}
-        <label class="fld"><span>Infos (diplôme, licence, disponibilités…)</span><textarea id="sNotes" rows="3">${esc(p.notes || '')}</textarea></label>`,
+        <label class="fld"><span>Infos (diplôme, licence, disponibilités…)</span><textarea id="sNotes" rows="3">${esc(p.notes || '')}</textarea></label>
+        <label class="prep-check"><input type="checkbox" id="sNoCoach" ${p.noCoach ? 'checked' : ''}><span>Pas de « Coach » devant son prénom dans la messagerie (il n'entraîne pas)</span></label>`,
       onOpen: bindChips,
       actions: [
         ...(!isNew && Auth.isAdmin() && Cloud.ready() && !p.blocked ? [{ label: '📲 Envoyer son lien', onClick: () => { setTimeout(() => Cloud.invitePerson(p), 60); } }] : []),
@@ -5994,7 +5996,7 @@ var People = (() => {
           const nk = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
           const twin = isNew && Store.state.staff.find(x => x.id !== p.id && nk(x.lastName) === nk(v('sLast')) && nk(x.firstName) === nk(v('sFirst')));
           if (twin) { toast(`${name(twin)} est déjà dans les dirigeants : voici sa fiche`); setTimeout(() => editStaff(twin, opts), 350); return; }
-          Object.assign(p, { lastName: v('sLast').toUpperCase(), firstName: v('sFirst'), role: v('sRole'), club: v('sClub'), motto: v('sMotto').replace(/\s+/g, ' '), email: v('sMail'), notes: $('#sNotes', r).value });
+          Object.assign(p, { lastName: v('sLast').toUpperCase(), firstName: v('sFirst'), role: v('sRole'), club: v('sClub'), motto: v('sMotto').replace(/\s+/g, ' '), email: v('sMail'), notes: $('#sNotes', r).value }); if ($('#sNoCoach', r) && $('#sNoCoach', r).checked) p.noCoach = true; else delete p.noCoach;
           if ($('#sTel', r)) { p.phone = v('sTel'); p.phoneShow = v('sShow') || 'club'; }
           if ($('#sAccess', r)) { if (v('sAccess')) p.access = v('sAccess'); else delete p.access; }
           if (Auth.isAdmin() || isNew) p.teamIds = pickedTeams(r, p.teamIds || []);
@@ -17750,6 +17752,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 196, date: '2026-10-13', title: "Pas coach, juste dirigeant 🙂", items: [
+      ['👤', "Fiche d'un dirigeant : « Pas de Coach devant son prénom » pour ceux qui n'entraînent pas (trésorière, secrétaire) : la messagerie écrit « Celia », pas « Coach Celia »."],
+    ] },
     { n: 195, date: '2026-10-13', title: "Une seule Celia, pour de bon 👯", items: [
       ['🐛', "« Écrire à un éducateur » et les @mentions : une même personne n'apparaît plus qu'une fois, même s'il reste de vieilles copies sur l'appareil."],
     ] },
@@ -23100,7 +23105,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 237, UPD = AppCfg.key('update-tried');
+  const BUILD = 238, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

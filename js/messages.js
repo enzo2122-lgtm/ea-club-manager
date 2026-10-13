@@ -29,7 +29,8 @@ const Messages = (() => {
   // In the messaging everybody is « Coach » + first name (« Coach Karim »); « Giova (Christian) » shows as « Coach Giova »
   function coachName(s) {
     const f = String(s.firstName || '').replace(/\(.*?\)/g, '').trim().split(/\s+/)[0];
-    return 'Coach ' + (f ? f.charAt(0).toUpperCase() + f.slice(1) : String(s.lastName || '').charAt(0) + String(s.lastName || '').slice(1).toLowerCase());
+    const n = f ? f.charAt(0).toUpperCase() + f.slice(1) : String(s.lastName || '').charAt(0) + String(s.lastName || '').slice(1).toLowerCase();
+    return s.noCoach ? n : 'Coach ' + n; // (3.37) a dirigeant who doesn't coach (trésorière, secrétaire): his first name alone, chosen on his card
   }
   const staffOf = m => m.author_id && Store.get('staff', m.author_id);
   /* ---------- @mentions: « @Karim » in a message; the app adds [[tag:id]] so the server notifies Karim in any case ---------- */
