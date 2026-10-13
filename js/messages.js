@@ -264,7 +264,7 @@ const Messages = (() => {
     const suggest = () => {
       const upto = ta.value.slice(0, ta.selectionStart), m = upto.match(/(^|\s)@([A-Za-zÀ-ÿ'-]*)$/);
       if (!m) { sug.hidden = true; return; }
-      const q = fold(m[2]), list = S().staff.filter(s => s.id !== me().id && fold(firstOf(s)).startsWith(q)).sort(Store.byName).slice(0, 6);
+      const q = fold(m[2]), seenN = new Set(), list = S().staff.filter(s => s.id !== me().id && fold(firstOf(s)).startsWith(q)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).filter(s => { const k = fold(coachName(s)) + '|' + fold(s.lastName || ''); if (seenN.has(k)) return false; seenN.add(k); return true; }).sort(Store.byName).slice(0, 6);
       sug.innerHTML = list.map(s => `<button type="button" data-mention="${esc(firstOf(s))}">${crestOf(s)}<b>@${esc(firstOf(s))}</b><span class="muted small">${esc(Store.fullName(s))}${s.role ? ' · ' + esc(s.role) : ''}</span></button>`).join('');
       sug.hidden = !list.length;
     };
@@ -316,7 +316,9 @@ const Messages = (() => {
     if (UI.finePointer()) setTimeout(() => ta.focus(), 100);
   }
   function pickCoach() {
-    const others = S().staff.filter(s => s.id !== me().id).sort(Store.byName);
+    // (3.36) one line per person: the same name and role several times (old copies on this device) shows once, the most recent card
+    const seen = new Map(); S().staff.filter(s => s.id !== me().id).forEach(s => { const k = fold(coachName(s)) + '|' + fold(s.lastName || '') + '|' + fold(s.role || ''), o = seen.get(k); if (!o || (s.updatedAt || 0) > (o.updatedAt || 0)) seen.set(k, s); });
+    const others = [...seen.values()].sort(Store.byName);
     const close = UI.modal({ title: 'Écrire à un éducateur', noFocus: true,
       body: others.length ? `<div class="people">${others.map(s => `<button class="person-main" data-to="${s.id}"><span class="pnum role">${I.whistle}</span><span class="pmain"><b class="author">${crestOf(s)}${esc(coachName(s))}</b>${UI.motto(s)}<span class="muted">${esc([s.role, (s.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '), s.club ? 'club de cœur : ' + Clubs.name(s.club) : ''].filter(Boolean).join(' · '))}</span></span></button>`).join('')}</div>` : '<p class="muted">Aucun autre dirigeant dans l\'appli.</p>',
       onOpen: r => $$('[data-to]', r).forEach(b => b.onclick = () => { close(); location.hash = '#/messages/' + encodeURIComponent(dmKey(me().id, b.dataset.to)); }) });

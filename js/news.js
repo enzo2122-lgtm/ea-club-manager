@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 195, date: '2026-10-13', title: "Une seule Celia, pour de bon 👯", items: [
+      ['🐛', "« Écrire à un éducateur » et les @mentions : une même personne n'apparaît plus qu'une fois, même s'il reste de vieilles copies sur l'appareil."],
+    ] },
     { n: 194, date: '2026-10-13', title: "Une seule Celia 👯", items: [
       ['🐛', "Messagerie : un dirigeant pouvait apparaître dix fois dans « Écrire à un éducateur » (vieilles copies gardées sur l'appareil, jamais envoyées au serveur). Une fois par jour, l'appli les retire de l'appareil et garde la vraie fiche, celle qui a un compte."],
     ] },

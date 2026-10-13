@@ -4069,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.35';
+  const VERSION = '3.36';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -5688,7 +5688,7 @@ var Messages = (() => {
     const suggest = () => {
       const upto = ta.value.slice(0, ta.selectionStart), m = upto.match(/(^|\s)@([A-Za-zÀ-ÿ'-]*)$/);
       if (!m) { sug.hidden = true; return; }
-      const q = fold(m[2]), list = S().staff.filter(s => s.id !== me().id && fold(firstOf(s)).startsWith(q)).sort(Store.byName).slice(0, 6);
+      const q = fold(m[2]), seenN = new Set(), list = S().staff.filter(s => s.id !== me().id && fold(firstOf(s)).startsWith(q)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).filter(s => { const k = fold(coachName(s)) + '|' + fold(s.lastName || ''); if (seenN.has(k)) return false; seenN.add(k); return true; }).sort(Store.byName).slice(0, 6);
       sug.innerHTML = list.map(s => `<button type="button" data-mention="${esc(firstOf(s))}">${crestOf(s)}<b>@${esc(firstOf(s))}</b><span class="muted small">${esc(Store.fullName(s))}${s.role ? ' · ' + esc(s.role) : ''}</span></button>`).join('');
       sug.hidden = !list.length;
     };
@@ -5740,7 +5740,9 @@ var Messages = (() => {
     if (UI.finePointer()) setTimeout(() => ta.focus(), 100);
   }
   function pickCoach() {
-    const others = S().staff.filter(s => s.id !== me().id).sort(Store.byName);
+    // (3.36) one line per person: the same name and role several times (old copies on this device) shows once, the most recent card
+    const seen = new Map(); S().staff.filter(s => s.id !== me().id).forEach(s => { const k = fold(coachName(s)) + '|' + fold(s.lastName || '') + '|' + fold(s.role || ''), o = seen.get(k); if (!o || (s.updatedAt || 0) > (o.updatedAt || 0)) seen.set(k, s); });
+    const others = [...seen.values()].sort(Store.byName);
     const close = UI.modal({ title: 'Écrire à un éducateur', noFocus: true,
       body: others.length ? `<div class="people">${others.map(s => `<button class="person-main" data-to="${s.id}"><span class="pnum role">${I.whistle}</span><span class="pmain"><b class="author">${crestOf(s)}${esc(coachName(s))}</b>${UI.motto(s)}<span class="muted">${esc([s.role, (s.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '), s.club ? 'club de cœur : ' + Clubs.name(s.club) : ''].filter(Boolean).join(' · '))}</span></span></button>`).join('')}</div>` : '<p class="muted">Aucun autre dirigeant dans l\'appli.</p>',
       onOpen: r => $$('[data-to]', r).forEach(b => b.onclick = () => { close(); location.hash = '#/messages/' + encodeURIComponent(dmKey(me().id, b.dataset.to)); }) });
@@ -17748,6 +17750,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 195, date: '2026-10-13', title: "Une seule Celia, pour de bon 👯", items: [
+      ['🐛', "« Écrire à un éducateur » et les @mentions : une même personne n'apparaît plus qu'une fois, même s'il reste de vieilles copies sur l'appareil."],
+    ] },
     { n: 194, date: '2026-10-13', title: "Une seule Celia 👯", items: [
       ['🐛', "Messagerie : un dirigeant pouvait apparaître dix fois dans « Écrire à un éducateur » (vieilles copies gardées sur l'appareil, jamais envoyées au serveur). Une fois par jour, l'appli les retire de l'appareil et garde la vraie fiche, celle qui a un compte."],
     ] },
@@ -23095,7 +23100,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 236, UPD = AppCfg.key('update-tried');
+  const BUILD = 237, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
