@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 197, date: '2026-10-14', title: 'Le sifflet dans la poche ⏱️', items: [
+      ['⏱️', "Séance d'entraînement → « Lancer la séance » : les exercices défilent avec leur chrono en grand, le nom de l'exercice, ses consignes et le suivant ; sifflet et vibration à chaque changement, 3-2-1 avant, écran allumé. Pause, +1 min, Suivant, Précédent ; ▶️ sur une carte démarre à cet exercice."],
+    ] },
     { n: 196, date: '2026-10-13', title: "Pas coach, juste dirigeant 🙂", items: [
       ['👤', "Fiche d'un dirigeant : « Pas de Coach devant son prénom » pour ceux qui n'entraînent pas (trésorière, secrétaire) : la messagerie écrit « Celia », pas « Coach Celia »."],
     ] },

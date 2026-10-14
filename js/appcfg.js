@@ -125,8 +125,8 @@ function placeBars() {
    When such a window opens, one step is added to the history (same address); « back » takes it away and closes the window.
    The window closed by its own button: the step stays, and the next « back » goes on by itself to the page before. */
 (() => {
-  const SEL = '#modal:not([hidden]), #psOverlay, .rs-back, .tf-view, .cx-view, .sh-back, .vp-back';
-  const CLOSERS = '[data-close], [data-x], [data-vpx], [data-tfclose], [data-ps="close"]';
+  const SEL = '#modal:not([hidden]), #psOverlay, .rs-back, .tf-view, .cx-view, .sh-back, .vp-back, .sc-view';
+  const CLOSERS = '[data-close], [data-x], [data-vpx], [data-tfclose], [data-ps="close"], [data-sc="close"]';
   let onGuard = false, guardHref = '';
   const top = () => { const l = document.querySelectorAll(SEL); return l[l.length - 1] || null; };
   const arm = () => {
