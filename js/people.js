@@ -668,6 +668,7 @@ const People = (() => {
         ${Tests.card(p)}
         ${Health.wellnessCard(p)}
         ${Season.playerDetail(p)}
+        ${VStats.playerCard(p, s.ms)}
         <section class="card"><h2>${I.phone}Contacts</h2>
           ${p.phone ? tel(p.phone, 'Joueur') : ''}${(p.parents || []).map(x => `<div class="pp-parent"><b>${esc(x.name || x.rel || 'Parent')}</b>${x.rel && x.name ? ` <span class="muted">(${esc(x.rel)})</span>` : ''}${x.phone ? tel(x.phone) : ''}</div>`).join('')}
           ${p.email ? `<p><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></p>` : ''}

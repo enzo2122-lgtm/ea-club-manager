@@ -1350,6 +1350,7 @@ const Views = (() => {
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${m.played && !m.exempt ? `<section class="card share-card"><div><h2>📣 Réseaux sociaux</h2><p class="muted small">Une image du résultat aux couleurs du club, prête pour Instagram, Facebook, WhatsApp, X…</p></div><button class="btn primary" data-act="shareres">📣<span>Partager le résultat</span></button></section>` : ''}
         ${Sources.sheetCard(m)}
+        <div id="vsBox"></div>
         <div id="hlBox"></div>
         <h2 class="section">Score</h2>
         <section class="card">
@@ -1376,6 +1377,7 @@ const Views = (() => {
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
       Media.mount(root); Library.mountDocs($('#docsBox', root), m, save);
       Highlights.mount($('#hlBox', root), m, save, toast);
+      VStats.mount($('#vsBox', root), m, save, render); // (3.38) the sequences of the match videos, actions by player
     };
     const cheer = before => { if (Ratings.result(m) === 'V' && before !== 'V') Ratings.celebrate(); };
     const setMin = (pid, v) => { const mm = m.minutes = m.minutes || {}; if (v === '' || v == null) delete mm[pid]; else mm[pid] = Math.max(0, Math.min(150, Math.round(+v) || 0)); };

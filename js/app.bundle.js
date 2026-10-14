@@ -4069,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.37';
+  const VERSION = '3.38';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -6426,6 +6426,7 @@ var People = (() => {
         ${Tests.card(p)}
         ${Health.wellnessCard(p)}
         ${Season.playerDetail(p)}
+        ${VStats.playerCard(p, s.ms)}
         <section class="card"><h2>${I.phone}Contacts</h2>
           ${p.phone ? tel(p.phone, 'Joueur') : ''}${(p.parents || []).map(x => `<div class="pp-parent"><b>${esc(x.name || x.rel || 'Parent')}</b>${x.rel && x.name ? ` <span class="muted">(${esc(x.rel)})</span>` : ''}${x.phone ? tel(x.phone) : ''}</div>`).join('')}
           ${p.email ? `<p><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></p>` : ''}
@@ -15248,9 +15249,10 @@ var Tele = (() => {
 var Analyse = (() => {
   const { esc, $, $$, toast, modal, confirmBox } = UI;
   const S = () => Store.state;
-  const TAGS = [['but', '⚽', 'But marqué', '#15803d'], ['encaisse', '🥅', 'But encaissé', '#be123c'], ['occasion', '🎯', 'Occasion', '#0891b2'],
-    ['recup', '🔄', 'Récupération', '#2563eb'], ['perte', '❌', 'Perte de balle', '#dc2626'], ['pressing', '🔥', 'Pressing', '#ea580c'],
-    ['cpa', '🚩', 'Coup de pied arrêté', '#7c3aed'], ['defense', '🛡️', 'Bien défendu', '#0d9488'], ['erreur', '⚠️', 'Erreur', '#a16207'], ['autre', '✏️', 'Autre', '#475569']];
+  // [key, icon, label, colour, keyboard key] — (3.38) Tir and Corner added, a letter for each action (a computer: tag without the mouse)
+  const TAGS = [['but', '⚽', 'But marqué', '#15803d', 'B'], ['encaisse', '🥅', 'But encaissé', '#be123c', 'E'], ['tir', '🦶', 'Tir', '#0e7490', 'T'], ['occasion', '🎯', 'Occasion', '#0891b2', 'O'],
+    ['recup', '🔄', 'Récupération', '#2563eb', 'R'], ['perte', '❌', 'Perte de balle', '#dc2626', 'P'], ['pressing', '🔥', 'Pressing', '#ea580c', 'G'],
+    ['corner', '🚩', 'Corner', '#9333ea', 'C'], ['cpa', '🧱', 'Coup franc / penalty', '#7c3aed', 'F'], ['defense', '🛡️', 'Bien défendu', '#0d9488', 'D'], ['erreur', '⚠️', 'Erreur', '#a16207', 'X'], ['autre', '✏️', 'Autre', '#475569', 'A']];
   const tagOf = k => TAGS.find(t => t[0] === k) || TAGS[TAGS.length - 1];
   const mmss = t => { t = Math.max(0, Math.floor(t || 0)); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
   const BRIEF = AppCfg.key('briefings');
@@ -15332,9 +15334,12 @@ var Analyse = (() => {
         <span class="an-speed">${[.25, .5, 1, 2].map(r => `<button class="chip ${r === 1 ? 'on' : ''}" data-rate="${r}">×${String(r).replace('.', ',')}</button>`).join('')}</span></div>
       <div id="teleBox" class="tele-box"></div>
       <section class="card"><div class="row-head"><h2>Marquer une action</h2><button class="linkish" data-a="pref">Séquence : ${pref().before} s avant, ${pref().after} s après</button></div>
-        <div class="an-tags">${TAGS.map(([k, ic, l, c]) => `<button class="an-tag" data-tag="${k}" style="--c:${c}"><b>${ic}</b><span>${esc(l)}</span></button>`).join('')}</div></section>
+        <div class="an-tags">${TAGS.map(([k, ic, l, c, kb]) => `<button class="an-tag" data-tag="${k}" style="--c:${c}" title="Touche ${kb}"><b>${ic}</b><span>${esc(l)}</span><kbd class="an-kbd">${kb}</kbd></button>`).join('')}</div>
+        <p class="muted small an-keys">Sur ordinateur : la lettre de l'action la marque, Espace = lecture / pause, ← → = 5 s, , . = une image.</p></section>
       ${yt ? '' : `<section class="card an-auto"><div class="row-head"><h2>🤖 Analyse automatique</h2><button class="btn primary" data-a="auto">🤖<span>Repérer les actions automatiquement</span></button></div>
         <p class="muted small">Sans regarder le match : l'appli écoute le son de la vidéo (cris, sifflets, applaudissements) et crée une séquence à chaque moment fort. Rien n'est envoyé : tout se passe sur cet appareil. Ensuite, regarde seulement ces séquences et choisis ce que c'est (but, occasion…). Pour une analyse par l'IA qui regarde l'image : fiche du match → Après → Highlights → « Créer automatiquement ».</p></section>`}
+      <section class="card an-ia"><div class="row-head"><h2>🧠 Analyse par l'image (ordinateur du club)</h2><button class="btn soft" data-a="iaimport">${I.upload}<span>Importer les propositions de l'IA</span></button></div>
+        <p class="muted small">Le programme « Raincy Vidéo » regarde le match sur l'ordinateur qui a la carte graphique (joueurs, ballon, équipes) et propose des buts, tirs, corners, coups francs et pertes de balle. Importe son fichier « .raincy-ia.json » : chaque proposition devient une séquence à vérifier.</p></section>
       <div id="anLive"></div>
       <div id="anStats"></div>
       <h2 class="section">Séquences</h2><div id="anClips"></div>`;
@@ -15344,7 +15349,19 @@ var Analyse = (() => {
       try { v = await ytPlayer($('#anYT', root), ytId(rec.url)); $('#anYT p', root) && $('#anYT p', root).remove(); }
       catch (e) { $('#anYT', root).innerHTML = `<p class="an-yt-err">${esc(ytError(e))}</p><p><a class="btn soft" href="${esc(rec.url)}" target="_blank" rel="noopener noreferrer">${I.share}<span>Ouvrir sur YouTube</span></a></p>`; return; }
     }
-    const save = async () => { await Media.put(rec); };
+    const save = async () => { await Media.put(rec); VStats.sync(rec); }; // (3.38) the sequences go to the match too (club server)
+    VStats.sync(rec); // an analysis made before 3.38 reaches its match
+    // (3.38) the keyboard: a letter tags an action, Space plays, arrows move (not while writing in a field)
+    if (page.key) document.removeEventListener('keydown', page.key);
+    page.key = e => {
+      if (!root.isConnected || !$('#anBar', root)) { document.removeEventListener('keydown', page.key); page.key = null; return; }
+      if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '') || (e.target && e.target.isContentEditable) || document.querySelector('#modal:not([hidden]) .sheet')) return;
+      const k = e.key.length === 1 ? e.key.toUpperCase() : e.key, tg = TAGS.find(t => t[4] === k);
+      const act = tg ? `[data-tag="${tg[0]}"]` : { ' ': '[data-a="play"]', ArrowLeft: '[data-a="-5"]', ArrowRight: '[data-a="+5"]', ',': '[data-a="-f"]', '.': '[data-a="+f"]' }[k];
+      const b = act && $(act, root); if (!b) return;
+      e.preventDefault(); b.click();
+    };
+    document.addEventListener('keydown', page.key);
     // the drawings of the sequences, over the video (shown while it plays, drawn with « Dessins sur la vidéo »)
     const L = Tele.layer($('.an-player', root), yt ? $('#anYT', root) : v, () => v, () => rec.clips);
     const drawBar = () => {
@@ -15419,6 +15436,24 @@ var Analyse = (() => {
         } catch (e) { toast(e.message || 'Analyse impossible', 'err'); }
         finally { bz.done(); }
         return;
+      }
+      // (3.38) the proposals of « Raincy Vidéo » (analyser.py on the club's computer): one sequence each, to check
+      if (a === 'iaimport') {
+        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+        inp.onchange = async () => {
+          const f = inp.files && inp.files[0]; if (!f) return;
+          let r; try { r = JSON.parse(await f.text()); } catch (e) { r = null; }
+          if (!r || r.format !== 'raincy-ia' || !Array.isArray(r.clips)) return toast('Ce fichier ne vient pas de Raincy Vidéo (fichier .raincy-ia.json)', 'err');
+          const dur = isFinite(v.duration) && v.duration ? v.duration : Infinity, num = x => Number.isFinite(+x) ? +x : null;
+          const add = r.clips.filter(c => TAGS.some(t => t[0] === c.tag) && num(c.start) != null && num(c.end) > num(c.start) && num(c.start) < dur)
+            .filter(c => rec.clips.every(x => x.tag !== c.tag || Math.abs((x.at != null ? x.at : x.start) - (num(c.at) != null ? +c.at : +c.start)) > 8))
+            .map(c => ({ id: Store.uid(), tag: c.tag, start: Math.max(0, +c.start), end: Math.min(dur, +c.end), at: num(c.at) != null ? +c.at : +c.start, note: String(c.note || "🤖 Proposition de l'IA : à vérifier").slice(0, 120), players: [], auto: true }));
+          const ko = (r.envois || []).map(Number).filter(Number.isFinite);
+          if (rec.ko1 == null && ko.length) rec.ko1 = ko[0];
+          rec.clips.push(...add); await save(); drawClips(); drawLive();
+          toast(add.length ? `${add.length} proposition${add.length > 1 ? 's' : ''} de l'IA ajoutée${add.length > 1 ? 's' : ''} : regarde chacune, corrige l'action, touche les joueurs ou supprime-la` : 'Aucune nouvelle proposition dans ce fichier', add.length ? '' : 'err');
+        };
+        inp.click(); return;
       }
       if (b.dataset.rate) { v.playbackRate = +b.dataset.rate; $$('[data-rate]', root).forEach(x => x.classList.toggle('on', x === b)); return; }
       if (b.dataset.tag) {
@@ -20748,6 +20783,130 @@ Réponds seulement avec la liste JSON.`;
 })();
 
 ;
+/* ===== vstats.js ===== */
+/* (3.38) VStats: the sequences of a match video, kept in the match itself so they reach the club server and every coach's device.
+   The video stays on the device that imported it (or on YouTube); the match keeps, for each analysed video, its name, its YouTube link
+   and its sequences (action, moment, players, comment). From them: the card « Analyse vidéo » of the match (tab « Après »:
+   actions, players, sequences to replay) and the card of a player (his actions of the season, from the analysed matches).
+   Only the staff reads it: the families' pages get a few chosen fields of a match from the server, never this one. */
+var VStats = (() => {
+  const { esc } = UI;
+  const tagOf = k => Analyse.TAGS.find(t => t[0] === k) || Analyse.TAGS[Analyse.TAGS.length - 1];
+  const COUNTED = k => k !== 'autre'; // a sequence found by the sound and not named yet counts for nothing
+  const vids = m => Object.entries((m && m.video) || {}).map(([id, v]) => Object.assign({ id }, v));
+  const clipsOf = m => vids(m).flatMap(v => (v.clips || []).map(c => Object.assign({ vid: v.id, url: v.url, vname: v.name }, c)));
+
+  /* ---------- the video's sequences → its match (called by the analysis page after each change) ---------- */
+  function sync(rec) {
+    if (!rec || typeof Store === 'undefined') return;
+    if (Auth.canWrite && !Auth.canWrite('matches')) return; // read-only access: the sequences stay on this device, without a message each time
+    const keep = c => ({ id: c.id, tag: c.tag, start: +(+c.start).toFixed(1), end: +(+c.end).toFixed(1), at: c.at != null ? +(+c.at).toFixed(1) : null, note: c.note || '', players: c.players || [], ...(c.auto ? { auto: true } : {}) });
+    Store.state.matches.forEach(m => {
+      const has = !!(m.video && m.video[rec.id]);
+      if (m.id === rec.matchId) {
+        const v = { name: rec.name || 'Vidéo', url: Analyse.isYT(rec) ? rec.url : '', ko1: rec.ko1 != null ? rec.ko1 : null, ko2: rec.ko2 != null ? rec.ko2 : null, at: Date.now(), clips: (rec.clips || []).map(keep) };
+        const was = has ? JSON.stringify(Object.assign({}, m.video[rec.id], { at: 0 })) : '';
+        if (was === JSON.stringify(Object.assign({}, v, { at: 0 }))) return; // nothing new: no write, no sync
+        m.video = Object.assign({}, m.video, { [rec.id]: v }); Store.upsert('matches', m);
+      } else if (has) { // the video now belongs to another match (or to none)
+        const o = Object.assign({}, m.video); delete o[rec.id]; m.video = Object.keys(o).length ? o : undefined; Store.upsert('matches', m);
+      }
+    });
+  }
+
+  /* ---------- counts ---------- */
+  // { playerId: { tag: n } } and { tag: n } for a list of sequences
+  function count(clips) {
+    const byP = {}, all = {};
+    clips.filter(c => COUNTED(c.tag)).forEach(c => {
+      all[c.tag] = (all[c.tag] || 0) + 1;
+      (c.players || []).forEach(pid => { const x = byP[pid] = byP[pid] || {}; x[c.tag] = (x[c.tag] || 0) + 1; });
+    });
+    return { byP, all };
+  }
+  const tagsIn = all => Analyse.TAGS.filter(t => all[t[0]]);
+  const chips = (all) => `<div class="an-stats">${tagsIn(all).map(([k, ic, l, c]) => `<span style="--c:${c}">${ic} ${esc(l)} <b>${all[k]}</b></span>`).join('')}</div>`;
+  // the minute of the match of a moment of the video (kick-off and, if placed, second half kick-off)
+  function minute(v, t) {
+    if (v.ko1 == null || t == null || t < v.ko1) return '';
+    if (v.ko2 != null && t >= v.ko2) return Math.floor((t - v.ko2) / 60) + 46 + "'";
+    return Math.floor((t - v.ko1) / 60) + 1 + "'";
+  }
+
+  /* ---------- the card of a match (tab « Après ») ---------- */
+  function matchCard(m) {
+    const vs = vids(m), cl = clipsOf(m);
+    if (!cl.length) return '';
+    const { byP, all } = count(cl), tags = tagsIn(all);
+    const ps = Object.keys(byP).map(id => Store.get('players', id)).filter(Boolean)
+      .map(p => ({ p, n: byP[p.id], tot: Object.values(byP[p.id]).reduce((a, b) => a + b, 0) })).sort((a, b) => b.tot - a.tot || Store.byName(a.p, b.p));
+    const vOf = c => vs.find(v => v.id === c.vid) || {};
+    const rows = cl.slice().sort((a, b) => (a.vid === b.vid ? 0 : a.vid < b.vid ? -1 : 1) || a.start - b.start).map(c => {
+      const t = tagOf(c.tag), names = (c.players || []).map(id => Store.get('players', id)).filter(Boolean).map(Store.shortName).join(', '), mn = minute(vOf(c), c.at != null ? c.at : c.start);
+      const play = c.clip ? `<button type="button" class="btn soft small" data-vsclip="${esc(c.clip)}" data-vptitle="${esc(t[2] + (names ? ' · ' + names : ''))}">▶<span>Voir${c.draws ? ' 🎨' : ''}</span></button>`
+        : c.url ? `<button type="button" class="btn soft small" data-vp="${esc(c.url)}" data-vpt="${Math.floor(c.start)}" data-vptitle="${esc(t[2] + (names ? ' · ' + names : ''))}">▶<span>Voir</span></button>`
+        : `<a class="btn soft small" href="#/analyse/${esc(c.vid)}" title="La vidéo est sur l'appareil qui l'a importée">▶<span>Voir</span></a>`;
+      return `<li class="vs-row" style="--c:${t[3]}"><span class="vs-t">${t[1]} <b>${esc(t[2])}</b>${mn ? ` <span class="muted">${mn}</span>` : ''} <span class="muted small">(${Analyse.mmss(c.start)})</span>${names ? `<br><span class="small">${esc(names)}</span>` : ''}${c.note ? `<br><i class="small">${esc(c.note)}</i>` : ''}</span>
+        ${play}${c.url && !(m.highlights || []).some(h => h.vsClip === c.id) ? `<button type="button" class="btn soft small" data-vshl="${esc(c.vid)}|${esc(c.id)}" title="Ajouter aux highlights du match (les joueurs les voient quand tu les envoies)">＋🎬</button>` : ''}</li>`;
+    }).join('');
+    return `<section class="card vs-card"><h2>🎬 Analyse vidéo</h2>
+      <p class="muted small">${vs.length} vidéo${vs.length > 1 ? 's' : ''} analysée${vs.length > 1 ? 's' : ''} · ${cl.length} séquence${cl.length > 1 ? 's' : ''}. Rempli par la page « Analyse vidéo » (Bibliothèque → la vidéo → Analyser) ou par l'application Raincy Vidéo de l'ordinateur du club, visible par les éducateurs sur tous les appareils.</p>
+      ${chips(all)}
+      ${ps.length && tags.length ? `<div class="vs-scroll"><table class="vs-table"><thead><tr><th>Joueur</th>${tags.map(([k, ic, l]) => `<th title="${esc(l)}">${ic}</th>`).join('')}</tr></thead>
+        <tbody>${ps.map(({ p, n }) => `<tr><th><a href="#/joueur/${esc(p.id)}">${esc(Store.shortName(p))}</a></th>${tags.map(([k]) => `<td>${n[k] || ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+        : '<p class="tip">Pour les stats par joueur : sous chaque séquence de l\'analyse, touche les joueurs concernés.</p>'}
+      <details class="vs-seq"><summary>Les ${cl.length} séquences</summary><ul class="vs-list">${rows}</ul>
+        ${cl.some(c => !c.url) ? '<p class="muted small">« Voir » d\'une vidéo importée sur un appareil : elle s\'ouvre seulement sur cet appareil. Une vidéo YouTube (même « non répertoriée ») se regarde partout.</p>' : ''}</details></section>`;
+  }
+  // box: the element to fill (match page, tab « Après »); save: stores the match; redraw: the whole page (the highlights card changes too)
+  function mount(box, m, save, redraw) {
+    if (!box) return;
+    box.innerHTML = matchCard(m);
+    box.onclick = async e => {
+      if (VPlayer.onClick(e)) return;
+      const cb = e.target.closest('[data-vsclip]');
+      if (cb) { // (3.38) un clip de Raincy Vidéo : rangé dans le stockage privé du club, lu avec une adresse valable 1 heure
+        try { VPlayer.open(await clipUrl(cb.dataset.vsclip), 0, cb.dataset.vptitle); } catch (err) { UI.toast(err.message, 'err'); }
+        return;
+      }
+      const b = e.target.closest('[data-vshl]'); if (!b) return;
+      const [vid, cid] = b.dataset.vshl.split('|'), v = (m.video || {})[vid], c = v && (v.clips || []).find(x => x.id === cid);
+      if (!c || !v.url) return;
+      const names = (c.players || []).map(id => Store.get('players', id)).filter(Boolean).map(Store.shortName).join(', '), mn = minute(v, c.at != null ? c.at : c.start);
+      m.highlights = [...(m.highlights || []), { id: Store.uid(), vsClip: c.id, url: v.url, title: (tagOf(c.tag)[2] + (names ? ' · ' + names : '') + (mn ? ', ' + mn : '')).slice(0, 80), t: Analyse.mmss(c.start) }];
+      save(); UI.toast('Ajouté aux highlights du match ✓'); redraw();
+    };
+  }
+
+  // the address of a clip of the club's storage (function « raincy-clips » of the server, which checks the connection)
+  async function clipUrl(path) {
+    const c = Cloud.cfg(), t = Cloud.token && Cloud.token();
+    if (!c || !t) throw new Error('Connecte-toi au serveur du club pour voir ce clip.');
+    const headers = { apikey: c.key, 'Content-Type': 'application/json' }; if (!String(c.key).startsWith('sb_')) headers.Authorization = 'Bearer ' + c.key;
+    let r; try { r = await fetch(c.url.replace(/\/+$/, '') + '/functions/v1/raincy-clips', { method: 'POST', headers, body: JSON.stringify({ k: t, action: 'read', paths: [path] }) }); }
+    catch (e) { throw new Error('Pas de connexion internet.'); }
+    const o = await r.json().catch(() => ({}));
+    if (!r.ok || !o.urls || !o.urls[path]) throw new Error(r.status === 401 ? 'Ta connexion a expiré : reconnecte-toi.' : r.status === 404 ? 'Les clips ne sont pas encore installés sur le serveur du club.' : 'Clip introuvable.');
+    return o.urls[path];
+  }
+
+  /* ---------- the card of a player: his actions in the analysed matches of the season ---------- */
+  function playerCard(p, ms) {
+    const done = (ms || []).filter(m => clipsOf(m).length);
+    if (!done.length) return '';
+    const mine = done.map(m => ({ m, cl: clipsOf(m).filter(c => (c.players || []).includes(p.id) && COUNTED(c.tag)) }));
+    const { all } = count(mine.flatMap(x => x.cl));
+    return `<section class="card vs-card"><h2>🎬 Ses actions en vidéo</h2>
+      <p class="muted small">${done.length} match${done.length > 1 ? 's' : ''} analysé${done.length > 1 ? 's' : ''} en vidéo cette saison.</p>
+      ${Object.keys(all).length ? chips(all) + `<ul class="res-list">${mine.filter(x => x.cl.length).slice(0, 10).map(({ m, cl }) => { const n = count(cl).all;
+        return `<li><a href="#/match/${esc(m.id)}"><span class="d">${esc(UI.fmtDate(m.date))}</span><span class="o">${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')}</span><span class="s">${tagsIn(n).map(([k, ic]) => ic + (n[k] > 1 ? '×' + n[k] : '')).join(' ')}</span></a></li>`; }).join('')}</ul>`
+        : '<p class="muted">Il n\'est encore sur aucune séquence : dans l\'analyse, touche son nom sous les séquences où il apparaît.</p>'}</section>`;
+  }
+
+  return { sync, count, matchCard, mount, playerCard, minute, clipUrl };
+})();
+
+;
 /* ===== bodymap.js ===== */
 /* (1.81) A realistic human body (muscles) to point at the painful zone: a touch on a zone gives the usual injuries there
    (groin, hamstrings, knee ligaments…). Shared by the coach's app (Infirmerie) and the players' and parents' pages.
@@ -22263,6 +22422,7 @@ var Views = (() => {
         ${m.played ? `<section class="card report-card"><div><h2>📄 Compte-rendu du match</h2><p class="muted small">Score, ${Sport.W().scorers}, temps forts, minutes, cartons, notes et le mot du coach, dans un PDF à envoyer (WhatsApp, e-mail…).</p></div><button class="btn primary" data-act="report">${I.pdf}<span>Envoyer le PDF</span></button></section>` : ''}
         ${m.played && !m.exempt ? `<section class="card share-card"><div><h2>📣 Réseaux sociaux</h2><p class="muted small">Une image du résultat aux couleurs du club, prête pour Instagram, Facebook, WhatsApp, X…</p></div><button class="btn primary" data-act="shareres">📣<span>Partager le résultat</span></button></section>` : ''}
         ${Sources.sheetCard(m)}
+        <div id="vsBox"></div>
         <div id="hlBox"></div>
         <h2 class="section">Score</h2>
         <section class="card">
@@ -22289,6 +22449,7 @@ var Views = (() => {
       const box = $('#rateBox', root); box.innerHTML = Ratings.section(m, conv, 'match'); Ratings.bind(box, m, save);
       Media.mount(root); Library.mountDocs($('#docsBox', root), m, save);
       Highlights.mount($('#hlBox', root), m, save, toast);
+      VStats.mount($('#vsBox', root), m, save, render); // (3.38) the sequences of the match videos, actions by player
     };
     const cheer = before => { if (Ratings.result(m) === 'V' && before !== 'V') Ratings.celebrate(); };
     const setMin = (pid, v) => { const mm = m.minutes = m.minutes || {}; if (v === '' || v == null) delete mm[pid]; else mm[pid] = Math.max(0, Math.min(150, Math.round(+v) || 0)); };
@@ -23105,7 +23266,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 238, UPD = AppCfg.key('update-tried');
+  const BUILD = 239, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

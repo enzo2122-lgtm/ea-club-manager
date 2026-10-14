@@ -5,9 +5,10 @@
 const Analyse = (() => {
   const { esc, $, $$, toast, modal, confirmBox } = UI;
   const S = () => Store.state;
-  const TAGS = [['but', '⚽', 'But marqué', '#15803d'], ['encaisse', '🥅', 'But encaissé', '#be123c'], ['occasion', '🎯', 'Occasion', '#0891b2'],
-    ['recup', '🔄', 'Récupération', '#2563eb'], ['perte', '❌', 'Perte de balle', '#dc2626'], ['pressing', '🔥', 'Pressing', '#ea580c'],
-    ['cpa', '🚩', 'Coup de pied arrêté', '#7c3aed'], ['defense', '🛡️', 'Bien défendu', '#0d9488'], ['erreur', '⚠️', 'Erreur', '#a16207'], ['autre', '✏️', 'Autre', '#475569']];
+  // [key, icon, label, colour, keyboard key] — (3.38) Tir and Corner added, a letter for each action (a computer: tag without the mouse)
+  const TAGS = [['but', '⚽', 'But marqué', '#15803d', 'B'], ['encaisse', '🥅', 'But encaissé', '#be123c', 'E'], ['tir', '🦶', 'Tir', '#0e7490', 'T'], ['occasion', '🎯', 'Occasion', '#0891b2', 'O'],
+    ['recup', '🔄', 'Récupération', '#2563eb', 'R'], ['perte', '❌', 'Perte de balle', '#dc2626', 'P'], ['pressing', '🔥', 'Pressing', '#ea580c', 'G'],
+    ['corner', '🚩', 'Corner', '#9333ea', 'C'], ['cpa', '🧱', 'Coup franc / penalty', '#7c3aed', 'F'], ['defense', '🛡️', 'Bien défendu', '#0d9488', 'D'], ['erreur', '⚠️', 'Erreur', '#a16207', 'X'], ['autre', '✏️', 'Autre', '#475569', 'A']];
   const tagOf = k => TAGS.find(t => t[0] === k) || TAGS[TAGS.length - 1];
   const mmss = t => { t = Math.max(0, Math.floor(t || 0)); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
   const BRIEF = AppCfg.key('briefings');
@@ -89,9 +90,12 @@ const Analyse = (() => {
         <span class="an-speed">${[.25, .5, 1, 2].map(r => `<button class="chip ${r === 1 ? 'on' : ''}" data-rate="${r}">×${String(r).replace('.', ',')}</button>`).join('')}</span></div>
       <div id="teleBox" class="tele-box"></div>
       <section class="card"><div class="row-head"><h2>Marquer une action</h2><button class="linkish" data-a="pref">Séquence : ${pref().before} s avant, ${pref().after} s après</button></div>
-        <div class="an-tags">${TAGS.map(([k, ic, l, c]) => `<button class="an-tag" data-tag="${k}" style="--c:${c}"><b>${ic}</b><span>${esc(l)}</span></button>`).join('')}</div></section>
+        <div class="an-tags">${TAGS.map(([k, ic, l, c, kb]) => `<button class="an-tag" data-tag="${k}" style="--c:${c}" title="Touche ${kb}"><b>${ic}</b><span>${esc(l)}</span><kbd class="an-kbd">${kb}</kbd></button>`).join('')}</div>
+        <p class="muted small an-keys">Sur ordinateur : la lettre de l'action la marque, Espace = lecture / pause, ← → = 5 s, , . = une image.</p></section>
       ${yt ? '' : `<section class="card an-auto"><div class="row-head"><h2>🤖 Analyse automatique</h2><button class="btn primary" data-a="auto">🤖<span>Repérer les actions automatiquement</span></button></div>
         <p class="muted small">Sans regarder le match : l'appli écoute le son de la vidéo (cris, sifflets, applaudissements) et crée une séquence à chaque moment fort. Rien n'est envoyé : tout se passe sur cet appareil. Ensuite, regarde seulement ces séquences et choisis ce que c'est (but, occasion…). Pour une analyse par l'IA qui regarde l'image : fiche du match → Après → Highlights → « Créer automatiquement ».</p></section>`}
+      <section class="card an-ia"><div class="row-head"><h2>🧠 Analyse par l'image (ordinateur du club)</h2><button class="btn soft" data-a="iaimport">${I.upload}<span>Importer les propositions de l'IA</span></button></div>
+        <p class="muted small">Le programme « Raincy Vidéo » regarde le match sur l'ordinateur qui a la carte graphique (joueurs, ballon, équipes) et propose des buts, tirs, corners, coups francs et pertes de balle. Importe son fichier « .raincy-ia.json » : chaque proposition devient une séquence à vérifier.</p></section>
       <div id="anLive"></div>
       <div id="anStats"></div>
       <h2 class="section">Séquences</h2><div id="anClips"></div>`;
@@ -101,7 +105,19 @@ const Analyse = (() => {
       try { v = await ytPlayer($('#anYT', root), ytId(rec.url)); $('#anYT p', root) && $('#anYT p', root).remove(); }
       catch (e) { $('#anYT', root).innerHTML = `<p class="an-yt-err">${esc(ytError(e))}</p><p><a class="btn soft" href="${esc(rec.url)}" target="_blank" rel="noopener noreferrer">${I.share}<span>Ouvrir sur YouTube</span></a></p>`; return; }
     }
-    const save = async () => { await Media.put(rec); };
+    const save = async () => { await Media.put(rec); VStats.sync(rec); }; // (3.38) the sequences go to the match too (club server)
+    VStats.sync(rec); // an analysis made before 3.38 reaches its match
+    // (3.38) the keyboard: a letter tags an action, Space plays, arrows move (not while writing in a field)
+    if (page.key) document.removeEventListener('keydown', page.key);
+    page.key = e => {
+      if (!root.isConnected || !$('#anBar', root)) { document.removeEventListener('keydown', page.key); page.key = null; return; }
+      if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '') || (e.target && e.target.isContentEditable) || document.querySelector('#modal:not([hidden]) .sheet')) return;
+      const k = e.key.length === 1 ? e.key.toUpperCase() : e.key, tg = TAGS.find(t => t[4] === k);
+      const act = tg ? `[data-tag="${tg[0]}"]` : { ' ': '[data-a="play"]', ArrowLeft: '[data-a="-5"]', ArrowRight: '[data-a="+5"]', ',': '[data-a="-f"]', '.': '[data-a="+f"]' }[k];
+      const b = act && $(act, root); if (!b) return;
+      e.preventDefault(); b.click();
+    };
+    document.addEventListener('keydown', page.key);
     // the drawings of the sequences, over the video (shown while it plays, drawn with « Dessins sur la vidéo »)
     const L = Tele.layer($('.an-player', root), yt ? $('#anYT', root) : v, () => v, () => rec.clips);
     const drawBar = () => {
@@ -176,6 +192,24 @@ const Analyse = (() => {
         } catch (e) { toast(e.message || 'Analyse impossible', 'err'); }
         finally { bz.done(); }
         return;
+      }
+      // (3.38) the proposals of « Raincy Vidéo » (analyser.py on the club's computer): one sequence each, to check
+      if (a === 'iaimport') {
+        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+        inp.onchange = async () => {
+          const f = inp.files && inp.files[0]; if (!f) return;
+          let r; try { r = JSON.parse(await f.text()); } catch (e) { r = null; }
+          if (!r || r.format !== 'raincy-ia' || !Array.isArray(r.clips)) return toast('Ce fichier ne vient pas de Raincy Vidéo (fichier .raincy-ia.json)', 'err');
+          const dur = isFinite(v.duration) && v.duration ? v.duration : Infinity, num = x => Number.isFinite(+x) ? +x : null;
+          const add = r.clips.filter(c => TAGS.some(t => t[0] === c.tag) && num(c.start) != null && num(c.end) > num(c.start) && num(c.start) < dur)
+            .filter(c => rec.clips.every(x => x.tag !== c.tag || Math.abs((x.at != null ? x.at : x.start) - (num(c.at) != null ? +c.at : +c.start)) > 8))
+            .map(c => ({ id: Store.uid(), tag: c.tag, start: Math.max(0, +c.start), end: Math.min(dur, +c.end), at: num(c.at) != null ? +c.at : +c.start, note: String(c.note || "🤖 Proposition de l'IA : à vérifier").slice(0, 120), players: [], auto: true }));
+          const ko = (r.envois || []).map(Number).filter(Number.isFinite);
+          if (rec.ko1 == null && ko.length) rec.ko1 = ko[0];
+          rec.clips.push(...add); await save(); drawClips(); drawLive();
+          toast(add.length ? `${add.length} proposition${add.length > 1 ? 's' : ''} de l'IA ajoutée${add.length > 1 ? 's' : ''} : regarde chacune, corrige l'action, touche les joueurs ou supprime-la` : 'Aucune nouvelle proposition dans ce fichier', add.length ? '' : 'err');
+        };
+        inp.click(); return;
       }
       if (b.dataset.rate) { v.playbackRate = +b.dataset.rate; $$('[data-rate]', root).forEach(x => x.classList.toggle('on', x === b)); return; }
       if (b.dataset.tag) {

@@ -2532,3 +2532,17 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 @media (max-width: 520px) { .split-cols { grid-template-columns: 1fr; } }
 .split-send { margin-top: 10px; }
 .split-teams { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 8px 0; } .split-teams .fld.inline { margin: 0; }
+
+/* 3.38 : analyse vidéo dans la fiche du match et du joueur, touches du clavier */
+.an-tag { position: relative; }
+.an-kbd { position: absolute; top: 3px; right: 5px; font: 700 10px/1 system-ui, sans-serif; opacity: .55; }
+@media (hover: none) { .an-kbd, .an-keys { display: none; } }
+.vs-scroll { overflow-x: auto; margin: 8px 0; }
+.vs-table { border-collapse: collapse; font-size: 13.5px; min-width: 100%; }
+.vs-table th, .vs-table td { padding: 5px 7px; border-bottom: 1px solid var(--line, #e5e7eb); text-align: center; }
+.vs-table tbody th { text-align: left; font-weight: 600; white-space: nowrap; }
+.vs-table td:empty::after { content: '·'; opacity: .3; }
+.vs-seq summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+.vs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.vs-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-left: 4px solid var(--c); border-radius: 6px; background: color-mix(in srgb, var(--c) 7%, transparent); }
+.vs-t { flex: 1; min-width: 0; }
