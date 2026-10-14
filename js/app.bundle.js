@@ -127,8 +127,8 @@ function placeBars() {
    When such a window opens, one step is added to the history (same address); « back » takes it away and closes the window.
    The window closed by its own button: the step stays, and the next « back » goes on by itself to the page before. */
 (() => {
-  const SEL = '#modal:not([hidden]), #psOverlay, .rs-back, .tf-view, .cx-view, .sh-back, .vp-back';
-  const CLOSERS = '[data-close], [data-x], [data-vpx], [data-tfclose], [data-ps="close"]';
+  const SEL = '#modal:not([hidden]), #psOverlay, .rs-back, .tf-view, .cx-view, .sh-back, .vp-back, .sc-view';
+  const CLOSERS = '[data-close], [data-x], [data-vpx], [data-tfclose], [data-ps="close"], [data-sc="close"]';
   let onGuard = false, guardHref = '';
   const top = () => { const l = document.querySelectorAll(SEL); return l[l.length - 1] || null; };
   const arm = () => {
@@ -4069,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.38';
+  const VERSION = '3.39';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4165,7 +4165,7 @@ var Help = (() => {
     vestiaires: ['Vestiaires', ['Une colonne par vestiaire (Vestiaire 1, 2, Karaté 1, Karaté 2) pour le jour choisi. Touche une case vide pour attribuer un vestiaire à une catégorie ou à l\'équipe adverse (🆚).', 'Matchs à domicile : « Attribuer » donne un vestiaire à notre équipe et un à l\'adversaire, du rendez-vous jusqu\'après les douches. « Tous les matchs du jour » le fait pour tous.', '« Chaque semaine » garde le même vestiaire pour les entraînements d\'une catégorie jusqu\'à la fin de la saison.', 'Un vestiaire ne peut pas être donné deux fois en même temps. Touche un vestiaire occupé pour le libérer.']],
     encadrement: ['Qui encadre ?', ['Tous les matchs et séances de la semaine, avec leurs encadrants. ⚠️ Personne : il manque un encadrant.', '« J\'y serai » t\'ajoute comme encadrant, « Je n\'y serai pas » te retire.', '« Déclarer une absence » : tes vacances ou indisponibilités, visibles par les autres dirigeants. Un responsable peut en déclarer pour n\'importe qui.']],
     entrainements: ['Séances', ['Le plus simple : « Générer une séance » (un thème, une catégorie, une durée) ou « Séances par système de jeu » : la séance est prête, avec ses schémas animés.', 'Pour l\'écrire toi-même : « Nouvel entraînement » (un thème, une date, une équipe), puis ajoute les exercices.', 'Une fiche papier ou un PDF : « Importer une fiche PDF » ou « Depuis un fichier » : les exercices sont lus et repris.', '« Séances types du club » : les séances partagées par les coachs. « Utiliser » la copie pour ta catégorie et ta date.']],
-    entrainement: ['Une séance', ['1. Ajoute les exercices : « Ajouter un exercice », « Exercices du club » ou « Depuis un fichier ». Chaque exercice est une carte : touche-la (« Ouvrir ») pour écrire l\'organisation et les consignes, et voir son schéma animé.', '2. Le jour J : coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles.', '3. « PDF » fait la fiche à imprimer ou à envoyer, avec le schéma de chaque exercice étape par étape. « Envoyer » la transmet à un autre coach.', 'Après la séance (en bas) : notes des joueurs, effort, documents, photos et vidéos.']],
+    entrainement: ['Une séance', ['1. Ajoute les exercices : « Ajouter un exercice », « Exercices du club » ou « Depuis un fichier ». Chaque exercice est une carte : touche-la (« Ouvrir ») pour écrire l\'organisation et les consignes, et voir son schéma animé.', 'Sur le terrain : « Lancer la séance » déroule les exercices avec leur chrono, un coup de sifflet et une vibration à chaque changement ; ▶️ sur une carte démarre à cet exercice.', '2. Le jour J : coche les présents d\'un toucher (ou « Tous présents »), puis note-les avec les étoiles.', '3. « PDF » fait la fiche à imprimer ou à envoyer, avec le schéma de chaque exercice étape par étape. « Envoyer » la transmet à un autre coach.', 'Après la séance (en bas) : notes des joueurs, effort, documents, photos et vidéos.']],
     matchs: ['Matchs', ['« Importer » : colle le calendrier copié sur le site de ta fédération ou de ton district (mois par mois), ou choisis un fichier d\'agenda (.ics) ou un tableur (.csv). La catégorie est trouvée toute seule et le terrain peut être réservé pour les matchs à domicile.', '« Nouveau match » : adversaire, date, domicile ou extérieur.', 'Les résultats s\'affichent avec leur smiley.']],
     jourj: ['Jour de match', ['Tout le match en 5 étapes, dans l\'ordre : les convoqués, la composition, la causerie, le match en direct, le résumé aux parents.', 'Touche un prénom pour le convoquer, puis « Envoyer la convocation » (WhatsApp ou la messagerie du club).', 'Pendant le match : « Suivre le match en direct ». Le chrono, les buts et le temps de jeu se notent tout seuls, même sans réseau.', 'À la fin : « Envoyer le résumé aux parents ». Le score et les buteurs sont déjà écrits, ajoute ton mot.']],
     match: ['Un match', ['En haut, le résumé du match : « Modifier » pour changer la date, l\'heure, le lieu ou l\'adversaire. Puis 4 onglets : Avant, Compo, Pendant, Après.', 'Avant : coche les convoqués et choisis les encadrants.', 'Envoie la convocation avec le lien des parents : ils répondent présent ou absent, les réponses s\'affichent sous les convoqués.', 'Match à l\'extérieur : le covoiturage range les enfants dans les voitures des parents, et s\'envoie sur WhatsApp.', 'Match joué : « Temps de jeu » note les minutes de chaque joueur (total sur sa fiche et dans Stats). ⏱️ signale ceux qui ont peu joué cette saison.', '« Relancer les sans réponse » prépare le message WhatsApp pour les parents qui n\'ont pas répondu.', '« Photos pour les parents » : choisis les photos du match à montrer sur leur page (droit à l\'image respecté).', '« Faire la composition » place les joueurs sur le terrain.', 'Coche « Le match est joué », règle le score, les buteurs et les passeurs, puis note les joueurs.', '« Feuille de match » fait le PDF à imprimer.']],
@@ -13786,6 +13786,104 @@ var Terrain = (() => {
 })();
 
 ;
+/* ===== seance-chrono.js ===== */
+/* SeanceChrono (3.39): the timer of a training session, on the pitch.
+   « Lancer la séance » runs the exercises one after the other, each with its own minutes: a big countdown, the name of the exercise
+   and the next one, a whistle (the sounds of « Chrono et score ») and a vibration at each change, 3-2-1 before, the screen kept on.
+   Pause, +1 min, skip, back; an exercise without minutes counts up until « Suivant ». The coach can start from any exercise (▶️ on its card).
+   Nothing is saved: the plan is the session as it is. The « back » gesture of the phone closes it (class .sc-view, see appcfg). */
+var SeanceChrono = (() => {
+  const { esc } = UI;
+  let st = null; // { tr, i, left, up, total, last, paused, timer, wake, ticked, pre }
+  const mmss = s => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  const play = k => { try { Terrain.play(k); } catch (e) {} };
+  const buzz = p => { if (navigator.vibrate) try { navigator.vibrate(p); } catch (e) {} };
+  let css = false;
+  function style() {
+    if (css) return; css = true;
+    const s = document.createElement('style'); s.id = 'scCss';
+    s.textContent = '.sc-view{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:#0e1d45;color:#fff;padding:calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 14px);overflow:hidden}'
+      + '.sc-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.sc-top b{font-size:15px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sc-x{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;min-height:40px;padding:0 14px;font:inherit;font-weight:700}'
+      + '.sc-mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;min-height:0}.sc-step{font-size:14px;opacity:.75}.sc-name{font:800 clamp(22px,6vw,34px)/1.15 var(--round,inherit);max-width:100%;overflow-wrap:anywhere}'
+      + '.sc-time{font:800 clamp(72px,24vw,150px)/1 ui-rounded,-apple-system,system-ui,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:6px 0}.sc-time.pre{color:#e2c27d}.sc-time.over{color:#fca5a5}'
+      + '.sc-bar{width:min(100%,520px);height:10px;border-radius:999px;background:rgba(255,255,255,.18);overflow:hidden}.sc-bar i{display:block;height:100%;background:#c9a45c;transition:width .25s linear}'
+      + '.sc-next{font-size:15px;opacity:.8;margin-top:8px}.sc-next b{opacity:1}.sc-cons{font-size:15px;line-height:1.35;opacity:.9;max-width:520px;margin-top:6px;max-height:4.2em;overflow:hidden}'
+      + '.sc-ctl{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(100%,520px);margin:12px auto 0}.sc-ctl button{border:0;border-radius:16px;min-height:60px;font:inherit;font-size:18px;font-weight:800;background:rgba(255,255,255,.14);color:#fff}.sc-ctl .main{grid-column:1/-1;background:#8c1024;min-height:72px;font-size:22px}'
+      + '.sc-tot{text-align:center;font-size:13px;opacity:.7;margin-top:8px}.sc-done .sc-name{color:#e2c27d}';
+    document.head.appendChild(s);
+  }
+  const exs = () => (st && st.tr.exercises) || [];
+  const cur = () => exs()[st.i];
+  function setStep(i, withPre) {
+    const e = exs()[i]; if (!e) return finish();
+    st.i = i; st.up = !(+e.duration > 0); st.left = st.up ? 0 : +e.duration * 60; st.pre = withPre ? 3 : 0; st.ticked = -1; st.last = performance.now();
+    if (!st.pre) { play('go'); buzz(300); }
+    draw();
+  }
+  function finish() {
+    if (!st) return; st.done = true; clearInterval(st.timer); play('end'); buzz([300, 120, 300, 120, 600]); wake(false); draw();
+  }
+  async function wake(on) {
+    try { if (on && 'wakeLock' in navigator && st && !st.wake) st.wake = await navigator.wakeLock.request('screen'); else if (!on && st && st.wake) { await st.wake.release(); st.wake = null; } } catch (e) {}
+  }
+  function tick() {
+    if (!st || st.paused || st.done) return;
+    const now = performance.now(), dt = (now - st.last) / 1000; st.last = now; st.total += dt;
+    if (st.pre > 0) { st.pre -= dt; const n = Math.ceil(st.pre); if (n !== st.ticked && n > 0) { st.ticked = n; play('tick'); buzz(80); } if (st.pre <= 0) { st.pre = 0; play('go'); buzz(300); } return draw(); }
+    if (st.up) { st.left += dt; return draw(); }
+    st.left -= dt;
+    const n = Math.ceil(st.left); if (n <= 3 && n > 0 && n !== st.ticked) { st.ticked = n; play('tick'); buzz(80); }
+    if (st.left <= 0) { const nx = st.i + 1; if (nx >= exs().length) return finish(); play('stop'); buzz([250, 100, 250]); return setStep(nx, true); }
+    draw();
+  }
+  function draw() {
+    const v = document.querySelector('.sc-view'); if (!v || !st) return;
+    const e = cur(), n = exs().length, next = exs()[st.i + 1], d = +e.duration * 60 || 0;
+    const cons = String(e.consignes || '').split('\n').map(x => x.trim()).filter(Boolean).slice(0, 3).join(' · ');
+    v.classList.toggle('sc-done', !!st.done);
+    v.innerHTML = `<div class="sc-top"><b>${esc(st.tr.title || 'Séance')}</b><button class="sc-x" data-sc="close">✕ Fermer</button></div>
+      <div class="sc-mid">
+        ${st.done ? `<div class="sc-step">Séance terminée</div><div class="sc-name">🏁 Bien joué !</div><div class="sc-time">${mmss(st.total)}</div><div class="sc-next">${n} exercice${n > 1 ? 's' : ''}, ${Math.round(st.total / 60)} min en tout</div>`
+        : `<div class="sc-step">Exercice ${st.i + 1} / ${n}${d ? ` · ${Math.round(d / 60)} min` : ' · sans durée'}</div><div class="sc-name">${esc(e.title || 'Exercice ' + (st.i + 1))}</div>
+          <div class="sc-time ${st.pre > 0 ? 'pre' : st.up ? 'over' : ''}">${st.pre > 0 ? Math.ceil(st.pre) : mmss(st.left)}</div>
+          ${d ? `<div class="sc-bar"><i style="width:${Math.max(0, Math.min(100, 100 - st.left / d * 100))}%"></i></div>` : '<div class="sc-step">Le temps monte : touche « Suivant » quand c\'est fini</div>'}
+          ${cons ? `<div class="sc-cons">${esc(cons)}</div>` : ''}
+          <div class="sc-next">${next ? `Ensuite : <b>${esc(next.title || 'Exercice ' + (st.i + 2))}</b>${+next.duration ? ` · ${next.duration} min` : ''}` : 'Dernier exercice'}</div>`}
+      </div>
+      <div class="sc-ctl">${st.done ? `<button class="main" data-sc="close">Fermer</button>` : `<button class="main" data-sc="pause">${st.paused ? '▶️ Reprendre' : '⏸️ Pause'}</button>
+        <button data-sc="prev" ${st.i ? '' : 'disabled'}>⏮️ Précédent</button><button data-sc="next">⏭️ Suivant</button>
+        <button data-sc="plus">＋ 1 min</button><button data-sc="restart">↩️ Recommencer</button>`}</div>
+      <div class="sc-tot">Temps total : ${mmss(st.total)}</div>`;
+  }
+  function close() {
+    if (!st) return; clearInterval(st.timer); wake(false); st = null;
+    const v = document.querySelector('.sc-view'); if (v) v.remove();
+    document.body.classList.remove('sc-on'); window.removeEventListener('hashchange', close);
+  }
+  function open(tr, from = 0) {
+    if (!tr || !(tr.exercises || []).length) return UI.toast('Ajoute d\'abord un exercice à la séance', 'err');
+    close(); style();
+    const v = document.createElement('div'); v.className = 'sc-view'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-label', 'Chrono de la séance');
+    document.body.appendChild(v); document.body.classList.add('sc-on');
+    st = { tr, i: 0, left: 0, up: false, total: 0, last: performance.now(), paused: false, timer: 0, wake: null, ticked: -1, pre: 0, done: false };
+    play('tick'); // the sound is allowed by this touch (iPhone)
+    v.onclick = e => {
+      const b = e.target.closest('[data-sc]'); if (!b || !st) return; const a = b.dataset.sc;
+      if (a === 'close') return close();
+      if (a === 'pause') { st.paused = !st.paused; st.last = performance.now(); return draw(); }
+      if (a === 'next') { const nx = st.i + 1; if (nx >= exs().length) return finish(); play('stop'); return setStep(nx, false); }
+      if (a === 'prev') { if (st.i) return setStep(st.i - 1, false); }
+      if (a === 'plus') { if (!st.up) st.left += 60; return draw(); }
+      if (a === 'restart') { st.done = false; st.paused = false; return setStep(st.i, false); }
+    };
+    window.addEventListener('hashchange', close);
+    setStep(Math.max(0, Math.min(from, tr.exercises.length - 1)), true);
+    st.timer = setInterval(tick, 200); wake(true);
+  }
+  return { open, close, running: () => !!st };
+})();
+
+;
 /* ===== balance.js ===== */
 /* (2.24) Former des équipes: balanced teams for a training game, in one touch. 2 to 5 teams, from the level of the players
    (global, technique, physique, speed from the sprint tests, or any criterion), the goalkeepers spread one per team, the positions
@@ -17787,6 +17885,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 197, date: '2026-10-14', title: 'Le sifflet dans la poche ⏱️', items: [
+      ['⏱️', "Séance d'entraînement → « Lancer la séance » : les exercices défilent avec leur chrono en grand, le nom de l'exercice, ses consignes et le suivant ; sifflet et vibration à chaque changement, 3-2-1 avant, écran allumé. Pause, +1 min, Suivant, Précédent ; ▶️ sur une carte démarre à cet exercice."],
+    ] },
     { n: 196, date: '2026-10-13', title: "Pas coach, juste dirigeant 🙂", items: [
       ['👤', "Fiche d'un dirigeant : « Pas de Coach devant son prénom » pour ceux qui n'entraînent pas (trésorière, secrétaire) : la messagerie écrit « Celia », pas « Coach Celia »."],
     ] },
@@ -21711,7 +21812,7 @@ var Views = (() => {
       const tm = teamOf(tr.teamId), total = tr.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
       if (tr.model) return renderModel(total);
       root.innerHTML = `${header(`<input class="h1-input" id="trTitle" value="${esc(tr.title)}" aria-label="Thème">`, `${total} min au total`,
-        `<button class="btn primary" data-act="pdf">${I.pdf}<span>PDF</span></button><button class="btn" data-act="share">${I.share}<span>Envoyer</span></button><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="img">🖼️<span>Image pour WhatsApp</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button>`)}
+        `${tr.exercises.length ? `<button class="btn primary" data-act="chrono">⏱️<span>Lancer la séance</span></button>` : ''}<button class="btn ${tr.exercises.length ? '' : 'primary'}" data-act="pdf">${I.pdf}<span>PDF</span></button><button class="btn" data-act="share">${I.share}<span>Envoyer</span></button><button class="btn" data-act="dup">${I.copy}<span>Dupliquer (autre date ou catégorie)</span></button><button class="btn" data-act="img">🖼️<span>Image pour WhatsApp</span></button><button class="btn" data-act="model">📚<span>Enregistrer comme séance type</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer</span></button>`)}
         <section class="card">
           <div class="row3">
             <label class="fld"><span>Date</span><input type="date" id="trDate" value="${esc(tr.date)}"></label>
@@ -21850,7 +21951,7 @@ var Views = (() => {
       return `<article class="card ex ${open ? 'open' : 'closed'}" data-ex="${e.id}">
         <div class="ex-head"><span class="ex-num">${i + 1}</span><input class="ex-title" data-f="title" value="${esc(e.title)}" placeholder="Nom de l'exercice">
           <label class="dur"><input type="number" min="0" max="180" data-f="duration" value="${esc(e.duration)}" aria-label="Durée en minutes"><span>min</span></label>
-          <span class="ex-tools"><button class="icon-btn" data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${I.up}</button><button class="icon-btn" data-mv="1" ${i === n - 1 ? 'disabled' : ''} aria-label="Descendre">${I.down}</button>
+          <span class="ex-tools"><button class="icon-btn" data-chex="${i}" aria-label="Lancer le chrono à partir de cet exercice" title="Chrono à partir d'ici">▶️</button><button class="icon-btn" data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Monter">${I.up}</button><button class="icon-btn" data-mv="1" ${i === n - 1 ? 'disabled' : ''} aria-label="Descendre">${I.down}</button>
           <button class="icon-btn danger" data-delex aria-label="Supprimer l'exercice">${I.trash}</button></span>
           <button class="btn soft ex-tog" data-togex aria-expanded="${open}">${open ? 'Fermer' : 'Ouvrir'}</button></div>
         ${effLine(e)}
@@ -21913,6 +22014,7 @@ var Views = (() => {
         tr.presents =b.dataset.allpres === '1' ? squad(tr.teamId).map(p => p.id) : []; delete tr.late; save(); return render(); }
       if (b.dataset.unstaff) { tr.staffIds = (tr.staffIds || []).filter(x => x !== b.dataset.unstaff); save(); return render(); }
       if (b.hasAttribute('data-togex')) { openEx.has(ex.id) ? openEx.delete(ex.id) : openEx.add(ex.id); return render(); }
+      if (b.dataset.chex) return SeanceChrono.open(tr, +b.dataset.chex); // (3.39) the timer from this exercise
       if (b.dataset.mv) { const i = tr.exercises.indexOf(ex), j = i + +b.dataset.mv; [tr.exercises[i], tr.exercises[j]] = [tr.exercises[j], tr.exercises[i]]; save(); return render(); }
       if (b.hasAttribute('data-delex')) { if (await confirmBox(`Retirer l'exercice « ${ex.title || 'sans nom'} » ?`, 'Retirer')) { tr.exercises = tr.exercises.filter(x => x !== ex); save(); render(); } return; }
       if (b.hasAttribute('data-big')) return AutoSchema.big(ex, ex.schemaId && Store.get('schemas', ex.schemaId));
@@ -21924,6 +22026,7 @@ var Views = (() => {
         case 'exClub': return Exos.pick(tr.teamId, ex => { tr.exercises.push(ex); save(); render(); toast('Exercice ajouté à la séance'); });
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
+        case 'chrono': return SeanceChrono.open(tr, 0); // (3.39) the session run on the pitch, exercise after exercise
         case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'share': return shareTraining(tr);
         case 'propose': return Exos.generator({ target: tr.id, teamId: tr.teamId, date: tr.date });
@@ -23266,7 +23369,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 239, UPD = AppCfg.key('update-tried');
+  const BUILD = 240, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
