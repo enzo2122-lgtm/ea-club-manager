@@ -41,10 +41,10 @@ const Library = (() => {
   }
 
   /* ---------- import ---------- */
-  async function importFiles(files, onStep = () => {}) {
+  async function importFiles(files, onStep = () => {}, ref = 'lib') { // (3.43) ref 'lic': a licence scan, kept out of the Bibliothèque
     const me = Auth.current(), ids = [];
     for (const f of files) {
-      const base = { id: Store.uid(), ref: 'lib', name: f.name || 'Sans nom', createdAt: Date.now(), by: me ? me.id : null };
+      const base = { id: Store.uid(), ref, name: f.name || 'Sans nom', createdAt: Date.now(), by: me ? me.id : null };
       const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
       if (isPdf) {
         onStep(`Lecture du PDF ${f.name}…`);

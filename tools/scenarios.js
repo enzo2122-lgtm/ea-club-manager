@@ -307,6 +307,17 @@ const SCENARIOS = [
     const r = await Sync.dropLocalDupStaff(); Cloud.accounts = was;
     must(r, 'rien retiré'); const left = S.staff.filter(s => s.lastName === 'SOARES').map(s => s.id);
     must(left.length === 1 && left[0] === 'dup-keep', 'mauvaise fiche gardée : ' + left.join(',')); return 'ok';`],
+  ['Licences en PDF : filtres combinés, groupe vide, statut expiré', `
+    const S = Store.state, main = S.teams.find(t => Store.isMain(t) && Store.playersOf(t.id).length >= 3); must(main, 'pas de catégorie');
+    const empty = { id: 'grpVide', name: main.name + ' Z', category: main.category || main.name }; Store.upsert('teams', empty);
+    const ps = Store.playersOf(main.id); ps.forEach((p, i) => { p.subcat = i ? 'SubB' : 'SubA'; p.adm = Object.assign({}, p.adm, { lic: 'ok', licTo: i === 1 ? '2000-06-30' : '2999-06-30' }); Store.upsert('players', p); });
+    await go('#/licences'); await click('[data-act="pdf"]', 300); must(/Toutes les licences/.test(modal().innerText), 'fenêtre absente');
+    await click('.chip[data-lp="groups"][data-v="grpVide"]', 200); must(/Aucune licence/.test($('#lpCount').innerText), 'groupe vide : ' + $('#lpCount').innerText);
+    await click('.sheet-foot [data-i="1"]', 300); must($('#lpCount'), 'la fenêtre se ferme sur un groupe vide'); await closeModal();
+    const sel = ClubAdmin.licSelect({ cats: [main.id], groups: [], subs: ['SubB'] });
+    must(sel.list.length === ps.length - 1 && sel.list.every(p => p.subcat === 'SubB'), 'catégorie + sous-catégorie : ' + sel.list.length);
+    must(ClubAdmin.licState(ps[1]) === 'expiree' && ClubAdmin.licState(ps[0]) === 'valide', 'statut : ' + ClubAdmin.licState(ps[1]));
+    Store.remove('teams', 'grpVide'); return sel.label;`],
 ];
 
 /* ---------- crawl: every page, every button (option --crawl) ---------- */

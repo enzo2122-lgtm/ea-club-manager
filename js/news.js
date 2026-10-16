@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 201, date: '2026-10-16', title: 'Les licences en PDF 🪪', items: [
+      ['📄', "Licences et cotisations → « Exporter en PDF » : toutes les licences, ou seulement certaines catégories, groupes (A, B…) et sous-catégories, à combiner. Une ligne par joueur (n° de licence, statut valide / expirée / en attente, date d'expiration), un total par section et à la fin, « page X / Y »."],
+      ['📎', "Le scan de la licence (photo ou PDF) s'ajoute sur la fiche du joueur, et peut suivre le tableau dans le PDF (case « Inclure les scans des licences »)."],
+    ] },
     { n: 200, date: '2026-10-16', title: 'Le schéma a la parole 🗣️', items: [
       ['👥', "Un exercice qui n'écrit pas combien de joueurs il faut (« Jeu à 4 portes ») s'adapte quand même à ton effectif : l'appli compte les joueurs de son schéma (3 rouges contre 3 blancs = 3 contre 3), à l'écran comme sur le PDF."],
     ] },

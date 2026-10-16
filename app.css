@@ -2546,3 +2546,13 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .vs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .vs-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-left: 4px solid var(--c); border-radius: 6px; background: color-mix(in srgb, var(--c) 7%, transparent); }
 .vs-t { flex: 1; min-width: 0; }
+
+/* (3.43) licences: end date in the table, export in PDF, the scan */
+.adm-to { min-height: 36px; border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; background: var(--surface); color: var(--ink); font: inherit; max-width: 150px; }
+.adm-to.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.chip[data-lp] .muted { font-weight: 600; }
+.chip.on[data-lp] .muted { color: inherit; opacity: .8; }
+.lp-scans { margin-top: 16px; }
+.lp-count { margin-bottom: 0; }
+.lp-count.warn { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, var(--surface)); }
+.lic-scan { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); margin-bottom: 10px; background: #fff; }

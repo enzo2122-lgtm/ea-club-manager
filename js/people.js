@@ -694,6 +694,7 @@ const People = (() => {
     PCard.bindPhoto(root, p, () => playerPage(root, id));
     root.onclick = e => {
       if (Health.click(e, p, () => playerPage(root, id))) return;
+      if (ClubAdmin.licClick(e, p, () => playerPage(root, id))) return;
       if (Level.click(e, p, () => playerPage(root, id))) return;
       if (Urgent.click(e, p, () => playerPage(root, id))) return;
       if (Consent.click(e, p, () => playerPage(root, id))) return;
