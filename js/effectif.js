@@ -8,7 +8,7 @@ const Effectif = (() => {
   const HALF = { '11': [68, 52], '8': [45, 32], '5': [20, 18] };
   function read(e) {
     const t = `${e.title || ''} ${e.org || ''}`.replace(/\s+/g, ' '), low = t.toLowerCase();
-    const vs = /(\d{1,2})\s*(?:contre|c|v|vs|x)\s*(\d{1,2})(?!\s*m)/i.exec(t);
+    const vs = /(?<!\d)(\d{1,2})\s*(?:contre|c|v|vs|x)\s*(\d{1,2})(?!\d)(?!\s*m\b)/i.exec(t);
     const jok = +((/\+\s*(\d{1,2})\s*(?:joker|appui|neutre)/i.exec(t) || [])[1] || 0) || (/\+\s*(?:un|1)\s*(?:joker|appui|neutre)/i.test(t) ? 1 : 0);
     const gk = /gardiens?/i.test(t) && vs ? (/\+\s*(?:2\s*)?gardiens/i.test(t) || /\+\s*gk/i.test(low) ? 2 : 0) : 0;
     const par = /par\s+(\d{1,2})\b/i.exec(t) || /groupes?\s+de\s+(\d{1,2})/i.exec(t) || /(\d)\s+joueurs\s+par\s+(?:carr|atelier|groupe)/i.exec(t);
@@ -45,6 +45,8 @@ const Effectif = (() => {
       if (!groups) return `${n} joueur${n > 1 ? 's' : ''} : un seul groupe`;
       line = `${groups} groupe${groups > 1 ? 's' : ''} de ${per}${rest ? ` · ${rest} en plus : ${rest === 1 ? 'il rejoint un groupe' : `un groupe de ${rest}` }` : ''}`;
       if (rest > 1) groups++;
+    } else if (/\bmatch\b|opposition|jeu libre/i.test(`${e.title || ''} ${e.org || ''}`)) { // (3.41) a game without « 6 contre 6 » written: two teams, the odd one is a joker
+      line = `2 équipes de ${Math.floor(n / 2)}${n % 2 ? ' + 1 joker (il joue avec l’équipe qui a le ballon)' : ''}`;
     } else return '';
     if (w && h) {
       const need = groups * w * h, fits = need <= halfArea * 1.05;

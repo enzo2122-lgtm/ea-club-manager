@@ -2124,7 +2124,11 @@ var Exporter = (() => {
     await Board.preloadBackgrounds(tr.exercises.map(e => Store.get('schemas', e.schemaId)).filter(Boolean));
     const total = tr.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
     P.header(tr.title || 'Entraînement', team ? team.name : '');
-    P.facts([['Date', fmtDate(tr.date)], ['Heure', tr.time || '-'], ['Durée', total + ' min'], ['Présents', tr.presents && tr.presents.length ? String(tr.presents.length) : '-']]);
+    // (3.41) each exercise adapted to the players of the day, and to 2 fewer or 2 more (on paper there is no − / +)
+    const nP = Math.round(+(o || {}).players || 0), fmt = (team || {}).format || '11';
+    const effOf = e => typeof Effectif === 'undefined' || nP < 2 ? [] : [...new Set([nP, nP - 2, nP + 2].filter(n => n >= 2))].map(n => [n, Effectif.adapt(e, n, fmt)]).filter(x => x[1])
+      .map(([n, l]) => `${n === nP ? 'Pour ' + n + ' joueurs' : 'Si ' + n} : ${String(l).replace(/ ✓/g, ' (OK)').replace(/⚠️\s*/g, 'attention, ')}`);
+    P.facts([['Date', fmtDate(tr.date)], ['Heure', tr.time || '-'], ['Durée', total + ' min'], ['Joueurs', nP ? String(nP) : tr.presents && tr.presents.length ? String(tr.presents.length) : '-']]);
     const staff = (tr.staffIds || []).map(id => Store.get('staff', id)).filter(Boolean);
     if (staff.length) { P.label('Encadrants'); P.para(staff.map(s => `${Store.fullName(s)}${s.role ? ' (' + s.role + ')' : ''}${People.staffPhone(s) ? ' - ' + s.phone : ''}`).join('\n')); }
     { const sp = tr.split || {}, names = g => Object.keys(sp).filter(id => sp[id] === g).map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName).map(p => Store.shortName(p)); // (3.31) groups A / B
@@ -2139,6 +2143,7 @@ var Exporter = (() => {
       if (e.org) { P.label('Organisation'); P.para(e.org); }
       if (e.consignes) { P.label('Consignes'); P.bullets(e.consignes.split('\n')); }
       if (e.materiel) { P.label('Matériel'); P.para(e.materiel); }
+      { const eff = effOf(e); if (eff.length) { P.label('Avec ton effectif'); P.bullets(eff); } }
       const own = e.schemaId && S.schemas.find(s => s.id === e.schemaId);
       let sc = own; if (!sc && typeof AutoSchema !== 'undefined' && (e.title || e.org || e.consignes)) try { sc = AutoSchema.preview(e); } catch (err) { sc = null; }
       if (sc) { P.label(own ? 'Schéma' : 'Schéma (dessiné par l\'appli)'); schemaGrid(P, sc, o); }
@@ -4069,7 +4074,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.40';
+  const VERSION = '3.41';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17885,6 +17890,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 199, date: '2026-10-16', title: 'Le PDF sait compter 🧮', items: [
+      ['🧮', "PDF de la séance : sous chaque exercice, « Avec ton effectif » dit comment l'organiser pour tes joueurs du jour, et aussi avec 2 de moins ou 2 de plus (ateliers, jokers, taille de la zone, demi-terrain)."],
+      ['📏', "« 15 x 10 m » n'est plus lu comme « 15 contre 1 » 😅 : les exercices avec leurs dimensions s'adaptent juste. Un match sans « 6 contre 6 » écrit donne 2 équipes et un joker si vous êtes impairs."],
+    ] },
     { n: 198, date: "2026-10-16", title: "Le menu ⋯ sort de l’ombre 🕶️", items: [
       ["⋯", "Le menu « ⋯ » des en-têtes foncés (séance, match…) n’écrivait plus qu’en blanc sur blanc : seuls les émojis résistaient. Le texte est de retour."],
     ] },
@@ -21109,7 +21118,7 @@ var Effectif = (() => {
   const HALF = { '11': [68, 52], '8': [45, 32], '5': [20, 18] };
   function read(e) {
     const t = `${e.title || ''} ${e.org || ''}`.replace(/\s+/g, ' '), low = t.toLowerCase();
-    const vs = /(\d{1,2})\s*(?:contre|c|v|vs|x)\s*(\d{1,2})(?!\s*m)/i.exec(t);
+    const vs = /(?<!\d)(\d{1,2})\s*(?:contre|c|v|vs|x)\s*(\d{1,2})(?!\d)(?!\s*m\b)/i.exec(t);
     const jok = +((/\+\s*(\d{1,2})\s*(?:joker|appui|neutre)/i.exec(t) || [])[1] || 0) || (/\+\s*(?:un|1)\s*(?:joker|appui|neutre)/i.test(t) ? 1 : 0);
     const gk = /gardiens?/i.test(t) && vs ? (/\+\s*(?:2\s*)?gardiens/i.test(t) || /\+\s*gk/i.test(low) ? 2 : 0) : 0;
     const par = /par\s+(\d{1,2})\b/i.exec(t) || /groupes?\s+de\s+(\d{1,2})/i.exec(t) || /(\d)\s+joueurs\s+par\s+(?:carr|atelier|groupe)/i.exec(t);
@@ -21146,6 +21155,8 @@ var Effectif = (() => {
       if (!groups) return `${n} joueur${n > 1 ? 's' : ''} : un seul groupe`;
       line = `${groups} groupe${groups > 1 ? 's' : ''} de ${per}${rest ? ` · ${rest} en plus : ${rest === 1 ? 'il rejoint un groupe' : `un groupe de ${rest}` }` : ''}`;
       if (rest > 1) groups++;
+    } else if (/\bmatch\b|opposition|jeu libre/i.test(`${e.title || ''} ${e.org || ''}`)) { // (3.41) a game without « 6 contre 6 » written: two teams, the odd one is a joker
+      line = `2 équipes de ${Math.floor(n / 2)}${n % 2 ? ' + 1 joker (il joue avec l’équipe qui a le ballon)' : ''}`;
     } else return '';
     if (w && h) {
       const need = groups * w * h, fits = need <= halfArea * 1.05;
@@ -22030,7 +22041,7 @@ var Views = (() => {
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'chrono': return SeanceChrono.open(tr, 0); // (3.39) the session run on the pitch, exercise after exercise
-        case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib }));
+        case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib, players: effN() }));
         case 'share': return shareTraining(tr);
         case 'propose': return Exos.generator({ target: tr.id, teamId: tr.teamId, date: tr.date });
         case 'img': return trainingImage(tr);
@@ -23372,7 +23383,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 241, UPD = AppCfg.key('update-tried');
+  const BUILD = 242, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

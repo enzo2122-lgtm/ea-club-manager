@@ -225,6 +225,8 @@ const SCENARIOS = [
     const n0 = +text('.eff-step b'); await click('[data-effn="1"]', 300); must(+text('.eff-step b') === n0 + 1, 'le + ne marche pas');
     tr.nPlayers = 14; Store.upsert('trainings', tr); await go('#/entrainements'); await go('#/entrainement/trEff');
     must(/2 ateliers de 5 contre 2/.test(text('[data-effof="xe1"]')), 'exercice non adapté : ' + text('[data-effof="xe1"]'));
+    const a1 = Effectif.adapt({ title: 'Passes', org: 'Par 3, 15 x 10 m' }, 14, '11'), a2 = Effectif.adapt({ title: 'Pressing', org: 'Zone de 40 x 30 m, 6 contre 6 + 2 jokers' }, 14, '11'), a3 = Effectif.adapt({ title: 'Match à thème', org: 'Grand terrain' }, 13, '11');
+    must(/groupes de 3/.test(a1) && !/contre 1\\b/.test(a1), 'les dimensions lues comme un « contre » : ' + a1); must(/6 contre 6/.test(a2), 'zone 40 x 30 mal lue : ' + a2); must(/2 équipes de 6 \\+ 1 joker/.test(a3), 'match non adapté : ' + a3);
     Store.remove('trainings', 'trEff'); return text('[data-effof="xe1"]') || 'ok';`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];

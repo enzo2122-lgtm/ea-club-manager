@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 199, date: '2026-10-16', title: 'Le PDF sait compter 🧮', items: [
+      ['🧮', "PDF de la séance : sous chaque exercice, « Avec ton effectif » dit comment l'organiser pour tes joueurs du jour, et aussi avec 2 de moins ou 2 de plus (ateliers, jokers, taille de la zone, demi-terrain)."],
+      ['📏', "« 15 x 10 m » n'est plus lu comme « 15 contre 1 » 😅 : les exercices avec leurs dimensions s'adaptent juste. Un match sans « 6 contre 6 » écrit donne 2 équipes et un joker si vous êtes impairs."],
+    ] },
     { n: 198, date: "2026-10-16", title: "Le menu ⋯ sort de l’ombre 🕶️", items: [
       ["⋯", "Le menu « ⋯ » des en-têtes foncés (séance, match…) n’écrivait plus qu’en blanc sur blanc : seuls les émojis résistaient. Le texte est de retour."],
     ] },

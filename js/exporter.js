@@ -321,7 +321,11 @@ const Exporter = (() => {
     await Board.preloadBackgrounds(tr.exercises.map(e => Store.get('schemas', e.schemaId)).filter(Boolean));
     const total = tr.exercises.reduce((a, e) => a + (+e.duration || 0), 0);
     P.header(tr.title || 'Entraînement', team ? team.name : '');
-    P.facts([['Date', fmtDate(tr.date)], ['Heure', tr.time || '-'], ['Durée', total + ' min'], ['Présents', tr.presents && tr.presents.length ? String(tr.presents.length) : '-']]);
+    // (3.41) each exercise adapted to the players of the day, and to 2 fewer or 2 more (on paper there is no − / +)
+    const nP = Math.round(+(o || {}).players || 0), fmt = (team || {}).format || '11';
+    const effOf = e => typeof Effectif === 'undefined' || nP < 2 ? [] : [...new Set([nP, nP - 2, nP + 2].filter(n => n >= 2))].map(n => [n, Effectif.adapt(e, n, fmt)]).filter(x => x[1])
+      .map(([n, l]) => `${n === nP ? 'Pour ' + n + ' joueurs' : 'Si ' + n} : ${String(l).replace(/ ✓/g, ' (OK)').replace(/⚠️\s*/g, 'attention, ')}`);
+    P.facts([['Date', fmtDate(tr.date)], ['Heure', tr.time || '-'], ['Durée', total + ' min'], ['Joueurs', nP ? String(nP) : tr.presents && tr.presents.length ? String(tr.presents.length) : '-']]);
     const staff = (tr.staffIds || []).map(id => Store.get('staff', id)).filter(Boolean);
     if (staff.length) { P.label('Encadrants'); P.para(staff.map(s => `${Store.fullName(s)}${s.role ? ' (' + s.role + ')' : ''}${People.staffPhone(s) ? ' - ' + s.phone : ''}`).join('\n')); }
     { const sp = tr.split || {}, names = g => Object.keys(sp).filter(id => sp[id] === g).map(id => Store.get('players', id)).filter(Boolean).sort(Store.byName).map(p => Store.shortName(p)); // (3.31) groups A / B
@@ -336,6 +340,7 @@ const Exporter = (() => {
       if (e.org) { P.label('Organisation'); P.para(e.org); }
       if (e.consignes) { P.label('Consignes'); P.bullets(e.consignes.split('\n')); }
       if (e.materiel) { P.label('Matériel'); P.para(e.materiel); }
+      { const eff = effOf(e); if (eff.length) { P.label('Avec ton effectif'); P.bullets(eff); } }
       const own = e.schemaId && S.schemas.find(s => s.id === e.schemaId);
       let sc = own; if (!sc && typeof AutoSchema !== 'undefined' && (e.title || e.org || e.consignes)) try { sc = AutoSchema.preview(e); } catch (err) { sc = null; }
       if (sc) { P.label(own ? 'Schéma' : 'Schéma (dessiné par l\'appli)'); schemaGrid(P, sc, o); }
