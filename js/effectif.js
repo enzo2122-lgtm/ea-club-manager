@@ -16,10 +16,21 @@ const Effectif = (() => {
     return { a: vs ? +vs[1] : 0, b: vs ? +vs[2] : 0, jok, gk, par: par ? +par[1] : 0, w: sz ? +sz[1] : 0, h: sz ? +sz[2] : 0 };
   }
   const round5 = x => Math.max(5, Math.round(x / 5) * 5);
+  // (3.42) the text says nothing about the players: its schema (the coach's, or the one the app draws) shows them, two colours = two teams
+  function fromSchema(e) {
+    let sc = null;
+    try { sc = (e.schemaId && typeof Store !== 'undefined' && Store.get('schemas', e.schemaId)) || (typeof AutoSchema !== 'undefined' && (e.org || e.consignes) ? AutoSchema.preview(e) : null); } catch (x) { sc = null; }
+    const pl = ((sc && sc.objects) || []).filter(o => o.type === 'player'), by = {};
+    pl.filter(o => !o.gk && o.label !== 'J').forEach(o => { by[o.color] = (by[o.color] || 0) + 1; });
+    const cols = Object.values(by).sort((x, y) => y - x);
+    if (cols.length !== 2 || cols[1] < 2) return {};
+    return { a: cols[0], b: cols[1], jok: pl.filter(o => o.label === 'J').length, gk: pl.filter(o => o.gk).length };
+  }
   // the advice for n players, or '' when the text says nothing about the players
   function adapt(e, n, format) {
     n = Math.max(0, Math.round(+n || 0)); if (!n) return '';
-    const r = read(e), half = HALF[format] || HALF['11'], halfArea = half[0] * half[1];
+    const r = Object.assign(read(e), {}), half = HALF[format] || HALF['11'], halfArea = half[0] * half[1];
+    if (!(r.a && r.b) && !r.par && !/\bmatch\b|opposition|jeu libre/i.test(`${e.title || ''} ${e.org || ''}`)) Object.assign(r, fromSchema(e)); // (3.42) nothing written (« Jeu à 4 portes ») : the players of its schema
     let line = '', groups = 1, per = 0, w = r.w, h = r.h;
     if (r.a && r.b) {
       per = r.a + r.b + r.jok + r.gk;

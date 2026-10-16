@@ -227,7 +227,9 @@ const SCENARIOS = [
     must(/2 ateliers de 5 contre 2/.test(text('[data-effof="xe1"]')), 'exercice non adapté : ' + text('[data-effof="xe1"]'));
     const a1 = Effectif.adapt({ title: 'Passes', org: 'Par 3, 15 x 10 m' }, 14, '11'), a2 = Effectif.adapt({ title: 'Pressing', org: 'Zone de 40 x 30 m, 6 contre 6 + 2 jokers' }, 14, '11'), a3 = Effectif.adapt({ title: 'Match à thème', org: 'Grand terrain' }, 13, '11');
     must(/groupes de 3/.test(a1) && !/contre 1\\b/.test(a1), 'les dimensions lues comme un « contre » : ' + a1); must(/6 contre 6/.test(a2), 'zone 40 x 30 mal lue : ' + a2); must(/2 équipes de 6 \\+ 1 joker/.test(a3), 'match non adapté : ' + a3);
-    Store.remove('trainings', 'trEff'); return text('[data-effof="xe1"]') || 'ok';`],
+    const x4 = Exos.all().find(x => x.title === 'Jeu à 4 portes' && x.script), a4 = x4 ? Effectif.adapt(x4, 23, '11') : '(pas dans la base)';
+    must(/contre/.test(a4), 'jeu sans nombre écrit non adapté (schéma) : ' + a4);
+    Store.remove('trainings', 'trEff'); return a4;`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];
     m.date = UI.today(); m.absents = []; Store.upsert('matches', m); await go('#/matchs'); await go('#/jourj/' + m.id);

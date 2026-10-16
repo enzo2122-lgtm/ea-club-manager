@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 200, date: '2026-10-16', title: 'Le schéma a la parole 🗣️', items: [
+      ['👥', "Un exercice qui n'écrit pas combien de joueurs il faut (« Jeu à 4 portes ») s'adapte quand même à ton effectif : l'appli compte les joueurs de son schéma (3 rouges contre 3 blancs = 3 contre 3), à l'écran comme sur le PDF."],
+    ] },
     { n: 199, date: '2026-10-16', title: 'Le PDF sait compter 🧮', items: [
       ['🧮', "PDF de la séance : sous chaque exercice, « Avec ton effectif » dit comment l'organiser pour tes joueurs du jour, et aussi avec 2 de moins ou 2 de plus (ateliers, jokers, taille de la zone, demi-terrain)."],
       ['📏', "« 15 x 10 m » n'est plus lu comme « 15 contre 1 » 😅 : les exercices avec leurs dimensions s'adaptent juste. Un match sans « 6 contre 6 » écrit donne 2 équipes et un joker si vous êtes impairs."],

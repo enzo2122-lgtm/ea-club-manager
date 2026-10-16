@@ -4074,7 +4074,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.41';
+  const VERSION = '3.42';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17890,6 +17890,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 200, date: '2026-10-16', title: 'Le schéma a la parole 🗣️', items: [
+      ['👥', "Un exercice qui n'écrit pas combien de joueurs il faut (« Jeu à 4 portes ») s'adapte quand même à ton effectif : l'appli compte les joueurs de son schéma (3 rouges contre 3 blancs = 3 contre 3), à l'écran comme sur le PDF."],
+    ] },
     { n: 199, date: '2026-10-16', title: 'Le PDF sait compter 🧮', items: [
       ['🧮', "PDF de la séance : sous chaque exercice, « Avec ton effectif » dit comment l'organiser pour tes joueurs du jour, et aussi avec 2 de moins ou 2 de plus (ateliers, jokers, taille de la zone, demi-terrain)."],
       ['📏', "« 15 x 10 m » n'est plus lu comme « 15 contre 1 » 😅 : les exercices avec leurs dimensions s'adaptent juste. Un match sans « 6 contre 6 » écrit donne 2 équipes et un joker si vous êtes impairs."],
@@ -21126,10 +21129,21 @@ var Effectif = (() => {
     return { a: vs ? +vs[1] : 0, b: vs ? +vs[2] : 0, jok, gk, par: par ? +par[1] : 0, w: sz ? +sz[1] : 0, h: sz ? +sz[2] : 0 };
   }
   const round5 = x => Math.max(5, Math.round(x / 5) * 5);
+  // (3.42) the text says nothing about the players: its schema (the coach's, or the one the app draws) shows them, two colours = two teams
+  function fromSchema(e) {
+    let sc = null;
+    try { sc = (e.schemaId && typeof Store !== 'undefined' && Store.get('schemas', e.schemaId)) || (typeof AutoSchema !== 'undefined' && (e.org || e.consignes) ? AutoSchema.preview(e) : null); } catch (x) { sc = null; }
+    const pl = ((sc && sc.objects) || []).filter(o => o.type === 'player'), by = {};
+    pl.filter(o => !o.gk && o.label !== 'J').forEach(o => { by[o.color] = (by[o.color] || 0) + 1; });
+    const cols = Object.values(by).sort((x, y) => y - x);
+    if (cols.length !== 2 || cols[1] < 2) return {};
+    return { a: cols[0], b: cols[1], jok: pl.filter(o => o.label === 'J').length, gk: pl.filter(o => o.gk).length };
+  }
   // the advice for n players, or '' when the text says nothing about the players
   function adapt(e, n, format) {
     n = Math.max(0, Math.round(+n || 0)); if (!n) return '';
-    const r = read(e), half = HALF[format] || HALF['11'], halfArea = half[0] * half[1];
+    const r = Object.assign(read(e), {}), half = HALF[format] || HALF['11'], halfArea = half[0] * half[1];
+    if (!(r.a && r.b) && !r.par && !/\bmatch\b|opposition|jeu libre/i.test(`${e.title || ''} ${e.org || ''}`)) Object.assign(r, fromSchema(e)); // (3.42) nothing written (« Jeu à 4 portes ») : the players of its schema
     let line = '', groups = 1, per = 0, w = r.w, h = r.h;
     if (r.a && r.b) {
       per = r.a + r.b + r.jok + r.gk;
@@ -23383,7 +23397,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 242, UPD = AppCfg.key('update-tried');
+  const BUILD = 243, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
