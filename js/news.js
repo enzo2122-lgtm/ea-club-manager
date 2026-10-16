@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 202, date: '2026-10-16', title: 'La cotisation en plusieurs chèques 🏦', items: [
+      ['💶', "Licences et cotisations → 💶 à côté d'un joueur : jusqu'à 5 chèques (numéro, banque, nom sur le chèque, date de dépôt prévue), ou espèces, virement, carte, Pass'Sport. « Préparer les chèques » partage la cotisation en un chèque par mois."],
+      ['🏦', "« Chèques à déposer » : ceux du mois, en rouge quand leur date est passée, « ✓ Déposé » d'une touche, et le bordereau pour Excel. Gestion → À faire rappelle les chèques à déposer."],
+    ] },
     { n: 201, date: '2026-10-16', title: 'Les licences en PDF 🪪', items: [
       ['📄', "Licences et cotisations → « Exporter en PDF » : toutes les licences, ou seulement certaines catégories, groupes (A, B…) et sous-catégories, à combiner. Une ligne par joueur (n° de licence, statut valide / expirée / en attente, date d'expiration), un total par section et à la fin, « page X / Y »."],
       ['📎', "Le scan de la licence (photo ou PDF) s'ajoute sur la fiche du joueur, et peut suivre le tableau dans le PDF (case « Inclure les scans des licences »)."],

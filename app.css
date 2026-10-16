@@ -2556,3 +2556,23 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .lp-count { margin-bottom: 0; }
 .lp-count.warn { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, var(--surface)); }
 .lic-scan { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); margin-bottom: 10px; background: #fff; }
+
+/* (3.44) payments of a licence: up to 5 cheques, the ones to deposit */
+.pay-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; background: var(--surface); }
+.pay-row.dep { background: color-mix(in srgb, var(--good) 7%, var(--surface)); }
+.pay-top { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.pay-top select { flex: 1; min-width: 0; min-height: 40px; }
+.pay-amt { display: flex; align-items: center; gap: 4px; font-weight: 700; }
+.pay-amt input { width: 92px; min-height: 40px; border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; background: var(--surface); color: var(--ink); font: inherit; }
+.pay-plan { margin: 10px 0; }
+.pay-cell { white-space: nowrap; }
+.pay-cell .muted { display: block; white-space: normal; max-width: 190px; margin-top: 3px; }
+.pay-cell .icon-btn { vertical-align: middle; margin-left: 4px; }
+.good-t { color: var(--good); } .bad-t { color: var(--bad); }
+.dep-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.dep-list li { display: grid; grid-template-columns: 86px 1fr auto auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--surface2); }
+.dep-list li.late { background: color-mix(in srgb, var(--bad) 10%, var(--surface)); }
+.dep-list li.late .d { color: var(--bad); font-weight: 800; }
+.dep-list .o { display: flex; flex-direction: column; min-width: 0; }
+.dep-list .o .muted { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 560px) { .dep-list li { grid-template-columns: 1fr auto; } .dep-list .d { grid-column: 1 / -1; font-size: 13px; } .dep-list li .btn { grid-column: 1 / -1; } }

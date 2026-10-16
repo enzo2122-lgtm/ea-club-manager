@@ -4074,7 +4074,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.43';
+  const VERSION = '3.44';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -4151,7 +4151,7 @@ var Help = (() => {
     tableau: ['Tableau blanc', ['Un terrain vierge pour expliquer une idée tout de suite : mêmes outils que les schémas (joueurs, flèches, zones, étapes, « Jouer »).', 'Rien n\'est enregistré : en quittant, le dessin disparaît. « Garder » le transforme en schéma normal.', 'La gomme en haut efface tout le tableau. Le bouton aux quatre coins met en plein écran (ordinateur, tablette, Android).', 'Les options (bouton en forme de pile) changent le terrain : foot à 11, à 8, à 5 ou zone libre.']],
     joueur: ['Fiche joueur', ['Présence à l\'entraînement sur la saison (séances où l\'appel a été fait), matchs, minutes, buts, passes et notes.', '« Modifier » ouvre ses informations : numéro, poste, téléphones des parents, infos santé.', 'Les minutes se saisissent dans chaque match joué, rubrique « Temps de jeu ».']],
     president: ['Tableau de bord', ['Les chiffres de la saison pour tout le club, et le détail par catégorie (licenciés, encadrants, présence, résultats).', '« À surveiller » liste ce qui demande une action : catégorie sans éducateur, match sans score, joueurs sans téléphone.', 'Sauvegardes : le serveur copie les données chaque lundi (8 semaines gardées). Tu peux aussi télécharger une copie à garder en lieu sûr, jamais sur GitHub.']],
-    licences: ['Licences et cotisations', ['Touche une case pour changer son état : licence, certificat ou questionnaire santé, cotisation, droit à l\'image. Le montant payé s\'écrit à droite.', '« Seulement ceux qui ne sont pas en règle » : la liste de ceux à relancer.', 'Les coachs voient ⚠️ dans les convocations pour un joueur dont la licence est en attente ou le certificat à fournir. Les cotisations restent entre responsables.', '« Excel » télécharge le tableau.', '« Exporter en PDF » : choisis les catégories, groupes et sous-catégories (ils se combinent), et coche « Inclure les scans » pour ajouter l\'image ou le PDF de chaque licence. La colonne « Expire le » se remplit au 30 juin quand la licence est validée.', 'Le scan d\'une licence s\'ajoute sur la fiche du joueur (carte « Licence » → « Ajouter le scan ») : il reste sur cet appareil.']],
+    licences: ['Licences et cotisations', ['Touche une case pour changer son état : licence, certificat ou questionnaire santé, cotisation, droit à l\'image. Le montant payé s\'écrit à droite.', '« Seulement ceux qui ne sont pas en règle » : la liste de ceux à relancer.', 'Les coachs voient ⚠️ dans les convocations pour un joueur dont la licence est en attente ou le certificat à fournir. Les cotisations restent entre responsables.', '« Excel » télécharge le tableau.', '« Exporter en PDF » : choisis les catégories, groupes et sous-catégories (ils se combinent), et coche « Inclure les scans » pour ajouter l\'image ou le PDF de chaque licence. La colonne « Expire le » se remplit au 30 juin quand la licence est validée.', '💶 à côté du montant payé : jusqu\'à 5 chèques (n°, banque, nom sur le chèque, date de dépôt), ou espèces, virement, carte, Pass\'Sport. « Préparer les chèques » partage la cotisation en 1 à 5 chèques, un par mois. L\'encadré « Chèques à déposer » liste ceux du mois : « ✓ Déposé » une fois à la banque. « Bordereau des chèques » les télécharge pour Excel.', 'Le scan d\'une licence s\'ajoute sur la fiche du joueur (carte « Licence » → « Ajouter le scan ») : il reste sur cet appareil.']],
     import: ['Import AssistCoachAI', ['Réglages ou Entraînements → « Recevoir un fichier » : choisis le fichier exporté d\'AssistCoachAI. Joueurs, matchs, entraînements, présences, compos, stats, blessures, bien-être et championnats arrivent dans l\'appli.', 'Rien n\'est ajouté deux fois : les joueurs et les matchs déjà là (import FFF) sont complétés. Un fichier plus récent peut être réimporté.']],
     tests: ['Tests physiques', ['Choisis l\'équipe et le test (VMA, VIFT 30-15, Yo-Yo, sprints, détente, agilité, jongles…) : classement, progrès depuis le test d\'avant.', '« Nouvelle séance de tests » : toute l\'équipe dans un seul tableau.', '« Importer » : un fichier Excel ou CSV d\'une autre plateforme (GPS, appli de tests, tablette). L\'appli reconnaît les joueurs et les colonnes ; tu vérifies avant d\'importer.', 'Avec la VMA ou la VIFT : les allures de course de chaque joueur (15-15, 30-30…).']],
     bilan: ['Bilan de saison', ['Pour une équipe : résultats, buteurs, passeurs, et pour chaque joueur les matchs, minutes, buts, présence, évaluation et jours de blessure.', '« Le mot du coach » s\'ajoute au bilan PDF, à remettre au club ou aux parents.', '« Sauvegarder la saison » enregistre toutes les données du club dans un fichier, à garder avant de repartir sur la saison suivante.']],
@@ -12994,12 +12994,13 @@ var Gestion = (() => {
     const noScore = S().matches.filter(m => !m.played && !m.exempt && m.date < now && m.date >= People.seasonFrom());
     const noConv = next.filter(m => m.date <= addDays(4) && !(m.convoked || []).length);
     const noSent = next.filter(m => m.date <= addDays(4) && (m.convoked || []).length && !m.convSent); // (2.79)
-    const lic = S().players.filter(p => !p.archived && ClubAdmin.problem(p));
+    const lic = S().players.filter(p => !p.archived && ClubAdmin.problem(p)), chq = ClubAdmin.late(); // (3.44) cheques whose day has come
     return [
       noRef.length && ['🟨', `${pl(noRef.length, 'match officiel', 'matchs officiels')} à domicile sans arbitre du club`, '#/arbitres'],
       volFree && ['🙋', `${pl(volFree, 'place')} de bénévole à prendre (2 semaines)`, '#/benevoles'],
       noConv.length && ['📋', `${pl(noConv.length, 'match', 'matchs')} dans 4 jours sans convocation`, '#/matchs'],
       noSent.length && ['📣', `${pl(noSent.length, 'convocation')} dans 4 jours pas encore envoyée${noSent.length > 1 ? 's' : ''}`, '#/matchs'],
+      chq.length && ['🏦', `${pl(chq.length, 'chèque')} de cotisation à déposer (${chq.reduce((s, x) => s + +x.c.amount, 0).toLocaleString('fr-FR')} €)`, '#/licences'],
       lic.length && ['⏳', `${pl(lic.length, 'joueur')} sans licence validée (ou certificat manquant)`, '#/licences'],
       noCoach.length && ['🧢', `${pl(noCoach.length, 'catégorie')} sans éducateur : ${noCoach.slice(0, 5).map(t => t.name).join(', ')}`, '#/encadrement'],
       noScore.length && ['⚽', `${pl(noScore.length, 'match', 'matchs')} passé${noScore.length > 1 ? 's' : ''} sans score`, '#/resultats'],
@@ -15979,6 +15980,7 @@ var ClubAdmin = (() => {
         ${licTo(p) ? `<div><dt>Expire le</dt><dd>${esc(fmtDay(licTo(p)))}${licState(p) === 'expiree' ? ' <span class="adm-b bad">Expirée</span>' : ''}</dd></div>` : ''}
         ${Auth.isAdmin() ? `<div><dt>Scan</dt><dd>${a.scan ? `<button class="btn small soft" data-licscan="view">📎<span>Voir le scan</span></button> <button class="linkish" data-licscan="del">retirer</button>` : `<button class="btn small soft" data-licscan="add">${I.upload}<span>Ajouter le scan</span></button><span class="muted small"> image ou PDF, gardé sur cet appareil</span>`}</dd></div>` : ''}
         <div><dt>Cotisation</dt><dd>${paid ? '<span class="adm-b good">✓ Payée</span>' : part ? '<span class="adm-b mid">½ En partie</span>' : '<span class="adm-b bad">✗ Non payée</span>'}${a.paid != null && a.paid !== '' ? ` · ${esc(a.paid)} €` : ''}${fc && paid && a.paidBy === 'footclubs' ? '<span class="muted small"> (licence présente sur Footclubs)</span>' : ''}</dd></div>
+        ${Auth.isAdmin() ? `<div><dt>Paiements</dt><dd>${paySummary(p) ? `${esc(paySummary(p))} ` : ''}<button class="btn small soft" data-licpay="1">💶<span>${pays(p).length ? 'Voir / modifier' : 'Noter un paiement'}</span></button></dd></div>` : ''}
         <div><dt>Tarif</dt><dd>${fe ? `<b>${fe[0]} €</b> <span class="muted small">(${esc(fe[1])})</span>` : `<span class="muted">${fees().local || fees().ext ? 'commune inconnue : « Modifier » → Commune' : 'tarifs non réglés (Licences et cotisations)'}</span>`}</dd></div>
         ${p.town ? `<div><dt>Commune</dt><dd>${esc(p.town)}</dd></div>` : ''}
       </dl>${Auth.isAdmin() ? '<p><a class="btn soft" href="#/licences">🧾<span>Licences et cotisations du club</span></a></p>' : ''}</section>`;
@@ -15988,7 +15990,7 @@ var ClubAdmin = (() => {
     p.fc = { etat: String(etat || '').slice(0, 60), at: today() };
     const a = Object.assign({}, p.adm);
     if (a.lic === 'ok' && (!a.licTo || a.licTo < seasonEndOf())) a.licTo = seasonEndOf(); // validated this season: until 30 June
-    if (a.cotis !== 'ok') { a.cotis = 'ok'; a.paidBy = 'footclubs'; const fe = fee(p); if ((a.paid == null || a.paid === '') && fe) a.paid = fe[0]; }
+    if (a.cotis !== 'ok' && !(a.pays || []).length) { a.cotis = 'ok'; a.paidBy = 'footclubs'; const fe = fee(p); if ((a.paid == null || a.paid === '') && fe) a.paid = fe[0]; }
     p.adm = a;
   }
 
@@ -16004,7 +16006,8 @@ var ClubAdmin = (() => {
     root.innerHTML = `<header class="page-head"><div><h1>Licences et cotisations</h1><p class="sub">Saison ${esc(People.seasonLabel())} · ${all.length} joueur${all.length > 1 ? 's' : ''}${cat ? ' · ' + esc((Store.get('teams', cat) || {}).name || '') : ''}</p></div>
       <div class="head-actions"><a class="btn" href="#/president">${I.back}<span>Tableau de bord</span></a><button class="btn" data-act="csv">${I.download}<span>Excel</span></button><button class="btn" data-act="pdf">${I.pdf}<span>Exporter en PDF</span></button></div></header>
       <div class="tiles">${tile(`${n('lic', 'ok')}/${all.length}`, 'Licences validées', 'v')}${tile(n('certif', 'manque'), 'Certificats à fournir', n('certif', 'manque') ? 'd' : '')}
-        ${tile(`${n('cotis', 'ok')}/${all.length}`, 'Cotisations payées', 'v')}${tile(n('cotis', 'partiel'), 'Payées en partie', 'n')}${tile(total ? total.toLocaleString('fr-FR') + ' €' : '–', 'Encaissé')}${tile(n('image', 'non'), 'Refus droit à l\'image', n('image', 'non') ? 'd' : '')}</div>
+        ${tile(`${n('cotis', 'ok')}/${all.length}`, 'Cotisations payées', 'v')}${tile(n('cotis', 'partiel'), 'Payées en partie', 'n')}${tile(total ? total.toLocaleString('fr-FR') + ' €' : '–', 'Encaissé')}${tile(n('image', 'non'), 'Refus droit à l\'image', n('image', 'non') ? 'd' : '')}${cheques().length ? tile(late().length, 'Chèques à déposer maintenant', late().length ? 'd' : '') : ''}</div>
+      ${depositCard()}
       <div class="filters">
         <label class="search">${I.search}<input id="admQ" type="search" placeholder="Chercher un nom" value="${esc(ui.admQ || '')}"></label>
         <select id="admCat" aria-label="Catégorie"><option value="">Toutes les catégories</option>${S().teams.map(t => `<option value="${t.id}" ${t.id === cat ? 'selected' : ''}>${esc(Store.teamLabel(t))}</option>`).join('')}</select>
@@ -16019,7 +16022,8 @@ var ClubAdmin = (() => {
       <p class="muted small">Touche une case pour changer son état. Les coachs voient ⚠️ à côté d'un joueur dont la licence est en attente ou le certificat à fournir (dans les convocations), et savent qui refuse le droit à l'image. Les cotisations restent entre responsables.</p>
       <div class="table-wrap"><table class="tbl adm-tbl"><thead><tr><th>Joueur</th>${FIELDS.map(f => `<th>${esc(f[1])}</th>`).join('')}<th>Expire le</th><th>Tarif</th><th>Payé (€)</th></tr></thead>
         <tbody>${list.map(p => `<tr><td><a href="#/joueur/${p.id}"><b>${esc(Store.fullName(p))}</b></a><br><span class="muted small">${esc((p.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '))}</span></td>
-          ${FIELDS.map(f => `<td>${cell(p, f)}</td>`).join('')}<td><input class="adm-to ${licState(p) === 'expiree' ? 'bad' : ''}" type="date" data-licto="${p.id}" value="${esc(licTo(p))}" aria-label="Fin de la licence de ${esc(Store.fullName(p))}"></td><td>${(fe => fe ? `${fe[0]} €` : '<span class="muted">?</span>')(fee(p))}</td><td><input class="adm-paid" type="number" min="0" step="1" inputmode="decimal" data-paid="${p.id}" value="${adm(p).paid == null ? '' : esc(adm(p).paid)}" aria-label="Montant payé par ${esc(Store.fullName(p))}"></td></tr>`).join('') || `<tr><td colspan="8" class="muted">Personne ici.</td></tr>`}</tbody></table></div>`;
+          ${FIELDS.map(f => `<td>${cell(p, f)}</td>`).join('')}<td><input class="adm-to ${licState(p) === 'expiree' ? 'bad' : ''}" type="date" data-licto="${p.id}" value="${esc(licTo(p))}" aria-label="Fin de la licence de ${esc(Store.fullName(p))}"></td><td>${(fe => fe ? `${fe[0]} €` : '<span class="muted">?</span>')(fee(p))}</td><td class="pay-cell">${pays(p).length ? `<button class="btn small soft" data-pay="${p.id}"><b>${eur(+adm(p).paid || 0)}</b></button><span class="muted small">${esc(paySummary(p))}</span>`
+            : `<input class="adm-paid" type="number" min="0" step="1" inputmode="decimal" data-paid="${p.id}" value="${adm(p).paid == null ? '' : esc(adm(p).paid)}" aria-label="Montant payé par ${esc(Store.fullName(p))}"><button class="icon-btn" data-pay="${p.id}" aria-label="Chèques et paiements de ${esc(Store.fullName(p))}" title="Chèques et paiements">💶</button>`}</td></tr>`).join('') || `<tr><td colspan="8" class="muted">Personne ici.</td></tr>`}</tbody></table></div>`;
     const again = () => { const y = window.scrollY; licencesPage(root); window.scrollTo(0, y); };
     $('#admQ', root).oninput = e => { ui.admQ = e.target.value; clearTimeout(licencesPage.t); licencesPage.t = setTimeout(() => { again(); const i = $('#admQ', root); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 400); };
     $('#admCat', root).onchange = e => { ui.admCat = e.target.value; Store.persistNow(); again(); };
@@ -16035,6 +16039,9 @@ var ClubAdmin = (() => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.act === 'csv') return csvLicences(list);
       if (b.dataset.act === 'pdf') return pdfDialog();
+      if (b.dataset.act === 'chqcsv') return csvCheques();
+      if (b.dataset.pay) return payDialog(Store.get('players', b.dataset.pay), again);
+      if (b.dataset.depos) { const [pid, cid] = b.dataset.depos.split('|'); deposit(pid, cid); return again(); }
       if (b.dataset.adm) {
         const p = Store.get('players', b.dataset.p), f = FIELDS.find(x => x[0] === b.dataset.adm), vals = f[2];
         const i = vals.findIndex(x => x[0] === val(p, f[0])), next = vals[(i + 1) % vals.length];
@@ -16182,6 +16189,7 @@ var ClubAdmin = (() => {
 
   // the scan of a licence, on the player's card (responsables): an image or a PDF, kept on this device like the Bibliothèque's files
   function licClick(e, p, refresh) {
+    if (e.target.closest('[data-licpay]') && Auth.isAdmin()) { payDialog(p, refresh); return true; }
     const b = e.target.closest('[data-licscan]'); if (!b || !Auth.isAdmin()) return false;
     const set = id => { p.adm = Object.assign({}, p.adm, { scan: id || undefined }); if (!id) delete p.adm.scan; Store.upsert('players', p); refresh(); };
     const kind = b.dataset.licscan, old = adm(p).scan;
@@ -16198,6 +16206,115 @@ var ClubAdmin = (() => {
     return true;
   }
 
+  /* ---------- (3.44) the payments of a licence, up to 5 cheques: p.adm.pays = [{ id, mode, amount, no, bank, holder, due, dep }]
+     due = the day the cheque is to be deposited, dep = the day it was (empty: still in the club's hands).
+     p.adm.total = the price asked (the tariff by default). With payments, « payé » is their sum and the fee follows: paid / in part. ---------- */
+  const MAX_CHQ = 5;
+  const MODES = [['cheque', 'Chèque'], ['especes', 'Espèces'], ['virement', 'Virement'], ['cb', 'Carte bancaire'], ['aide', 'Pass\'Sport / aide']];
+  const modeLabel = m => (MODES.find(x => x[0] === m) || MODES[0])[1];
+  const pays = p => (adm(p).pays || []).filter(x => x && +x.amount > 0);
+  const due = p => { const a = adm(p); return a.total != null && a.total !== '' ? +a.total : (fee(p) || [])[0] || 0; };
+  const eur = n => (Math.round(n * 100) / 100).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' €';
+  // the fee state from the payments (nothing changes for a player without payments written)
+  function applyPays(a) {
+    const list = (a.pays || []).filter(x => +x.amount > 0); if (!list.length) return a;
+    const sum = list.reduce((s, x) => s + +x.amount, 0), total = a.total != null && a.total !== '' ? +a.total : 0;
+    a.paid = Math.round(sum * 100) / 100; a.cotis = total ? (sum >= total - .005 ? 'ok' : 'partiel') : 'ok'; delete a.paidBy;
+    return a;
+  }
+  // every cheque of the club: [{ p, c }] (deposited or not)
+  const cheques = () => licPlayers().flatMap(p => pays(p).filter(c => c.mode === 'cheque').map(c => ({ p, c })));
+  const toDeposit = () => cheques().filter(x => !x.c.dep).sort((a, b) => String(a.c.due || '9').localeCompare(String(b.c.due || '9')) || Store.byName(a.p, b.p));
+  const late = () => toDeposit().filter(x => x.c.due && x.c.due <= today());
+  const monthsLater = (d, k) => { const [y, m, j] = d.split('-').map(Number), x = new Date(y, m - 1 + k, 1), last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(Math.min(j, last)).padStart(2, '0')}`; };
+
+  function payDialog(p, done) {
+    const a = adm(p), list = (a.pays || []).map(x => Object.assign({}, x)), fe = fee(p);
+    const total0 = a.total != null && a.total !== '' ? a.total : fe ? fe[0] : '';
+    const row = (x, i) => `<div class="pay-row ${x.dep ? 'dep' : ''}" data-row="${i}">
+      <div class="pay-top"><b>${i + 1}.</b><select data-f="mode" aria-label="Moyen de paiement">${MODES.map(([k, l]) => `<option value="${k}" ${k === (x.mode || 'cheque') ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <label class="pay-amt"><input data-f="amount" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(x.amount == null ? '' : x.amount)}" aria-label="Montant"> €</label>
+        <button type="button" class="icon-btn" data-delrow="${i}" aria-label="Retirer ce paiement">${I.x}</button></div>
+      ${(x.mode || 'cheque') === 'cheque' ? `<div class="row2"><label class="fld"><span>N° du chèque</span><input data-f="no" value="${esc(x.no || '')}" inputmode="numeric" maxlength="20"></label>
+        <label class="fld"><span>Banque</span><input data-f="bank" value="${esc(x.bank || '')}" maxlength="40" placeholder="ex : Crédit Agricole"></label></div>
+        <div class="row2"><label class="fld"><span>Nom sur le chèque</span><input data-f="holder" value="${esc(x.holder || '')}" maxlength="60" placeholder="ex : le parent"></label>
+        <label class="fld"><span>À déposer le</span><input data-f="due" type="date" value="${esc(x.due || '')}"></label></div>
+        <label class="chk"><input type="checkbox" data-f="dep" ${x.dep ? 'checked' : ''}> Déposé à la banque${x.dep ? ` <span class="muted small">le ${esc(fmtDay(x.dep))}</span>` : ''}</label>`
+      : `<label class="fld"><span>Reçu le</span><input data-f="due" type="date" value="${esc(x.due || '')}"></label>`}</div>`;
+    modal({ title: `💶 Paiement de ${Store.fullName(p)}`, noFocus: true, body: `
+      <label class="fld"><span>Montant de la cotisation (€)${fe ? ` <span class="muted small">tarif : ${fe[0]} € (${esc(fe[1])})</span>` : ''}</span><input id="payTotal" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(total0)}"></label>
+      <details class="card pay-plan" ${list.length ? '' : 'open'}><summary><b>📅 Payer en plusieurs chèques</b></summary>
+        <div class="row2"><label class="fld"><span>Nombre de chèques</span><select id="planN">${[1, 2, 3, 4, 5].map(n => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+          <label class="fld"><span>1er dépôt le</span><input id="planFrom" type="date" value="${today()}"></label></div>
+        <label class="fld"><span>Nom sur les chèques</span><input id="planHolder" maxlength="60" value="${esc(((p.parents || [])[0] || {}).name || '')}"></label>
+        <p class="muted small">Un chèque par mois à partir de cette date, le même montant chacun (les centimes en plus sur le premier). Les numéros et la banque s'écrivent ensuite.</p>
+        <button type="button" class="btn soft" data-act="plan">Préparer les chèques</button></details>
+      <div id="payRows"></div>
+      <div class="chips"><button type="button" class="btn soft" data-act="addpay">${I.plus}<span>Ajouter un paiement</span></button></div>
+      <p class="tip" id="paySum" aria-live="polite"></p>`,
+      onOpen: r => {
+        const read = () => $$('.pay-row', r).forEach(el => { const x = list[+el.dataset.row]; $$('[data-f]', el).forEach(i => {
+          const f = i.dataset.f; if (f === 'dep') x.dep = i.checked ? (x.dep || today()) : ''; else if (f === 'amount') x.amount = i.value === '' ? '' : Math.max(0, +i.value); else x[f] = i.value.trim(); }); });
+        const sum = () => { const t = +$('#payTotal', r).value || 0, s = list.reduce((a, x) => a + (+x.amount || 0), 0), nq = list.filter(x => (x.mode || 'cheque') === 'cheque').length;
+          $('#paySum', r).innerHTML = `Payé <b>${eur(s)}</b>${t ? ` sur ${eur(t)} · ${s >= t - .005 ? (s > t + .005 ? `<b class="bad-t">${eur(s - t)} de trop</b>` : '<b class="good-t">✓ tout est payé</b>') : `reste <b>${eur(t - s)}</b>`}` : ''}${nq ? ` · ${nq} chèque${nq > 1 ? 's' : ''} sur ${MAX_CHQ} possibles` : ''}`; };
+        const draw = () => { $('#payRows', r).innerHTML = list.map(row).join('') || '<p class="muted small">Aucun paiement noté.</p>'; sum(); };
+        r.addEventListener('input', e => { if (e.target.closest('.pay-row')) read(); sum(); });
+        r.addEventListener('change', e => { if (e.target.closest('.pay-row')) { read(); if (/^(mode|dep)$/.test(e.target.dataset.f)) draw(); } });
+        r.addEventListener('click', e => {
+          const b = e.target.closest('button'); if (!b || !r.contains(b) || b.closest('.sheet-foot')) return; read();
+          const nq = list.filter(x => (x.mode || 'cheque') === 'cheque').length;
+          if (b.dataset.delrow) { list.splice(+b.dataset.delrow, 1); draw(); }
+          if (b.dataset.act === 'addpay') { if (nq >= MAX_CHQ && !list.some(x => x.mode && x.mode !== 'cheque')) { list.push({ id: Store.uid(), mode: 'especes', amount: '', due: today() }); toast(`${MAX_CHQ} chèques au plus : un autre moyen de paiement est ajouté`); }
+            else { const last = list.filter(x => x.due).slice(-1)[0]; list.push({ id: Store.uid(), mode: nq >= MAX_CHQ ? 'especes' : 'cheque', amount: '', due: last ? monthsLater(last.due, 1) : today(), holder: (last || {}).holder || '', bank: (last || {}).bank || '' }); }
+            draw(); }
+          if (b.dataset.act === 'plan') {
+            const n = +$('#planN', r).value, from = $('#planFrom', r).value || today(), t = +$('#payTotal', r).value || 0, paidOther = list.filter(x => x.dep || (x.mode && x.mode !== 'cheque')).reduce((s, x) => s + (+x.amount || 0), 0);
+            if (!t) { toast('Écris d\'abord le montant de la cotisation', 'err'); return; }
+            const rest = Math.round((t - paidOther) * 100), keep = list.filter(x => x.dep || (x.mode && x.mode !== 'cheque'));
+            if (rest <= 0) { toast('Tout est déjà payé'); return; }
+            const n2 = Math.min(n, MAX_CHQ - keep.filter(x => (x.mode || 'cheque') === 'cheque').length); if (n2 < 1) { toast(`Déjà ${MAX_CHQ} chèques`, 'err'); return; }
+            const part = Math.floor(rest / n2 / 100) * 100, first = rest - part * (n2 - 1), holder = $('#planHolder', r).value.trim();
+            list.length = 0; list.push(...keep, ...Array.from({ length: n2 }, (_, k) => ({ id: Store.uid(), mode: 'cheque', amount: (k ? part : first) / 100, due: monthsLater(from, k), holder, no: '', bank: '' })));
+            r.querySelector('.pay-plan').open = false; draw();
+          }
+        });
+        draw();
+      },
+      actions: [{ label: 'Annuler' }, { label: 'Enregistrer', kind: 'primary', onClick: (c, r) => {
+        $$('.pay-row', r).forEach(el => { const x = list[+el.dataset.row]; $$('[data-f]', el).forEach(i => { const f = i.dataset.f; if (f === 'dep') x.dep = i.checked ? (x.dep || today()) : ''; else if (f === 'amount') x.amount = i.value === '' ? '' : Math.max(0, +i.value); else x[f] = i.value.trim(); }); });
+        const kept = list.filter(x => +x.amount > 0);
+        if (kept.filter(x => (x.mode || 'cheque') === 'cheque').length > MAX_CHQ) { toast(`${MAX_CHQ} chèques au plus`, 'err'); return false; }
+        const t = $('#payTotal', r).value, na = Object.assign({}, p.adm, { pays: kept.map(x => Object.assign(x, { mode: x.mode || 'cheque' })), total: t === '' ? '' : Math.max(0, +t) });
+        if (!kept.length) { delete na.pays; } else applyPays(na);
+        p.adm = na; Store.upsert('players', p); toast('Paiement enregistré'); done && done();
+      } }] });
+  }
+  // one line in the lists: « 3 chèques · 2 déposés · prochain le 15/11 »
+  function paySummary(p) {
+    const l = pays(p); if (!l.length) return '';
+    const q = l.filter(x => x.mode === 'cheque'), left = q.filter(x => !x.dep).sort((a, b) => String(a.due).localeCompare(String(b.due)));
+    return [q.length ? `${q.length} chèque${q.length > 1 ? 's' : ''}` : '', q.length && q.length - left.length ? `${q.length - left.length} déposé${q.length - left.length > 1 ? 's' : ''}` : '',
+      left[0] && left[0].due ? `prochain dépôt le ${fmtDay(left[0].due)}` : '', l.some(x => x.mode !== 'cheque') ? l.filter(x => x.mode !== 'cheque').map(x => modeLabel(x.mode).toLowerCase()).join(', ') : ''].filter(Boolean).join(' · ');
+  }
+  // the card « Chèques à déposer » at the top of the licences page
+  function depositCard() {
+    const all = toDeposit(); if (!cheques().length) return '';
+    const lim = addDays(today(), 31), now = all.filter(x => !x.c.due || x.c.due <= lim), later = all.length - now.length, lt = late();
+    const line = ({ p, c }) => `<li class="${c.due && c.due <= today() ? 'late' : ''}"><span class="d">${c.due ? esc(fmtDay(c.due)) : 'sans date'}</span><span class="o"><a href="#/joueur/${p.id}"><b>${esc(Store.fullName(p))}</b></a><span class="muted small">${[c.holder, c.bank, c.no ? 'n° ' + c.no : ''].filter(Boolean).map(esc).join(' · ')}</span></span><b class="s">${eur(+c.amount)}</b><button class="btn small soft" data-depos="${p.id}|${c.id}">✓ Déposé</button></li>`;
+    return `<section class="card dep-card"><h2>🏦 Chèques à déposer</h2>
+      <p class="muted small">${lt.length ? `<b class="bad-t">${lt.length} à déposer maintenant (${eur(lt.reduce((s, x) => s + +x.c.amount, 0))})</b> · ` : ''}${all.length} chèque${all.length > 1 ? 's' : ''} en attente pour ${eur(all.reduce((s, x) => s + +x.c.amount, 0))}${later ? ` · ${later} après le ${fmtDay(lim)}` : ''}</p>
+      ${now.length ? `<ul class="dep-list">${now.map(line).join('')}</ul>` : '<p class="muted">Rien à déposer dans le mois.</p>'}
+      <p><button class="btn soft" data-act="chqcsv">${I.download}<span>Bordereau des chèques (Excel)</span></button></p></section>`;
+  }
+  function csvCheques() {
+    const rows = cheques().sort((a, b) => String(a.c.due || '9').localeCompare(String(b.c.due || '9')) || Store.byName(a.p, b.p));
+    return csv([['À déposer le', 'Déposé le', 'Joueur', 'Catégories', 'Nom sur le chèque', 'Banque', 'N° du chèque', 'Montant (€)'],
+      ...rows.map(({ p, c }) => [fmtDay(c.due), fmtDay(c.dep), Store.fullName(p), (p.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '), c.holder || '', c.bank || '', c.no || '', +c.amount])],
+      `Cheques-${S().club.name}-${today()}`);
+  }
+  function deposit(pid, cid) { const p = Store.get('players', pid), a = Object.assign({}, p.adm); a.pays = (a.pays || []).map(x => x.id === cid ? Object.assign({}, x, { dep: today() }) : x); p.adm = a; Store.upsert('players', p); toast('Chèque noté déposé'); }
+
   /* ---------- Excel (a .csv file that Excel opens with the French accents and columns) ---------- */
   function csv(rows, name) {
     const cellOf = v => { const s = v == null ? '' : typeof v === 'number' ? String(v).replace('.', ',') : String(v); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -16206,8 +16323,8 @@ var ClubAdmin = (() => {
   }
   const labelOf = (k, v) => ((FIELDS.find(f => f[0] === k)[2].find(x => x[0] === (v || '')) || [])[1] || '').replace(/^[✓✗⏳½] /, '');
   function csvLicences(list) {
-    csv([['Nom', 'Prénom', 'Né(e) le', 'Catégories', 'N° de licence', ...FIELDS.map(f => f[1]), 'Statut', 'Expire le', 'Payé (€)'],
-      ...list.map(p => [p.lastName, p.firstName, People.fmtBirth(p.birth), (p.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '), p.licence || '', ...FIELDS.map(f => labelOf(f[0], val(p, f[0]))), STATES[licState(p)][0], fmtDay(licTo(p)), adm(p).paid == null ? '' : +adm(p).paid])],
+    csv([['Nom', 'Prénom', 'Né(e) le', 'Catégories', 'N° de licence', ...FIELDS.map(f => f[1]), 'Statut', 'Expire le', 'Payé (€)', 'Paiements'],
+      ...list.map(p => [p.lastName, p.firstName, People.fmtBirth(p.birth), (p.teamIds || []).map(id => (Store.get('teams', id) || {}).name).filter(Boolean).join(', '), p.licence || '', ...FIELDS.map(f => labelOf(f[0], val(p, f[0]))), STATES[licState(p)][0], fmtDay(licTo(p)), adm(p).paid == null ? '' : +adm(p).paid, paySummary(p)])],
       `Licences-${S().club.name}-${today()}`);
   }
   // Attendance and playing time of the season, one line per player (one category, or the whole club)
@@ -16283,7 +16400,7 @@ var ClubAdmin = (() => {
       } }] });
   }
 
-  return { licenceCard, licClick, licState, licSelect, pdfDialog, pdfLicences, fromFootclubs, fee, licencesPage, staffingPage, absenceDialog, problem, noImage, csv, csvSeason, tracking };
+  return { licenceCard, licClick, payDialog, applyPays, toDeposit, late, deposit, csvCheques, licState, licSelect, pdfDialog, pdfLicences, fromFootclubs, fee, licencesPage, staffingPage, absenceDialog, problem, noImage, csv, csvSeason, tracking };
 })();
 
 ;
@@ -18059,6 +18176,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 202, date: '2026-10-16', title: 'La cotisation en plusieurs chèques 🏦', items: [
+      ['💶', "Licences et cotisations → 💶 à côté d'un joueur : jusqu'à 5 chèques (numéro, banque, nom sur le chèque, date de dépôt prévue), ou espèces, virement, carte, Pass'Sport. « Préparer les chèques » partage la cotisation en un chèque par mois."],
+      ['🏦', "« Chèques à déposer » : ceux du mois, en rouge quand leur date est passée, « ✓ Déposé » d'une touche, et le bordereau pour Excel. Gestion → À faire rappelle les chèques à déposer."],
+    ] },
     { n: 201, date: '2026-10-16', title: 'Les licences en PDF 🪪', items: [
       ['📄', "Licences et cotisations → « Exporter en PDF » : toutes les licences, ou seulement certaines catégories, groupes (A, B…) et sous-catégories, à combiner. Une ligne par joueur (n° de licence, statut valide / expirée / en attente, date d'expiration), un total par section et à la fin, « page X / Y »."],
       ['📎', "Le scan de la licence (photo ou PDF) s'ajoute sur la fiche du joueur, et peut suivre le tableau dans le PDF (case « Inclure les scans des licences »)."],
@@ -23570,7 +23691,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 244, UPD = AppCfg.key('update-tried');
+  const BUILD = 245, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

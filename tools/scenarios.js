@@ -318,6 +318,14 @@ const SCENARIOS = [
     must(sel.list.length === ps.length - 1 && sel.list.every(p => p.subcat === 'SubB'), 'catégorie + sous-catégorie : ' + sel.list.length);
     must(ClubAdmin.licState(ps[1]) === 'expiree' && ClubAdmin.licState(ps[0]) === 'valide', 'statut : ' + ClubAdmin.licState(ps[1]));
     Store.remove('teams', 'grpVide'); return sel.label;`],
+  ['Cotisation en 3 chèques : partage, dépôt, rappel', `
+    const p = Store.state.players.find(x => !x.archived); await go('#/licences'); await click('[data-pay="' + p.id + '"]', 300);
+    $('#payTotal').value = '155'; $('#planN').value = '3'; $('#planFrom').value = '2000-01-31'; await click('[data-act="plan"]', 200);
+    must($$('.pay-row').length === 3, 'chèques non préparés : ' + $$('.pay-row').length); await click('.sheet-foot [data-i="1"]', 400);
+    const a = Store.get('players', p.id).adm; must(a.pays.map(x => x.amount).join() === '53,51,51' && a.pays[1].due === '2000-02-29', 'partage : ' + JSON.stringify(a.pays.map(x => [x.amount, x.due])));
+    must(a.paid === 155 && a.cotis === 'ok', 'cotisation : ' + a.paid + ' ' + a.cotis); must(Gestion.todo().some(x => /chèque/.test(x[1])), 'pas de rappel');
+    await go('#/licences'); await click('[data-depos]', 300); must(Store.get('players', p.id).adm.pays[0].dep, 'dépôt non noté');
+    p.adm = {}; Store.upsert('players', p); return 'ok';`],
 ];
 
 /* ---------- crawl: every page, every button (option --crawl) ---------- */
