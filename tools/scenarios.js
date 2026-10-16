@@ -229,6 +229,8 @@ const SCENARIOS = [
     must(/groupes de 3/.test(a1) && !/contre 1\\b/.test(a1), 'les dimensions lues comme un « contre » : ' + a1); must(/6 contre 6/.test(a2), 'zone 40 x 30 mal lue : ' + a2); must(/2 équipes de 6 \\+ 1 joker/.test(a3), 'match non adapté : ' + a3);
     const x4 = Exos.all().find(x => x.title === 'Jeu à 4 portes' && x.script), a4 = x4 ? Effectif.adapt(x4, 23, '11') : '(pas dans la base)';
     must(/contre/.test(a4), 'jeu sans nombre écrit non adapté (schéma) : ' + a4);
+    const gs = Effectif.groups({ split: { p1: 'A', p2: 'B', p3: 'B' } }, 3); must(gs.length === 3 && gs[0][0] === 1 && gs[1][0] === 2 && gs[2][0] === 3, 'groupes A / B non pris : ' + JSON.stringify(gs));
+    must(Effectif.groups({}, 14).length === 1, 'sans groupes : un seul nombre');
     Store.remove('trainings', 'trEff'); return a4;`],
   ['Jour de match : qui est là, absent noté', `
     const m = Store.state.matches.filter(x => !x.played && !x.exempt && x.date >= UI.today()).sort((a, b) => a.date.localeCompare(b.date))[0];

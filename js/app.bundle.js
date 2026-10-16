@@ -2126,8 +2126,10 @@ var Exporter = (() => {
     P.header(tr.title || 'Entraînement', team ? team.name : '');
     // (3.41) each exercise adapted to the players of the day, and to 2 fewer or 2 more (on paper there is no − / +)
     const nP = Math.round(+(o || {}).players || 0), fmt = (team || {}).format || '11';
-    const effOf = e => typeof Effectif === 'undefined' || nP < 2 ? [] : [...new Set([nP, nP - 2, nP + 2].filter(n => n >= 2))].map(n => [n, Effectif.adapt(e, n, fmt)]).filter(x => x[1])
-      .map(([n, l]) => `${n === nP ? 'Pour ' + n + ' joueurs' : 'Si ' + n} : ${String(l).replace(/ ✓/g, ' (OK)').replace(/⚠️\s*/g, 'attention, ')}`);
+    // (3.43) groups A / B: each group (and all together) instead of 2 fewer / 2 more
+    const sets = (o || {}).groups && o.groups.length > 1 ? o.groups : [...new Set([nP, nP - 2, nP + 2].filter(n => n >= 2))].map(n => [n, n === nP ? 'Pour ' + n + ' joueurs' : 'Si ' + n]);
+    const effOf = e => typeof Effectif === 'undefined' || nP < 2 ? [] : sets.map(([n, lab]) => [lab, Effectif.adapt(e, n, fmt)]).filter(x => x[1])
+      .map(([lab, l]) => `${lab} : ${String(l).replace(/ ✓/g, ' (OK)').replace(/⚠️\s*/g, 'attention, ')}`);
     P.facts([['Date', fmtDate(tr.date)], ['Heure', tr.time || '-'], ['Durée', total + ' min'], ['Joueurs', nP ? String(nP) : tr.presents && tr.presents.length ? String(tr.presents.length) : '-']]);
     const staff = (tr.staffIds || []).map(id => Store.get('staff', id)).filter(Boolean);
     if (staff.length) { P.label('Encadrants'); P.para(staff.map(s => `${Store.fullName(s)}${s.role ? ' (' + s.role + ')' : ''}${People.staffPhone(s) ? ' - ' + s.phone : ''}`).join('\n')); }
@@ -4074,7 +4076,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.44';
+  const VERSION = '3.45';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -18176,6 +18178,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 203, date: '2026-10-16', title: 'Chacun son groupe 🅰️🅱️', items: [
+      ['🅰️', "Séance coupée en groupes A et B : chaque exercice s'adapte au groupe A, au groupe B et à tout le monde ensemble, à l'écran comme sur le PDF (plus de « Pour 40 » quand vous êtes 17 et 23)."],
+    ] },
     { n: 202, date: '2026-10-16', title: 'La cotisation en plusieurs chèques 🏦', items: [
       ['💶', "Licences et cotisations → 💶 à côté d'un joueur : jusqu'à 5 chèques (numéro, banque, nom sur le chèque, date de dépôt prévue), ou espèces, virement, carte, Pass'Sport. « Préparer les chèques » partage la cotisation en un chèque par mois."],
       ['🏦', "« Chèques à déposer » : ceux du mois, en rouge quand leur date est passée, « ✓ Déposé » d'une touche, et le bordereau pour Excel. Gestion → À faire rappelle les chèques à déposer."],
@@ -21488,7 +21493,13 @@ var Effectif = (() => {
       ${dispo && dispo.ready && (dispo.yes.size || dispo.no.size) ? `<span class="eff-votes"><b class="eff-yes">✓ ${dispo.yes.size} présent${dispo.yes.size > 1 ? 's' : ''}</b><b class="eff-no">✗ ${dispo.no.size} absent${dispo.no.size > 1 ? 's' : ''}</b><span class="muted small">ont répondu</span></span>` : ''}
       <span class="muted small">${tr.nPlayers ? `choisi à la main · <button type="button" class="linkish" data-effn="0">reprendre ${(tr.presents || []).length ? 'les présents' : 'le compte automatique'}</button>` : esc(from)} · les exercices s'adaptent</span></div>`;
   }
-  return { read, adapt, count, bar };
+  // (3.43) the session split in groups A / B: each group its own advice (and all together), else the number of the day
+  function groups(tr, n) {
+    const v = Object.values((tr && tr.split) || {}), a = v.filter(x => x === 'A').length, b = v.filter(x => x === 'B').length;
+    if (!a || !b) return [[n, 'Pour ' + n]];
+    return [[a, 'Groupe A (' + a + ')'], [b, 'Groupe B (' + b + ')'], [a + b, 'Tous ensemble (' + (a + b) + ')']];
+  }
+  return { read, adapt, count, bar, groups };
 })();
 
 ;
@@ -22219,7 +22230,8 @@ var Views = (() => {
     const rpeTr = () => { const box = $('#rpeBox', root); if (box) box.innerHTML = Health.rpeBox(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)).map(p => p.id), 'training'); };
     // (3.28) the players of the day, and each exercise adapted to them
     const effN = () => { const tm = teamOf(tr.teamId); return tm ? Effectif.count(tr, squad(tm.id).length, Parents.trainingDispo(tr))[0] : 0; };
-    const effLine = e => { const tm = teamOf(tr.teamId), l = tm && !tr.model ? Effectif.adapt(e, effN(), tm.format) : ''; return `<p class="ex-eff" data-effof="${e.id}" ${l ? '' : 'hidden'}>👥 <b>Pour ${effN()}</b> : ${esc(l)}</p>`; };
+    const effLine = e => { const tm = teamOf(tr.teamId), ls = tm && !tr.model ? Effectif.groups(tr, effN()).map(([n, lab]) => [lab, Effectif.adapt(e, n, tm.format)]).filter(x => x[1]) : [];
+      return `<p class="ex-eff" data-effof="${e.id}" ${ls.length ? '' : 'hidden'}>${ls.map(([lab, l]) => `👥 <b>${esc(lab)}</b> : ${esc(l)}`).join('<br>')}</p>`; };
     const refreshEff = () => { const tm = teamOf(tr.teamId), b = $('#effBox', root); if (b && tm) b.innerHTML = Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr));
       tr.exercises.forEach(e => { const el = root.querySelector(`[data-effof="${e.id}"]`); if (el) { const tmp = document.createElement('div'); tmp.innerHTML = effLine(e); el.replaceWith(tmp.firstElementChild); } }); };
     { const dp = Parents.trainingDispo(tr); if (dp && dp.wait) dp.wait.then(() => { if (root.isConnected) refreshEff(); }); } // the answers arrive: the votes appear
@@ -22349,7 +22361,7 @@ var Views = (() => {
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'chrono': return SeanceChrono.open(tr, 0); // (3.39) the session run on the pitch, exercise after exercise
-        case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib, players: effN() }));
+        case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib, players: effN(), groups: Effectif.groups(tr, effN()) }));
         case 'share': return shareTraining(tr);
         case 'propose': return Exos.generator({ target: tr.id, teamId: tr.teamId, date: tr.date });
         case 'img': return trainingImage(tr);
@@ -23691,7 +23703,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 245, UPD = AppCfg.key('update-tried');
+  const BUILD = 246, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 203, date: '2026-10-16', title: 'Chacun son groupe 🅰️🅱️', items: [
+      ['🅰️', "Séance coupée en groupes A et B : chaque exercice s'adapte au groupe A, au groupe B et à tout le monde ensemble, à l'écran comme sur le PDF (plus de « Pour 40 » quand vous êtes 17 et 23)."],
+    ] },
     { n: 202, date: '2026-10-16', title: 'La cotisation en plusieurs chèques 🏦', items: [
       ['💶', "Licences et cotisations → 💶 à côté d'un joueur : jusqu'à 5 chèques (numéro, banque, nom sur le chèque, date de dépôt prévue), ou espèces, virement, carte, Pass'Sport. « Préparer les chèques » partage la cotisation en un chèque par mois."],
       ['🏦', "« Chèques à déposer » : ceux du mois, en rouge quand leur date est passée, « ✓ Déposé » d'une touche, et le bordereau pour Excel. Gestion → À faire rappelle les chèques à déposer."],

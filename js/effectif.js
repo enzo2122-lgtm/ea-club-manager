@@ -81,5 +81,11 @@ const Effectif = (() => {
       ${dispo && dispo.ready && (dispo.yes.size || dispo.no.size) ? `<span class="eff-votes"><b class="eff-yes">✓ ${dispo.yes.size} présent${dispo.yes.size > 1 ? 's' : ''}</b><b class="eff-no">✗ ${dispo.no.size} absent${dispo.no.size > 1 ? 's' : ''}</b><span class="muted small">ont répondu</span></span>` : ''}
       <span class="muted small">${tr.nPlayers ? `choisi à la main · <button type="button" class="linkish" data-effn="0">reprendre ${(tr.presents || []).length ? 'les présents' : 'le compte automatique'}</button>` : esc(from)} · les exercices s'adaptent</span></div>`;
   }
-  return { read, adapt, count, bar };
+  // (3.43) the session split in groups A / B: each group its own advice (and all together), else the number of the day
+  function groups(tr, n) {
+    const v = Object.values((tr && tr.split) || {}), a = v.filter(x => x === 'A').length, b = v.filter(x => x === 'B').length;
+    if (!a || !b) return [[n, 'Pour ' + n]];
+    return [[a, 'Groupe A (' + a + ')'], [b, 'Groupe B (' + b + ')'], [a + b, 'Tous ensemble (' + (a + b) + ')']];
+  }
+  return { read, adapt, count, bar, groups };
 })();

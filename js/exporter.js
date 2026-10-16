@@ -323,8 +323,10 @@ const Exporter = (() => {
     P.header(tr.title || 'Entraînement', team ? team.name : '');
     // (3.41) each exercise adapted to the players of the day, and to 2 fewer or 2 more (on paper there is no − / +)
     const nP = Math.round(+(o || {}).players || 0), fmt = (team || {}).format || '11';
-    const effOf = e => typeof Effectif === 'undefined' || nP < 2 ? [] : [...new Set([nP, nP - 2, nP + 2].filter(n => n >= 2))].map(n => [n, Effectif.adapt(e, n, fmt)]).filter(x => x[1])
-      .map(([n, l]) => `${n === nP ? 'Pour ' + n + ' joueurs' : 'Si ' + n} : ${String(l).replace(/ ✓/g, ' (OK)').replace(/⚠️\s*/g, 'attention, ')}`);
+    // (3.43) groups A / B: each group (and all together) instead of 2 fewer / 2 more
+    const sets = (o || {}).groups && o.groups.length > 1 ? o.groups : [...new Set([nP, nP - 2, nP + 2].filter(n => n >= 2))].map(n => [n, n === nP ? 'Pour ' + n + ' joueurs' : 'Si ' + n]);
+    const effOf = e => typeof Effectif === 'undefined' || nP < 2 ? [] : sets.map(([n, lab]) => [lab, Effectif.adapt(e, n, fmt)]).filter(x => x[1])
+      .map(([lab, l]) => `${lab} : ${String(l).replace(/ ✓/g, ' (OK)').replace(/⚠️\s*/g, 'attention, ')}`);
     P.facts([['Date', fmtDate(tr.date)], ['Heure', tr.time || '-'], ['Durée', total + ' min'], ['Joueurs', nP ? String(nP) : tr.presents && tr.presents.length ? String(tr.presents.length) : '-']]);
     const staff = (tr.staffIds || []).map(id => Store.get('staff', id)).filter(Boolean);
     if (staff.length) { P.label('Encadrants'); P.para(staff.map(s => `${Store.fullName(s)}${s.role ? ' (' + s.role + ')' : ''}${People.staffPhone(s) ? ' - ' + s.phone : ''}`).join('\n')); }

@@ -724,7 +724,8 @@ const Views = (() => {
     const rpeTr = () => { const box = $('#rpeBox', root); if (box) box.innerHTML = Health.rpeBox(tr, Store.rosterOf(tr.teamId || '').filter(p => (tr.presents || []).includes(p.id)).map(p => p.id), 'training'); };
     // (3.28) the players of the day, and each exercise adapted to them
     const effN = () => { const tm = teamOf(tr.teamId); return tm ? Effectif.count(tr, squad(tm.id).length, Parents.trainingDispo(tr))[0] : 0; };
-    const effLine = e => { const tm = teamOf(tr.teamId), l = tm && !tr.model ? Effectif.adapt(e, effN(), tm.format) : ''; return `<p class="ex-eff" data-effof="${e.id}" ${l ? '' : 'hidden'}>👥 <b>Pour ${effN()}</b> : ${esc(l)}</p>`; };
+    const effLine = e => { const tm = teamOf(tr.teamId), ls = tm && !tr.model ? Effectif.groups(tr, effN()).map(([n, lab]) => [lab, Effectif.adapt(e, n, tm.format)]).filter(x => x[1]) : [];
+      return `<p class="ex-eff" data-effof="${e.id}" ${ls.length ? '' : 'hidden'}>${ls.map(([lab, l]) => `👥 <b>${esc(lab)}</b> : ${esc(l)}`).join('<br>')}</p>`; };
     const refreshEff = () => { const tm = teamOf(tr.teamId), b = $('#effBox', root); if (b && tm) b.innerHTML = Effectif.bar(tr, squad(tm.id).length, Parents.trainingDispo(tr));
       tr.exercises.forEach(e => { const el = root.querySelector(`[data-effof="${e.id}"]`); if (el) { const tmp = document.createElement('div'); tmp.innerHTML = effLine(e); el.replaceWith(tmp.firstElementChild); } }); };
     { const dp = Parents.trainingDispo(tr); if (dp && dp.wait) dp.wait.then(() => { if (root.isConnected) refreshEff(); }); } // the answers arrive: the votes appear
@@ -854,7 +855,7 @@ const Views = (() => {
         case 'exFile': return Library.schemasFromFiles({ trId: tr.id });
         case 'addEx': { const nx = { id: Store.uid(), title: '', duration: 15, org: '', consignes: '', materiel: '', schemaId: null }; tr.exercises.push(nx); openEx.add(nx.id); } save(); render(); { const l = $$('.ex-title', root).pop(); if (l && UI.finePointer()) l.focus(); } return; // no keyboard popping up on phones (the page jumped)
         case 'chrono': return SeanceChrono.open(tr, 0); // (3.39) the session run on the pitch, exercise after exercise
-        case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib, players: effN() }));
+        case 'pdf': return runExport('Création du PDF…', () => Exporter.pdfTraining(tr, teamOf(tr.teamId), S().club, { homeBib: S().club.homeBib, players: effN(), groups: Effectif.groups(tr, effN()) }));
         case 'share': return shareTraining(tr);
         case 'propose': return Exos.generator({ target: tr.id, teamId: tr.teamId, date: tr.date });
         case 'img': return trainingImage(tr);
