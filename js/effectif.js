@@ -31,7 +31,7 @@ const Effectif = (() => {
     n = Math.max(0, Math.round(+n || 0)); if (!n) return '';
     const r = Object.assign(read(e), {}), half = HALF[format] || HALF['11'], halfArea = half[0] * half[1];
     if (!(r.a && r.b) && !r.par && !/\bmatch\b|opposition|jeu libre/i.test(`${e.title || ''} ${e.org || ''}`)) Object.assign(r, fromSchema(e)); // (3.42) nothing written (« Jeu à 4 portes ») : the players of its schema
-    let line = '', groups = 1, per = 0, w = r.w, h = r.h;
+    let line = '', groups = 1, per = 0, w = r.w, h = r.h, alt = '';
     if (r.a && r.b) {
       per = r.a + r.b + r.jok + r.gk;
       if (per > 30) return '';
@@ -44,6 +44,8 @@ const Effectif = (() => {
       } else if (groups === 1 && r.a >= 4 && n - per > 2 && n < per * 1.6) { // one game and several more players: the game gets bigger, nobody waits
         const field = n - r.jok - r.gk, a = Math.ceil(field / 2), b = field - a;
         line = `1 atelier à ${a} contre ${b}${r.jok ? ` + ${r.jok} joker${r.jok > 1 ? 's' : ''}` : ''}${r.gk ? ' + gardiens' : ''} (terrain agrandi)`;
+        // (3.46) or the game as written, the others rotating: the coach chooses on the pitch
+        alt = ` — ou : 1 atelier de ${r.a} contre ${r.b}${r.jok ? ` + ${r.jok} joker${r.jok > 1 ? 's' : ''}` : ''}${r.gk ? ' + gardiens' : ''} · ${n - per} en plus : rotation (on change toutes les 2-3 min)${r.w && r.h ? ` · ${r.w} × ${r.h} m` : ''}`;
         if (w && h) { const k = Math.sqrt(n / per); w = round5(w * k); h = round5(h * k); }
       } else {
         const rest = n - groups * per;
@@ -64,7 +66,7 @@ const Effectif = (() => {
       line += ` · ${w} × ${h} m${groups > 1 ? ' chacun' : ''}`;
       if (groups > 1 || need > halfArea * .6) line += fits ? ' · tient dans le demi-terrain ✓' : ` · ⚠️ trop grand pour le demi-terrain : réduis à ${round5(w * Math.sqrt(halfArea / need))} × ${round5(h * Math.sqrt(halfArea / need))} m`;
     }
-    return line;
+    return line + alt;
   }
   // the number of the day and where it comes from
   function count(tr, squad, dispo) {

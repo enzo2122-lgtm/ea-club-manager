@@ -4076,7 +4076,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.45';
+  const VERSION = '3.46';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -18178,6 +18178,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 204, date: '2026-10-16', title: 'Deux options, un coach 🤔', items: [
+      ['🔀', "Un peu trop de joueurs pour un jeu, pas assez pour deux : l'appli donne les deux façons, le jeu agrandi (ex. 11 contre 10 sur 60 × 40 m) ou le jeu tel qu'écrit avec rotation. Tu choisis sur le terrain."],
+    ] },
     { n: 203, date: '2026-10-16', title: 'Chacun son groupe 🅰️🅱️', items: [
       ['🅰️', "Séance coupée en groupes A et B : chaque exercice s'adapte au groupe A, au groupe B et à tout le monde ensemble, à l'écran comme sur le PDF (plus de « Pour 40 » quand vous êtes 17 et 23)."],
     ] },
@@ -21443,7 +21446,7 @@ var Effectif = (() => {
     n = Math.max(0, Math.round(+n || 0)); if (!n) return '';
     const r = Object.assign(read(e), {}), half = HALF[format] || HALF['11'], halfArea = half[0] * half[1];
     if (!(r.a && r.b) && !r.par && !/\bmatch\b|opposition|jeu libre/i.test(`${e.title || ''} ${e.org || ''}`)) Object.assign(r, fromSchema(e)); // (3.42) nothing written (« Jeu à 4 portes ») : the players of its schema
-    let line = '', groups = 1, per = 0, w = r.w, h = r.h;
+    let line = '', groups = 1, per = 0, w = r.w, h = r.h, alt = '';
     if (r.a && r.b) {
       per = r.a + r.b + r.jok + r.gk;
       if (per > 30) return '';
@@ -21456,6 +21459,8 @@ var Effectif = (() => {
       } else if (groups === 1 && r.a >= 4 && n - per > 2 && n < per * 1.6) { // one game and several more players: the game gets bigger, nobody waits
         const field = n - r.jok - r.gk, a = Math.ceil(field / 2), b = field - a;
         line = `1 atelier à ${a} contre ${b}${r.jok ? ` + ${r.jok} joker${r.jok > 1 ? 's' : ''}` : ''}${r.gk ? ' + gardiens' : ''} (terrain agrandi)`;
+        // (3.46) or the game as written, the others rotating: the coach chooses on the pitch
+        alt = ` — ou : 1 atelier de ${r.a} contre ${r.b}${r.jok ? ` + ${r.jok} joker${r.jok > 1 ? 's' : ''}` : ''}${r.gk ? ' + gardiens' : ''} · ${n - per} en plus : rotation (on change toutes les 2-3 min)${r.w && r.h ? ` · ${r.w} × ${r.h} m` : ''}`;
         if (w && h) { const k = Math.sqrt(n / per); w = round5(w * k); h = round5(h * k); }
       } else {
         const rest = n - groups * per;
@@ -21476,7 +21481,7 @@ var Effectif = (() => {
       line += ` · ${w} × ${h} m${groups > 1 ? ' chacun' : ''}`;
       if (groups > 1 || need > halfArea * .6) line += fits ? ' · tient dans le demi-terrain ✓' : ` · ⚠️ trop grand pour le demi-terrain : réduis à ${round5(w * Math.sqrt(halfArea / need))} × ${round5(h * Math.sqrt(halfArea / need))} m`;
     }
-    return line;
+    return line + alt;
   }
   // the number of the day and where it comes from
   function count(tr, squad, dispo) {
@@ -23703,7 +23708,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 246, UPD = AppCfg.key('update-tried');
+  const BUILD = 247, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

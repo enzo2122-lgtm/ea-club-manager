@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 204, date: '2026-10-16', title: 'Deux options, un coach 🤔', items: [
+      ['🔀', "Un peu trop de joueurs pour un jeu, pas assez pour deux : l'appli donne les deux façons, le jeu agrandi (ex. 11 contre 10 sur 60 × 40 m) ou le jeu tel qu'écrit avec rotation. Tu choisis sur le terrain."],
+    ] },
     { n: 203, date: '2026-10-16', title: 'Chacun son groupe 🅰️🅱️', items: [
       ['🅰️', "Séance coupée en groupes A et B : chaque exercice s'adapte au groupe A, au groupe B et à tout le monde ensemble, à l'écran comme sur le PDF (plus de « Pour 40 » quand vous êtes 17 et 23)."],
     ] },
