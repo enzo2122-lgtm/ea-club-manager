@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 198, date: "2026-10-16", title: "Le menu ⋯ sort de l’ombre 🕶️", items: [
+      ["⋯", "Le menu « ⋯ » des en-têtes foncés (séance, match…) n’écrivait plus qu’en blanc sur blanc : seuls les émojis résistaient. Le texte est de retour."],
+    ] },
     { n: 197, date: '2026-10-14', title: 'Le sifflet dans la poche ⏱️', items: [
       ['⏱️', "Séance d'entraînement → « Lancer la séance » : les exercices défilent avec leur chrono en grand, le nom de l'exercice, ses consignes et le suivant ; sifflet et vibration à chaque changement, 3-2-1 avant, écran allumé. Pause, +1 min, Suivant, Précédent ; ▶️ sur une carte démarre à cet exercice."],
     ] },

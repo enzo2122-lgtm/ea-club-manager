@@ -4069,7 +4069,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.39';
+  const VERSION = '3.40';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -17885,6 +17885,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 198, date: "2026-10-16", title: "Le menu ⋯ sort de l’ombre 🕶️", items: [
+      ["⋯", "Le menu « ⋯ » des en-têtes foncés (séance, match…) n’écrivait plus qu’en blanc sur blanc : seuls les émojis résistaient. Le texte est de retour."],
+    ] },
     { n: 197, date: '2026-10-14', title: 'Le sifflet dans la poche ⏱️', items: [
       ['⏱️', "Séance d'entraînement → « Lancer la séance » : les exercices défilent avec leur chrono en grand, le nom de l'exercice, ses consignes et le suivant ; sifflet et vibration à chaque changement, 3-2-1 avant, écran allumé. Pause, +1 min, Suivant, Précédent ; ▶️ sur une carte démarre à cet exercice."],
     ] },
@@ -23369,7 +23372,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 240, UPD = AppCfg.key('update-tried');
+  const BUILD = 241, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

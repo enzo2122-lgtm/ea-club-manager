@@ -59,6 +59,11 @@ header.top { overflow: hidden; }
 /* the buttons on a dark head */
 [data-look="stade"] .page-head .btn:not(.primary), [data-look="pelouse"] .page-head .btn:not(.primary) { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.28); }
 [data-look="stade"] .page-head .seg, [data-look="pelouse"] .page-head .seg { background: rgba(255,255,255,.12); }
+/* (3.40) the « ⋯ » menu opens on a white card: its text and buttons dark again, whatever the head */
+.page-head .more-pop { color: var(--ink); }
+.page-head .more-pop .btn:not(.primary) { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.page-head .more-pop .btn:not(.primary):hover { background: var(--surface2); }
+.page-head .more-pop .btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
 
 /* a football in the empty places */
 .empty::before { content: ""; display: block; width: 40px; height: 40px; margin: 0 auto 10px; background: var(--muted); opacity: .35; -webkit-mask: var(--m-ball) no-repeat center / contain; mask: var(--m-ball) no-repeat center / contain; }
