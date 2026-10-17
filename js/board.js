@@ -371,8 +371,9 @@ const Board = (() => {
       if (o.gk) { ctx.beginPath(); ctx.arc(x, y, r * .78, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.globalAlpha = .45; ctx.lineWidth = Math.max(1, r * .08); ctx.stroke(); ctx.globalAlpha = 1; }
       const t = String(o.label || ''); if (t) label(ctx, x, y + r * .06, t, r * (t.length >= 3 ? .72 : t.length === 2 ? .9 : 1.05), ink);
       if (opts.names && o.name) {
-        ctx.font = `700 ${Math.max(10, r * (opts.nameK || .62))}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.strokeText(o.name, x, y + r * 1.15); ctx.fillStyle = '#fff'; ctx.fillText(o.name, x, y + r * 1.15);
+        ctx.font = `${ECO ? 800 : 700} ${Math.max(10, r * (opts.nameK || (ECO ? .78 : .62)))}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        // (3.53) on the white pitch of « économie d'encre »: the name in dark ink with a white halo, larger
+        ctx.lineJoin = 'round'; ctx.lineWidth = ECO ? Math.max(3, r * .28) : 3; ctx.strokeStyle = ECO ? 'rgba(255,255,255,.95)' : 'rgba(0,0,0,.65)'; ctx.strokeText(o.name, x, y + r * 1.15); ctx.fillStyle = ECO ? '#14172b' : '#fff'; ctx.fillText(o.name, x, y + r * 1.15);
       }
     } else if (o.type === 'ball') {
       ctx.beginPath(); ctx.arc(x, y, r * .45, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = Math.max(1.2, r * .1); ctx.strokeStyle = '#111'; ctx.stroke();

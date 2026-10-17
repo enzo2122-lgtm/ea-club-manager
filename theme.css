@@ -22,6 +22,8 @@ header.top { overflow: hidden; }
 .page-head::before { border-radius: 18px 18px 0 0; }
 .page-head::after { border-radius: inherit; overflow: hidden; }
 .page-head .more-acts, .page-head .more-pop { z-index: 40; }
+/* (3.53) its menu open, the head goes over what follows it (the sticky « Compo / Pendant » tabs of a match were drawn over the menu) */
+.page-head:has(.more-acts[open]), .page-head.menu-open { z-index: 41; }
 .page-head { padding: 18px 20px 16px; border-radius: 18px; background: var(--head-bg, var(--surface)); color: var(--head-ink, var(--ink)); border: 1px solid var(--line); }
 .page-head h1 { font-size: clamp(32px, 4.6vw, 44px); line-height: 1; }
 .page-head .sub, .page-head h1 i { color: var(--head-muted, var(--muted)); }

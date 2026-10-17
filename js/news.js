@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 211, date: '2026-10-17', title: 'Le menu ⋯ remonte à la surface 🤿', items: [
+      ['⋯', "Fiche du match : le menu « ⋯ » passait sous les onglets « Compo / Pendant » et se retrouvait coupé. Il s'affiche maintenant en entier, par-dessus."],
+      ['🔤', "Compo sur les PDF en économie d'encre : les noms des joueurs s'écrivent en foncé, plus gros, avec un halo blanc, bien lisibles sur le terrain clair."],
+    ] },
     { n: 210, date: '2026-10-17', title: 'L\'affiche passe au régime 🖨️', items: [
       ['🌿', "L'affiche du vestiaire (PDF de la préparation) n'est plus une page entièrement bleue : fond blanc, un fin cadre bordeaux, le texte en bleu marine. Les couleurs d'avant restent possibles : Réglages → Impression → « En couleurs »."],
       ['🖨️', "Tout ce qui s'imprime économise l'encre : les PDF, l'affiche, le tableau des licences, et les pages imprimées depuis l'appli (plus aucun fond coloré, texte foncé)."],

@@ -801,8 +801,9 @@ var Board = (() => {
       if (o.gk) { ctx.beginPath(); ctx.arc(x, y, r * .78, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.globalAlpha = .45; ctx.lineWidth = Math.max(1, r * .08); ctx.stroke(); ctx.globalAlpha = 1; }
       const t = String(o.label || ''); if (t) label(ctx, x, y + r * .06, t, r * (t.length >= 3 ? .72 : t.length === 2 ? .9 : 1.05), ink);
       if (opts.names && o.name) {
-        ctx.font = `700 ${Math.max(10, r * (opts.nameK || .62))}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.strokeText(o.name, x, y + r * 1.15); ctx.fillStyle = '#fff'; ctx.fillText(o.name, x, y + r * 1.15);
+        ctx.font = `${ECO ? 800 : 700} ${Math.max(10, r * (opts.nameK || (ECO ? .78 : .62)))}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        // (3.53) on the white pitch of « économie d'encre »: the name in dark ink with a white halo, larger
+        ctx.lineJoin = 'round'; ctx.lineWidth = ECO ? Math.max(3, r * .28) : 3; ctx.strokeStyle = ECO ? 'rgba(255,255,255,.95)' : 'rgba(0,0,0,.65)'; ctx.strokeText(o.name, x, y + r * 1.15); ctx.fillStyle = ECO ? '#14172b' : '#fff'; ctx.fillText(o.name, x, y + r * 1.15);
       }
     } else if (o.type === 'ball') {
       ctx.beginPath(); ctx.arc(x, y, r * .45, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = Math.max(1.2, r * .1); ctx.strokeStyle = '#111'; ctx.stroke();
@@ -4086,7 +4087,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.52';
+  const VERSION = '3.53';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -18476,6 +18477,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 211, date: '2026-10-17', title: 'Le menu ⋯ remonte à la surface 🤿', items: [
+      ['⋯', "Fiche du match : le menu « ⋯ » passait sous les onglets « Compo / Pendant » et se retrouvait coupé. Il s'affiche maintenant en entier, par-dessus."],
+      ['🔤', "Compo sur les PDF en économie d'encre : les noms des joueurs s'écrivent en foncé, plus gros, avec un halo blanc, bien lisibles sur le terrain clair."],
+    ] },
     { n: 210, date: '2026-10-17', title: 'L\'affiche passe au régime 🖨️', items: [
       ['🌿', "L'affiche du vestiaire (PDF de la préparation) n'est plus une page entièrement bleue : fond blanc, un fin cadre bordeaux, le texte en bleu marine. Les couleurs d'avant restent possibles : Réglages → Impression → « En couleurs »."],
       ['🖨️', "Tout ce qui s'imprime économise l'encre : les PDF, l'affiche, le tableau des licences, et les pages imprimées depuis l'appli (plus aucun fond coloré, texte foncé)."],
@@ -21977,7 +21982,9 @@ var Views = (() => {
   // the menu closes after a choice, or a touch elsewhere
   // (2.14) « ⋯ » at the left of the screen (phone): its menu opened to the left, out of the screen; now it is moved back inside
   document.addEventListener('toggle', e => {
-    const d = e.target; if (!d.matches || !d.matches('details.more-acts') || !d.open) return;
+    const d = e.target; if (!d.matches || !d.matches('details.more-acts')) return;
+    const head = d.closest('.page-head'); if (head) head.classList.toggle('menu-open', d.open); // (3.53) above the sticky tabs that follow it
+    if (!d.open) return;
     const pop = d.querySelector('.more-pop'); if (!pop) return; pop.style.transform = '';
     const r = pop.getBoundingClientRect(), W = document.documentElement.clientWidth, m = 8;
     const dx = r.left < m ? m - r.left : r.right > W - m ? (W - m) - r.right : 0; if (dx) pop.style.transform = `translateX(${Math.round(dx)}px)`;
@@ -24039,7 +24046,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 253, UPD = AppCfg.key('update-tried');
+  const BUILD = 254, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
