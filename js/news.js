@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 214, date: '2026-10-18', title: 'Les joueurs sont prêts avant le coup d\'envoi 🎒', items: [
+      ['🎒', "Espace joueur, sur la carte du prochain match : ce qu'il faut dans le sac et la caisse de l'équipe (ceux choisis pour la convocation)."],
+      ['🏃', "L'échauffement aussi : les étapes et leurs minutes (Jour J), avec le nom du capitaine qui le mène."],
+      ['🟩', "Et les tableaux que le coach a gardés « Avant-match » sur le tableau du match, en image. La compo, elle, reste pour le vestiaire."],
+    ] },
     { n: 213, date: '2026-10-17', title: 'L\x27appli au régime 🥗', items: [
       ['⚡', "L'appli est 20 % plus légère à télécharger : la première ouverture après une mise à jour va plus vite, surtout en 4G au stade."],
       ['🧹', "Le ménage : seules les 30 dernières nouveautés restent dans l'appli, et des fichiers d'outils mis en ligne par erreur sont retirés du site."],

@@ -16,7 +16,7 @@ const Prepa = (() => {
   // (1.28) the words of football; the other sports get neutral ones (see below: OPP, KEYS, WARM, KITS, MODELS, systemsOf)
   const KEY_CHIPS = ['Gagner les duels et les deuxièmes ballons', 'Rester compacts', 'Presser ensemble', 'Jouer simple et vite', 'Attaquer la profondeur', 'Concentration sur les coups de pied arrêtés', 'Communiquer', 'Ne jamais lâcher', 'Les 10 premières minutes à fond', 'Respect de l\'arbitre et de l\'adversaire'];
   const SYSTEMS = { 11: ['4-4-2', '4-3-3', '4-2-3-1', '4-1-4-1', '3-5-2', '3-4-3', '5-3-2', '4-4-2 losange'], 8: ['3-3-1', '2-3-2', '3-2-2', '2-4-1', '3-1-3'], 5: ['2-2', '1-2-1', '2-1-1'] };
-  const WARMUP = [['Activation : footing, mobilité articulaire', 5], ['Gammes athlétiques (montées de genoux, talons-fesses, pas chassés)', 5], ['Conservation / rondos à deux touches', 5], ['Jeu à thème ou finition', 5], ['Accélérations et sprints courts', 3], ['Retour au vestiaire, derniers mots', 2]];
+  const WARMUP = Warmup.foot;
   const KIT = ['Maillots, shorts, chaussettes', 'Brassard de capitaine', 'Ballons (1 pour 3 joueurs)', 'Plots et chasubles', 'Trousse de secours, glace', 'Gourdes / eau', 'Licences (tablette FMI / feuille de match)', 'Drapeaux de touche', 'Sifflet, chrono'];
   // what each day before the match is for (training week before a match, amateur club with 2 or 3 sessions)
   const DAYS = { 1: ['J-1', 'Activation + coups de pied arrêtés : court, intense, peu de volume', 'Veille de match : activation et CPA'],
@@ -36,7 +36,7 @@ const Prepa = (() => {
   const MOM = () => foot() ? MOMENTS : MOMENTS_OTHER;
   const OPP_OTHER = ['Jeu rapide', 'Défense agressive', 'Défense de zone', 'Très physiques', 'Très techniques', 'Dangereux sur phases arrêtées', 'Fragiles sur phases arrêtées', 'Un joueur clé', 'Peu de remplaçants', 'Fin de match difficile pour eux'];
   const KEY_OTHER = ['Gagner les duels', 'Défendre ensemble', 'Jouer simple et vite', 'Courir en contre-attaque', 'Concentration sur les phases arrêtées', 'Communiquer', 'Ne jamais lâcher', 'Les premières minutes à fond', 'Respect de l\'arbitre et de l\'adversaire'];
-  const WARM_OTHER = [['Activation : trottinement, mobilité articulaire', 5], ['Gammes athlétiques (montées de genoux, pas chassés)', 5], ['Passes et manipulation du ballon', 5], ['Situations de jeu ou tirs', 5], ['Accélérations courtes', 3], ['Retour au vestiaire, derniers mots', 2]];
+  const WARM_OTHER = Warmup.other;
   const KIT_OTHER = ['Maillots, shorts, chaussettes', 'Brassard ou capitaine désigné', 'Ballons', 'Chasubles et plots', 'Trousse de secours, glace', 'Gourdes / eau', 'Licences et feuille de match', 'Sifflet, chrono'];
   const MODEL_OTHER = {
     1: [['Activation et vivacité (appuis, réactions)', 10], ['Jeu de passes à effectif réduit', 10], ['Phases arrêtées : nos combinaisons', 10], ['Phases arrêtées : défendre', 10], ['Petit match court et intense, 3 × 3 min', 10], ['Mise en place du plan de jeu sans opposition', 5]],

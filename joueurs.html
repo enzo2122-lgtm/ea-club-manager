@@ -13,8 +13,8 @@
 <meta name="apple-mobile-web-app-title" content="EA Joueurs">
 <link rel="icon" href="icons/ea-logo.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="famille.css?v=256">
-<link rel="stylesheet" href="theme.css?v=256">
+<link rel="stylesheet" href="famille.css?v=257">
+<link rel="stylesheet" href="theme.css?v=257">
 <style>
 .tr .grp { color: var(--brand); } /* (1.66) le groupe d'entraînement : Groupe Gianni, Groupe Enzo… */
 .b.cal { min-height: 40px; font-size: 15px; }
@@ -47,6 +47,15 @@
 .mine-box .b { flex: 1; min-height: 50px; font-size: 16px; }
 .talk { margin: 12px 0; padding: 14px; border-radius: 14px; background: var(--navy); color: #fff; }
 .talk h3 { margin: 0 0 6px; font-size: 17px; color: #e2c27d; }
+/* (3.56) before the match: the bag, the fines, the warm-up, the coach's board */
+.pre-box { margin: 10px 0; padding: 12px 14px; border-radius: 14px; background: var(--surface2, #f4f5f8); border: 1px solid var(--line, #e2e5ec); }
+.pre-box h3 { margin: 0 0 6px; font-size: 16px; }
+.pre-box p { margin: 4px 0; }
+.pre-warm { margin: 6px 0 0; padding: 0; list-style: none; }
+.pre-warm li { display: flex; gap: 10px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--line, #e2e5ec); }
+.pre-warm li:first-child { border-top: 0; }
+.pre-warm b { flex: none; min-width: 34px; font-variant-numeric: tabular-nums; }
+.pre-board { display: block; width: 100%; height: auto; border-radius: 12px; margin-top: 6px; }
 .talk .obj { font-weight: 800; font-size: 17px; margin: 4px 0 8px; }
 .talk .info, .talk .info b { color: #dbe2f5; }
 .keys { margin: 6px 0; padding-left: 22px; font-weight: 700; font-size: 16px; } .keys li + li { margin-top: 4px; }
@@ -130,26 +139,29 @@ textarea.wb-note { padding: 10px 12px; resize: vertical; }
 <main id="page"><p class="empty">Chargement des informations de l'équipe…</p></main>
 <p class="credit">Clubbo · créée par <b>Coach Enzo</b></p>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script src="js/config.js?v=256"></script>
-<script src="js/appcfg.js?v=256"></script>
-<script src="js/i18n.js?v=256"></script>
-<script src="js/sport.js?v=256"></script>
-<script src="js/clubs.js?v=256"></script>
-<script src="js/theme.js?v=256"></script>
-<script src="js/member.js?v=256"></script>
-<script src="js/perso.js?v=256"></script>
-<script src="js/game.js?v=256"></script>
-<script src="js/chat.js?v=256"></script>
-<script src="js/share.js?v=256"></script>
-<script src="js/bodymap.js?v=256"></script>
-<script src="js/injury.js?v=256"></script>
-<script src="js/urgent.js?v=256"></script>
-<script src="js/consent.js?v=256"></script>
-<script src="js/profil.js?v=256"></script>
-<script src="js/absence.js?v=256"></script>
-<script src="js/after.js?v=256"></script>
-<script src="js/talks.js?v=256"></script>
-<script src="js/vplayer.js?v=256"></script>
-<script src="js/players-page.js?v=256"></script>
+<script src="js/config.js?v=257"></script>
+<script src="js/appcfg.js?v=257"></script>
+<script src="js/i18n.js?v=257"></script>
+<script src="js/sport.js?v=257"></script>
+<script src="js/clubs.js?v=257"></script>
+<script src="js/theme.js?v=257"></script>
+<script src="js/member.js?v=257"></script>
+<script src="js/perso.js?v=257"></script>
+<script src="js/game.js?v=257"></script>
+<script src="js/chat.js?v=257"></script>
+<script src="js/share.js?v=257"></script>
+<script src="js/bodymap.js?v=257"></script>
+<script src="js/injury.js?v=257"></script>
+<script src="js/urgent.js?v=257"></script>
+<script src="js/consent.js?v=257"></script>
+<script src="js/profil.js?v=257"></script>
+<script src="js/absence.js?v=257"></script>
+<script src="js/after.js?v=257"></script>
+<script src="js/talks.js?v=257"></script>
+<script src="js/vplayer.js?v=257"></script>
+<script src="js/warmup.js?v=257"></script>
+<script src="js/board.js?v=257"></script>
+<script src="js/quickboard.js?v=257"></script>
+<script src="js/players-page.js?v=257"></script>
 </body>
 </html>

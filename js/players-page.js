@@ -74,8 +74,25 @@
         ${keys.length ? `<ol class="keys">${keys.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
         ${t.final ? `<p class="final">${esc(t.final)}</p>` : ''}
         ${t.video ? `<p><a class="b vid" href="${esc(t.video)}" target="_blank" rel="noopener noreferrer">▶ Voir la vidéo du coach</a></p>` : ''}</div>` : ''}
+      ${preMatch(m)}
       <p><button class="b cal" data-cal="${esc(m.id)}">📅 Ajouter à mon agenda</button></p></article>`;
   }
+  // (3.56) before the match, for the convoked players (or everyone until the convocation is out): what to bring, the team's fines,
+  // the warm-up led by the captain, and the boards the coach kept « Avant-match » (drawn by QuickBoard)
+  const boards = {};
+  function preMatch(m) {
+    const t = m.talk; if (!t || (!m.convoked && m.published && (m.conv || !data.convApp))) return ''; // the convocation sent in the app (or the list, without it) and he isn't in it
+    const bring = Array.isArray(t.bring) ? t.bring : ['Tenue du club', 'Protège-tibias', 'Gourde'], fines = Array.isArray(t.fines) ? t.fines : [];
+    const w = t.warm || {}, sel = w.sel && typeof w.sel === 'object' ? w.sel : {}, list = (typeof Warmup !== 'undefined' ? ((data.club || {}).sport && data.club.sport !== 'foot' ? Warmup.other : Warmup.foot) : []);
+    const k = (+w.min || 25) / 25, picked = list.map(([l, n], i) => [l, Math.max(1, Math.round(n * k)), i]).filter(x => sel[x[2]]), steps = picked.length ? picked : list.map(([l, n], i) => [l, Math.max(1, Math.round(n * k)), i]);
+    const showWarm = picked.length || w.min || w.notes || t.objective;
+    const bs = (Array.isArray(t.boards) ? t.boards : []).filter(b => b && Array.isArray(b.players)).slice(-3);
+    bs.forEach((b, i) => { boards[m.id + ':' + i] = b; });
+    return `${bring.length || fines.length ? `<div class="pre-box">${bring.length ? `<h3>🎒 Dans ton sac</h3><p>${bring.map(esc).join(' · ')}</p>` : ''}${fines.length ? `<h3>💶 Caisse de l'équipe</h3><p>${fines.map(esc).join(' · ')}</p>` : ''}</div>` : ''}
+      ${showWarm ? `<div class="pre-box"><h3>🏃 L'échauffement · ${esc(w.min || 25)} min</h3>${t.captain ? `<p>©️ Mené par le capitaine : <b>${esc(t.captain)}</b></p>` : ''}<ol class="pre-warm">${steps.map(([l, n]) => `<li><b>${n}'</b><span>${esc(l)}</span></li>`).join('')}</ol>${w.notes ? `<p class="info">${esc(w.notes)}</p>` : ''}</div>` : ''}
+      ${bs.length && typeof QuickBoard !== 'undefined' ? `<div class="pre-box"><h3>🟩 Le tableau du coach</h3>${bs.map((b, i) => `<canvas class="pre-board" width="1200" height="780" data-qbd="${esc(m.id + ':' + i)}"></canvas>`).join('')}</div>` : ''}`;
+  }
+  const drawBoards = () => document.querySelectorAll('canvas[data-qbd]').forEach(c => { const b = boards[c.dataset.qbd]; if (b && !c.dataset.done) { try { QuickBoard.render(b, c); c.dataset.done = 1; } catch (e) { c.remove(); } } });
   function pastCard(m) {
     const r = result(m), st = m.my;
     return `<article class="card past ${Member.kindCls(m)}">${Member.kindBadge(m)}<div class="m-date">${esc(fmt(m.date, { weekday: 'short', day: 'numeric', month: 'short' }))}</div>
@@ -265,6 +282,7 @@
           <p class="tip">Ajoute cette page à ton écran d'accueil (Partager → « Sur l'écran d'accueil »). Ton code est personnel : ne le donne à personne.</p>
           ${Member.privacy()}` },
       ])}`;
+    drawBoards();
     // (2.62) the individual talks the coach shared, and the player's answers
     if (typeof Talks !== 'undefined' && $('#tkBox')) Talks.mount($('#tkBox'), { key: code, toast, 
       load: () => rpc('member_talks', { p_code: code, p_parent: false }), reply: (id, text) => rpc('member_talks', { p_code: code, p_action: 'reply', p_data: { id, text }, p_parent: false }) });

@@ -5,7 +5,8 @@
    Undo, wipe the lines, the opponents and the ball at a touch, half or whole pitch. « Garder » keeps the board with the match
    (« Avant-match », « Mi-temps »), « Envoyer » makes a picture for WhatsApp. */
 const QuickBoard = (() => {
-  const { esc, toast } = UI;
+  // (3.56) also loaded by the players' page (only render() there, no UI)
+  const esc = s => typeof UI !== 'undefined' ? UI.esc(s) : String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';'), toast = (m, k) => UI.toast(m, k);
   const S = () => Store.state;
   // where the players stand when the match has no lineup: our goal on the left (x = 0 → 1 along the length, y across)
   const SHAPES = {
@@ -83,22 +84,23 @@ const QuickBoard = (() => {
     const W = B.cv.width, H = B.cv.height, vertical = H > W * 1.05;
     return Board.camera({ field: field(), overlays: {} }, W, H, { vertical });
   }
-  function draw(ctxIn, Win, Hin) {
-    const ctx = ctxIn || B.ctx, W = Win || B.cv.width, H = Hin || B.cv.height;
-    const sc = { field: field(), overlays: {}, objects: [], zones: [], steps: [{ pos: {}, arrows: [], moves: {} }] };
+  // (3.56) Q = the open board, or a board kept (render(), for the players' page)
+  function draw(ctxIn, Win, Hin, Qin) {
+    const Q = Qin || B, ctx = ctxIn || Q.ctx, W = Win || Q.cv.width, H = Hin || Q.cv.height;
+    const sc = { field: { format: Q.fmt, view: Q.half ? 'half' : 'full' }, overlays: {}, objects: [], zones: [], steps: [{ pos: {}, arrows: [], moves: {} }] };
     const vertical = H > W * 1.05;
     Board.drawFrame(ctx, W, H, sc, 0, 0, { vertical });
     const c = Board.camera(sc, W, H, { vertical }), s = c.s, r = c.r * s * 1.05;
-    B.strokes.forEach(st => stroke(ctx, c, st));
-    if (B.cur) stroke(ctx, c, B.cur);
-    B.players.filter(p => B.them || p.side === 'us').forEach(p => {
+    Q.strokes.forEach(st => stroke(ctx, c, st));
+    if (Q.cur) stroke(ctx, c, Q.cur);
+    Q.players.filter(p => Q.them || p.side === 'us').forEach(p => {
       const [X, Y] = c.toS([p.x, p.y]), [fill, ink] = Board.BIBS[p.side === 'us' ? (p.gk ? 'jaune' : 'bleu') : (p.gk ? 'vert' : 'blanc')] || Board.BIBS.bleu;
       ctx.beginPath(); ctx.arc(X + r * .1, Y + r * .18, r, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = Math.max(2, r * .12); ctx.strokeStyle = B.drag && B.drag.p === p ? '#facc15' : 'rgba(0,0,0,.55)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = Math.max(2, r * .12); ctx.strokeStyle = Q.drag && Q.drag.p === p ? '#facc15' : 'rgba(0,0,0,.55)'; ctx.stroke();
       ctx.fillStyle = ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 ${Math.round(r * (p.label.length > 2 ? .8 : 1))}px ui-rounded, system-ui, sans-serif`; ctx.fillText(p.label, X, Y + r * .05);
       if (p.name) { ctx.font = `700 ${Math.round(r * .78)}px ui-rounded, system-ui, sans-serif`; ctx.textBaseline = 'top'; ctx.lineWidth = Math.max(2, r * .22); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText(p.name, X, Y + r * 1.15); ctx.fillStyle = '#fff'; ctx.fillText(p.name, X, Y + r * 1.15); }
     });
-    if (B.ball) { const [X, Y] = c.toS([B.ball.x, B.ball.y]), br = r * .55; ctx.beginPath(); ctx.arc(X, Y, br, 0, Math.PI * 2); ctx.fillStyle = '#f97316'; ctx.fill(); ctx.lineWidth = Math.max(1.5, br * .18); ctx.strokeStyle = '#3b1a06'; ctx.stroke(); ctx.beginPath(); ctx.arc(X, Y, br * .38, 0, Math.PI * 2); ctx.fillStyle = '#3b1a06'; ctx.fill(); }
+    if (Q.ball) { const [X, Y] = c.toS([Q.ball.x, Q.ball.y]), br = r * .55; ctx.beginPath(); ctx.arc(X, Y, br, 0, Math.PI * 2); ctx.fillStyle = '#f97316'; ctx.fill(); ctx.lineWidth = Math.max(1.5, br * .18); ctx.strokeStyle = '#3b1a06'; ctx.stroke(); ctx.beginPath(); ctx.arc(X, Y, br * .38, 0, Math.PI * 2); ctx.fillStyle = '#3b1a06'; ctx.fill(); }
   }
   // a line through the points (smoothed), dotted for a pass, an arrow head for a run or a pass
   function stroke(ctx, c, st) {
@@ -204,5 +206,7 @@ const QuickBoard = (() => {
     try { await Exporter.deliver(blob, (B.title || 'tableau').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.jpg'); } catch (e) { toast('Image impossible : ' + (e.message || e), 'err'); }
   }
 
-  return { open, close, isOpen: () => !!B };
+  // a board kept, drawn on a canvas (the players' page shows the « Avant-match » ones)
+  function render(d, canvas) { const W = canvas.width, H = canvas.height; draw(canvas.getContext('2d'), W, H, { fmt: d.fmt || '11', half: !!d.half, them: !!d.them, ball: d.ball, players: d.players || [], strokes: d.strokes || [] }); return canvas; }
+  return { open, close, render, isOpen: () => !!B };
 })();
