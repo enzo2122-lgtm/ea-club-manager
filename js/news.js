@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 210, date: '2026-10-17', title: 'L\'affiche passe au régime 🖨️', items: [
+      ['🌿', "L'affiche du vestiaire (PDF de la préparation) n'est plus une page entièrement bleue : fond blanc, un fin cadre bordeaux, le texte en bleu marine. Les couleurs d'avant restent possibles : Réglages → Impression → « En couleurs »."],
+      ['🖨️', "Tout ce qui s'imprime économise l'encre : les PDF, l'affiche, le tableau des licences, et les pages imprimées depuis l'appli (plus aucun fond coloré, texte foncé)."],
+      ['🔵', "Tableau du match : nous en bleu, les adversaires en blanc, le ballon orange pour le voir partout."],
+    ] },
     { n: 209, date: '2026-10-17', title: 'Le tableau qui se lit au doigt ✍️', items: [
       ['✍️', "Nouveau « 🟩 Tableau » (fiche du match, préparation, jour de match, mode tablette) : un terrain vide en plein écran, ton onze déjà placé avec les noms (la compo du match). Glisse un joueur pour le déplacer, glisse ailleurs pour dessiner : ➡️ course, ⇢ passe, ✏️ trait libre, en 4 couleurs."],
       ["🎯", "Tableau des séances : en mode « Bouger », glisser le doigt sur la pelouse dessine directement une flèche (plus besoin de choisir « Flèche » avant). Glisser un joueur le déplace toujours."],

@@ -235,7 +235,7 @@ const ClubAdmin = (() => {
     // the end of the document: the total, and how many in each state
     const n = s.list.length, by = k => s.list.filter(p => licState(p) === k).length, twice = s.sections.reduce((a, x) => a + x.list.length, 0) > n;
     room(16);
-    doc.setFillColor(14, 29, 69); doc.rect(M, P.y, CW, 9, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    if (Exporter.eco()) { doc.setDrawColor(14, 29, 69); doc.setLineWidth(.5); doc.rect(M, P.y, CW, 9); doc.setTextColor(14, 29, 69); } else { doc.setFillColor(14, 29, 69); doc.rect(M, P.y, CW, 9, 'F'); doc.setTextColor(255, 255, 255); } doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text(L(`Total : ${n} licence${n > 1 ? 's' : ''}${twice ? ' (un joueur de deux groupes compte une fois)' : ''}`), M + 3, P.y + 6.2);
     doc.setTextColor(20, 30, 25); P.y += 13;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);

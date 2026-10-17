@@ -1763,7 +1763,7 @@ const Views = (() => {
         <h2>🖨️ Impression</h2>
         <p class="muted">Le format de tous les PDF : feuille de match, compte-rendu, préparation et causerie, séance. En A3 pour le banc et le vestiaire.</p>
         <div class="chips">${[['a4', '📄 A4'], ['a3', '📰 A3']].map(([v, l]) => `<button class="chip ${(S().ui.pdfFormat || 'a4') === v ? 'on' : ''}" data-pdffmt="${v}">${l}</button>`).join('')}</div>
-        <p class="muted small">Encre : « Économie d'encre » imprime l'en-tête sur fond blanc et les terrains en clair (lignes vertes, flèches foncées). « En couleurs » garde le bandeau bleu et la pelouse.</p>
+        <p class="muted small">Encre : « Économie d'encre » vaut pour tout ce qui s'imprime : les PDF (en-tête et affiche sur fond blanc, terrains en clair) et les pages imprimées depuis l'appli (sans fonds colorés). « En couleurs » garde le bleu et la pelouse.</p>
         <div class="chips">${[['', '🌿 Économie d\'encre'], ['color', '🎨 En couleurs']].map(([v, l]) => `<button class="chip ${(S().ui.pdfInk || '') === v ? 'on' : ''}" data-pdfink="${v}">${l}</button>`).join('')}</div>
       </section>
       <section class="card">
@@ -1821,7 +1821,7 @@ const Views = (() => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.stab) { setTab = b.dataset.stab; return settings(root); }
-      if (b.dataset.pdfink !== undefined) { if (b.dataset.pdfink) S().ui.pdfInk = b.dataset.pdfink; else delete S().ui.pdfInk; Store.persistNow(); toast(b.dataset.pdfink ? 'Les PDF sortiront en couleurs' : 'Les PDF économisent l\'encre'); return settings(root); }
+      if (b.dataset.pdfink !== undefined) { if (b.dataset.pdfink) S().ui.pdfInk = b.dataset.pdfink; else delete S().ui.pdfInk; Store.persistNow(); document.documentElement.classList.toggle('ink-color', !!b.dataset.pdfink); toast(b.dataset.pdfink ? 'Les PDF sortiront en couleurs' : 'Les PDF économisent l\'encre'); return settings(root); }
       if (b.dataset.pdffmt) { S().ui.pdfFormat = b.dataset.pdffmt; Store.persistNow(); toast(b.dataset.pdffmt === 'a3' ? 'Les PDF sortiront en A3' : 'Les PDF sortiront en A4'); return settings(root); }
       if (b.dataset.theme != null) { const v = b.dataset.theme; try { if (v) localStorage.setItem(AppCfg.key('theme'), v); else localStorage.removeItem(AppCfg.key('theme')); } catch (e) {} if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; return settings(root); }
       if (b.dataset.navpos) { App.setNavPos(b.dataset.navpos); return settings(root); }

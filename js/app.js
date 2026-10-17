@@ -104,6 +104,7 @@ const App = (() => {
   }
   // keep = true: same page redrawn with new data from the server, stay where the user was in the page
   function route(keep) {
+    document.documentElement.classList.toggle('ink-color', (Store.state.ui || {}).pdfInk === 'color'); // (3.52) printing in colour only when chosen
     keep = keep === true;
     const sy = window.scrollY, st = view().scrollTop;
     const [, name = '', id, sub] = (location.hash || '#/').split('/');
@@ -171,7 +172,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 252, UPD = AppCfg.key('update-tried');
+  const BUILD = 253, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

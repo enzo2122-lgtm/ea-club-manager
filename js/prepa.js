@@ -498,20 +498,23 @@ const Prepa = (() => {
       // the poster: navy page, crest, the match, the objective, the 3 keys, the slogan, all in big letters
       if (!first) doc.addPage(); first = false;
       const W = 210, H = 297;
-      doc.setFillColor(14, 29, 69); doc.rect(0, 0, W, H, 'F'); doc.setFillColor(140, 16, 36); doc.rect(0, H - 12, W, 12, 'F');
+      // (3.52) « économie d'encre » (Réglages → Impression): a white page with a thin frame, the texts in navy and bordeaux
+      const eco = Exporter.eco(), GOLD = eco ? [140, 16, 36] : [226, 194, 125], INK = eco ? [14, 29, 69] : [255, 255, 255];
+      if (eco) { doc.setDrawColor(140, 16, 36); doc.setLineWidth(1.2); doc.rect(8, 8, W - 16, H - 16); doc.setLineWidth(.4); doc.rect(10.5, 10.5, W - 21, H - 21); }
+      else { doc.setFillColor(14, 29, 69); doc.rect(0, 0, W, H, 'F'); doc.setFillColor(140, 16, 36); doc.rect(0, H - 12, W, 12, 'F'); }
       const logo = Exporter.crestData(); if (logo) doc.addImage(logo, 'PNG', W / 2 - 22, 14, 44, 44);
-      doc.setTextColor(226, 194, 125); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(L(`${date}${m.time ? ' · ' + hh(m.time) : ''}`.toUpperCase()), W / 2, 68, { align: 'center' });
-      doc.setTextColor(255, 255, 255); doc.setFontSize(28); doc.text(doc.splitTextToSize(L(who), W - 30), W / 2, 81, { align: 'center' });
+      doc.setTextColor(...GOLD); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(L(`${date}${m.time ? ' · ' + hh(m.time) : ''}`.toUpperCase()), W / 2, 68, { align: 'center' });
+      doc.setTextColor(...INK); doc.setFontSize(28); doc.text(doc.splitTextToSize(L(who), W - 30), W / 2, 81, { align: 'center' });
       let y = 100;
-      if (t.objective) { doc.setDrawColor(226, 194, 125); doc.setLineWidth(.8); const ls = doc.splitTextToSize(L(t.objective), W - 50); doc.roundedRect(18, y - 7, W - 36, ls.length * 9 + 8, 3, 3); doc.setFontSize(19); doc.text(ls, W / 2, y, { align: 'center' }); y += ls.length * 9 + 14; }
+      if (t.objective) { doc.setDrawColor(...GOLD); doc.setLineWidth(.8); const ls = doc.splitTextToSize(L(t.objective), W - 50); doc.roundedRect(18, y - 7, W - 36, ls.length * 9 + 8, 3, 3); doc.setFontSize(19); doc.text(ls, W / 2, y, { align: 'center' }); y += ls.length * 9 + 14; }
       if (keys.length) {
-        doc.setTextColor(226, 194, 125); doc.setFontSize(15); doc.text(L('NOS 3 CLÉS'), W / 2, y, { align: 'center' }); y += 11;
+        doc.setTextColor(...GOLD); doc.setFontSize(15); doc.text(L('NOS 3 CLÉS'), W / 2, y, { align: 'center' }); y += 11;
         keys.forEach((k, i) => { doc.setFillColor(140, 16, 36); doc.circle(26, y - 2.5, 6, 'F'); doc.setTextColor(255, 255, 255); doc.setFontSize(16); doc.text(String(i + 1), 26, y + .5, { align: 'center' });
-          doc.setFontSize(18); const ls = doc.splitTextToSize(L(k), W - 54); doc.text(ls, 38, y); y += ls.length * 8.5 + 7; });
+          doc.setTextColor(...INK); doc.setFontSize(18); const ls = doc.splitTextToSize(L(k), W - 54); doc.text(ls, 38, y); y += ls.length * 8.5 + 7; });
       }
-      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(15);
+      doc.setTextColor(...INK); doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(15);
       const fl = doc.splitTextToSize(L(final), W - 40); doc.text(fl, W / 2, Math.max(y + 8, H - 52 - fl.length * 7), { align: 'center' });
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(226, 194, 125); doc.setFontSize(26); doc.text(L(`ALLEZ ${String(S().club.short || 'LE CLUB').toUpperCase()} !`), W / 2, H - 24, { align: 'center' });
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(...GOLD); doc.setFontSize(26); doc.text(L(`ALLEZ ${String(S().club.short || 'LE CLUB').toUpperCase()} !`), W / 2, H - 24, { align: 'center' });
       doc.setTextColor(20, 30, 25);
     }
     if (parts.includes('talk')) {

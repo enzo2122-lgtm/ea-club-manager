@@ -91,15 +91,14 @@ const QuickBoard = (() => {
     const c = Board.camera(sc, W, H, { vertical }), s = c.s, r = c.r * s * 1.05;
     B.strokes.forEach(st => stroke(ctx, c, st));
     if (B.cur) stroke(ctx, c, B.cur);
-    const bib = (S().club || {}).homeBib || 'bordeaux', away = (S().club || {}).awayBib && S().club.awayBib !== bib ? S().club.awayBib : 'blanc';
     B.players.filter(p => B.them || p.side === 'us').forEach(p => {
-      const [X, Y] = c.toS([p.x, p.y]), [fill, ink] = Board.BIBS[p.side === 'us' ? (p.gk ? 'jaune' : bib) : (p.gk ? 'vert' : away === bib ? 'blanc' : away)] || Board.BIBS.bleu;
+      const [X, Y] = c.toS([p.x, p.y]), [fill, ink] = Board.BIBS[p.side === 'us' ? (p.gk ? 'jaune' : 'bleu') : (p.gk ? 'vert' : 'blanc')] || Board.BIBS.bleu;
       ctx.beginPath(); ctx.arc(X + r * .1, Y + r * .18, r, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fill();
       ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = Math.max(2, r * .12); ctx.strokeStyle = B.drag && B.drag.p === p ? '#facc15' : 'rgba(0,0,0,.55)'; ctx.stroke();
       ctx.fillStyle = ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 ${Math.round(r * (p.label.length > 2 ? .8 : 1))}px ui-rounded, system-ui, sans-serif`; ctx.fillText(p.label, X, Y + r * .05);
       if (p.name) { ctx.font = `700 ${Math.round(r * .78)}px ui-rounded, system-ui, sans-serif`; ctx.textBaseline = 'top'; ctx.lineWidth = Math.max(2, r * .22); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText(p.name, X, Y + r * 1.15); ctx.fillStyle = '#fff'; ctx.fillText(p.name, X, Y + r * 1.15); }
     });
-    if (B.ball) { const [X, Y] = c.toS([B.ball.x, B.ball.y]), br = r * .55; ctx.beginPath(); ctx.arc(X, Y, br, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = Math.max(1.5, br * .18); ctx.strokeStyle = '#111'; ctx.stroke(); ctx.beginPath(); ctx.arc(X, Y, br * .38, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill(); }
+    if (B.ball) { const [X, Y] = c.toS([B.ball.x, B.ball.y]), br = r * .55; ctx.beginPath(); ctx.arc(X, Y, br, 0, Math.PI * 2); ctx.fillStyle = '#f97316'; ctx.fill(); ctx.lineWidth = Math.max(1.5, br * .18); ctx.strokeStyle = '#3b1a06'; ctx.stroke(); ctx.beginPath(); ctx.arc(X, Y, br * .38, 0, Math.PI * 2); ctx.fillStyle = '#3b1a06'; ctx.fill(); }
   }
   // a line through the points (smoothed), dotted for a pass, an arrow head for a run or a pass
   function stroke(ctx, c, st) {

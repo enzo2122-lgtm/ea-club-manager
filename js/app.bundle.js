@@ -4086,7 +4086,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.51';
+  const VERSION = '3.52';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -9073,20 +9073,23 @@ var Prepa = (() => {
       // the poster: navy page, crest, the match, the objective, the 3 keys, the slogan, all in big letters
       if (!first) doc.addPage(); first = false;
       const W = 210, H = 297;
-      doc.setFillColor(14, 29, 69); doc.rect(0, 0, W, H, 'F'); doc.setFillColor(140, 16, 36); doc.rect(0, H - 12, W, 12, 'F');
+      // (3.52) « économie d'encre » (Réglages → Impression): a white page with a thin frame, the texts in navy and bordeaux
+      const eco = Exporter.eco(), GOLD = eco ? [140, 16, 36] : [226, 194, 125], INK = eco ? [14, 29, 69] : [255, 255, 255];
+      if (eco) { doc.setDrawColor(140, 16, 36); doc.setLineWidth(1.2); doc.rect(8, 8, W - 16, H - 16); doc.setLineWidth(.4); doc.rect(10.5, 10.5, W - 21, H - 21); }
+      else { doc.setFillColor(14, 29, 69); doc.rect(0, 0, W, H, 'F'); doc.setFillColor(140, 16, 36); doc.rect(0, H - 12, W, 12, 'F'); }
       const logo = Exporter.crestData(); if (logo) doc.addImage(logo, 'PNG', W / 2 - 22, 14, 44, 44);
-      doc.setTextColor(226, 194, 125); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(L(`${date}${m.time ? ' · ' + hh(m.time) : ''}`.toUpperCase()), W / 2, 68, { align: 'center' });
-      doc.setTextColor(255, 255, 255); doc.setFontSize(28); doc.text(doc.splitTextToSize(L(who), W - 30), W / 2, 81, { align: 'center' });
+      doc.setTextColor(...GOLD); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(L(`${date}${m.time ? ' · ' + hh(m.time) : ''}`.toUpperCase()), W / 2, 68, { align: 'center' });
+      doc.setTextColor(...INK); doc.setFontSize(28); doc.text(doc.splitTextToSize(L(who), W - 30), W / 2, 81, { align: 'center' });
       let y = 100;
-      if (t.objective) { doc.setDrawColor(226, 194, 125); doc.setLineWidth(.8); const ls = doc.splitTextToSize(L(t.objective), W - 50); doc.roundedRect(18, y - 7, W - 36, ls.length * 9 + 8, 3, 3); doc.setFontSize(19); doc.text(ls, W / 2, y, { align: 'center' }); y += ls.length * 9 + 14; }
+      if (t.objective) { doc.setDrawColor(...GOLD); doc.setLineWidth(.8); const ls = doc.splitTextToSize(L(t.objective), W - 50); doc.roundedRect(18, y - 7, W - 36, ls.length * 9 + 8, 3, 3); doc.setFontSize(19); doc.text(ls, W / 2, y, { align: 'center' }); y += ls.length * 9 + 14; }
       if (keys.length) {
-        doc.setTextColor(226, 194, 125); doc.setFontSize(15); doc.text(L('NOS 3 CLÉS'), W / 2, y, { align: 'center' }); y += 11;
+        doc.setTextColor(...GOLD); doc.setFontSize(15); doc.text(L('NOS 3 CLÉS'), W / 2, y, { align: 'center' }); y += 11;
         keys.forEach((k, i) => { doc.setFillColor(140, 16, 36); doc.circle(26, y - 2.5, 6, 'F'); doc.setTextColor(255, 255, 255); doc.setFontSize(16); doc.text(String(i + 1), 26, y + .5, { align: 'center' });
-          doc.setFontSize(18); const ls = doc.splitTextToSize(L(k), W - 54); doc.text(ls, 38, y); y += ls.length * 8.5 + 7; });
+          doc.setTextColor(...INK); doc.setFontSize(18); const ls = doc.splitTextToSize(L(k), W - 54); doc.text(ls, 38, y); y += ls.length * 8.5 + 7; });
       }
-      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(15);
+      doc.setTextColor(...INK); doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(15);
       const fl = doc.splitTextToSize(L(final), W - 40); doc.text(fl, W / 2, Math.max(y + 8, H - 52 - fl.length * 7), { align: 'center' });
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(226, 194, 125); doc.setFontSize(26); doc.text(L(`ALLEZ ${String(S().club.short || 'LE CLUB').toUpperCase()} !`), W / 2, H - 24, { align: 'center' });
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(...GOLD); doc.setFontSize(26); doc.text(L(`ALLEZ ${String(S().club.short || 'LE CLUB').toUpperCase()} !`), W / 2, H - 24, { align: 'center' });
       doc.setTextColor(20, 30, 25);
     }
     if (parts.includes('talk')) {
@@ -12761,15 +12764,14 @@ var QuickBoard = (() => {
     const c = Board.camera(sc, W, H, { vertical }), s = c.s, r = c.r * s * 1.05;
     B.strokes.forEach(st => stroke(ctx, c, st));
     if (B.cur) stroke(ctx, c, B.cur);
-    const bib = (S().club || {}).homeBib || 'bordeaux', away = (S().club || {}).awayBib && S().club.awayBib !== bib ? S().club.awayBib : 'blanc';
     B.players.filter(p => B.them || p.side === 'us').forEach(p => {
-      const [X, Y] = c.toS([p.x, p.y]), [fill, ink] = Board.BIBS[p.side === 'us' ? (p.gk ? 'jaune' : bib) : (p.gk ? 'vert' : away === bib ? 'blanc' : away)] || Board.BIBS.bleu;
+      const [X, Y] = c.toS([p.x, p.y]), [fill, ink] = Board.BIBS[p.side === 'us' ? (p.gk ? 'jaune' : 'bleu') : (p.gk ? 'vert' : 'blanc')] || Board.BIBS.bleu;
       ctx.beginPath(); ctx.arc(X + r * .1, Y + r * .18, r, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fill();
       ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = Math.max(2, r * .12); ctx.strokeStyle = B.drag && B.drag.p === p ? '#facc15' : 'rgba(0,0,0,.55)'; ctx.stroke();
       ctx.fillStyle = ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 ${Math.round(r * (p.label.length > 2 ? .8 : 1))}px ui-rounded, system-ui, sans-serif`; ctx.fillText(p.label, X, Y + r * .05);
       if (p.name) { ctx.font = `700 ${Math.round(r * .78)}px ui-rounded, system-ui, sans-serif`; ctx.textBaseline = 'top'; ctx.lineWidth = Math.max(2, r * .22); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText(p.name, X, Y + r * 1.15); ctx.fillStyle = '#fff'; ctx.fillText(p.name, X, Y + r * 1.15); }
     });
-    if (B.ball) { const [X, Y] = c.toS([B.ball.x, B.ball.y]), br = r * .55; ctx.beginPath(); ctx.arc(X, Y, br, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = Math.max(1.5, br * .18); ctx.strokeStyle = '#111'; ctx.stroke(); ctx.beginPath(); ctx.arc(X, Y, br * .38, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill(); }
+    if (B.ball) { const [X, Y] = c.toS([B.ball.x, B.ball.y]), br = r * .55; ctx.beginPath(); ctx.arc(X, Y, br, 0, Math.PI * 2); ctx.fillStyle = '#f97316'; ctx.fill(); ctx.lineWidth = Math.max(1.5, br * .18); ctx.strokeStyle = '#3b1a06'; ctx.stroke(); ctx.beginPath(); ctx.arc(X, Y, br * .38, 0, Math.PI * 2); ctx.fillStyle = '#3b1a06'; ctx.fill(); }
   }
   // a line through the points (smoothed), dotted for a pass, an arrow head for a run or a pass
   function stroke(ctx, c, st) {
@@ -16449,7 +16451,7 @@ var ClubAdmin = (() => {
     // the end of the document: the total, and how many in each state
     const n = s.list.length, by = k => s.list.filter(p => licState(p) === k).length, twice = s.sections.reduce((a, x) => a + x.list.length, 0) > n;
     room(16);
-    doc.setFillColor(14, 29, 69); doc.rect(M, P.y, CW, 9, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    if (Exporter.eco()) { doc.setDrawColor(14, 29, 69); doc.setLineWidth(.5); doc.rect(M, P.y, CW, 9); doc.setTextColor(14, 29, 69); } else { doc.setFillColor(14, 29, 69); doc.rect(M, P.y, CW, 9, 'F'); doc.setTextColor(255, 255, 255); } doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text(L(`Total : ${n} licence${n > 1 ? 's' : ''}${twice ? ' (un joueur de deux groupes compte une fois)' : ''}`), M + 3, P.y + 6.2);
     doc.setTextColor(20, 30, 25); P.y += 13;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
@@ -18474,6 +18476,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 210, date: '2026-10-17', title: 'L\'affiche passe au régime 🖨️', items: [
+      ['🌿', "L'affiche du vestiaire (PDF de la préparation) n'est plus une page entièrement bleue : fond blanc, un fin cadre bordeaux, le texte en bleu marine. Les couleurs d'avant restent possibles : Réglages → Impression → « En couleurs »."],
+      ['🖨️', "Tout ce qui s'imprime économise l'encre : les PDF, l'affiche, le tableau des licences, et les pages imprimées depuis l'appli (plus aucun fond coloré, texte foncé)."],
+      ['🔵', "Tableau du match : nous en bleu, les adversaires en blanc, le ballon orange pour le voir partout."],
+    ] },
     { n: 209, date: '2026-10-17', title: 'Le tableau qui se lit au doigt ✍️', items: [
       ['✍️', "Nouveau « 🟩 Tableau » (fiche du match, préparation, jour de match, mode tablette) : un terrain vide en plein écran, ton onze déjà placé avec les noms (la compo du match). Glisse un joueur pour le déplacer, glisse ailleurs pour dessiner : ➡️ course, ⇢ passe, ✏️ trait libre, en 4 couleurs."],
       ["🎯", "Tableau des séances : en mode « Bouger », glisser le doigt sur la pelouse dessine directement une flèche (plus besoin de choisir « Flèche » avant). Glisser un joueur le déplace toujours."],
@@ -23593,7 +23600,7 @@ var Views = (() => {
         <h2>🖨️ Impression</h2>
         <p class="muted">Le format de tous les PDF : feuille de match, compte-rendu, préparation et causerie, séance. En A3 pour le banc et le vestiaire.</p>
         <div class="chips">${[['a4', '📄 A4'], ['a3', '📰 A3']].map(([v, l]) => `<button class="chip ${(S().ui.pdfFormat || 'a4') === v ? 'on' : ''}" data-pdffmt="${v}">${l}</button>`).join('')}</div>
-        <p class="muted small">Encre : « Économie d'encre » imprime l'en-tête sur fond blanc et les terrains en clair (lignes vertes, flèches foncées). « En couleurs » garde le bandeau bleu et la pelouse.</p>
+        <p class="muted small">Encre : « Économie d'encre » vaut pour tout ce qui s'imprime : les PDF (en-tête et affiche sur fond blanc, terrains en clair) et les pages imprimées depuis l'appli (sans fonds colorés). « En couleurs » garde le bleu et la pelouse.</p>
         <div class="chips">${[['', '🌿 Économie d\'encre'], ['color', '🎨 En couleurs']].map(([v, l]) => `<button class="chip ${(S().ui.pdfInk || '') === v ? 'on' : ''}" data-pdfink="${v}">${l}</button>`).join('')}</div>
       </section>
       <section class="card">
@@ -23651,7 +23658,7 @@ var Views = (() => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.stab) { setTab = b.dataset.stab; return settings(root); }
-      if (b.dataset.pdfink !== undefined) { if (b.dataset.pdfink) S().ui.pdfInk = b.dataset.pdfink; else delete S().ui.pdfInk; Store.persistNow(); toast(b.dataset.pdfink ? 'Les PDF sortiront en couleurs' : 'Les PDF économisent l\'encre'); return settings(root); }
+      if (b.dataset.pdfink !== undefined) { if (b.dataset.pdfink) S().ui.pdfInk = b.dataset.pdfink; else delete S().ui.pdfInk; Store.persistNow(); document.documentElement.classList.toggle('ink-color', !!b.dataset.pdfink); toast(b.dataset.pdfink ? 'Les PDF sortiront en couleurs' : 'Les PDF économisent l\'encre'); return settings(root); }
       if (b.dataset.pdffmt) { S().ui.pdfFormat = b.dataset.pdffmt; Store.persistNow(); toast(b.dataset.pdffmt === 'a3' ? 'Les PDF sortiront en A3' : 'Les PDF sortiront en A4'); return settings(root); }
       if (b.dataset.theme != null) { const v = b.dataset.theme; try { if (v) localStorage.setItem(AppCfg.key('theme'), v); else localStorage.removeItem(AppCfg.key('theme')); } catch (e) {} if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; return settings(root); }
       if (b.dataset.navpos) { App.setNavPos(b.dataset.navpos); return settings(root); }
@@ -23964,6 +23971,7 @@ var App = (() => {
   }
   // keep = true: same page redrawn with new data from the server, stay where the user was in the page
   function route(keep) {
+    document.documentElement.classList.toggle('ink-color', (Store.state.ui || {}).pdfInk === 'color'); // (3.52) printing in colour only when chosen
     keep = keep === true;
     const sy = window.scrollY, st = view().scrollTop;
     const [, name = '', id, sub] = (location.hash || '#/').split('/');
@@ -24031,7 +24039,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 252, UPD = AppCfg.key('update-tried');
+  const BUILD = 253, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

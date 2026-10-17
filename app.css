@@ -2627,3 +2627,10 @@ main#view { padding-right: max(28px, env(safe-area-inset-right)); }
 body.qb-open { overflow: hidden; }
 @media (max-width: 760px) { .qb-tip { display: none; } .qb-top .btn span { display: none; } .qb-seg button { min-width: 56px; } }
 button.tb-tile { font: inherit; text-align: left; cursor: pointer; }
+
+/* (3.52) « économie d'encre » for every page printed from the app: no coloured backgrounds, dark text (pictures and drawings stay) */
+@media print {
+  html:not(.ink-color) *, html:not(.ink-color) *::before, html:not(.ink-color) *::after { background-color: transparent !important; background-image: none !important; box-shadow: none !important; text-shadow: none !important; }
+  html:not(.ink-color) body { color: #111 !important; }
+  html:not(.ink-color) :is(.hero, .page-head, header.top, .pp-show) :is(*, h1, h2, p, span, b) { color: #111 !important; }
+}
