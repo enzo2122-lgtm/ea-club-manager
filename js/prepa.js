@@ -463,7 +463,7 @@ const Prepa = (() => {
       if (keys.length) { D.label('2 · Les 3 clés'); keys.forEach((k, i) => D.para(`${i + 1}.  ${k}`, 13)); }
       D.label('3 · Le mot de la fin'); D.para(final, 11.5);
       const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = (pl.captain || m.captain) && Store.get('players', pl.captain || m.captain);
-      if (lineup) { await Board.ensureBg(lineup); D.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); D.image(Exporter.frameCanvas(lineup, 0, 0, { w: 1500, h: 980, names: true, homeBib: club.homeBib }), D.CW * .85); }
+      if (lineup) { await Board.ensureBg(lineup); D.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); D.image(Exporter.frameCanvas(lineup, 0, 0, { eco: Exporter.eco(), w: 1500, h: 980, names: true, homeBib: club.homeBib }), D.CW * .85); }
       else if (cap) { D.label('Capitaine'); D.para(Store.fullName(cap)); }
       { // (3.08) the list of names under the drawing: the starters, then the substitutes
         const sq = squad(m, lineup), withPost = [...sq.starters, ...sq.bench].some(x => sq.post(x));

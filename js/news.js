@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 205, date: '2026-10-17', title: 'L\'imprimante dit merci 🖨️', items: [
+      ['🌿', "Les PDF (séance, feuille de match, préparation…) économisent l'encre : plus de grand bandeau bleu en haut, et les terrains des schémas sont blancs avec des lignes vertes et des flèches foncées."],
+      ['🎨', "Envie de couleurs quand même ? Réglages → Impression → « En couleurs »."],
+    ] },
     { n: 204, date: '2026-10-16', title: 'Deux options, un coach 🤔', items: [
       ['🔀', "Un peu trop de joueurs pour un jeu, pas assez pour deux : l'appli donne les deux façons, le jeu agrandi (ex. 11 contre 10 sur 60 × 40 m) ou le jeu tel qu'écrit avec rotation. Tu choisis sur le terrain."],
     ] },

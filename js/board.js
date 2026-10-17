@@ -14,6 +14,10 @@ const Board = (() => {
     v6:  { kind: 'volley', free: 3, attack: 3, L: 24, W: 15, goal: 1, label: 'Volley 6 contre 6' },
     v4:  { kind: 'volley', free: 2, attack: 0, L: 16, W: 10, goal: 1, label: 'Volley 4 contre 4' },
   };
+  // (3.47) « économie d'encre » (PDF): a white pitch, its lines and the white arrows dark; set for the time of one frame
+  let ECO = false;
+  const ECO_COL = { '#ffffff': '#1f2a44', '#ffb54a': '#d97706', '#8fd0ff': '#2563eb' };
+  const ecoCol = c => (ECO && ECO_COL[c]) || c, LINE = a => ECO ? `rgba(40,95,62,${Math.min(1, a + .1)})` : `rgba(255,255,255,${a})`;
   const ARROWS = {
     course:   { label: 'Course',   color: '#ffffff', w: .2 },
     conduite: { label: 'Conduite', color: '#ffffff', w: .17, wave: true },
@@ -150,13 +154,13 @@ const Board = (() => {
       ctx.strokeStyle = col; ctx.lineWidth = w;
       ctx.setLineDash(st.dash ? st.dash.map(v => v * cam.r * cam.s) : []); ctx.stroke();
     };
-    line('rgba(0,0,0,.3)', lw * 2); line(st.color, lw);
+    line(ECO ? 'rgba(255,255,255,.6)' : 'rgba(0,0,0,.3)', lw * 2); line(ecoCol(st.color), lw);
     ctx.setLineDash([]);
     const p = pts[pts.length - 1], q = pts[pts.length - 3] || pts[0], ang = Math.atan2(p[1] - q[1], p[0] - q[0]), hs = Math.max(9, lw * 3.3);
     ctx.beginPath(); ctx.moveTo(p[0] + Math.cos(ang) * hs * .35, p[1] + Math.sin(ang) * hs * .35);
     ctx.lineTo(p[0] - Math.cos(ang - .5) * hs, p[1] - Math.sin(ang - .5) * hs);
     ctx.lineTo(p[0] - Math.cos(ang + .5) * hs, p[1] - Math.sin(ang + .5) * hs); ctx.closePath();
-    ctx.fillStyle = st.color; ctx.fill();
+    ctx.fillStyle = ecoCol(st.color); ctx.fill();
     ctx.restore();
   }
   function label(ctx, x, y, txt, size, color, align = 'center', weight = 800) {
@@ -270,7 +274,7 @@ const Board = (() => {
     }
     // a free zone of an indoor sport: the floor of the hall (wood for basket, blue for hand, orange for volley)
     const floor = typeof Sport !== 'undefined' && !P ? ({ basket: ['#7a4a24', '#c98c55', '#c4864f'], hand: ['#183a6b', '#2f6fb3', '#2b68a8'], volley: ['#244f8a', '#d9824a', '#d27c45'] })[Sport.id()] : null;
-    const [c0, c1, c2] = floor || ['#1f5137', '#2c6646', '#306d4b'];
+    const [c0, c1, c2] = ECO ? ['#ffffff', '#f6faf7', '#ebf4ee'] : floor || ['#1f5137', '#2c6646', '#306d4b'];
     ctx.fillStyle = c0; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = c1; ctx.fillRect(...cam.rect(0, 0, L, FW));
     const sw = L > 50 ? 5.25 : 3.2;
@@ -279,7 +283,7 @@ const Board = (() => {
     const ov = sc.overlays || {};
     if (ov.phases) drawPhases(ctx, cam, sc);
     if (ov.lanes) drawLanes(ctx, cam, sc);
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1, .12 * s);
+    ctx.strokeStyle = LINE(.85); ctx.lineWidth = Math.max(1, .12 * s);
     ctx.strokeRect(...cam.rect(0, 0, L, FW));
     if (P) {
       const cy = FW / 2, line = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(...cam.toS([x1, y1])); ctx.lineTo(...cam.toS([x2, y2])); ctx.stroke(); };
@@ -288,7 +292,7 @@ const Board = (() => {
       [[0, 1], [L, -1]].forEach(([x0, d]) => {
         const box = (dep, wid) => ctx.strokeRect(...cam.rect(d > 0 ? x0 : x0 - dep, cy - wid / 2, dep, wid));
         box(P.box[0], P.box[1]); if (P.six) box(P.six[0], P.six[1]);
-        ctx.beginPath(); ctx.arc(...cam.toS([x0 + d * P.spot, cy]), Math.max(1.5, .22 * s), 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.beginPath(); ctx.arc(...cam.toS([x0 + d * P.spot, cy]), Math.max(1.5, .22 * s), 0, Math.PI * 2); ctx.fillStyle = ECO ? LINE(.85) : '#fff'; ctx.fill();
         const g = cam.rect(d > 0 ? x0 - 2 : x0, cy - P.goal / 2, 2, P.goal);
         ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(...g); ctx.strokeRect(...g);
       });
@@ -318,12 +322,12 @@ const Board = (() => {
       if (name === 'Demi-espace') {
         const [x, y, w, h] = cam.rect(0, a, L, b - a);
         ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-        ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.lineWidth = Math.max(1, .3 * s);
+        ctx.strokeStyle = LINE(.13); ctx.lineWidth = Math.max(1, .3 * s);
         for (let d = -h; d < w; d += 1.6 * s) { ctx.beginPath(); ctx.moveTo(x + d, y + h); ctx.lineTo(x + d + h, y); ctx.stroke(); }
         ctx.restore();
       }
       if (i) {
-        ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(1, .1 * s); ctx.setLineDash([r * .35 * s, r * .35 * s]);
+        ctx.save(); ctx.strokeStyle = LINE(.55); ctx.lineWidth = Math.max(1, .1 * s); ctx.setLineDash([r * .35 * s, r * .35 * s]);
         ctx.beginPath(); ctx.moveTo(...cam.toS([0, a])); ctx.lineTo(...cam.toS([L, a])); ctx.stroke(); ctx.restore();
       }
       const [lx, ly] = cam.toS([cam.e.x1 + (cam.vertical ? r * .9 : r * 1.5), (a + b) / 2]);
@@ -352,7 +356,7 @@ const Board = (() => {
     const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad, s = cam.s;
     const [X, Y, w, h] = cam.rect(x0, y0, x1 - x0, y1 - y0);
     ctx.save(); ctx.fillStyle = 'rgba(10,12,14,.14)'; rr(ctx, X, Y, w, h, cam.r * s); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1.5, .12 * s); ctx.setLineDash([cam.r * .25 * s, cam.r * .3 * s]); ctx.stroke(); ctx.restore();
+    ctx.strokeStyle = LINE(.85); ctx.lineWidth = Math.max(1.5, .12 * s); ctx.setLineDash([cam.r * .25 * s, cam.r * .3 * s]); ctx.stroke(); ctx.restore();
     pill(ctx, X + w / 2, Y + h, `bloc adverse · ${Math.round(x1 - x0 - 2 * pad)} m`, Math.max(10, cam.r * .55 * s));
   }
 
@@ -381,7 +385,7 @@ const Board = (() => {
       const big = o.size !== 'mini', gw = (big ? (o.w || 6) : 2.4) * s, gd = (big ? 2 : 1) * s;
       ctx.save(); ctx.translate(x, y); ctx.rotate(((o.rot || 0) - (cam.vertical ? 90 : 0)) * Math.PI / 180);
       ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(-gd / 2, -gw / 2, gd, gw);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1.5, .14 * s); ctx.strokeRect(-gd / 2, -gw / 2, gd, gw);
+      ctx.strokeStyle = ECO ? '#1f2a44' : '#fff'; ctx.lineWidth = Math.max(1.5, .14 * s); ctx.strokeRect(-gd / 2, -gw / 2, gd, gw);
       ctx.beginPath(); ctx.moveTo(-gd / 2, -gw / 2); ctx.lineTo(-gd / 2, gw / 2); ctx.lineWidth = Math.max(2.5, .3 * s); ctx.stroke();
       ctx.restore();
     }
@@ -390,6 +394,9 @@ const Board = (() => {
   /* ---------- frame ---------- */
   // opts: {names, homeBib, editor:{sel, ghosts}, outgoing:true}
   function drawFrame(ctx, W, H, sc, k, u, opts = {}) {
+    ECO = !!opts.eco && !opts.editor; try { return drawFrame0(ctx, W, H, sc, k, u, opts); } finally { ECO = false; }
+  }
+  function drawFrame0(ctx, W, H, sc, k, u, opts) {
     const cam = camera(sc, W, H, { vertical: opts.vertical }), r = cam.r, st = sc.steps[k], ov = sc.overlays || {};
     drawPitch(ctx, cam, sc, W, H);
     drawTrace(ctx, cam, sc);

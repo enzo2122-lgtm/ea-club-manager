@@ -444,6 +444,10 @@ var Board = (() => {
     v6:  { kind: 'volley', free: 3, attack: 3, L: 24, W: 15, goal: 1, label: 'Volley 6 contre 6' },
     v4:  { kind: 'volley', free: 2, attack: 0, L: 16, W: 10, goal: 1, label: 'Volley 4 contre 4' },
   };
+  // (3.47) « économie d'encre » (PDF): a white pitch, its lines and the white arrows dark; set for the time of one frame
+  let ECO = false;
+  const ECO_COL = { '#ffffff': '#1f2a44', '#ffb54a': '#d97706', '#8fd0ff': '#2563eb' };
+  const ecoCol = c => (ECO && ECO_COL[c]) || c, LINE = a => ECO ? `rgba(40,95,62,${Math.min(1, a + .1)})` : `rgba(255,255,255,${a})`;
   const ARROWS = {
     course:   { label: 'Course',   color: '#ffffff', w: .2 },
     conduite: { label: 'Conduite', color: '#ffffff', w: .17, wave: true },
@@ -580,13 +584,13 @@ var Board = (() => {
       ctx.strokeStyle = col; ctx.lineWidth = w;
       ctx.setLineDash(st.dash ? st.dash.map(v => v * cam.r * cam.s) : []); ctx.stroke();
     };
-    line('rgba(0,0,0,.3)', lw * 2); line(st.color, lw);
+    line(ECO ? 'rgba(255,255,255,.6)' : 'rgba(0,0,0,.3)', lw * 2); line(ecoCol(st.color), lw);
     ctx.setLineDash([]);
     const p = pts[pts.length - 1], q = pts[pts.length - 3] || pts[0], ang = Math.atan2(p[1] - q[1], p[0] - q[0]), hs = Math.max(9, lw * 3.3);
     ctx.beginPath(); ctx.moveTo(p[0] + Math.cos(ang) * hs * .35, p[1] + Math.sin(ang) * hs * .35);
     ctx.lineTo(p[0] - Math.cos(ang - .5) * hs, p[1] - Math.sin(ang - .5) * hs);
     ctx.lineTo(p[0] - Math.cos(ang + .5) * hs, p[1] - Math.sin(ang + .5) * hs); ctx.closePath();
-    ctx.fillStyle = st.color; ctx.fill();
+    ctx.fillStyle = ecoCol(st.color); ctx.fill();
     ctx.restore();
   }
   function label(ctx, x, y, txt, size, color, align = 'center', weight = 800) {
@@ -700,7 +704,7 @@ var Board = (() => {
     }
     // a free zone of an indoor sport: the floor of the hall (wood for basket, blue for hand, orange for volley)
     const floor = typeof Sport !== 'undefined' && !P ? ({ basket: ['#7a4a24', '#c98c55', '#c4864f'], hand: ['#183a6b', '#2f6fb3', '#2b68a8'], volley: ['#244f8a', '#d9824a', '#d27c45'] })[Sport.id()] : null;
-    const [c0, c1, c2] = floor || ['#1f5137', '#2c6646', '#306d4b'];
+    const [c0, c1, c2] = ECO ? ['#ffffff', '#f6faf7', '#ebf4ee'] : floor || ['#1f5137', '#2c6646', '#306d4b'];
     ctx.fillStyle = c0; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = c1; ctx.fillRect(...cam.rect(0, 0, L, FW));
     const sw = L > 50 ? 5.25 : 3.2;
@@ -709,7 +713,7 @@ var Board = (() => {
     const ov = sc.overlays || {};
     if (ov.phases) drawPhases(ctx, cam, sc);
     if (ov.lanes) drawLanes(ctx, cam, sc);
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1, .12 * s);
+    ctx.strokeStyle = LINE(.85); ctx.lineWidth = Math.max(1, .12 * s);
     ctx.strokeRect(...cam.rect(0, 0, L, FW));
     if (P) {
       const cy = FW / 2, line = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(...cam.toS([x1, y1])); ctx.lineTo(...cam.toS([x2, y2])); ctx.stroke(); };
@@ -718,7 +722,7 @@ var Board = (() => {
       [[0, 1], [L, -1]].forEach(([x0, d]) => {
         const box = (dep, wid) => ctx.strokeRect(...cam.rect(d > 0 ? x0 : x0 - dep, cy - wid / 2, dep, wid));
         box(P.box[0], P.box[1]); if (P.six) box(P.six[0], P.six[1]);
-        ctx.beginPath(); ctx.arc(...cam.toS([x0 + d * P.spot, cy]), Math.max(1.5, .22 * s), 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.beginPath(); ctx.arc(...cam.toS([x0 + d * P.spot, cy]), Math.max(1.5, .22 * s), 0, Math.PI * 2); ctx.fillStyle = ECO ? LINE(.85) : '#fff'; ctx.fill();
         const g = cam.rect(d > 0 ? x0 - 2 : x0, cy - P.goal / 2, 2, P.goal);
         ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(...g); ctx.strokeRect(...g);
       });
@@ -748,12 +752,12 @@ var Board = (() => {
       if (name === 'Demi-espace') {
         const [x, y, w, h] = cam.rect(0, a, L, b - a);
         ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-        ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.lineWidth = Math.max(1, .3 * s);
+        ctx.strokeStyle = LINE(.13); ctx.lineWidth = Math.max(1, .3 * s);
         for (let d = -h; d < w; d += 1.6 * s) { ctx.beginPath(); ctx.moveTo(x + d, y + h); ctx.lineTo(x + d + h, y); ctx.stroke(); }
         ctx.restore();
       }
       if (i) {
-        ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(1, .1 * s); ctx.setLineDash([r * .35 * s, r * .35 * s]);
+        ctx.save(); ctx.strokeStyle = LINE(.55); ctx.lineWidth = Math.max(1, .1 * s); ctx.setLineDash([r * .35 * s, r * .35 * s]);
         ctx.beginPath(); ctx.moveTo(...cam.toS([0, a])); ctx.lineTo(...cam.toS([L, a])); ctx.stroke(); ctx.restore();
       }
       const [lx, ly] = cam.toS([cam.e.x1 + (cam.vertical ? r * .9 : r * 1.5), (a + b) / 2]);
@@ -782,7 +786,7 @@ var Board = (() => {
     const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad, s = cam.s;
     const [X, Y, w, h] = cam.rect(x0, y0, x1 - x0, y1 - y0);
     ctx.save(); ctx.fillStyle = 'rgba(10,12,14,.14)'; rr(ctx, X, Y, w, h, cam.r * s); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1.5, .12 * s); ctx.setLineDash([cam.r * .25 * s, cam.r * .3 * s]); ctx.stroke(); ctx.restore();
+    ctx.strokeStyle = LINE(.85); ctx.lineWidth = Math.max(1.5, .12 * s); ctx.setLineDash([cam.r * .25 * s, cam.r * .3 * s]); ctx.stroke(); ctx.restore();
     pill(ctx, X + w / 2, Y + h, `bloc adverse · ${Math.round(x1 - x0 - 2 * pad)} m`, Math.max(10, cam.r * .55 * s));
   }
 
@@ -811,7 +815,7 @@ var Board = (() => {
       const big = o.size !== 'mini', gw = (big ? (o.w || 6) : 2.4) * s, gd = (big ? 2 : 1) * s;
       ctx.save(); ctx.translate(x, y); ctx.rotate(((o.rot || 0) - (cam.vertical ? 90 : 0)) * Math.PI / 180);
       ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(-gd / 2, -gw / 2, gd, gw);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1.5, .14 * s); ctx.strokeRect(-gd / 2, -gw / 2, gd, gw);
+      ctx.strokeStyle = ECO ? '#1f2a44' : '#fff'; ctx.lineWidth = Math.max(1.5, .14 * s); ctx.strokeRect(-gd / 2, -gw / 2, gd, gw);
       ctx.beginPath(); ctx.moveTo(-gd / 2, -gw / 2); ctx.lineTo(-gd / 2, gw / 2); ctx.lineWidth = Math.max(2.5, .3 * s); ctx.stroke();
       ctx.restore();
     }
@@ -820,6 +824,9 @@ var Board = (() => {
   /* ---------- frame ---------- */
   // opts: {names, homeBib, editor:{sel, ghosts}, outgoing:true}
   function drawFrame(ctx, W, H, sc, k, u, opts = {}) {
+    ECO = !!opts.eco && !opts.editor; try { return drawFrame0(ctx, W, H, sc, k, u, opts); } finally { ECO = false; }
+  }
+  function drawFrame0(ctx, W, H, sc, k, u, opts) {
     const cam = camera(sc, W, H, { vertical: opts.vertical }), r = cam.r, st = sc.steps[k], ov = sc.overlays || {};
     drawPitch(ctx, cam, sc, W, H);
     drawTrace(ctx, cam, sc);
@@ -1844,26 +1851,28 @@ var Exporter = (() => {
   }
 
   /* ---------- frames ---------- */
-  function drawCaption(ctx, w, h, ch, sc, k) {
-    ctx.fillStyle = '#0e1d45'; ctx.fillRect(0, h - ch, w, ch);
+  function drawCaption(ctx, w, h, ch, sc, k, ink) {
+    ctx.fillStyle = ink ? '#ffffff' : '#0e1d45'; ctx.fillRect(0, h - ch, w, ch);
     ctx.fillStyle = '#8c1024'; ctx.fillRect(0, h - ch, w, Math.max(3, ch * .06));
     if (crestOk) ctx.drawImage(crest, w - ch * .95, h - ch * .92, ch * .84, ch * .84);
     const n = sc.steps.length, note = (sc.steps[k].note || '').trim();
     const fs = Math.round(ch * .34);
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.font = `800 ${fs}px ui-rounded, system-ui, -apple-system, sans-serif`;
-    ctx.fillStyle = '#e2c27d';
+    ctx.fillStyle = ink ? '#8c1024' : '#e2c27d';
     const tag = `Étape ${k + 1}/${n}`;
     ctx.fillText(tag, ch * .4, h - ch / 2);
     const x0 = ch * .4 + ctx.measureText(tag).width + fs * .8;
     ctx.font = `600 ${fs}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-    ctx.fillStyle = '#eef5ee';
+    ctx.fillStyle = ink ? '#14172b' : '#eef5ee';
     let t = note || sc.name || '';
     const max = w - x0 - ch * 1.3;
     while (t.length > 3 && ctx.measureText(t).width > max) t = t.slice(0, -2);
     if (t !== (note || sc.name || '')) t = t.replace(/\s*\S?$/, '…');
     ctx.fillText(t, x0, h - ch / 2);
   }
+  // (3.47) the PDFs save ink unless the coach chose « En couleurs » (Réglages → Impression): a white head, white pitches
+  const eco = () => (Store.state.ui || {}).pdfInk !== 'color';
   function frameCanvas(sc, k, u, o = {}) {
     const w = o.w || 1600, ch0 = Math.round((o.h || 1040) * .085);
     let h = o.h || 1040;
@@ -1871,8 +1880,8 @@ var Exporter = (() => {
     const ch = o.caption === false ? 0 : ch0;
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const ctx = c.getContext('2d');
-    Board.drawFrame(ctx, w, h - ch, sc, k, u, { homeBib: o.homeBib, names: o.names });
-    if (ch) drawCaption(ctx, w, h, ch, sc, k);
+    Board.drawFrame(ctx, w, h - ch, sc, k, u, { homeBib: o.homeBib, names: o.names, eco: o.eco });
+    if (ch) drawCaption(ctx, w, h, ch, sc, k, o.eco);
     return c;
   }
   const toBlob = (c, type = 'image/png', q) => new Promise(r => c.toBlob(r, type, q));
@@ -2009,13 +2018,14 @@ var Exporter = (() => {
       doc, M, CW, PH,
       get y() { return y; }, set y(v) { y = v; },
       header(title, sub) {
-        doc.setFillColor(14, 29, 69); doc.rect(0, 0, PW, 26, 'F');
-        doc.setFillColor(140, 16, 36); doc.rect(0, 26, PW, 1.6, 'F');
+        const ink = eco();
+        if (!ink) { doc.setFillColor(14, 29, 69); doc.rect(0, 0, PW, 26, 'F'); }
+        doc.setFillColor(140, 16, 36); doc.rect(ink ? M : 0, 26, ink ? CW : PW, ink ? .8 : 1.6, 'F');
         const logo = crestData(), lx = logo ? M + 21 : M;
         if (logo) doc.addImage(logo, 'PNG', M, 3, 20, 20);
-        doc.setTextColor(226, 194, 125); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        if (ink) doc.setTextColor(140, 16, 36); else doc.setTextColor(226, 194, 125); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
         doc.text(latin((club.name || '').toUpperCase()), lx, 9.5);
-        doc.setTextColor(255, 255, 255); doc.setFontSize(17); doc.text(latin(title), lx, 18.5, { maxWidth: CW - (lx - M) });
+        if (ink) doc.setTextColor(14, 29, 69); else doc.setTextColor(255, 255, 255); doc.setFontSize(17); doc.text(latin(title), lx, 18.5, { maxWidth: CW - (lx - M) });
         if (sub) { doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.text(latin(sub), PW - M, 8.5, { align: 'right' }); }
         doc.setTextColor(20, 30, 25); y = 35;
       },
@@ -2067,7 +2077,7 @@ var Exporter = (() => {
     return api;
   }
   function schemaImages(P, sc, o) {
-    sc.steps.forEach((st, k) => P.image(frameCanvas(sc, k, 0, Object.assign({ w: 1500, h: 980 }, o)), P.CW));
+    sc.steps.forEach((st, k) => P.image(frameCanvas(sc, k, 0, Object.assign({ w: 1500, h: 980, eco: eco() }, o)), P.CW));
   }
   // the steps of a schema in a PDF: two pictures a row, the sentence of each step under its picture
   function schemaGrid(P, sc, o) {
@@ -2075,7 +2085,7 @@ var Exporter = (() => {
     for (let k = 0; k < n; k += cols) {
       const cells = [];
       for (let j = 0; j < cols && k + j < n; j++) {
-        const c = frameCanvas(sc, k + j, 0, Object.assign({ w: cols > 1 ? 1000 : 1500, h: cols > 1 ? 650 : 980, caption: false }, o));
+        const c = frameCanvas(sc, k + j, 0, Object.assign({ w: cols > 1 ? 1000 : 1500, h: cols > 1 ? 650 : 980, caption: false, eco: eco() }, o));
         const note = (sc.steps[k + j].note || '').trim();
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
         const lines = doc.splitTextToSize(latin((n > 1 ? 'Étape ' + (k + j + 1) + '/' + n + (note ? ' : ' : '') : '') + note), w);
@@ -2174,7 +2184,7 @@ var Exporter = (() => {
       }), [.1, .5, .14, .13, .13]);
     }
     const sc = m.lineupId && S.schemas.find(s => s.id === m.lineupId);
-    if (sc) { P.label('Composition'); P.image(frameCanvas(sc, 0, 0, Object.assign({ w: 1500, h: 980, names: true }, o))); }
+    if (sc) { P.label('Composition'); P.image(frameCanvas(sc, 0, 0, Object.assign({ w: 1500, h: 980, names: true, eco: eco() }, o))); }
     if (m.notes) { P.label('Notes'); P.para(m.notes); }
     await addDocs(P, m.docIds);
     return deliver(P.blob(), safeName(`match-${m.opponent || ''}-${m.date || ''}`) + '.pdf');
@@ -2227,7 +2237,7 @@ var Exporter = (() => {
   }
   async function json(text, name) { return deliver(new Blob([text], { type: 'application/json' }), safeName(name) + '.raincy.json'); }
 
-  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, pdfReport, json, deliver, linkOf, fromLink };
+  return { eco, loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, pdfReport, json, deliver, linkOf, fromLink };
 })();
 
 ;
@@ -4076,7 +4086,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.46';
+  const VERSION = '3.47';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -9020,7 +9030,7 @@ var Prepa = (() => {
       if (keys.length) { D.label('2 · Les 3 clés'); keys.forEach((k, i) => D.para(`${i + 1}.  ${k}`, 13)); }
       D.label('3 · Le mot de la fin'); D.para(final, 11.5);
       const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = (pl.captain || m.captain) && Store.get('players', pl.captain || m.captain);
-      if (lineup) { await Board.ensureBg(lineup); D.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); D.image(Exporter.frameCanvas(lineup, 0, 0, { w: 1500, h: 980, names: true, homeBib: club.homeBib }), D.CW * .85); }
+      if (lineup) { await Board.ensureBg(lineup); D.label('Composition' + (cap ? ' · capitaine : ' + Store.fullName(cap) : '')); D.image(Exporter.frameCanvas(lineup, 0, 0, { eco: Exporter.eco(), w: 1500, h: 980, names: true, homeBib: club.homeBib }), D.CW * .85); }
       else if (cap) { D.label('Capitaine'); D.para(Store.fullName(cap)); }
       { // (3.08) the list of names under the drawing: the starters, then the substitutes
         const sq = squad(m, lineup), withPost = [...sq.starters, ...sq.bench].some(x => sq.post(x));
@@ -18178,6 +18188,10 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 205, date: '2026-10-17', title: 'L\'imprimante dit merci 🖨️', items: [
+      ['🌿', "Les PDF (séance, feuille de match, préparation…) économisent l'encre : plus de grand bandeau bleu en haut, et les terrains des schémas sont blancs avec des lignes vertes et des flèches foncées."],
+      ['🎨', "Envie de couleurs quand même ? Réglages → Impression → « En couleurs »."],
+    ] },
     { n: 204, date: '2026-10-16', title: 'Deux options, un coach 🤔', items: [
       ['🔀', "Un peu trop de joueurs pour un jeu, pas assez pour deux : l'appli donne les deux façons, le jeu agrandi (ex. 11 contre 10 sur 60 × 40 m) ou le jeu tel qu'écrit avec rotation. Tu choisis sur le terrain."],
     ] },
@@ -23273,6 +23287,8 @@ var Views = (() => {
         <h2>🖨️ Impression</h2>
         <p class="muted">Le format de tous les PDF : feuille de match, compte-rendu, préparation et causerie, séance. En A3 pour le banc et le vestiaire.</p>
         <div class="chips">${[['a4', '📄 A4'], ['a3', '📰 A3']].map(([v, l]) => `<button class="chip ${(S().ui.pdfFormat || 'a4') === v ? 'on' : ''}" data-pdffmt="${v}">${l}</button>`).join('')}</div>
+        <p class="muted small">Encre : « Économie d'encre » imprime l'en-tête sur fond blanc et les terrains en clair (lignes vertes, flèches foncées). « En couleurs » garde le bandeau bleu et la pelouse.</p>
+        <div class="chips">${[['', '🌿 Économie d\'encre'], ['color', '🎨 En couleurs']].map(([v, l]) => `<button class="chip ${(S().ui.pdfInk || '') === v ? 'on' : ''}" data-pdfink="${v}">${l}</button>`).join('')}</div>
       </section>
       <section class="card">
         <h2>🌗 Apparence</h2>
@@ -23329,6 +23345,7 @@ var Views = (() => {
       if (Onboard.onClick(e, () => settings(root))) return;
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.stab) { setTab = b.dataset.stab; return settings(root); }
+      if (b.dataset.pdfink !== undefined) { if (b.dataset.pdfink) S().ui.pdfInk = b.dataset.pdfink; else delete S().ui.pdfInk; Store.persistNow(); toast(b.dataset.pdfink ? 'Les PDF sortiront en couleurs' : 'Les PDF économisent l\'encre'); return settings(root); }
       if (b.dataset.pdffmt) { S().ui.pdfFormat = b.dataset.pdffmt; Store.persistNow(); toast(b.dataset.pdffmt === 'a3' ? 'Les PDF sortiront en A3' : 'Les PDF sortiront en A4'); return settings(root); }
       if (b.dataset.theme != null) { const v = b.dataset.theme; try { if (v) localStorage.setItem(AppCfg.key('theme'), v); else localStorage.removeItem(AppCfg.key('theme')); } catch (e) {} if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; return settings(root); }
       if (b.dataset.navpos) { App.setNavPos(b.dataset.navpos); return settings(root); }
@@ -23708,7 +23725,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 247, UPD = AppCfg.key('update-tried');
+  const BUILD = 248, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

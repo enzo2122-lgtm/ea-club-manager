@@ -41,26 +41,28 @@ const Exporter = (() => {
   }
 
   /* ---------- frames ---------- */
-  function drawCaption(ctx, w, h, ch, sc, k) {
-    ctx.fillStyle = '#0e1d45'; ctx.fillRect(0, h - ch, w, ch);
+  function drawCaption(ctx, w, h, ch, sc, k, ink) {
+    ctx.fillStyle = ink ? '#ffffff' : '#0e1d45'; ctx.fillRect(0, h - ch, w, ch);
     ctx.fillStyle = '#8c1024'; ctx.fillRect(0, h - ch, w, Math.max(3, ch * .06));
     if (crestOk) ctx.drawImage(crest, w - ch * .95, h - ch * .92, ch * .84, ch * .84);
     const n = sc.steps.length, note = (sc.steps[k].note || '').trim();
     const fs = Math.round(ch * .34);
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.font = `800 ${fs}px ui-rounded, system-ui, -apple-system, sans-serif`;
-    ctx.fillStyle = '#e2c27d';
+    ctx.fillStyle = ink ? '#8c1024' : '#e2c27d';
     const tag = `Étape ${k + 1}/${n}`;
     ctx.fillText(tag, ch * .4, h - ch / 2);
     const x0 = ch * .4 + ctx.measureText(tag).width + fs * .8;
     ctx.font = `600 ${fs}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-    ctx.fillStyle = '#eef5ee';
+    ctx.fillStyle = ink ? '#14172b' : '#eef5ee';
     let t = note || sc.name || '';
     const max = w - x0 - ch * 1.3;
     while (t.length > 3 && ctx.measureText(t).width > max) t = t.slice(0, -2);
     if (t !== (note || sc.name || '')) t = t.replace(/\s*\S?$/, '…');
     ctx.fillText(t, x0, h - ch / 2);
   }
+  // (3.47) the PDFs save ink unless the coach chose « En couleurs » (Réglages → Impression): a white head, white pitches
+  const eco = () => (Store.state.ui || {}).pdfInk !== 'color';
   function frameCanvas(sc, k, u, o = {}) {
     const w = o.w || 1600, ch0 = Math.round((o.h || 1040) * .085);
     let h = o.h || 1040;
@@ -68,8 +70,8 @@ const Exporter = (() => {
     const ch = o.caption === false ? 0 : ch0;
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const ctx = c.getContext('2d');
-    Board.drawFrame(ctx, w, h - ch, sc, k, u, { homeBib: o.homeBib, names: o.names });
-    if (ch) drawCaption(ctx, w, h, ch, sc, k);
+    Board.drawFrame(ctx, w, h - ch, sc, k, u, { homeBib: o.homeBib, names: o.names, eco: o.eco });
+    if (ch) drawCaption(ctx, w, h, ch, sc, k, o.eco);
     return c;
   }
   const toBlob = (c, type = 'image/png', q) => new Promise(r => c.toBlob(r, type, q));
@@ -206,13 +208,14 @@ const Exporter = (() => {
       doc, M, CW, PH,
       get y() { return y; }, set y(v) { y = v; },
       header(title, sub) {
-        doc.setFillColor(14, 29, 69); doc.rect(0, 0, PW, 26, 'F');
-        doc.setFillColor(140, 16, 36); doc.rect(0, 26, PW, 1.6, 'F');
+        const ink = eco();
+        if (!ink) { doc.setFillColor(14, 29, 69); doc.rect(0, 0, PW, 26, 'F'); }
+        doc.setFillColor(140, 16, 36); doc.rect(ink ? M : 0, 26, ink ? CW : PW, ink ? .8 : 1.6, 'F');
         const logo = crestData(), lx = logo ? M + 21 : M;
         if (logo) doc.addImage(logo, 'PNG', M, 3, 20, 20);
-        doc.setTextColor(226, 194, 125); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        if (ink) doc.setTextColor(140, 16, 36); else doc.setTextColor(226, 194, 125); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
         doc.text(latin((club.name || '').toUpperCase()), lx, 9.5);
-        doc.setTextColor(255, 255, 255); doc.setFontSize(17); doc.text(latin(title), lx, 18.5, { maxWidth: CW - (lx - M) });
+        if (ink) doc.setTextColor(14, 29, 69); else doc.setTextColor(255, 255, 255); doc.setFontSize(17); doc.text(latin(title), lx, 18.5, { maxWidth: CW - (lx - M) });
         if (sub) { doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.text(latin(sub), PW - M, 8.5, { align: 'right' }); }
         doc.setTextColor(20, 30, 25); y = 35;
       },
@@ -264,7 +267,7 @@ const Exporter = (() => {
     return api;
   }
   function schemaImages(P, sc, o) {
-    sc.steps.forEach((st, k) => P.image(frameCanvas(sc, k, 0, Object.assign({ w: 1500, h: 980 }, o)), P.CW));
+    sc.steps.forEach((st, k) => P.image(frameCanvas(sc, k, 0, Object.assign({ w: 1500, h: 980, eco: eco() }, o)), P.CW));
   }
   // the steps of a schema in a PDF: two pictures a row, the sentence of each step under its picture
   function schemaGrid(P, sc, o) {
@@ -272,7 +275,7 @@ const Exporter = (() => {
     for (let k = 0; k < n; k += cols) {
       const cells = [];
       for (let j = 0; j < cols && k + j < n; j++) {
-        const c = frameCanvas(sc, k + j, 0, Object.assign({ w: cols > 1 ? 1000 : 1500, h: cols > 1 ? 650 : 980, caption: false }, o));
+        const c = frameCanvas(sc, k + j, 0, Object.assign({ w: cols > 1 ? 1000 : 1500, h: cols > 1 ? 650 : 980, caption: false, eco: eco() }, o));
         const note = (sc.steps[k + j].note || '').trim();
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
         const lines = doc.splitTextToSize(latin((n > 1 ? 'Étape ' + (k + j + 1) + '/' + n + (note ? ' : ' : '') : '') + note), w);
@@ -371,7 +374,7 @@ const Exporter = (() => {
       }), [.1, .5, .14, .13, .13]);
     }
     const sc = m.lineupId && S.schemas.find(s => s.id === m.lineupId);
-    if (sc) { P.label('Composition'); P.image(frameCanvas(sc, 0, 0, Object.assign({ w: 1500, h: 980, names: true }, o))); }
+    if (sc) { P.label('Composition'); P.image(frameCanvas(sc, 0, 0, Object.assign({ w: 1500, h: 980, names: true, eco: eco() }, o))); }
     if (m.notes) { P.label('Notes'); P.para(m.notes); }
     await addDocs(P, m.docIds);
     return deliver(P.blob(), safeName(`match-${m.opponent || ''}-${m.date || ''}`) + '.pdf');
@@ -424,5 +427,5 @@ const Exporter = (() => {
   }
   async function json(text, name) { return deliver(new Blob([text], { type: 'application/json' }), safeName(name) + '.raincy.json'); }
 
-  return { loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, pdfReport, json, deliver, linkOf, fromLink };
+  return { eco, loadPdf, pdfDoc: Doc, latin, crestData, frameCanvas, png, video, canVideo, mp4Writer, pickMime, pdfSchema, pdfTraining, pdfMatch, pdfReport, json, deliver, linkOf, fromLink };
 })();
