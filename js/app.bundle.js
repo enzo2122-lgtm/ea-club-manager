@@ -4086,7 +4086,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.48';
+  const VERSION = '3.49';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8890,9 +8890,10 @@ var Prepa = (() => {
     const nm = x => Store.shortName(x), num = x => Store.numOf(x, m);
     // (3.48) what the voice says on each slide (and the new slides: the programme, the starting eleven, our form)
     const hh = s => String(s || '').replace(':', ' heures ').replace(/ heures 00$/, ' heures');
-    const prog = [m.rdv && ['🕐', 'Rendez-vous', String(m.rdv).replace(':', 'h')], m.time && ['⚽', 'Coup d\'envoi', String(m.time).replace(':', 'h')], m.place && ['📍', m.home ? 'À domicile' : 'Le terrain', m.place], m.competition && ['🏆', 'Compétition', m.competition]].filter(Boolean);
-    const progHtml = prog.length >= 2 ? `<h2>📍 Le programme</h2><div class="pp-roles">${prog.map(([ic, l, v]) => `<p><b>${ic} ${esc(l)}</b><span>${esc(v)}</span></p>`).join('')}</div>` : '';
-    const progSay = said([m.rdv && 'Rendez-vous à ' + hh(m.rdv), m.time && 'Coup d\'envoi à ' + hh(m.time), m.place && (m.home ? 'On joue chez nous : ' : 'Le terrain : ') + m.place]);
+    // (3.49) the warm-up, at the end of the talk: led by the captain (the boxes ticked in « Jour J », else all of it)
+    const dy = p.day || {}, wk = +(dy.warmMin || 25) / 25, wl = WARM().map(([l, n], k) => [l, Math.max(1, Math.round(n * wk)), k]), wsel = wl.filter(x => (dy.warm || {})[x[2]]), wp = wsel.length ? wsel : wl;
+    const warmHtml = `<h2>🏃 L'échauffement · ${dy.warmMin || 25} min</h2>${cap ? `<p class="pp-cap">©️ Mené par le capitaine : <b>${esc(Store.fullName(cap))}</b></p>` : ''}<div class="pp-keys pp-warm">${wp.map(([l, n], k) => `<p><b>${n}'</b><span>${esc(l)}</span></p>`).join('')}</div>${dy.warmNotes ? `<p class="pp-hook">${esc(dy.warmNotes)}</p>` : ''}`;
+    const warmSay = said([`L'échauffement, ${dy.warmMin || 25} minutes`, cap ? `C'est ${Store.fullName(cap)}, notre capitaine, qui le mène` : '', ...wp.map(([l, n]) => `${n} minute${n > 1 ? 's' : ''} : ${String(l).replace(/\s*\(.*?\)/g, '')}`), dy.warmNotes]);
     const eleven = sq.starters.length ? `<h2>📋 Le onze de départ</h2><div class="pp-roles pp-eleven">${sq.starters.map(x => `<p><b>${num(x) ? `<i class="pp-num">${esc(String(num(x)))}</i>` : ''}${esc(nm(x))}</b><span>${esc(sq.post(x))}</span></p>`).join('')}</div>
       ${sq.bench.length ? `<h3 class="pp-bench-h">🪑 Sur le banc</h3><p class="pp-bench">${sq.bench.map(x => esc(nm(x))).join(' · ')}</p>` : ''}` : '';
     const elevenSay = sq.starters.length ? said(['Le onze de départ', sq.starters.map(x => `${nm(x)}${sq.post(x) ? ', ' + sq.post(x) : ''}`).join(' ; '), sq.bench.length ? 'Sur le banc : ' + sq.bench.map(nm).join(', ') + '. Tenez-vous prêts, vous allez entrer' : '']) : '';
@@ -8930,8 +8931,9 @@ var Prepa = (() => {
       t.briefing ? `<h2>🎬 La vidéo</h2><p class="pp-hook">Le briefing vidéo du match</p><button class="btn primary pp-big" data-pp="video">${I.play}<span>Lancer le briefing vidéo</span></button>` : '',
       `<div class="pp-final"><div class="pp-flag">${Supporters.flag()}</div><p class="pp-word">${esc(lines(t.final).join(' ') || Supporters.SLOGAN)}</p><p class="pp-go">Allez ${esc(S().club.short || 'le club')} !</p></div>`,
     ];
-    // the new slides in their place: the programme after the title, the eleven after the lineup, our form after the opponent
-    slides0.splice(3, 0, formHtml); says0.splice(3, 0, formSay); slides0.splice(2, 0, eleven); says0.splice(2, 0, elevenSay); slides0.splice(1, 0, progHtml); says0.splice(1, 0, progSay);
+    // the new slides in their place: the eleven after the lineup, our form after the opponent, the warm-up just before the last word
+    slides0.splice(slides0.length - 1, 0, warmHtml); says0.splice(says0.length - 1, 0, warmSay);
+    slides0.splice(3, 0, formHtml); says0.splice(3, 0, formSay); slides0.splice(2, 0, eleven); says0.splice(2, 0, elevenSay);
     const slides = slides0.filter(Boolean), says = says0.filter((_, k) => slides0[k]);
     const ov = document.createElement('div'); ov.className = 'pp-show'; document.body.appendChild(ov);
     const t0 = Date.now(), target = +(t.minutes || 8) * 60; let i = 0, iv = null;
@@ -18243,6 +18245,9 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 207, date: '2026-10-17', title: 'Capitaine, à toi l\'échauffement 🏃', items: [
+      ['🏃', "Causerie : le rendez-vous et le coup d'envoi laissent la place à l'échauffement, en fin de causerie, mené par le capitaine (son nom en grand). Les étapes viennent de « Jour J » (celles cochées, sinon toutes) avec leurs minutes, et la voix les lit."],
+    ] },
     { n: 206, date: '2026-10-17', title: 'La causerie prend la parole 🎙️', items: [
       ['🎙️', "Causerie plein écran : une voix lit chaque diapo, un coup de sifflet ouvre et ferme, et les diapos défilent seules sur la durée choisie (8 min = chaque diapo sa part, tu parles par-dessus). 🔊 coupe la voix, ⏸ arrête le défilement."],
       ['📋', "Nouvelles diapos : le programme (rendez-vous, coup d'envoi, lieu), le onze de départ avec les numéros et les postes, le banc, et notre forme (5 derniers matchs, la dernière fois contre eux)."],
@@ -23785,7 +23790,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 249, UPD = AppCfg.key('update-tried');
+  const BUILD = 250, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

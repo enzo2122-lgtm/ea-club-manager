@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 207, date: '2026-10-17', title: 'Capitaine, à toi l\'échauffement 🏃', items: [
+      ['🏃', "Causerie : le rendez-vous et le coup d'envoi laissent la place à l'échauffement, en fin de causerie, mené par le capitaine (son nom en grand). Les étapes viennent de « Jour J » (celles cochées, sinon toutes) avec leurs minutes, et la voix les lit."],
+    ] },
     { n: 206, date: '2026-10-17', title: 'La causerie prend la parole 🎙️', items: [
       ['🎙️', "Causerie plein écran : une voix lit chaque diapo, un coup de sifflet ouvre et ferme, et les diapos défilent seules sur la durée choisie (8 min = chaque diapo sa part, tu parles par-dessus). 🔊 coupe la voix, ⏸ arrête le défilement."],
       ['📋', "Nouvelles diapos : le programme (rendez-vous, coup d'envoi, lieu), le onze de départ avec les numéros et les postes, le banc, et notre forme (5 derniers matchs, la dernière fois contre eux)."],
