@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 212, date: '2026-10-17', title: 'Les blocs prennent de la longueur 📏', items: [
+      ['📏', "Systèmes de jeu : les 5 hauteurs de bloc sont plus étirées. La ligne de défense reste à sa hauteur (12, 22, 33, 45, 55 m), le milieu et les attaquants montent : attaque à 51 m en bloc très bas, 63 m en bas, 75 m en médian, 85 m en haut, 92 m en très haut. La liste « Bloc » de la compo l'écrit."],
+    ] },
     { n: 211, date: '2026-10-17', title: 'Le menu ⋯ remonte à la surface 🤿', items: [
       ['⋯', "Fiche du match : le menu « ⋯ » passait sous les onglets « Compo / Pendant » et se retrouvait coupé. Il s'affiche maintenant en entier, par-dessus."],
       ['🔤', "Compo sur les PDF en économie d'encre : les noms des joueurs s'écrivent en foncé, plus gros, avec un halo blanc, bien lisibles sur le terrain clair."],

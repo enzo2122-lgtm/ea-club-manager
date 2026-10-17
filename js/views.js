@@ -1120,7 +1120,7 @@ const Views = (() => {
   // Bloc médian: between the box and the halfway line, the forwards press at the halfway line. Bloc haut: the line near the halfway
   // line, the forwards press at the far edge of the centre circle (about 62 m). Sources: entrainement-foot.fr, footballcoachvideo.com, helloasso.com (bloc bas).
   // (3.04) a block is 30 m deep from the defensive line to the forwards (bloc bas: the last 30-35 m); the forwards press 28-30 m ahead of the defence
-  const BLOCS = [['tbas', 'Très bas', 12, 40, 4], ['bas', 'Bas', 22, 48, 5], ['median', 'Médian', 33, 58, 8], ['haut', 'Haut', 45, 70, 16], ['thaut', 'Très haut', 55, 82, 22]]; // (3.05) the document's lines: 12, 22, 33, 45, 55 m
+  const BLOCS = [['tbas', 'Très bas', 12, 51, 4], ['bas', 'Bas', 22, 63, 5], ['median', 'Médian', 33, 75, 8], ['haut', 'Haut', 45, 85, 16], ['thaut', 'Très haut', 55, 92, 22]]; // (3.54) longer: the forwards 40 m ahead of a low defence, 37 m of a high one // (3.05) the document's lines: 12, 22, 33, 45, 55 m
   const blocDef = k => BLOCS.find(b => b[0] === k) || null;
   // the depth of every outfield player, from the drawing (« comme dessiné ») to a block: the lines are spread between the defensive line and the forwards' line
   function blocApply(sc, st, key) {
@@ -1211,7 +1211,7 @@ const Views = (() => {
     const shape = (() => { const c = { D: 0, M: 0, O: 0, A: 0 }; all.forEach(o => { if (o.gk) return; const p = o.post || ''; c[/^MO|^SA/.test(p) ? 'O' : /^[DP]/.test(p) ? 'D' : /^A/.test(p) ? 'A' : 'M']++; }); return [c.D, c.M, c.O, c.A].filter((n, i) => n || i !== 2).join('-'); })();
     const fmt = Formations[sc.field.format] ? sc.field.format : null, sysList = has11(sc) ? Object.keys(Blocs11) : fmt ? Object.keys(Formations[fmt]) : [];
     const sysSel = sysList.length ? `<label class="fld inline sys-sel"><span>Système · <b>${esc(sc.sys || shape)}</b></span><select data-ssys><option value="">Changer de système…</option>${sysList.map(k => `<option value="${esc(k)}" ${k === sc.sys ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select></label>` : '';
-    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc><option value="" ${!sc.bloc ? 'selected' : ''}>Comme dessiné</option>${BLOCS.map(([k, l, a, b]) => `<option value="${k}" ${sc.bloc === k ? 'selected' : ''}>${l} · défense à ${a} m</option>`).join('')}</select></label>`;
+    const blocSel = `<label class="fld inline sys-sel"><span>Bloc</span><select data-sbloc><option value="" ${!sc.bloc ? 'selected' : ''}>Comme dessiné</option>${BLOCS.map(([k, l, a, b]) => `<option value="${k}" ${sc.bloc === k ? 'selected' : ''}>${l} · défense ${a} m, attaque ${b} m</option>`).join('')}</select></label>`;
     if (!slots.length) return '';
     const players = conv.length ? conv : Store.rosterOf(sc.teamId || '');
     const taken = o => new Set(sc.objects.filter(x => x !== o && x.playerId).map(x => x.playerId)); // (1.43) a player already placed leaves the other lists
