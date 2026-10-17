@@ -120,7 +120,7 @@ const Prepa = (() => {
     const save = (now) => { clearTimeout(t); m.editedBy = (Auth.current() || {}).id; if (now) Store.upsert('matches', m); else t = setTimeout(() => Store.upsert('matches', m), 500); };
     const d = done(m), pc = score(m), ix = STEPS.findIndex(s => s[0] === step);
     root.innerHTML = `<header class="page-head"><div><h1>🎯 Préparation</h1><p class="sub">${title(m)} · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${m.time ? ' · ' + esc(m.time.replace(':', 'h')) : ''}</p></div>
-      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Le match</span></a><button class="btn" data-pa="share">${I.share}<span>Résumé aux joueurs</span></button><button class="btn" data-pa="fmi">📋<span>FMI</span></button><button class="btn" data-pa="print">${I.pdf}<span>Imprimer</span></button><button class="btn primary" data-pa="show">${I.play}<span>Lancer la causerie</span></button></div></header>
+      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Le match</span></a><button class="btn" data-pa="share">${I.share}<span>Résumé aux joueurs</span></button><button class="btn" data-pa="qboard">🟩<span>Tableau</span></button><button class="btn" data-pa="fmi">📋<span>FMI</span></button><button class="btn" data-pa="print">${I.pdf}<span>Imprimer</span></button><button class="btn primary" data-pa="show">${I.play}<span>Lancer la causerie</span></button></div></header>
       <div class="prep-top"><div class="prep-bar"><i style="width:${pc}%"></i></div><b>${pc} %</b></div>
       <nav class="prep-steps" aria-label="Étapes">${STEPS.map(([k, ic, l], i) => `<a href="#/prepa/${m.id}/${k}" class="${k === step ? 'on' : ''} ${d[k] ? 'ok' : ''}" ${k === step ? 'aria-current="step"' : ''}><b>${d[k] ? '✓' : i + 1}</b><span>${ic} ${l}</span></a>`).join('')}</nav>
       <div id="prepBody">${({ semaine: stWeek, adversaire: stOpp, plan: stPlan, causerie: stTalk, jourj: stDay, mitemps: stHalf, apres: stAfter })[step](m)}</div>
@@ -139,6 +139,7 @@ const Prepa = (() => {
       if (b.dataset.pa === 'share') return share(m);
       if (b.dataset.pa === 'print') return printDialog(m);
       if (b.dataset.pa === 'fmi') return fmi(m);
+      if (b.dataset.pa === 'qboard') return QuickBoard.open({ matchId: m.id });
       if (b.dataset.players) return Parents.sharePlayers(b.dataset.players);
       // a proposition added as a new line of a text box, or put in the first empty key
       if (b.dataset.add) {
@@ -231,7 +232,7 @@ const Prepa = (() => {
       <label class="fld"><span>3 · Le mot de la fin</span>${area('talk.final', t.final, Supporters.SLOGAN, 2)}</label>
       <label class="fld"><span>🔗 Lien vidéo pour les joueurs (YouTube, Drive…)</span><input data-p="talk.videoUrl" value="${esc(t.videoUrl || '')}" placeholder="https://youtu.be/…  (visible sur la page des joueurs)" inputmode="url"></label>
       <label class="fld"><span>🎬 Briefing vidéo à montrer (sur cet appareil)</span><select data-p="talk.briefing"><option value="">Aucun</option>${bs.map(b => `<option value="${b.id}" ${t.briefing === b.id ? 'selected' : ''}>${esc(b.name)} (${b.items.length})</option>`).join('')}</select></label>
-      <label class="fld inline"><span>Durée visée</span><select data-p="talk.minutes">${[5, 8, 10, 12].map(n => `<option value="${n}" ${+(t.minutes || 8) === n ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
+      <label class="fld inline"><span>Durée visée</span><select data-p="talk.minutes"><option value="">Selon le contenu</option>${[5, 8, 10, 12].map(n => `<option value="${n}" ${+t.minutes === n ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
       <div class="chips"><button class="btn primary" data-pa="show">${I.play}<span>Lancer la causerie en plein écran</span></button>${Cloud.ready() ? `<button class="btn soft" data-players="${m.teamId}">${I.share}<span>Page des joueurs</span></button>` : ''}</div>
       <p class="muted small">L'objectif, les 3 clés, le mot de la fin et le lien vidéo apparaissent sur la page des joueurs (seniors, U17, U18).</p></section>`;
   }
@@ -369,12 +370,14 @@ const Prepa = (() => {
     slides0.splice(3, 0, formHtml); says0.splice(3, 0, formSay); slides0.splice(2, 0, eleven); says0.splice(2, 0, elevenSay);
     const slides = slides0.filter(Boolean), says = says0.filter((_, k) => slides0[k]);
     const ov = document.createElement('div'); ov.className = 'pp-show'; document.body.appendChild(ov);
-    const t0 = Date.now(), target = +(t.minutes || 8) * 60; let i = 0, iv = null;
+    // (3.51) the length follows what there is to say (the voice's time + a pause on each slide), unless the coach chose a length
+    const ests = says.map(s => Math.max(8, Math.round(String(s || '').split(/s+/).filter(Boolean).length / 2.4) + 5));
+    const t0 = Date.now(), target = t.minutes ? +t.minutes * 60 : ests.reduce((a, b) => a + b, 0); let i = 0, iv = null;
     /* (3.48) the talk plays by itself, like a film: a voice reads each slide (French voice of the phone), the slides share the chosen length
        (8 min = each slide its part of the time, the coach talks over it), a whistle at the start and at the end. 🔊 and ⏸ stop either at any time. */
     const syn = window.speechSynthesis, ui = S().ui;
     let voice = ui.ppVoice !== 0 && !!syn, auto = ui.ppAuto !== 0, slideT0 = Date.now(), spoke = true, timer = null;
-    const per = () => Math.max(15, target / slides.length) * 1000;
+    const per = () => (t.minutes ? Math.max(15, target / slides.length) : ests[i]) * 1000;
     const frVoice = () => { const vs = syn ? syn.getVoices() : []; return vs.find(v => /^fr(-|_)FR/i.test(v.lang) && /google|amélie|amelie|thomas|audrey|marie|denise|henri/i.test(v.name)) || vs.find(v => /^fr/i.test(v.lang)); };
     const hush = () => { try { if (syn) syn.cancel(); } catch (e) {} };
     const speak = txt => { hush(); spoke = !voice || !txt; if (spoke || !syn) { spoke = true; return; }
@@ -391,7 +394,7 @@ const Prepa = (() => {
         <span class="pp-clock" id="ppClock"></span><button class="icon-btn" data-pp="voice" aria-label="${voice ? 'Couper la voix' : 'Mettre la voix'}" title="Voix">${voice ? '🔊' : '🔇'}</button><button class="icon-btn" data-pp="auto" aria-label="${auto ? 'Pause' : 'Lecture automatique'}" title="Défilement automatique">${auto ? '⏸' : '▶'}</button><button class="icon-btn" data-pp="next" aria-label="Suivant" ${i < slides.length - 1 ? '' : 'disabled'}>${I.next}</button><button class="icon-btn" data-pp="close" aria-label="Fermer">${I.x}</button></div>`;
       clock(); speak(says[i]); plan(); if (i === slides.length - 1) whistle('end'); };
     // the time of the talk: green, orange near the aimed length, red beyond; the thin bar = the time of this slide
-    const clock = () => { const el = ov.querySelector('#ppClock'); if (!el) return; const s = Math.round((Date.now() - t0) / 1000); el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${target / 60} min`; el.className = 'pp-clock ' + (s > target ? 'late' : s > target * .8 ? 'soon' : '');
+    const clock = () => { const el = ov.querySelector('#ppClock'); if (!el) return; const s = Math.round((Date.now() - t0) / 1000); el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${t.minutes ? '' : '~'}${Math.max(1, Math.round(target / 60))} min`; el.className = 'pp-clock ' + (s > target ? 'late' : s > target * .8 ? 'soon' : '');
       const pg = ov.querySelector('#ppProg'); if (pg) pg.style.width = auto && i < slides.length - 1 ? Math.min(100, (Date.now() - slideT0) / per() * 100) + '%' : '0'; };
     const key = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(i + 1); } if (e.key === 'ArrowLeft') go(i - 1); };
     document.addEventListener('keydown', key); window.addEventListener('hashchange', end);

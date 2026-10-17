@@ -224,7 +224,8 @@ const Editor = (() => {
         if (z && Board.dist(w, [z.x + z.w, z.y + z.h]) < r * 1.1) return (E.drag = { kind: 'zoneResize', id: z.id });
       }
       const h = Board.hit(E.sc, E.k, E.cam, w);
-      if (!h) return select(null);
+      // (3.51) as on the quick board: a finger dragged on the grass draws an arrow, without choosing « Flèche » first (a tap only unselects)
+      if (!h) { select(null); return (E.drag = { kind: 'newArrow', a: w, b: w }); }
       select(h);
       if (h.kind === 'obj') {
         const p = st.pos[h.id];

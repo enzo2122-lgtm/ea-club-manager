@@ -19,12 +19,14 @@ const Tablet = (() => {
         ${tile(tr ? `#/entrainement/${tr.id}` : '#/entrainements', '🏃', tr ? (tr.date === now ? 'La séance du jour' : 'La prochaine séance') : 'Les séances', tr ? esc(tr.title || 'Entraînement') + ' · ' + esc(UI.fmtDate(tr.date, { weekday: 'long', day: 'numeric' })) : 'Aucune séance prévue')}
         ${tile(m ? `#/match/${m.id}` : '#/matchs', '⚽', m ? 'Le prochain match' : 'Les matchs', m ? `${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')} · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric' }))}` : 'Aucun match prévu')}
         ${m ? tile(`#/prepa/${m.id}/causerie`, '🗣️', 'La causerie', 'Objectif, 3 clés, plan de jeu') : ''}
+        <button type="button" class="tb-tile board" data-tbq="${m ? m.id : ''}"><span class="tb-ic">✍️</span><b>${m ? 'Tableau du match' : 'Tableau rapide'}</b><span>Ton onze sur le terrain : glisse un joueur, dessine les courses et les passes</span></button>
         ${tile('#/terrain', '⏱️', 'Chrono et score', 'Chrono d\'exercice sonore, score par chasubles')}
         ${tile('#/schemas', '🎬', 'Schémas animés', 'Les exercices et les systèmes de jeu')}
         ${tile('#/stats', '🏆', 'Résultats et classement', 'Les scores de la saison')}
       </div>
       ${tablet() ? '' : '<p class="tip">Fait pour une tablette (iPad) : sur un ordinateur, les tuiles marchent pareil.</p>'}`;
     root.onclick = e => {
+      const q = e.target.closest('[data-tbq]'); if (q) return QuickBoard.open(q.dataset.tbq ? { matchId: q.dataset.tbq } : { teamId: team });
       if (!e.target.closest('[data-tbfull]')) return;
       const d = document.documentElement;
       try { if (document.fullscreenElement) document.exitFullscreen(); else { const p = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (p && p.catch) p.catch(() => UI.toast('Sur iPad : Partager → « Sur l\'écran d\'accueil » ouvre l\'appli en plein écran')); } }

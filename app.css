@@ -2608,3 +2608,22 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 /* iPad turned sideways in the installed app: nothing under the rounded corners and the camera */
 main#view { padding-right: max(28px, env(safe-area-inset-right)); }
 @media (max-width: 760px) { main#view { padding-right: max(16px, env(safe-area-inset-right)); } }
+
+/* (3.51) the quick board: the pitch in full screen, big tools under it */
+.qb { position: fixed; inset: 0; z-index: 48; display: flex; flex-direction: column; background: #10301f; color: #fff; }
+.qb-top { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 8px) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); background: rgba(0,0,0,.35); }
+.qb-top .icon-btn, .qb-top .btn.soft { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.25); }
+.qb-title { font: 800 18px var(--round); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.qb-tip { flex: 1; min-width: 0; font-size: 13px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qb-stage { position: relative; flex: 1; min-height: 0; }
+.qb-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.qb-tools { display: flex; gap: 10px; overflow-x: auto; padding: 10px max(12px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 10px) max(12px, env(safe-area-inset-left)); background: rgba(0,0,0,.35); scrollbar-width: none; -webkit-user-select: none; user-select: none; }
+.qb-seg { display: flex; flex: none; gap: 4px; padding: 4px; border-radius: 16px; background: rgba(255,255,255,.1); }
+.qb-seg button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 64px; min-height: 56px; padding: 4px 8px; border: 0; border-radius: 12px; background: none; color: #fff; font: 700 12px var(--font); cursor: pointer; }
+.qb-seg button.on { background: #fff; color: #10301f; }
+.qb-ic { font-size: 22px; line-height: 1; }
+.qb-cols button { min-width: 52px; } .qb-cols i { display: block; width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(0,0,0,.35); }
+.qb-cols button.on { background: rgba(255,255,255,.3); } .qb-cols button.on i { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.4); }
+body.qb-open { overflow: hidden; }
+@media (max-width: 760px) { .qb-tip { display: none; } .qb-top .btn span { display: none; } .qb-seg button { min-width: 56px; } }
+button.tb-tile { font: inherit; text-align: left; cursor: pointer; }

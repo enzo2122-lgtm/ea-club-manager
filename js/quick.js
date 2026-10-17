@@ -158,7 +158,7 @@ const Quick = (() => {
     const lineup = m.lineupId && Store.get('schemas', m.lineupId), d = Prepa.done(m), l = m.live || {}, st = l.status || 'pre';
     const step = (n, ok, title, body) => `<section class="card md-step ${ok ? 'ok' : ''}"><div class="md-head"><b class="md-n">${ok ? '✓' : n}</b><h2>${title}</h2></div>${body}</section>`;
     root.innerHTML = `<header class="page-head"><div><h1>🏟️ Jour de match</h1><p class="sub">${esc(matchName(m))} · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${m.time ? ' · ' + esc(hh(m.time)) : ''}</p></div>
-      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Fiche du match</span></a></div></header>
+      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Fiche du match</span></a><button class="btn primary" data-md="qboard">🟩<span>Tableau</span></button></div></header>
       ${step(1, conv.length && m.convSent, 'Les convoqués', `
         ${t ? `<div class="chips md-conv">${roster.map(p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''}" data-conv="${p.id}">${esc(Store.shortName(p))}</button>`).join('') || '<span class="muted">Aucun joueur dans cette équipe.</span>'}</div>` : '<p class="muted">Choisis l\'équipe sur la fiche du match.</p>'}
         <p class="muted small">Touche un prénom pour le convoquer (${conv.length} convoqué${conv.length > 1 ? 's' : ''}).${m.convSent ? ' Convocation envoyée ✓' : ''}</p>
@@ -181,6 +181,7 @@ const Quick = (() => {
       if (b.dataset.md === 'convoc') { m.convSent = Date.now(); Store.upsert('matches', m); Views.sendConvocation(m); return; }
       if (b.dataset.md === 'lineup') return Views.makeLineup(m);
       if (b.dataset.md === 'talk') return Prepa.show(m);
+      if (b.dataset.md === 'qboard') return QuickBoard.open({ matchId: m.id });
       if (b.dataset.md === 'summary') return sendSummary(m);
     };
   }

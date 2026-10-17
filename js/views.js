@@ -1295,7 +1295,7 @@ const Views = (() => {
       const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
       const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
-        momentBtn(m, t, conv, lineup) + `${!m.exempt && !(m.played && m.summarySent) && m.date !== today() ? `<a class="btn" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button>`)}
+        momentBtn(m, t, conv, lineup) + `${!m.exempt && !(m.played && m.summarySent) && m.date !== today() ? `<a class="btn" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="qboard">🟩<span>Tableau</span></button><button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button>`)}
         <div class="m-sum ${side(m)}"><span>${sum}</span><button class="btn soft" data-editm>${I.edit}<span>${editOpen ? 'Fermer' : 'Modifier'}</span></button></div>
         <section class="card ${side(m)} m-edit" ${editOpen ? '' : 'hidden'}>
           <div class="row3">
@@ -1504,6 +1504,7 @@ const Views = (() => {
       if (b.dataset.pl) { const st = (m.stats = m.stats || {})[b.dataset.pl] = m.stats[b.dataset.pl] || {}; st[b.dataset.k] = Math.max(0, (st[b.dataset.k] || 0) + +b.dataset.d); save();
         const v = b.parentElement.querySelector('b'); if (v) v.textContent = st[b.dataset.k]; return later(); }
       switch (b.dataset.act) {
+        case 'qboard': return QuickBoard.open({ matchId: m.id });
         case 'pdf': return runExport('Création de la feuille de match…', () => Exporter.pdfMatch(m, teamOf(m.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'sheet': return runExport('Création de la compo papier…', () => TeamDocs.sheet(m));
         case 'shareres': return shareResult(m); // (2.06)

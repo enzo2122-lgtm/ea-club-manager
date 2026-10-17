@@ -4086,7 +4086,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.50';
+  const VERSION = '3.51';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -7235,7 +7235,8 @@ var Editor = (() => {
         if (z && Board.dist(w, [z.x + z.w, z.y + z.h]) < r * 1.1) return (E.drag = { kind: 'zoneResize', id: z.id });
       }
       const h = Board.hit(E.sc, E.k, E.cam, w);
-      if (!h) return select(null);
+      // (3.51) as on the quick board: a finger dragged on the grass draws an arrow, without choosing « Flèche » first (a tap only unselects)
+      if (!h) { select(null); return (E.drag = { kind: 'newArrow', a: w, b: w }); }
       select(h);
       if (h.kind === 'obj') {
         const p = st.pos[h.id];
@@ -8694,7 +8695,7 @@ var Prepa = (() => {
     const save = (now) => { clearTimeout(t); m.editedBy = (Auth.current() || {}).id; if (now) Store.upsert('matches', m); else t = setTimeout(() => Store.upsert('matches', m), 500); };
     const d = done(m), pc = score(m), ix = STEPS.findIndex(s => s[0] === step);
     root.innerHTML = `<header class="page-head"><div><h1>🎯 Préparation</h1><p class="sub">${title(m)} · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${m.time ? ' · ' + esc(m.time.replace(':', 'h')) : ''}</p></div>
-      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Le match</span></a><button class="btn" data-pa="share">${I.share}<span>Résumé aux joueurs</span></button><button class="btn" data-pa="fmi">📋<span>FMI</span></button><button class="btn" data-pa="print">${I.pdf}<span>Imprimer</span></button><button class="btn primary" data-pa="show">${I.play}<span>Lancer la causerie</span></button></div></header>
+      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Le match</span></a><button class="btn" data-pa="share">${I.share}<span>Résumé aux joueurs</span></button><button class="btn" data-pa="qboard">🟩<span>Tableau</span></button><button class="btn" data-pa="fmi">📋<span>FMI</span></button><button class="btn" data-pa="print">${I.pdf}<span>Imprimer</span></button><button class="btn primary" data-pa="show">${I.play}<span>Lancer la causerie</span></button></div></header>
       <div class="prep-top"><div class="prep-bar"><i style="width:${pc}%"></i></div><b>${pc} %</b></div>
       <nav class="prep-steps" aria-label="Étapes">${STEPS.map(([k, ic, l], i) => `<a href="#/prepa/${m.id}/${k}" class="${k === step ? 'on' : ''} ${d[k] ? 'ok' : ''}" ${k === step ? 'aria-current="step"' : ''}><b>${d[k] ? '✓' : i + 1}</b><span>${ic} ${l}</span></a>`).join('')}</nav>
       <div id="prepBody">${({ semaine: stWeek, adversaire: stOpp, plan: stPlan, causerie: stTalk, jourj: stDay, mitemps: stHalf, apres: stAfter })[step](m)}</div>
@@ -8713,6 +8714,7 @@ var Prepa = (() => {
       if (b.dataset.pa === 'share') return share(m);
       if (b.dataset.pa === 'print') return printDialog(m);
       if (b.dataset.pa === 'fmi') return fmi(m);
+      if (b.dataset.pa === 'qboard') return QuickBoard.open({ matchId: m.id });
       if (b.dataset.players) return Parents.sharePlayers(b.dataset.players);
       // a proposition added as a new line of a text box, or put in the first empty key
       if (b.dataset.add) {
@@ -8805,7 +8807,7 @@ var Prepa = (() => {
       <label class="fld"><span>3 · Le mot de la fin</span>${area('talk.final', t.final, Supporters.SLOGAN, 2)}</label>
       <label class="fld"><span>🔗 Lien vidéo pour les joueurs (YouTube, Drive…)</span><input data-p="talk.videoUrl" value="${esc(t.videoUrl || '')}" placeholder="https://youtu.be/…  (visible sur la page des joueurs)" inputmode="url"></label>
       <label class="fld"><span>🎬 Briefing vidéo à montrer (sur cet appareil)</span><select data-p="talk.briefing"><option value="">Aucun</option>${bs.map(b => `<option value="${b.id}" ${t.briefing === b.id ? 'selected' : ''}>${esc(b.name)} (${b.items.length})</option>`).join('')}</select></label>
-      <label class="fld inline"><span>Durée visée</span><select data-p="talk.minutes">${[5, 8, 10, 12].map(n => `<option value="${n}" ${+(t.minutes || 8) === n ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
+      <label class="fld inline"><span>Durée visée</span><select data-p="talk.minutes"><option value="">Selon le contenu</option>${[5, 8, 10, 12].map(n => `<option value="${n}" ${+t.minutes === n ? 'selected' : ''}>${n} min</option>`).join('')}</select></label>
       <div class="chips"><button class="btn primary" data-pa="show">${I.play}<span>Lancer la causerie en plein écran</span></button>${Cloud.ready() ? `<button class="btn soft" data-players="${m.teamId}">${I.share}<span>Page des joueurs</span></button>` : ''}</div>
       <p class="muted small">L'objectif, les 3 clés, le mot de la fin et le lien vidéo apparaissent sur la page des joueurs (seniors, U17, U18).</p></section>`;
   }
@@ -8943,12 +8945,14 @@ var Prepa = (() => {
     slides0.splice(3, 0, formHtml); says0.splice(3, 0, formSay); slides0.splice(2, 0, eleven); says0.splice(2, 0, elevenSay);
     const slides = slides0.filter(Boolean), says = says0.filter((_, k) => slides0[k]);
     const ov = document.createElement('div'); ov.className = 'pp-show'; document.body.appendChild(ov);
-    const t0 = Date.now(), target = +(t.minutes || 8) * 60; let i = 0, iv = null;
+    // (3.51) the length follows what there is to say (the voice's time + a pause on each slide), unless the coach chose a length
+    const ests = says.map(s => Math.max(8, Math.round(String(s || '').split(/s+/).filter(Boolean).length / 2.4) + 5));
+    const t0 = Date.now(), target = t.minutes ? +t.minutes * 60 : ests.reduce((a, b) => a + b, 0); let i = 0, iv = null;
     /* (3.48) the talk plays by itself, like a film: a voice reads each slide (French voice of the phone), the slides share the chosen length
        (8 min = each slide its part of the time, the coach talks over it), a whistle at the start and at the end. 🔊 and ⏸ stop either at any time. */
     const syn = window.speechSynthesis, ui = S().ui;
     let voice = ui.ppVoice !== 0 && !!syn, auto = ui.ppAuto !== 0, slideT0 = Date.now(), spoke = true, timer = null;
-    const per = () => Math.max(15, target / slides.length) * 1000;
+    const per = () => (t.minutes ? Math.max(15, target / slides.length) : ests[i]) * 1000;
     const frVoice = () => { const vs = syn ? syn.getVoices() : []; return vs.find(v => /^fr(-|_)FR/i.test(v.lang) && /google|amélie|amelie|thomas|audrey|marie|denise|henri/i.test(v.name)) || vs.find(v => /^fr/i.test(v.lang)); };
     const hush = () => { try { if (syn) syn.cancel(); } catch (e) {} };
     const speak = txt => { hush(); spoke = !voice || !txt; if (spoke || !syn) { spoke = true; return; }
@@ -8965,7 +8969,7 @@ var Prepa = (() => {
         <span class="pp-clock" id="ppClock"></span><button class="icon-btn" data-pp="voice" aria-label="${voice ? 'Couper la voix' : 'Mettre la voix'}" title="Voix">${voice ? '🔊' : '🔇'}</button><button class="icon-btn" data-pp="auto" aria-label="${auto ? 'Pause' : 'Lecture automatique'}" title="Défilement automatique">${auto ? '⏸' : '▶'}</button><button class="icon-btn" data-pp="next" aria-label="Suivant" ${i < slides.length - 1 ? '' : 'disabled'}>${I.next}</button><button class="icon-btn" data-pp="close" aria-label="Fermer">${I.x}</button></div>`;
       clock(); speak(says[i]); plan(); if (i === slides.length - 1) whistle('end'); };
     // the time of the talk: green, orange near the aimed length, red beyond; the thin bar = the time of this slide
-    const clock = () => { const el = ov.querySelector('#ppClock'); if (!el) return; const s = Math.round((Date.now() - t0) / 1000); el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${target / 60} min`; el.className = 'pp-clock ' + (s > target ? 'late' : s > target * .8 ? 'soon' : '');
+    const clock = () => { const el = ov.querySelector('#ppClock'); if (!el) return; const s = Math.round((Date.now() - t0) / 1000); el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${t.minutes ? '' : '~'}${Math.max(1, Math.round(target / 60))} min`; el.className = 'pp-clock ' + (s > target ? 'late' : s > target * .8 ? 'soon' : '');
       const pg = ov.querySelector('#ppProg'); if (pg) pg.style.width = auto && i < slides.length - 1 ? Math.min(100, (Date.now() - slideT0) / per() * 100) + '%' : '0'; };
     const key = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(i + 1); } if (e.key === 'ArrowLeft') go(i - 1); };
     document.addEventListener('keydown', key); window.addEventListener('hashchange', end);
@@ -12645,12 +12649,14 @@ var Tablet = (() => {
         ${tile(tr ? `#/entrainement/${tr.id}` : '#/entrainements', '🏃', tr ? (tr.date === now ? 'La séance du jour' : 'La prochaine séance') : 'Les séances', tr ? esc(tr.title || 'Entraînement') + ' · ' + esc(UI.fmtDate(tr.date, { weekday: 'long', day: 'numeric' })) : 'Aucune séance prévue')}
         ${tile(m ? `#/match/${m.id}` : '#/matchs', '⚽', m ? 'Le prochain match' : 'Les matchs', m ? `${m.home ? 'contre' : 'chez'} ${esc(m.opponent || '?')} · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric' }))}` : 'Aucun match prévu')}
         ${m ? tile(`#/prepa/${m.id}/causerie`, '🗣️', 'La causerie', 'Objectif, 3 clés, plan de jeu') : ''}
+        <button type="button" class="tb-tile board" data-tbq="${m ? m.id : ''}"><span class="tb-ic">✍️</span><b>${m ? 'Tableau du match' : 'Tableau rapide'}</b><span>Ton onze sur le terrain : glisse un joueur, dessine les courses et les passes</span></button>
         ${tile('#/terrain', '⏱️', 'Chrono et score', 'Chrono d\'exercice sonore, score par chasubles')}
         ${tile('#/schemas', '🎬', 'Schémas animés', 'Les exercices et les systèmes de jeu')}
         ${tile('#/stats', '🏆', 'Résultats et classement', 'Les scores de la saison')}
       </div>
       ${tablet() ? '' : '<p class="tip">Fait pour une tablette (iPad) : sur un ordinateur, les tuiles marchent pareil.</p>'}`;
     root.onclick = e => {
+      const q = e.target.closest('[data-tbq]'); if (q) return QuickBoard.open(q.dataset.tbq ? { matchId: q.dataset.tbq } : { teamId: team });
       if (!e.target.closest('[data-tbfull]')) return;
       const d = document.documentElement;
       try { if (document.fullscreenElement) document.exitFullscreen(); else { const p = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (p && p.catch) p.catch(() => UI.toast('Sur iPad : Partager → « Sur l\'écran d\'accueil » ouvre l\'appli en plein écran')); } }
@@ -12658,6 +12664,218 @@ var Tablet = (() => {
     };
   }
   return { page, tablet };
+})();
+
+;
+/* ===== quickboard.js ===== */
+/* QuickBoard (3.51): the « tableau rapide » of the coach, before the match and at half-time. An empty pitch in full screen,
+   our players already on it (the match's lineup, with their names), and no tool to choose:
+   - drag a player (or the ball) = he moves;
+   - drag anywhere else = a line is drawn: a run (arrow), a pass (dotted arrow) or a free line, in the chosen colour.
+   Undo, wipe the lines, the opponents and the ball at a touch, half or whole pitch. « Garder » keeps the board with the match
+   (« Avant-match », « Mi-temps »), « Envoyer » makes a picture for WhatsApp. */
+var QuickBoard = (() => {
+  const { esc, toast } = UI;
+  const S = () => Store.state;
+  // where the players stand when the match has no lineup: our goal on the left (x = 0 → 1 along the length, y across)
+  const SHAPES = {
+    '11': [[.05, .5], [.2, .14], [.17, .38], [.17, .62], [.2, .86], [.32, .3], [.29, .5], [.32, .7], [.43, .18], [.46, .5], [.43, .82]],
+    '8': [[.05, .5], [.2, .24], [.17, .5], [.2, .76], [.33, .2], [.3, .5], [.33, .8], [.44, .5]],
+    '5': [[.05, .5], [.22, .3], [.22, .7], [.38, .35], [.38, .65]],
+  };
+  const COLORS = [['#ffffff', 'Blanc'], ['#facc15', 'Jaune'], ['#ef4444', 'Rouge'], ['#38bdf8', 'Bleu']];
+  const STYLES = [['run', '➡️', 'Course'], ['pass', '⇢', 'Passe'], ['pen', '✏️', 'Trait']];
+  let B = null; // the open board
+
+  function fmtOf(teamId, m) {
+    const t = teamId && Store.get('teams', teamId), lu = m && m.lineupId && Store.get('schemas', m.lineupId);
+    const f = (lu && lu.field && lu.field.format) || (t && t.format) || '11';
+    return ['11', '8', '5'].includes(f) ? f : '11';
+  }
+  // our players: the lineup's places and names, else the convoked players on the usual shape
+  function ours(m, fmt) {
+    const { L, W } = Board.dims({ format: fmt }), out = [];
+    const lu = m && m.lineupId && Store.get('schemas', m.lineupId);
+    if (lu && lu.field && lu.field.format === fmt) {
+      const pos = ((lu.steps || [])[0] || {}).pos || {};
+      (lu.objects || []).filter(o => o.type === 'player' && !o.bench && pos[o.id] && (o.playerId || o.color === lu.objects.find(x => x.playerId) ?.color)).forEach(o => {
+        const p = o.playerId && Store.get('players', o.playerId);
+        out.push({ id: 'u' + out.length, side: 'us', x: pos[o.id][0], y: pos[o.id][1], label: String(o.label || (p && Store.numOf(p, m)) || ''), name: o.name || (p ? Store.shortName(p) : ''), gk: !!o.gk });
+      });
+      if (out.length >= 3) return out;
+      out.length = 0;
+    }
+    const conv = m ? (m.convoked || []).filter(id => !(m.absents || []).includes(id)).map(id => Store.get('players', id)).filter(Boolean) : [];
+    SHAPES[fmt].forEach(([fx, fy], k) => { const p = conv[k]; out.push({ id: 'u' + k, side: 'us', x: fx * L, y: fy * W, label: p ? String(Store.numOf(p, m) || k + 1) : String(k + 1), name: p ? Store.shortName(p) : '', gk: k === 0 }); });
+    return out;
+  }
+  const theirs = fmt => { const { L, W } = Board.dims({ format: fmt }); return SHAPES[fmt].map(([fx, fy], k) => ({ id: 't' + k, side: 'them', x: L - fx * L, y: W - fy * W, label: String(k + 1), name: '', gk: k === 0 })); };
+
+  /* ---------- open ---------- */
+  function open(o = {}) {
+    if (B) close();
+    const m = o.matchId && Store.get('matches', o.matchId), fmt = o.format || fmtOf(o.teamId || (m && m.teamId), m), { L, W } = Board.dims({ format: fmt });
+    const saved = o.board && o.board.data;
+    B = { m, fmt, half: saved ? !!saved.half : false, players: saved ? saved.players.map(x => Object.assign({}, x)) : ours(m, fmt), them: saved ? !!saved.them : false, ball: saved ? saved.ball : null,
+      strokes: saved ? saved.strokes.map(s => Object.assign({}, s, { pts: s.pts.map(p => p.slice()) })) : [], style: 'run', color: COLORS[0][0], undo: [], title: o.title || (m ? `${m.home ? 'Contre' : 'Chez'} ${m.opponent || '?'}` : 'Tableau rapide') };
+    if (saved && saved.them && !B.players.some(x => x.side === 'them')) B.players.push(...theirs(fmt));
+    const ov = document.createElement('div'); ov.className = 'qb'; B.ov = ov;
+    ov.innerHTML = `<div class="qb-top"><button class="icon-btn" data-qb="close" aria-label="Fermer">${I.x}</button><b class="qb-title">${esc(B.title)}</b>
+        <span class="qb-tip">Glisse un joueur pour le déplacer · glisse ailleurs pour dessiner</span>
+        <button class="btn soft" data-qb="list">🗂️<span>Gardés</span></button><button class="btn soft" data-qb="share">📤<span>Envoyer</span></button><button class="btn primary" data-qb="keep">📸<span>Garder</span></button></div>
+      <div class="qb-stage"><canvas></canvas></div>
+      <div class="qb-tools">
+        <div class="qb-seg">${STYLES.map(([k, ic, l]) => `<button data-qbs="${k}" class="${k === B.style ? 'on' : ''}"><span class="qb-ic">${ic}</span>${l}</button>`).join('')}</div>
+        <div class="qb-seg qb-cols">${COLORS.map(([c, l]) => `<button data-qbc="${c}" class="${c === B.color ? 'on' : ''}" aria-label="${l}"><i style="background:${c}"></i></button>`).join('')}</div>
+        <div class="qb-seg"><button data-qb="undo"><span class="qb-ic">↩️</span>Annuler</button><button data-qb="wipe"><span class="qb-ic">🧹</span>Effacer</button></div>
+        <div class="qb-seg"><button data-qb="them" class="${B.them ? 'on' : ''}"><span class="qb-ic">👥</span>Adversaires</button><button data-qb="ball" class="${B.ball ? 'on' : ''}"><span class="qb-ic">⚽</span>Ballon</button>
+          <button data-qb="half" class="${B.half ? 'on' : ''}"><span class="qb-ic">◧</span>Demi-terrain</button><button data-qb="reset"><span class="qb-ic">🔄</span>Replacer</button></div>
+      </div>`;
+    B.hadTop = document.body.classList.contains('modal-top'); document.body.appendChild(ov); document.body.classList.add('qb-open', 'modal-top');
+    B.cv = ov.querySelector('canvas'); B.ctx = B.cv.getContext('2d');
+    const fit = () => { if (!B) return; const st = ov.querySelector('.qb-stage'), r = st.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+      B.cv.width = Math.round(r.width * dpr); B.cv.height = Math.round(r.height * dpr); B.dpr = dpr; draw(); };
+    B.ro = new ResizeObserver(fit); B.ro.observe(ov.querySelector('.qb-stage'));
+    bind(); fit();
+    B.onHash = () => close(); window.addEventListener('hashchange', B.onHash);
+    B.onKey = e => { if (!document.getElementById('modal').hidden) return; if (e.key === 'Escape') close(); if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); } }; document.addEventListener('keydown', B.onKey);
+    return B;
+  }
+  function close() {
+    if (!B) return; try { B.ro.disconnect(); } catch (e) {}
+    window.removeEventListener('hashchange', B.onHash); document.removeEventListener('keydown', B.onKey);
+    B.ov.remove(); document.body.classList.remove('qb-open'); if (!B.hadTop) document.body.classList.remove('modal-top'); B = null;
+  }
+
+  /* ---------- drawing ---------- */
+  const field = () => ({ format: B.fmt, view: B.half ? 'half' : 'full' });
+  function cam() {
+    const W = B.cv.width, H = B.cv.height, vertical = H > W * 1.05;
+    return Board.camera({ field: field(), overlays: {} }, W, H, { vertical });
+  }
+  function draw(ctxIn, Win, Hin) {
+    const ctx = ctxIn || B.ctx, W = Win || B.cv.width, H = Hin || B.cv.height;
+    const sc = { field: field(), overlays: {}, objects: [], zones: [], steps: [{ pos: {}, arrows: [], moves: {} }] };
+    const vertical = H > W * 1.05;
+    Board.drawFrame(ctx, W, H, sc, 0, 0, { vertical });
+    const c = Board.camera(sc, W, H, { vertical }), s = c.s, r = c.r * s * 1.05;
+    B.strokes.forEach(st => stroke(ctx, c, st));
+    if (B.cur) stroke(ctx, c, B.cur);
+    const bib = (S().club || {}).homeBib || 'bordeaux', away = (S().club || {}).awayBib && S().club.awayBib !== bib ? S().club.awayBib : 'blanc';
+    B.players.filter(p => B.them || p.side === 'us').forEach(p => {
+      const [X, Y] = c.toS([p.x, p.y]), [fill, ink] = Board.BIBS[p.side === 'us' ? (p.gk ? 'jaune' : bib) : (p.gk ? 'vert' : away === bib ? 'blanc' : away)] || Board.BIBS.bleu;
+      ctx.beginPath(); ctx.arc(X + r * .1, Y + r * .18, r, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = Math.max(2, r * .12); ctx.strokeStyle = B.drag && B.drag.p === p ? '#facc15' : 'rgba(0,0,0,.55)'; ctx.stroke();
+      ctx.fillStyle = ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `800 ${Math.round(r * (p.label.length > 2 ? .8 : 1))}px ui-rounded, system-ui, sans-serif`; ctx.fillText(p.label, X, Y + r * .05);
+      if (p.name) { ctx.font = `700 ${Math.round(r * .78)}px ui-rounded, system-ui, sans-serif`; ctx.textBaseline = 'top'; ctx.lineWidth = Math.max(2, r * .22); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText(p.name, X, Y + r * 1.15); ctx.fillStyle = '#fff'; ctx.fillText(p.name, X, Y + r * 1.15); }
+    });
+    if (B.ball) { const [X, Y] = c.toS([B.ball.x, B.ball.y]), br = r * .55; ctx.beginPath(); ctx.arc(X, Y, br, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = Math.max(1.5, br * .18); ctx.strokeStyle = '#111'; ctx.stroke(); ctx.beginPath(); ctx.arc(X, Y, br * .38, 0, Math.PI * 2); ctx.fillStyle = '#111'; ctx.fill(); }
+  }
+  // a line through the points (smoothed), dotted for a pass, an arrow head for a run or a pass
+  function stroke(ctx, c, st) {
+    const P = st.pts.map(p => c.toS(p)); if (P.length < 2) return;
+    const w = Math.max(3, c.r * c.s * (st.kind === 'pen' ? .22 : .26));
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = st.color; ctx.lineWidth = w;
+    ctx.setLineDash(st.kind === 'pass' ? [w * 2.2, w * 1.6] : []);
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = w;
+    ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]);
+    for (let k = 1; k < P.length - 1; k++) { const mx = (P[k][0] + P[k + 1][0]) / 2, my = (P[k][1] + P[k + 1][1]) / 2; ctx.quadraticCurveTo(P[k][0], P[k][1], mx, my); }
+    const last = P[P.length - 1]; ctx.lineTo(last[0], last[1]); ctx.stroke(); ctx.setLineDash([]);
+    if (st.kind !== 'pen') { // the head points along the last part of the line
+      let k = P.length - 2; while (k > 0 && Math.hypot(last[0] - P[k][0], last[1] - P[k][1]) < w * 4) k--;
+      const a = Math.atan2(last[1] - P[k][1], last[0] - P[k][0]), h = w * 3.4;
+      ctx.beginPath(); ctx.moveTo(last[0] + Math.cos(a) * w * .6, last[1] + Math.sin(a) * w * .6);
+      ctx.lineTo(last[0] - Math.cos(a - .45) * h, last[1] - Math.sin(a - .45) * h); ctx.lineTo(last[0] - Math.cos(a + .45) * h, last[1] - Math.sin(a + .45) * h); ctx.closePath(); ctx.fillStyle = st.color; ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ---------- the finger ---------- */
+  function bind() {
+    const cv = B.cv, pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * B.cv.width / r.width, (e.clientY - r.top) * B.cv.height / r.height]; };
+    let pid = null, penAt = 0;
+    cv.onpointerdown = e => {
+      if (e.pointerType === 'pen') penAt = Date.now(); else if (e.pointerType === 'touch' && Date.now() - penAt < 1500) return; // the hand resting while the pencil writes
+      if (pid != null) return; pid = e.pointerId; try { cv.setPointerCapture(e.pointerId); } catch (x) {} e.preventDefault();
+      const c = cam(), [X, Y] = pt(e), w = c.toW(X, Y), r = c.r * 1.5;
+      const hit = B.players.filter(p => B.them || p.side === 'us').map(p => [p, Math.hypot(p.x - w[0], p.y - w[1])]).filter(x => x[1] < r).sort((a, b) => a[1] - b[1])[0];
+      if (B.ball && Math.hypot(B.ball.x - w[0], B.ball.y - w[1]) < r * .8) B.drag = { ball: true, dx: B.ball.x - w[0], dy: B.ball.y - w[1] };
+      else if (hit) B.drag = { p: hit[0], dx: hit[0].x - w[0], dy: hit[0].y - w[1], x0: hit[0].x, y0: hit[0].y };
+      else B.cur = { kind: B.style, color: B.color, pts: [w] };
+      draw();
+    };
+    cv.onpointermove = e => {
+      if (e.pointerId !== pid) return; if (e.pointerType === 'pen') penAt = Date.now();
+      const c = cam(), w = c.toW(...pt(e)), { L, W } = Board.dims({ format: B.fmt }), cl = (v, a, b) => Math.max(a, Math.min(b, v));
+      if (B.drag && B.drag.ball) { B.ball.x = cl(w[0] + B.drag.dx, -2, L + 2); B.ball.y = cl(w[1] + B.drag.dy, -2, W + 2); }
+      else if (B.drag) { B.drag.p.x = cl(w[0] + B.drag.dx, -2, L + 2); B.drag.p.y = cl(w[1] + B.drag.dy, -2, W + 2); }
+      else if (B.cur) { const q = B.cur.pts[B.cur.pts.length - 1]; if (Math.hypot(w[0] - q[0], w[1] - q[1]) > c.r * .25) B.cur.pts.push(w); }
+      draw();
+    };
+    const up = e => {
+      if (e.pointerId !== pid) return; pid = null;
+      if (B.drag && B.drag.p && (B.drag.p.x !== B.drag.x0 || B.drag.p.y !== B.drag.y0)) B.undo.push({ move: B.drag.p, x: B.drag.x0, y: B.drag.y0 });
+      if (B.cur) { if (B.cur.pts.length > 1) { B.cur.pts = B.cur.pts.map(p => [+p[0].toFixed(1), +p[1].toFixed(1)]); B.strokes.push(B.cur); B.undo.push({ stroke: B.cur }); } }
+      B.drag = null; B.cur = null; draw();
+    };
+    cv.onpointerup = up; cv.onpointercancel = up;
+    B.ov.onclick = e => {
+      const s = e.target.closest('[data-qbs]'), c = e.target.closest('[data-qbc]'), b = e.target.closest('[data-qb]');
+      if (s) { B.style = s.dataset.qbs; B.ov.querySelectorAll('[data-qbs]').forEach(x => x.classList.toggle('on', x === s)); return; }
+      if (c) { B.color = c.dataset.qbc; B.ov.querySelectorAll('[data-qbc]').forEach(x => x.classList.toggle('on', x === c)); return; }
+      if (!b) return; const a = b.dataset.qb;
+      if (a === 'close') return close();
+      if (a === 'undo') return undo();
+      if (a === 'wipe') { if (!B.strokes.length) return; B.undo.push({ wipe: B.strokes.slice() }); B.strokes = []; return draw(); }
+      if (a === 'them') { B.them = !B.them; if (B.them && !B.players.some(x => x.side === 'them')) B.players.push(...theirs(B.fmt)); b.classList.toggle('on', B.them); return draw(); }
+      if (a === 'ball') { const { L, W } = Board.dims({ format: B.fmt }); B.ball = B.ball ? null : { x: L / 2, y: W / 2 }; b.classList.toggle('on', !!B.ball); return draw(); }
+      if (a === 'half') { B.half = !B.half; b.classList.toggle('on', B.half); return draw(); }
+      if (a === 'reset') { B.undo.push({ reset: B.players.map(p => [p, p.x, p.y]) }); const fresh = [...ours(B.m, B.fmt), ...theirs(B.fmt)]; B.players.forEach(p => { const f = fresh.find(x => x.id === p.id); if (f) { p.x = f.x; p.y = f.y; } }); return draw(); }
+      if (a === 'share') return share();
+      if (a === 'keep') return keep();
+      if (a === 'list') return list();
+    };
+  }
+  function undo() {
+    const u = B && B.undo.pop(); if (!u) return;
+    if (u.stroke) B.strokes = B.strokes.filter(x => x !== u.stroke);
+    if (u.move) { u.move.x = u.x; u.move.y = u.y; }
+    if (u.wipe) B.strokes = u.wipe;
+    if (u.reset) u.reset.forEach(([p, x, y]) => { p.x = x; p.y = y; });
+    draw();
+  }
+
+  /* ---------- keep, share, the boards kept ---------- */
+  const data = () => ({ fmt: B.fmt, half: B.half, them: B.them, ball: B.ball, players: B.players.map(p => Object.assign({}, p, { x: +p.x.toFixed(1), y: +p.y.toFixed(1) })), strokes: B.strokes });
+  const store = () => B.m ? (B.m.boards = B.m.boards || []) : (S().ui.qboards = S().ui.qboards || []);
+  function keep() {
+    const kinds = B.m ? [['Avant-match', '🗣️'], ['Mi-temps', '⏸️'], ['Autre', '📌']] : [['Tableau', '📌']];
+    UI.modal({ title: '📸 Garder ce tableau', body: `<p class="muted small">${B.m ? 'Il reste avec le match : tu le retrouves dans « Gardés », ici ou sur la fiche du match.' : 'Il reste sur cet appareil, dans « Gardés ».'}</p><div class="chips">${kinds.map(([k, ic]) => `<button class="chip" data-kind="${k}">${ic} ${k}</button>`).join('')}</div>`,
+      onOpen: (r, close) => r.querySelectorAll('[data-kind]').forEach(x => x.onclick = () => {
+        const l = store(), n = l.filter(b => b.label.startsWith(x.dataset.kind)).length;
+        l.push({ id: Store.uid(), label: x.dataset.kind + (n ? ' ' + (n + 1) : ''), at: Date.now(), data: data() });
+        if (B.m) Store.upsert('matches', B.m); else Store.persistNow();
+        close(); toast('Tableau gardé : ' + l[l.length - 1].label);
+      }), actions: [{ label: 'Annuler' }] });
+  }
+  function list() {
+    const l = store();
+    if (!l.length) return toast('Aucun tableau gardé pour l\'instant : « 📸 Garder »');
+    UI.modal({ title: '🗂️ Tableaux gardés', body: `<div class="list">${l.slice().reverse().map(b => `<div class="list-item"><div class="grow"><b>${esc(b.label)}</b><span class="muted small"> · ${esc(new Date(b.at).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span></div>
+        <button class="btn soft" data-open="${b.id}">Ouvrir</button><button class="icon-btn" data-del="${b.id}" aria-label="Supprimer">${I.trash}</button></div>`).join('')}</div>`,
+      onOpen: (r, close) => { r.addEventListener('click', e => { const o = e.target.closest('[data-open]'), d = e.target.closest('[data-del]');
+        if (o) { const b = l.find(x => x.id === o.dataset.open), m = B.m; close(); open({ matchId: m && m.id, board: b, title: (B && B.title) || b.label }); return; }
+        if (d) { const k = l.findIndex(x => x.id === d.dataset.del); if (k >= 0) l.splice(k, 1); if (B.m) Store.upsert('matches', B.m); else Store.persistNow(); d.closest('.list-item').remove(); if (!l.length) close(); } }); },
+      actions: [{ label: 'Fermer' }] });
+  }
+  async function share() {
+    const c = document.createElement('canvas'), land = true; c.width = land ? 1600 : 1000; c.height = land ? 1040 : 1500;
+    draw(c.getContext('2d'), c.width, c.height);
+    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', .9));
+    try { await Exporter.deliver(blob, (B.title || 'tableau').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.jpg'); } catch (e) { toast('Image impossible : ' + (e.message || e), 'err'); }
+  }
+
+  return { open, close, isOpen: () => !!B };
 })();
 
 ;
@@ -18048,7 +18266,7 @@ var Quick = (() => {
     const lineup = m.lineupId && Store.get('schemas', m.lineupId), d = Prepa.done(m), l = m.live || {}, st = l.status || 'pre';
     const step = (n, ok, title, body) => `<section class="card md-step ${ok ? 'ok' : ''}"><div class="md-head"><b class="md-n">${ok ? '✓' : n}</b><h2>${title}</h2></div>${body}</section>`;
     root.innerHTML = `<header class="page-head"><div><h1>🏟️ Jour de match</h1><p class="sub">${esc(matchName(m))} · ${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${m.time ? ' · ' + esc(hh(m.time)) : ''}</p></div>
-      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Fiche du match</span></a></div></header>
+      <div class="head-actions"><a class="btn" href="#/match/${m.id}">${I.back}<span>Fiche du match</span></a><button class="btn primary" data-md="qboard">🟩<span>Tableau</span></button></div></header>
       ${step(1, conv.length && m.convSent, 'Les convoqués', `
         ${t ? `<div class="chips md-conv">${roster.map(p => `<button class="chip ${(m.convoked || []).includes(p.id) ? 'on' : ''}" data-conv="${p.id}">${esc(Store.shortName(p))}</button>`).join('') || '<span class="muted">Aucun joueur dans cette équipe.</span>'}</div>` : '<p class="muted">Choisis l\'équipe sur la fiche du match.</p>'}
         <p class="muted small">Touche un prénom pour le convoquer (${conv.length} convoqué${conv.length > 1 ? 's' : ''}).${m.convSent ? ' Convocation envoyée ✓' : ''}</p>
@@ -18071,6 +18289,7 @@ var Quick = (() => {
       if (b.dataset.md === 'convoc') { m.convSent = Date.now(); Store.upsert('matches', m); Views.sendConvocation(m); return; }
       if (b.dataset.md === 'lineup') return Views.makeLineup(m);
       if (b.dataset.md === 'talk') return Prepa.show(m);
+      if (b.dataset.md === 'qboard') return QuickBoard.open({ matchId: m.id });
       if (b.dataset.md === 'summary') return sendSummary(m);
     };
   }
@@ -18255,6 +18474,12 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 209, date: '2026-10-17', title: 'Le tableau qui se lit au doigt ✍️', items: [
+      ['✍️', "Nouveau « 🟩 Tableau » (fiche du match, préparation, jour de match, mode tablette) : un terrain vide en plein écran, ton onze déjà placé avec les noms (la compo du match). Glisse un joueur pour le déplacer, glisse ailleurs pour dessiner : ➡️ course, ⇢ passe, ✏️ trait libre, en 4 couleurs."],
+      ["🎯", "Tableau des séances : en mode « Bouger », glisser le doigt sur la pelouse dessine directement une flèche (plus besoin de choisir « Flèche » avant). Glisser un joueur le déplace toujours."],
+      ['📸', "↩️ Annuler, 🧹 Effacer, 👥 Adversaires, ⚽ Ballon, ◧ Demi-terrain, 🔄 Replacer. « Garder » le range avec le match (Avant-match, Mi-temps), « Envoyer » en fait une image pour WhatsApp."],
+      ['⏱️', "Causerie : la durée suit ce qu'il y a à dire (le temps de la voix et une pause sur chaque diapo), plus forcément 8 minutes. Une durée fixe reste possible dans l'étape Causerie."],
+    ] },
     { n: 208, date: '2026-10-17', title: 'L\'iPad est chez lui 📱', items: [
       ['👆', "Sur iPad : boutons, puces, cases et champs plus grands pour le doigt, texte un peu plus gros, un appui se voit, et un appui long n'ouvre plus la bulle « Copier » sur les boutons."],
       ['✏️', "Apple Pencil sur le tableau tactique et sur la vidéo : la main posée sur l'écran ne dessine plus rien, et un deuxième doigt ne vole plus le joueur que tu déplaces."],
@@ -22900,7 +23125,7 @@ var Views = (() => {
       const TABS = [['avant', '📣 Avant'], ['compo', '🧩 Compo'], ['pendant', '📱 Pendant'], ['apres', '🏁 Après']];
       const panel = k => `class="m-panel" data-panel="${k}" ${tab === k ? '' : 'hidden'}`;
       root.innerHTML = `${header(matchTitle(m), `${esc(fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${t ? ' · ' + esc(t.name) : ''}`,
-        momentBtn(m, t, conv, lineup) + `${!m.exempt && !(m.played && m.summarySent) && m.date !== today() ? `<a class="btn" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button>`)}
+        momentBtn(m, t, conv, lineup) + `${!m.exempt && !(m.played && m.summarySent) && m.date !== today() ? `<a class="btn" href="#/jourj/${m.id}">🏟️<span>Jour de match</span></a>` : ''}${m.played && !m.exempt ? '<button class="btn" data-act="fix">✏️<span>Corriger</span></button>' : ''}<button class="btn" data-act="qboard">🟩<span>Tableau</span></button><button class="btn" data-act="pdf">${I.pdf}<span>Feuille de match</span></button><button class="btn" data-act="sheet">📝<span>Compo papier</span></button><button class="btn danger" data-act="delete">${I.trash}<span>Supprimer le match</span></button>`)}
         <div class="m-sum ${side(m)}"><span>${sum}</span><button class="btn soft" data-editm>${I.edit}<span>${editOpen ? 'Fermer' : 'Modifier'}</span></button></div>
         <section class="card ${side(m)} m-edit" ${editOpen ? '' : 'hidden'}>
           <div class="row3">
@@ -23109,6 +23334,7 @@ var Views = (() => {
       if (b.dataset.pl) { const st = (m.stats = m.stats || {})[b.dataset.pl] = m.stats[b.dataset.pl] || {}; st[b.dataset.k] = Math.max(0, (st[b.dataset.k] || 0) + +b.dataset.d); save();
         const v = b.parentElement.querySelector('b'); if (v) v.textContent = st[b.dataset.k]; return later(); }
       switch (b.dataset.act) {
+        case 'qboard': return QuickBoard.open({ matchId: m.id });
         case 'pdf': return runExport('Création de la feuille de match…', () => Exporter.pdfMatch(m, teamOf(m.teamId), S().club, { homeBib: S().club.homeBib }));
         case 'sheet': return runExport('Création de la compo papier…', () => TeamDocs.sheet(m));
         case 'shareres': return shareResult(m); // (2.06)
@@ -23805,7 +24031,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 251, UPD = AppCfg.key('update-tried');
+  const BUILD = 252, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

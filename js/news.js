@@ -5,6 +5,12 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 209, date: '2026-10-17', title: 'Le tableau qui se lit au doigt ✍️', items: [
+      ['✍️', "Nouveau « 🟩 Tableau » (fiche du match, préparation, jour de match, mode tablette) : un terrain vide en plein écran, ton onze déjà placé avec les noms (la compo du match). Glisse un joueur pour le déplacer, glisse ailleurs pour dessiner : ➡️ course, ⇢ passe, ✏️ trait libre, en 4 couleurs."],
+      ["🎯", "Tableau des séances : en mode « Bouger », glisser le doigt sur la pelouse dessine directement une flèche (plus besoin de choisir « Flèche » avant). Glisser un joueur le déplace toujours."],
+      ['📸', "↩️ Annuler, 🧹 Effacer, 👥 Adversaires, ⚽ Ballon, ◧ Demi-terrain, 🔄 Replacer. « Garder » le range avec le match (Avant-match, Mi-temps), « Envoyer » en fait une image pour WhatsApp."],
+      ['⏱️', "Causerie : la durée suit ce qu'il y a à dire (le temps de la voix et une pause sur chaque diapo), plus forcément 8 minutes. Une durée fixe reste possible dans l'étape Causerie."],
+    ] },
     { n: 208, date: '2026-10-17', title: 'L\'iPad est chez lui 📱', items: [
       ['👆', "Sur iPad : boutons, puces, cases et champs plus grands pour le doigt, texte un peu plus gros, un appui se voit, et un appui long n'ouvre plus la bulle « Copier » sur les boutons."],
       ['✏️', "Apple Pencil sur le tableau tactique et sur la vidéo : la main posée sur l'écran ne dessine plus rien, et un deuxième doigt ne vole plus le joueur que tu déplaces."],
