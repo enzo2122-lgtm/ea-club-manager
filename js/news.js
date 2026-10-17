@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 206, date: '2026-10-17', title: 'La causerie prend la parole 🎙️', items: [
+      ['🎙️', "Causerie plein écran : une voix lit chaque diapo, un coup de sifflet ouvre et ferme, et les diapos défilent seules sur la durée choisie (8 min = chaque diapo sa part, tu parles par-dessus). 🔊 coupe la voix, ⏸ arrête le défilement."],
+      ['📋', "Nouvelles diapos : le programme (rendez-vous, coup d'envoi, lieu), le onze de départ avec les numéros et les postes, le banc, et notre forme (5 derniers matchs, la dernière fois contre eux)."],
+      ['🧠', "La compo de la causerie montre le nom de chaque joueur sous son maillot, à son poste."],
+    ] },
     { n: 205, date: '2026-10-17', title: 'L\'imprimante dit merci 🖨️', items: [
       ['🌿', "Les PDF (séance, feuille de match, préparation…) économisent l'encre : plus de grand bandeau bleu en haut, et les terrains des schémas sont blancs avec des lignes vertes et des flèches foncées."],
       ['🎨', "Envie de couleurs quand même ? Réglages → Impression → « En couleurs »."],

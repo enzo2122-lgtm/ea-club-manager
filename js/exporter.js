@@ -70,7 +70,7 @@ const Exporter = (() => {
     const ch = o.caption === false ? 0 : ch0;
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const ctx = c.getContext('2d');
-    Board.drawFrame(ctx, w, h - ch, sc, k, u, { homeBib: o.homeBib, names: o.names, eco: o.eco });
+    Board.drawFrame(ctx, w, h - ch, sc, k, u, { homeBib: o.homeBib, names: o.names, eco: o.eco, nameK: o.nameK });
     if (ch) drawCaption(ctx, w, h, ch, sc, k, o.eco);
     return c;
   }

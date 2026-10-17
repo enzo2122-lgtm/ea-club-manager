@@ -801,7 +801,7 @@ var Board = (() => {
       if (o.gk) { ctx.beginPath(); ctx.arc(x, y, r * .78, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.globalAlpha = .45; ctx.lineWidth = Math.max(1, r * .08); ctx.stroke(); ctx.globalAlpha = 1; }
       const t = String(o.label || ''); if (t) label(ctx, x, y + r * .06, t, r * (t.length >= 3 ? .72 : t.length === 2 ? .9 : 1.05), ink);
       if (opts.names && o.name) {
-        ctx.font = `700 ${Math.max(10, r * .62)}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.font = `700 ${Math.max(10, r * (opts.nameK || .62))}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.strokeText(o.name, x, y + r * 1.15); ctx.fillStyle = '#fff'; ctx.fillText(o.name, x, y + r * 1.15);
       }
     } else if (o.type === 'ball') {
@@ -1880,7 +1880,7 @@ var Exporter = (() => {
     const ch = o.caption === false ? 0 : ch0;
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const ctx = c.getContext('2d');
-    Board.drawFrame(ctx, w, h - ch, sc, k, u, { homeBib: o.homeBib, names: o.names, eco: o.eco });
+    Board.drawFrame(ctx, w, h - ch, sc, k, u, { homeBib: o.homeBib, names: o.names, eco: o.eco, nameK: o.nameK });
     if (ch) drawCaption(ctx, w, h, ch, sc, k, o.eco);
     return c;
   }
@@ -4086,7 +4086,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.47';
+  const VERSION = '3.48';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -8882,10 +8882,44 @@ var Prepa = (() => {
     const lineup = m.lineupId && Store.get('schemas', m.lineupId), cap = (pl.captain || m.captain) && Store.get('players', pl.captain || m.captain);
     const roles = Object.entries(pl.roles || {}).filter(([, v]) => v).map(([id, v]) => [Store.get('players', id), v]).filter(([x]) => x);
     const bl = (arr, cls = '') => `<ul class="pp-list ${cls}">${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
-    const slides = [
+    // (3.48) the lineup with each player's name under his shirt, as on the match sheet
+    const tm = teamOf(m), sq = squad(m, lineup), oppName = m.opponent || 'l\'adversaire', teamName = (tm || {}).name || S().club.name;
+    const lineupImg = lineup ? (() => { try { const c = JSON.parse(JSON.stringify(lineup)); (c.objects || []).forEach(x => { if (x.playerId && !x.name) { const pp = Store.get('players', x.playerId); if (pp) x.name = Store.shortName(pp); } });
+      return Exporter.frameCanvas(c, 0, 0, { w: 1280, h: 832, names: true, nameK: 1, caption: false, homeBib: S().club.homeBib }).toDataURL('image/jpeg', .9); } catch (e) { return UI.thumb(lineup, 1280, 832); } })() : '';
+    const said = arr => arr.filter(Boolean).join('. ').replace(/\.\s*\./g, '.');
+    const nm = x => Store.shortName(x), num = x => Store.numOf(x, m);
+    // (3.48) what the voice says on each slide (and the new slides: the programme, the starting eleven, our form)
+    const hh = s => String(s || '').replace(':', ' heures ').replace(/ heures 00$/, ' heures');
+    const prog = [m.rdv && ['🕐', 'Rendez-vous', String(m.rdv).replace(':', 'h')], m.time && ['⚽', 'Coup d\'envoi', String(m.time).replace(':', 'h')], m.place && ['📍', m.home ? 'À domicile' : 'Le terrain', m.place], m.competition && ['🏆', 'Compétition', m.competition]].filter(Boolean);
+    const progHtml = prog.length >= 2 ? `<h2>📍 Le programme</h2><div class="pp-roles">${prog.map(([ic, l, v]) => `<p><b>${ic} ${esc(l)}</b><span>${esc(v)}</span></p>`).join('')}</div>` : '';
+    const progSay = said([m.rdv && 'Rendez-vous à ' + hh(m.rdv), m.time && 'Coup d\'envoi à ' + hh(m.time), m.place && (m.home ? 'On joue chez nous : ' : 'Le terrain : ') + m.place]);
+    const eleven = sq.starters.length ? `<h2>📋 Le onze de départ</h2><div class="pp-roles pp-eleven">${sq.starters.map(x => `<p><b>${num(x) ? `<i class="pp-num">${esc(String(num(x)))}</i>` : ''}${esc(nm(x))}</b><span>${esc(sq.post(x))}</span></p>`).join('')}</div>
+      ${sq.bench.length ? `<h3 class="pp-bench-h">🪑 Sur le banc</h3><p class="pp-bench">${sq.bench.map(x => esc(nm(x))).join(' · ')}</p>` : ''}` : '';
+    const elevenSay = sq.starters.length ? said(['Le onze de départ', sq.starters.map(x => `${nm(x)}${sq.post(x) ? ', ' + sq.post(x) : ''}`).join(' ; '), sq.bench.length ? 'Sur le banc : ' + sq.bench.map(nm).join(', ') + '. Tenez-vous prêts, vous allez entrer' : '']) : '';
+    const past = S().matches.filter(x => x.teamId === m.teamId && x.played && !x.exempt && x.id !== m.id && (x.date || '') < (m.date || '9')).sort((a, b) => b.date.localeCompare(a.date));
+    const last5 = past.slice(0, 5), res = x => x.gf > x.ga ? 'V' : x.gf < x.ga ? 'D' : 'N';
+    const fold = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const prev = m.opponent ? past.find(x => fold(x.opponent) === fold(m.opponent)) : null;
+    const formHtml = last5.length ? `<h2>📈 Notre forme</h2><div class="pp-form">${last5.slice().reverse().map(x => `<span class="pp-res ${res(x)}" title="${esc(x.opponent || '')}">${res(x)}<small>${x.gf}-${x.ga}</small></span>`).join('')}</div>
+      <p class="pp-hook">${last5.filter(x => res(x) === 'V').length} victoire${last5.filter(x => res(x) === 'V').length > 1 ? 's' : ''}, ${last5.filter(x => res(x) === 'N').length} nul${last5.filter(x => res(x) === 'N').length > 1 ? 's' : ''}, ${last5.filter(x => res(x) === 'D').length} défaite${last5.filter(x => res(x) === 'D').length > 1 ? 's' : ''} sur les ${last5.length} derniers matchs</p>
+      ${prev ? `<p class="pp-obj">🔁 Dernière fois contre ${esc(m.opponent)} : ${prev.gf}-${prev.ga} (${esc(UI.fmtDate(prev.date, { day: 'numeric', month: 'long' }))})</p>` : ''}` : '';
+    const formSay = last5.length ? said([`Sur nos ${last5.length} derniers matchs : ${last5.filter(x => res(x) === 'V').length} victoires, ${last5.filter(x => res(x) === 'N').length} nuls, ${last5.filter(x => res(x) === 'D').length} défaites`,
+      prev ? `La dernière fois contre ${m.opponent}, c'était ${prev.gf} à ${prev.ga}${prev.gf > prev.ga ? ', on recommence' : prev.gf < prev.ga ? ', aujourd\'hui on prend notre revanche' : ', aujourd\'hui on va chercher la victoire'}` : '']) : '';
+    const says0 = [
+      said([`${teamName} ${m.home ? 'reçoit' : 'se déplace chez'} ${oppName}`, UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }) + (m.time ? ' à ' + hh(m.time) : ''), t.hook, t.objective && 'Notre objectif : ' + t.objective]),
+      said(['Notre équipe' + (pl.system ? ', en ' + pl.system : ''), 'Regardez bien votre place sur le terrain', cap && 'Le capitaine : ' + Store.fullName(cap)]),
+      said([`L'adversaire : ${oppName}` + (o.system ? ', en ' + o.system : ''), lines(o.strengths).length && 'Leurs forces : ' + lines(o.strengths).join(', '), lines(o.weaknesses).length && 'Leurs faiblesses : ' + lines(o.weaknesses).join(', '), lines(o.players).length && 'À surveiller : ' + lines(o.players).join(', '), lines(o.cpa).length && 'Sur coups de pied arrêtés : ' + lines(o.cpa).join(', ')]),
+      said(['Le plan de jeu', ...MOM().filter(([k]) => lines(pl[k]).length).map(([k, l]) => String(l).replace(/^\S+\s/, '') + ' : ' + lines(pl[k]).join(', '))]),
+      said(['Les coups de pied arrêtés', ...[['Corners pour nous', pl.cpaFor], ['Corners contre nous', pl.cpaAgainst], ['Coups francs', pl.freeKicks], ['Penalty', pl.penalty]].filter(([, v]) => v).map(([l, v]) => l + ' : ' + lines(v).join(', '))]),
+      said(['Les rôles', ...roles.map(([x, v]) => nm(x) + ' : ' + v)]),
+      said(['Nos 3 clés', ...keys.map((k, i) => ['Un', 'Deux', 'Trois', 'Quatre', 'Cinq'][i] + ' : ' + k)]),
+      'Place au briefing vidéo',
+      said([lines(t.final).join(' ') || Supporters.SLOGAN, 'Allez ' + (S().club.short || S().club.name || 'le club') + ' !']),
+    ];
+    const slides0 = [
       `<div class="pp-title">${Supporters.coin('pp-crest')}<p class="pp-eyebrow">${esc(UI.fmtDate(m.date, { weekday: 'long', day: 'numeric', month: 'long' }))}${m.time ? ' · ' + esc(m.time.replace(':', 'h')) : ''}${m.competition ? ' · ' + esc(m.competition) : ''}</p>
         <h1>${esc((teamOf(m) || {}).name || S().club.name)} <i>${m.home ? 'contre' : 'chez'}</i> ${esc(m.opponent || '?')}</h1>${t.hook ? `<p class="pp-hook">${esc(t.hook)}</p>` : ''}${t.objective ? `<p class="pp-obj">🎯 ${esc(t.objective)}</p>` : ''}</div>`,
-      lineup || pl.system ? `<h2>🧠 Notre équipe${pl.system ? ' · ' + esc(pl.system) : ''}</h2>${lineup ? `<img class="pp-lineup" alt="" src="${UI.thumb(lineup, 1280, 832)}">` : ''}${cap ? `<p class="pp-cap">©️ Capitaine : <b>${esc(Store.fullName(cap))}</b></p>` : ''}` : '',
+      lineup || pl.system ? `<h2>🧠 Notre équipe${pl.system ? ' · ' + esc(pl.system) : ''}</h2>${lineup ? `<img class="pp-lineup" alt="" src="${lineupImg}">` : ''}${cap ? `<p class="pp-cap">©️ Capitaine : <b>${esc(Store.fullName(cap))}</b></p>` : ''}` : '',
       o.system || o.strengths || o.weaknesses || o.players ? `<h2>🔎 ${esc(m.opponent || 'L\'adversaire')}${o.system ? ' · ' + esc(o.system) : ''}</h2><div class="pp-cols">
         ${lines(o.strengths).length ? `<div><h3>💪 Leurs forces</h3>${bl(lines(o.strengths), 'bad')}</div>` : ''}${lines(o.weaknesses).length ? `<div><h3>🎯 Leurs faiblesses</h3>${bl(lines(o.weaknesses), 'good')}</div>` : ''}
         ${lines(o.players).length ? `<div><h3>⭐ À surveiller</h3>${bl(lines(o.players))}</div>` : ''}${lines(o.cpa).length ? `<div><h3>🚩 Leurs CPA</h3>${bl(lines(o.cpa))}</div>` : ''}</div>` : '',
@@ -8895,26 +8929,47 @@ var Prepa = (() => {
       keys.length ? `<h2>🔑 Nos 3 clés</h2><div class="pp-keys">${keys.map((k, i) => `<p><b>${i + 1}</b><span>${esc(k)}</span></p>`).join('')}</div>` : '',
       t.briefing ? `<h2>🎬 La vidéo</h2><p class="pp-hook">Le briefing vidéo du match</p><button class="btn primary pp-big" data-pp="video">${I.play}<span>Lancer le briefing vidéo</span></button>` : '',
       `<div class="pp-final"><div class="pp-flag">${Supporters.flag()}</div><p class="pp-word">${esc(lines(t.final).join(' ') || Supporters.SLOGAN)}</p><p class="pp-go">Allez ${esc(S().club.short || 'le club')} !</p></div>`,
-    ].filter(Boolean);
+    ];
+    // the new slides in their place: the programme after the title, the eleven after the lineup, our form after the opponent
+    slides0.splice(3, 0, formHtml); says0.splice(3, 0, formSay); slides0.splice(2, 0, eleven); says0.splice(2, 0, elevenSay); slides0.splice(1, 0, progHtml); says0.splice(1, 0, progSay);
+    const slides = slides0.filter(Boolean), says = says0.filter((_, k) => slides0[k]);
     const ov = document.createElement('div'); ov.className = 'pp-show'; document.body.appendChild(ov);
     const t0 = Date.now(), target = +(t.minutes || 8) * 60; let i = 0, iv = null;
+    /* (3.48) the talk plays by itself, like a film: a voice reads each slide (French voice of the phone), the slides share the chosen length
+       (8 min = each slide its part of the time, the coach talks over it), a whistle at the start and at the end. 🔊 and ⏸ stop either at any time. */
+    const syn = window.speechSynthesis, ui = S().ui;
+    let voice = ui.ppVoice !== 0 && !!syn, auto = ui.ppAuto !== 0, slideT0 = Date.now(), spoke = true, timer = null;
+    const per = () => Math.max(15, target / slides.length) * 1000;
+    const frVoice = () => { const vs = syn ? syn.getVoices() : []; return vs.find(v => /^fr(-|_)FR/i.test(v.lang) && /google|amélie|amelie|thomas|audrey|marie|denise|henri/i.test(v.name)) || vs.find(v => /^fr/i.test(v.lang)); };
+    const hush = () => { try { if (syn) syn.cancel(); } catch (e) {} };
+    const speak = txt => { hush(); spoke = !voice || !txt; if (spoke || !syn) { spoke = true; return; }
+      const u = new SpeechSynthesisUtterance(String(txt).replace(/[🎯🔑⚽📍🕐🏆🔁©️]/gu, '')); u.lang = 'fr-FR'; u.rate = 1; const v = frVoice(); if (v) u.voice = v;
+      u.onend = u.onerror = () => { spoke = true; plan(); }; try { syn.speak(u); } catch (e) { spoke = true; } };
+    // the next slide: once the voice has finished and the slide's share of the time is over
+    const plan = () => { clearTimeout(timer); if (!auto || i >= slides.length - 1) return; if (!spoke) return; timer = setTimeout(() => go(i + 1), Math.max(2500, per() - (Date.now() - slideT0))); };
+    const whistle = k => { try { Terrain.play(k, 'terrain'); } catch (e) {} };
     // (leaving the page by the back gesture closes the talk too: otherwise it stayed in the page with its clock running)
-    const end = () => { clearInterval(iv); ov.remove(); document.removeEventListener('keydown', key); window.removeEventListener('hashchange', end); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
-    const go = n => { i = Math.max(0, Math.min(slides.length - 1, n));
-      ov.innerHTML = `<div class="pp-slide">${slides[i]}</div>
+    const end = () => { clearInterval(iv); clearTimeout(timer); hush(); ov.remove(); document.removeEventListener('keydown', key); window.removeEventListener('hashchange', end); try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
+    const go = n => { i = Math.max(0, Math.min(slides.length - 1, n)); slideT0 = Date.now();
+      ov.innerHTML = `<div class="pp-slide">${slides[i]}</div><div class="pp-prog"><i id="ppProg"></i></div>
         <div class="pp-bar"><button class="icon-btn" data-pp="prev" aria-label="Précédent" ${i ? '' : 'disabled'}>${I.back}</button><span class="pp-dots">${slides.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</span>
-        <span class="pp-clock" id="ppClock"></span><button class="icon-btn" data-pp="next" aria-label="Suivant" ${i < slides.length - 1 ? '' : 'disabled'}>${I.next}</button><button class="icon-btn" data-pp="close" aria-label="Fermer">${I.x}</button></div>`; clock(); };
-    // the time of the talk: green, orange near the aimed length, red beyond
-    const clock = () => { const el = ov.querySelector('#ppClock'); if (!el) return; const s = Math.round((Date.now() - t0) / 1000); el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${target / 60} min`; el.className = 'pp-clock ' + (s > target ? 'late' : s > target * .8 ? 'soon' : ''); };
+        <span class="pp-clock" id="ppClock"></span><button class="icon-btn" data-pp="voice" aria-label="${voice ? 'Couper la voix' : 'Mettre la voix'}" title="Voix">${voice ? '🔊' : '🔇'}</button><button class="icon-btn" data-pp="auto" aria-label="${auto ? 'Pause' : 'Lecture automatique'}" title="Défilement automatique">${auto ? '⏸' : '▶'}</button><button class="icon-btn" data-pp="next" aria-label="Suivant" ${i < slides.length - 1 ? '' : 'disabled'}>${I.next}</button><button class="icon-btn" data-pp="close" aria-label="Fermer">${I.x}</button></div>`;
+      clock(); speak(says[i]); plan(); if (i === slides.length - 1) whistle('end'); };
+    // the time of the talk: green, orange near the aimed length, red beyond; the thin bar = the time of this slide
+    const clock = () => { const el = ov.querySelector('#ppClock'); if (!el) return; const s = Math.round((Date.now() - t0) / 1000); el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} / ${target / 60} min`; el.className = 'pp-clock ' + (s > target ? 'late' : s > target * .8 ? 'soon' : '');
+      const pg = ov.querySelector('#ppProg'); if (pg) pg.style.width = auto && i < slides.length - 1 ? Math.min(100, (Date.now() - slideT0) / per() * 100) + '%' : '0'; };
     const key = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(i + 1); } if (e.key === 'ArrowLeft') go(i - 1); };
     document.addEventListener('keydown', key); window.addEventListener('hashchange', end);
     let sx = null; ov.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
     ov.addEventListener('touchend', e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1)); });
     ov.onclick = e => { const b = e.target.closest('[data-pp]'); if (!b) return; const x = b.dataset.pp;
       if (x === 'close') return end(); if (x === 'next') return go(i + 1); if (x === 'prev') return go(i - 1);
+      if (x === 'voice') { voice = !voice && !!syn; ui.ppVoice = voice ? 1 : 0; Store.persistNow(); if (!syn) toast('Pas de voix sur ce navigateur', 'err'); if (voice) speak(says[i]); else { hush(); spoke = true; plan(); } b.textContent = voice ? '🔊' : '🔇'; return; }
+      if (x === 'auto') { auto = !auto; ui.ppAuto = auto ? 1 : 0; Store.persistNow(); b.textContent = auto ? '⏸' : '▶'; if (auto) { slideT0 = Date.now(); plan(); } else clearTimeout(timer); return; }
       if (x === 'video') { let bs = []; try { bs = JSON.parse(localStorage.getItem(AppCfg.key('briefings'))) || []; } catch (e) {} if (!bs.some(b2 => b2.id === t.briefing)) return toast('Ce briefing n\'est pas sur cet appareil', 'err'); end(); location.hash = '#/briefing/' + t.briefing; } };
     try { const d = document.documentElement, pr = (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
-    go(0); iv = setInterval(clock, 1000);
+    if (syn && !syn.getVoices().length) try { syn.onvoiceschanged = () => {}; } catch (e) {} // the voices load late on Chrome
+    whistle('go'); go(0); iv = setInterval(clock, 1000);
     if (!keys.length && !t.objective) toast('Astuce : remplis l\'étape « Causerie » (objectif et 3 clés) pour une causerie complète');
   }
 
@@ -18188,6 +18243,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 206, date: '2026-10-17', title: 'La causerie prend la parole 🎙️', items: [
+      ['🎙️', "Causerie plein écran : une voix lit chaque diapo, un coup de sifflet ouvre et ferme, et les diapos défilent seules sur la durée choisie (8 min = chaque diapo sa part, tu parles par-dessus). 🔊 coupe la voix, ⏸ arrête le défilement."],
+      ['📋', "Nouvelles diapos : le programme (rendez-vous, coup d'envoi, lieu), le onze de départ avec les numéros et les postes, le banc, et notre forme (5 derniers matchs, la dernière fois contre eux)."],
+      ['🧠', "La compo de la causerie montre le nom de chaque joueur sous son maillot, à son poste."],
+    ] },
     { n: 205, date: '2026-10-17', title: 'L\'imprimante dit merci 🖨️', items: [
       ['🌿', "Les PDF (séance, feuille de match, préparation…) économisent l'encre : plus de grand bandeau bleu en haut, et les terrains des schémas sont blancs avec des lignes vertes et des flèches foncées."],
       ['🎨', "Envie de couleurs quand même ? Réglages → Impression → « En couleurs »."],
@@ -23725,7 +23785,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 248, UPD = AppCfg.key('update-tried');
+  const BUILD = 249, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;

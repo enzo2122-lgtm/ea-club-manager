@@ -371,7 +371,7 @@ const Board = (() => {
       if (o.gk) { ctx.beginPath(); ctx.arc(x, y, r * .78, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.globalAlpha = .45; ctx.lineWidth = Math.max(1, r * .08); ctx.stroke(); ctx.globalAlpha = 1; }
       const t = String(o.label || ''); if (t) label(ctx, x, y + r * .06, t, r * (t.length >= 3 ? .72 : t.length === 2 ? .9 : 1.05), ink);
       if (opts.names && o.name) {
-        ctx.font = `700 ${Math.max(10, r * .62)}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.font = `700 ${Math.max(10, r * (opts.nameK || .62))}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.strokeText(o.name, x, y + r * 1.15); ctx.fillStyle = '#fff'; ctx.fillText(o.name, x, y + r * 1.15);
       }
     } else if (o.type === 'ball') {
