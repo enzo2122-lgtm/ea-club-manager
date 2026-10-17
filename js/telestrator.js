@@ -212,17 +212,20 @@ const Tele = (() => {
     const norm = e => { const r = L.cv.getBoundingClientRect(), b = L.box(); return [Math.max(0, Math.min(1, (e.clientX - r.left - b.x) / b.w)), Math.max(0, Math.min(1, (e.clientY - r.top - b.y) / b.h))]; };
     L.edit(clip);
     const v0 = getV(); if (v0 && !v0.paused) v0.pause();
+    let penAt = 0, pid = null; // (3.50) Apple Pencil: the resting hand draws nothing, a second finger is ignored
     L.cv.onpointerdown = e => {
-      e.preventDefault(); const p = norm(e); down = p; L.cv.setPointerCapture(e.pointerId);
+      e.preventDefault(); if (e.pointerType === 'pen') penAt = Date.now(); else if (e.pointerType === 'touch' && Date.now() - penAt < 1500) return;
+      if (down && pid != null && e.pointerId !== pid) return; pid = e.pointerId;
+      const p = norm(e); down = p; L.cv.setPointerCapture(e.pointerId);
       if (st.tool === 'free') { pts = [p]; setDraft(); }
     };
     L.cv.onpointermove = e => {
-      if (!down) return; const p = norm(e);
+      if (!down || (pid != null && e.pointerId !== pid)) return; if (e.pointerType === 'pen') penAt = Date.now(); const p = norm(e);
       if (st.tool === 'free') { const q = pts[pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) > .004) { pts.push(p); setDraft(); } }
       else if (st.tool === 'vision' || st.tool === 'move') { pts = [down, p]; setDraft(); }
     };
     L.cv.onpointerup = e => {
-      if (!down) return; const p = norm(e), a = down; down = null;
+      if (!down || (pid != null && e.pointerId !== pid)) return; pid = null; const p = norm(e), a = down; down = null;
       const moved = Math.hypot(p[0] - a[0], p[1] - a[1]) > .02;
       if (st.tool === 'free') { if (pts.length > 1) commit({ tool: 'free', pts: pts.map(q => q.map(n => +n.toFixed(4))) }); else { pts = []; setDraft(); } return; }
       if (st.tool === 'vision' || st.tool === 'move') {

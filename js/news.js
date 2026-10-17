@@ -5,6 +5,11 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 208, date: '2026-10-17', title: 'L\'iPad est chez lui 📱', items: [
+      ['👆', "Sur iPad : boutons, puces, cases et champs plus grands pour le doigt, texte un peu plus gros, un appui se voit, et un appui long n'ouvre plus la bulle « Copier » sur les boutons."],
+      ['✏️', "Apple Pencil sur le tableau tactique et sur la vidéo : la main posée sur l'écran ne dessine plus rien, et un deuxième doigt ne vole plus le joueur que tu déplaces."],
+      ['🍏', "Les iPad récents (qui se présentent comme un Mac) sont enfin reconnus : la bonne aide pour installer l'appli et recevoir les notifications."],
+    ] },
     { n: 207, date: '2026-10-17', title: 'Capitaine, à toi l\'échauffement 🏃', items: [
       ['🏃', "Causerie : le rendez-vous et le coup d'envoi laissent la place à l'échauffement, en fin de causerie, mené par le capitaine (son nom en grand). Les étapes viennent de « Jour J » (celles cochées, sinon toutes) avec leurs minutes, et la voix les lit."],
     ] },

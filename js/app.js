@@ -171,7 +171,7 @@ const App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 250, UPD = AppCfg.key('update-tried');
+  const BUILD = 251, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -236,7 +236,7 @@ const App = (() => {
     const fcData = (location.hash.match(/^#\/recevoir-source\/((?:fc|ac)=.+)$/) || [])[1]; // (1.85) the Footclubs data in the address; (2.10) AssistCoachAI's too
     if (fromSite) history.replaceState(null, '', location.pathname + location.search + '#/');
     if (recv) history.replaceState(null, '', location.pathname + location.search + '#/entrainements');
-    const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
+    const iosTab = (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
     if (recv && iosTab && !Auth.current()) await Views.linkGate(recv);
     const who = (location.hash.match(/[#&]qui=([\w-]+)/) || [])[1];
     if (join) { Auth.setInvite(join, who); history.replaceState(null, '', location.pathname + location.search); }

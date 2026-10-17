@@ -185,7 +185,7 @@ const Member = (() => {
   let nState = null, nAsked = false;
   const b64 = s => { const p = '='.repeat((4 - s.length % 4) % 4), raw = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, ch => ch.charCodeAt(0)); };
   const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && location.protocol !== 'file:';
-  const ios = () => /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const ios = () => (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)), standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   // the card (filled once the club's server has answered)
   /* ---------- (2.05) « install the app »: a guide step by step for the phone in hand (iPhone, Android, an app's browser) ---------- */
   let installEvt = null;

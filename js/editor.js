@@ -197,8 +197,12 @@ const Editor = (() => {
   /* ---------- pointer ---------- */
   // finger → pitch: from the canvas as it is shown (right even if its size changed since the last drawing)
   function wpos(e) { const c = E.canvas, r = c.getBoundingClientRect(); return E.cam.toW((e.clientX - r.left) * c.width / (r.width || 1), (e.clientY - r.top) * c.height / (r.height || 1)); }
+  let penAt = 0, dragId = null;
+  const palm = e => { if (e.pointerType === 'pen') { penAt = Date.now(); return false; } return e.pointerType === 'touch' && Date.now() - penAt < 1500; };
   function onDown(e) {
     if (!E || !E.cam || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (palm(e) || (E.drag && dragId != null && e.pointerId !== dragId)) return;
+    dragId = e.pointerId;
     if (E.playing) stopPlay();
     E.canvas.setPointerCapture(e.pointerId);
     const w = wpos(e), st = cur(), r = E.cam.r, t = E.tool;
@@ -251,6 +255,7 @@ const Editor = (() => {
   }
   function onMove(e) {
     if (!E || !E.drag) return;
+    if (e.pointerType === 'pen') penAt = Date.now(); else if (dragId != null && e.pointerId !== dragId) return;
     const d = E.drag, w = wpos(e), r = E.cam.r;
     if (!d.moved && !d.placed && ['obj', 'zone', 'arrow', 'arrowEnd', 'zoneResize', 'moveEnd'].includes(d.kind)) snapshot();
     d.moved = true;
@@ -265,7 +270,9 @@ const Editor = (() => {
     else if (d.kind === 'newArrow' || d.kind === 'newZone') d.b = w;
     draw();
   }
-  function onUp() {
+  function onUp(e) {
+    if (e && dragId != null && e.pointerId !== dragId && E && E.drag) return;
+    dragId = null;
     if (!E || !E.drag) return;
     const d = E.drag, r = E.cam.r; E.drag = null;
     if (d.kind === 'newArrow') {

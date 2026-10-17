@@ -4086,7 +4086,7 @@ var Importer = (() => {
    Errors are caught and kept so a coach can attach them to a report. */
 var Help = (() => {
   const { esc, $, $$, toast, modal } = UI;
-  const VERSION = '3.49';
+  const VERSION = '3.50';
   const TOUR_KEY = AppCfg.key('tour-seen'), ERR_KEY = AppCfg.key('errors');
 
   /* ---------- error log ---------- */
@@ -7208,8 +7208,12 @@ var Editor = (() => {
   /* ---------- pointer ---------- */
   // finger → pitch: from the canvas as it is shown (right even if its size changed since the last drawing)
   function wpos(e) { const c = E.canvas, r = c.getBoundingClientRect(); return E.cam.toW((e.clientX - r.left) * c.width / (r.width || 1), (e.clientY - r.top) * c.height / (r.height || 1)); }
+  let penAt = 0, dragId = null;
+  const palm = e => { if (e.pointerType === 'pen') { penAt = Date.now(); return false; } return e.pointerType === 'touch' && Date.now() - penAt < 1500; };
   function onDown(e) {
     if (!E || !E.cam || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (palm(e) || (E.drag && dragId != null && e.pointerId !== dragId)) return;
+    dragId = e.pointerId;
     if (E.playing) stopPlay();
     E.canvas.setPointerCapture(e.pointerId);
     const w = wpos(e), st = cur(), r = E.cam.r, t = E.tool;
@@ -7262,6 +7266,7 @@ var Editor = (() => {
   }
   function onMove(e) {
     if (!E || !E.drag) return;
+    if (e.pointerType === 'pen') penAt = Date.now(); else if (dragId != null && e.pointerId !== dragId) return;
     const d = E.drag, w = wpos(e), r = E.cam.r;
     if (!d.moved && !d.placed && ['obj', 'zone', 'arrow', 'arrowEnd', 'zoneResize', 'moveEnd'].includes(d.kind)) snapshot();
     d.moved = true;
@@ -7276,7 +7281,9 @@ var Editor = (() => {
     else if (d.kind === 'newArrow' || d.kind === 'newZone') d.b = w;
     draw();
   }
-  function onUp() {
+  function onUp(e) {
+    if (e && dragId != null && e.pointerId !== dragId && E && E.drag) return;
+    dragId = null;
     if (!E || !E.drag) return;
     const d = E.drag, r = E.cam.r; E.drag = null;
     if (d.kind === 'newArrow') {
@@ -15374,17 +15381,20 @@ var Tele = (() => {
     const norm = e => { const r = L.cv.getBoundingClientRect(), b = L.box(); return [Math.max(0, Math.min(1, (e.clientX - r.left - b.x) / b.w)), Math.max(0, Math.min(1, (e.clientY - r.top - b.y) / b.h))]; };
     L.edit(clip);
     const v0 = getV(); if (v0 && !v0.paused) v0.pause();
+    let penAt = 0, pid = null; // (3.50) Apple Pencil: the resting hand draws nothing, a second finger is ignored
     L.cv.onpointerdown = e => {
-      e.preventDefault(); const p = norm(e); down = p; L.cv.setPointerCapture(e.pointerId);
+      e.preventDefault(); if (e.pointerType === 'pen') penAt = Date.now(); else if (e.pointerType === 'touch' && Date.now() - penAt < 1500) return;
+      if (down && pid != null && e.pointerId !== pid) return; pid = e.pointerId;
+      const p = norm(e); down = p; L.cv.setPointerCapture(e.pointerId);
       if (st.tool === 'free') { pts = [p]; setDraft(); }
     };
     L.cv.onpointermove = e => {
-      if (!down) return; const p = norm(e);
+      if (!down || (pid != null && e.pointerId !== pid)) return; if (e.pointerType === 'pen') penAt = Date.now(); const p = norm(e);
       if (st.tool === 'free') { const q = pts[pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) > .004) { pts.push(p); setDraft(); } }
       else if (st.tool === 'vision' || st.tool === 'move') { pts = [down, p]; setDraft(); }
     };
     L.cv.onpointerup = e => {
-      if (!down) return; const p = norm(e), a = down; down = null;
+      if (!down || (pid != null && e.pointerId !== pid)) return; pid = null; const p = norm(e), a = down; down = null;
       const moved = Math.hypot(p[0] - a[0], p[1] - a[1]) > .02;
       if (st.tool === 'free') { if (pts.length > 1) commit({ tool: 'free', pts: pts.map(q => q.map(n => +n.toFixed(4))) }); else { pts = []; setDraft(); } return; }
       if (st.tool === 'vision' || st.tool === 'move') {
@@ -17072,7 +17082,7 @@ var Codes = (() => {
 
   /* ---------- printing (A4 sheets; on a phone, « Enregistrer en PDF ») ---------- */
   // (2.76) the installed app on iPhone cannot print (iOS gives it no print function): say it, and share the codes as text instead
-  const noPrint = () => document.documentElement.classList.contains('ios-app') || (/iP(hone|ad|od)/.test(navigator.userAgent || '') && navigator.standalone === true);
+  const noPrint = () => document.documentElement.classList.contains('ios-app') || ((/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) && navigator.standalone === true);
   function print(html, cls) {
     if (noPrint() && !window.__printTest) {
       const area = document.createElement('div'); area.innerHTML = html;
@@ -18245,6 +18255,11 @@ var Demo = (() => {
 var News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 208, date: '2026-10-17', title: 'L\'iPad est chez lui 📱', items: [
+      ['👆', "Sur iPad : boutons, puces, cases et champs plus grands pour le doigt, texte un peu plus gros, un appui se voit, et un appui long n'ouvre plus la bulle « Copier » sur les boutons."],
+      ['✏️', "Apple Pencil sur le tableau tactique et sur la vidéo : la main posée sur l'écran ne dessine plus rien, et un deuxième doigt ne vole plus le joueur que tu déplaces."],
+      ['🍏', "Les iPad récents (qui se présentent comme un Mac) sont enfin reconnus : la bonne aide pour installer l'appli et recevoir les notifications."],
+    ] },
     { n: 207, date: '2026-10-17', title: 'Capitaine, à toi l\'échauffement 🏃', items: [
       ['🏃', "Causerie : le rendez-vous et le coup d'envoi laissent la place à l'échauffement, en fin de causerie, mené par le capitaine (son nom en grand). Les étapes viennent de « Jour J » (celles cochées, sinon toutes) avec leurs minutes, et la voix les lit."],
     ] },
@@ -23790,7 +23805,7 @@ var App = (() => {
   })();
   /* Updates: version.json on the site says which build is online. When it is newer than this one,
      the app empties its offline copy and reloads (an iPhone can keep an old copy open for days). */
-  const BUILD = 250, UPD = AppCfg.key('update-tried');
+  const BUILD = 251, UPD = AppCfg.key('update-tried');
   async function onlineBuild() {
     const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     return (await r.json()).build || 0;
@@ -23855,7 +23870,7 @@ var App = (() => {
     const fcData = (location.hash.match(/^#\/recevoir-source\/((?:fc|ac)=.+)$/) || [])[1]; // (1.85) the Footclubs data in the address; (2.10) AssistCoachAI's too
     if (fromSite) history.replaceState(null, '', location.pathname + location.search + '#/');
     if (recv) history.replaceState(null, '', location.pathname + location.search + '#/entrainements');
-    const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
+    const iosTab = (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
     if (recv && iosTab && !Auth.current()) await Views.linkGate(recv);
     const who = (location.hash.match(/[#&]qui=([\w-]+)/) || [])[1];
     if (join) { Auth.setInvite(join, who); history.replaceState(null, '', location.pathname + location.search); }

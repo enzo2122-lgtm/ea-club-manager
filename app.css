@@ -2585,3 +2585,26 @@ html[data-theme="dark"] { --muted: #b3b9cf; }
 .pp-res { display: grid; place-items: center; width: clamp(56px, 9vw, 86px); height: clamp(56px, 9vw, 86px); border-radius: 16px; font: 800 clamp(24px, 4vw, 38px)/1 var(--round); background: #6b7280; }
 .pp-res small { font-size: .42em; font-weight: 700; opacity: .9; } .pp-res.V { background: #16a34a; } .pp-res.D { background: #dc2626; } .pp-res.N { background: #ca8a04; }
 .pp-prog { height: 3px; background: rgba(255,255,255,.12); } .pp-prog i { display: block; height: 100%; width: 0; background: var(--gold-soft, #e2c27d); transition: width 1s linear; }
+
+/* ---------- (3.50) iPad (touch screen of a tablet): made for the finger and the pencil ---------- */
+@media (pointer: coarse) and (min-width: 761px) {
+  body { font-size: 18px; }
+  .btn { min-height: 50px; padding: 0 18px; }
+  .icon-btn { width: 48px; height: 48px; }
+  .chip { min-height: 46px; padding: 0 17px; }
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select { min-height: 50px; font-size: 17px; }
+  input[type=checkbox], input[type=radio] { width: 24px; height: 24px; }
+  .linkish { padding: 10px 4px; }
+  .list-item { min-height: 60px; }
+  .sheet { width: min(720px, 100%); }
+  .sheet-head h2 { font-size: 24px; }
+  /* a press on a button shows it (no hover on a tablet) */
+  .btn:active, .chip:active, .icon-btn:active, .list-item:active { transform: scale(.97); filter: brightness(.96); }
+  /* buttons and menus are not text: a long press opens no « copy » bubble, selects nothing */
+  .btn, .chip, .icon-btn, .rail, .rail *, .tabbar, .tabbar *, .pp-bar, .ed-tools, .tb-tile, summary { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* the tiles of « Mode tablette » larger */
+  .tb-tile { min-height: 160px; }
+}
+/* iPad turned sideways in the installed app: nothing under the rounded corners and the camera */
+main#view { padding-right: max(28px, env(safe-area-inset-right)); }
+@media (max-width: 760px) { main#view { padding-right: max(16px, env(safe-area-inset-right)); } }

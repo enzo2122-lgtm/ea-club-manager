@@ -139,7 +139,7 @@ const Codes = (() => {
 
   /* ---------- printing (A4 sheets; on a phone, « Enregistrer en PDF ») ---------- */
   // (2.76) the installed app on iPhone cannot print (iOS gives it no print function): say it, and share the codes as text instead
-  const noPrint = () => document.documentElement.classList.contains('ios-app') || (/iP(hone|ad|od)/.test(navigator.userAgent || '') && navigator.standalone === true);
+  const noPrint = () => document.documentElement.classList.contains('ios-app') || ((/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) && navigator.standalone === true);
   function print(html, cls) {
     if (noPrint() && !window.__printTest) {
       const area = document.createElement('div'); area.innerHTML = html;
