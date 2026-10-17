@@ -3,3 +3,6 @@
 *Effectif*
 Sauvegarde-*
 *.txt
+
+# Outils installés par npm (tests, vérification) : sur l'ordinateur seulement
+node_modules/

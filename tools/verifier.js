@@ -31,7 +31,9 @@ for (const f of [...files.map(f => 'js/' + f), 'sw.js', 'build.js']) {
     if (!src[f]) { bad('bundle', `build.js cite js/${f} qui n'existe pas`); continue; }
     out.push(`/* ===== ${f} ===== */`, src[f].replace(/^const (\w+) = /gm, 'var $1 = '), ';');
   }
-  if (read('js/app.bundle.js') !== out.join('\n')) bad('bundle', 'js/app.bundle.js n\'est pas à jour : lance « node build.js »');
+  // (3.55) the bundle is the modules as they are, or made smaller by terser with their fingerprint on its first line
+  const plain = out.join('\n'), bun = read('js/app.bundle.js'), sha = require('crypto').createHash('sha1').update(plain).digest('hex').slice(0, 16);
+  if (bun !== plain && !bun.startsWith(`/* build:${sha} `)) bad('bundle', 'js/app.bundle.js n\'est pas à jour : lance « node build.js »');
   const pages = ['moi.html', 'aide.html', 'joueurs.html', 'parents.html', 'decouvrir.html'].filter(p => fs.existsSync(path.join(ROOT, p))).map(read).join('\n');
   files.filter(f => !order.includes(f) && f !== 'config.js' && !/^lang-/.test(f) && !pages.includes('js/' + f)).forEach(f => notes.push(`js/${f} n'est utilisé par aucune page ni par l'appli`));
 }

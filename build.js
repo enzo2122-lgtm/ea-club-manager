@@ -7,8 +7,17 @@ const out = ['/* Fichier généré par build.js : ne pas modifier ici, modifier 
 // Each module was its own script: a module asking « typeof Store » before Store was loaded got « undefined ».
 // In one file a « const » not reached yet would throw instead, so the modules are declared with « var » (same behaviour).
 for (const f of ORDER) out.push(`/* ===== ${f} ===== */`, fs.readFileSync(path.join(__dirname, 'js', f), 'utf8').replace(/\r\n/g, '\n').replace(/^const (\w+) = /gm, 'var $1 = '), ';');
-fs.writeFileSync(path.join(__dirname, 'js', 'app.bundle.js'), out.join('\n'));
-console.log(`js/app.bundle.js : ${ORDER.length} modules, ${Math.round(fs.statSync(path.join(__dirname, 'js', 'app.bundle.js')).size / 1024)} Ko`);
+// (3.55) the file is made smaller (terser: no comments, short local names), the first opening after an update about twice as fast.
+// Its first line carries the fingerprint of the modules, so tools/verifier.js knows it is up to date. Without terser: the plain file.
+const plain = out.join('\n'), sha = require('crypto').createHash('sha1').update(plain).digest('hex').slice(0, 16);
+let terser = null; try { terser = require(require.resolve('terser', { paths: [__dirname, path.join(__dirname, '..', 'ea-club-manager')] })); } catch (e) { console.log('(terser absent : « npm i » pour un fichier plus léger)'); }
+let code = plain;
+if (terser) {
+  const r = terser.minify_sync(plain, { ecma: 2020, compress: { passes: 1 }, mangle: true, format: { comments: false, preamble: `/* build:${sha} · généré par build.js depuis js/ (ne pas modifier ici) */` } });
+  if (!r.code) throw new Error('terser n\'a rien produit'); code = r.code;
+}
+fs.writeFileSync(path.join(__dirname, 'js', 'app.bundle.js'), code);
+console.log(`js/app.bundle.js : ${ORDER.length} modules, ${Math.round(code.length / 1024)} Ko${terser ? ' (allégé, ' + Math.round(plain.length / 1024) + ' Ko avant)' : ''}`);
 
 // (1.46) Clubbo only: one demo page per sport (demo/<sport>/), to install on a phone as its own app, with its own memory
 // and its demo club already open. Made from index.html each time, so it always has the same version.
