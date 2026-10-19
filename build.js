@@ -10,7 +10,7 @@ for (const f of ORDER) out.push(`/* ===== ${f} ===== */`, fs.readFileSync(path.j
 // (3.55) the file is made smaller (terser: no comments, short local names), the first opening after an update about twice as fast.
 // Its first line carries the fingerprint of the modules, so tools/verifier.js knows it is up to date. Without terser: the plain file.
 const plain = out.join('\n'), sha = require('crypto').createHash('sha1').update(plain).digest('hex').slice(0, 16);
-let terser = null; try { terser = require(require.resolve('terser', { paths: [__dirname, path.join(__dirname, '..', 'ea-club-manager')] })); } catch (e) { console.log('(terser absent : « npm i » pour un fichier plus léger)'); }
+let terser = null; try { terser = require(require.resolve('terser', { paths: [__dirname, path.join(__dirname, 'ea-club-manager'), path.join(__dirname, '..', 'ea-club-manager')] } /* Raincy: Clubbo is inside its folder (or beside it) */)); } catch (e) { console.log('(terser absent : « npm i » pour un fichier plus léger)'); }
 let code = plain;
 if (terser) {
   const r = terser.minify_sync(plain, { ecma: 2020, compress: { passes: 1 }, mangle: true, format: { comments: false, preamble: `/* build:${sha} · généré par build.js depuis js/ (ne pas modifier ici) */` } });
