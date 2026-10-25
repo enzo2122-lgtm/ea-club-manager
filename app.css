@@ -2634,3 +2634,6 @@ button.tb-tile { font: inherit; text-align: left; cursor: pointer; }
   html:not(.ink-color) body { color: #111 !important; }
   html:not(.ink-color) :is(.hero, .page-head, header.top, .pp-show) :is(*, h1, h2, p, span, b) { color: #111 !important; }
 }
+
+/* (3.57) the picture of the lineup in the Préparation is a button (it opens the « Compo » tab) */
+button.prep-lineup { display: block; padding: 0; border: 0; background: none; cursor: pointer; }

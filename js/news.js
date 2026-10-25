@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 215, date: '2026-10-25', title: 'La compo ne joue plus à cache-cache 🫣', items: [
+      ['👕', "Préparation → Plan de jeu : « Faire la compo » (ou un toucher sur le terrain) ouvre directement l'onglet « Compo » du match, là où tu places tes joueurs (Qui joue où ?)."],
+    ] },
     { n: 214, date: '2026-10-18', title: 'Les joueurs sont prêts avant le coup d\'envoi 🎒', items: [
       ['🎒', "Espace joueur, sur la carte du prochain match : ce qu'il faut dans le sac et la caisse de l'équipe (ceux choisis pour la convocation)."],
       ['🏃', "L'échauffement aussi : les étapes et leurs minutes (Jour J), avec le nom du capitaine qui le mène."],

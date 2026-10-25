@@ -149,7 +149,7 @@ const Prepa = (() => {
         save(true); return page(root, id, step);
       }
       if (b.dataset.newtr) return newSession(m, b.dataset.newtr, +b.dataset.j);
-      if (b.dataset.pa === 'lineup') { location.hash = '#/match/' + m.id; return; }
+      if (b.dataset.pa === 'lineup') { Views.matchTab(m.id, 'compo'); return; } // (3.57) straight to the « Compo » tab
       if (b.dataset.pa === 'halftimer') return halfTimer();
       if (b.dataset.mic) return dictate(root, b.dataset.mic);
       if (b.dataset.pa === 'resetwarm') { p.day = Object.assign(p.day || {}, { warm: {} }); save(true); return page(root, id, step); }
@@ -206,7 +206,7 @@ const Prepa = (() => {
     return `<section class="card"><h2>🧠 Système et composition</h2>
       <div class="row2"><label class="fld"><span>Notre système</span><select data-p="plan.system"><option value="">—</option>${systemsOf(m.teamId).map(s => `<option ${pl.system === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
         <label class="fld"><span>Capitaine</span><select data-p="plan.captain"><option value="">—</option>${conv.map(x => `<option value="${x.id}" ${pl.captain === x.id ? 'selected' : ''}>${esc(Store.fullName(x))}</option>`).join('')}</select></label></div>
-      ${lineup ? `<a class="prep-lineup" href="#/schema/${lineup.id}"><img alt="Composition" src="${UI.thumb(lineup)}"></a>` : `<p class="muted small">La composition se fait sur la page du match (convoqués puis « Faire la composition »).</p><button class="btn soft" data-pa="lineup">${I.formation}<span>Faire la composition</span></button>`}</section>
+      ${lineup ? `<button type="button" class="prep-lineup" data-pa="lineup" aria-label="Ouvrir la compo"><img alt="Composition" src="${UI.thumb(lineup)}"></button><p><button class="btn soft" data-pa="lineup">👕<span>Modifier la compo (qui joue où)</span></button></p>` : `<p class="muted small">La composition se fait sur la page du match, onglet « Compo » (qui joue où).</p><button class="btn soft" data-pa="lineup">${I.formation}<span>Faire la compo</span></button>`}</section>
       ${pl.imported ? `<section class="card"><h2>📋 Plan de jeu (AssistCoachAI)</h2><p class="pre">${esc(pl.imported)}</p></section>` : ''}
       <section class="card"><h2>Les 4 moments du match</h2><p class="muted small">1 à 3 consignes par moment, des phrases courtes avec un verbe d'action.</p>
       ${MOM().map(([k, l, sug]) => `<div class="prep-moment"><label class="fld"><span>${l}</span>${area('plan.' + k, pl[k], 'Une consigne par ligne', 2)}</label>${chipsAdd('plan.' + k, sug)}</div>`).join('')}</section>

@@ -2025,5 +2025,7 @@ const Views = (() => {
       react: (c, id, e) => Cloud.chatReact(tk, id, e), mute: on => Cloud.chatMute(on),
       photo: (c, img, b) => Cloud.chatPhoto(tk, img, b), img: (c, id) => Cloud.chatImg(tk, id), att: { begin: (c, n, mi, sz, pa) => Cloud.attBegin('team:' + tk, n, mi, sz, pa), put: Cloud.attPut, get: Cloud.attGet }, pin: (c, id) => Cloud.chatPin(tk, id), photosOk: on => Cloud.chatPhotos(tk, on) });
   }
-  return { receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat, copyTraining, lastConv };
+  // (3.57) another page opens a match on one of its tabs (the Préparation → « Faire la compo » opens « Compo »)
+  const matchTab = (id, tab) => { matchTabs[id] = tab; location.hash = '#/match/' + id; };
+  return { matchTab, receiveLink, linkGate, home, teams, team, schemas, trainings, training, matches, match, stats, settings, newSchema, newMatch, newTraining, sendConvocation, makeLineup, game, chat, copyTraining, lastConv };
 })();
