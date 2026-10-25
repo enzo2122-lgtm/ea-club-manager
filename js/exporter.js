@@ -367,7 +367,15 @@ const Exporter = (() => {
     const players = team ? Store.rosterOf(team.id).filter(p => (m.convoked || []).includes(p.id)) : [];
     const staff = (m.staffIds || []).map(id => Store.get('staff', id)).filter(Boolean);
     if (staff.length) { P.label('Encadrants'); P.table(['Nom', 'Rôle', 'Téléphone'], staff.map(s => [Store.fullName(s), s.role || '', People.staffPhone(s) || '']), [.45, .3, .25]); }
-    if (players.length) {
+    // (3.58) with a lineup: the starters (their post on the lineup) then the substitutes, else all the convoked players
+    const lu = m.lineupId && Store.get('schemas', m.lineupId), sq = lu && typeof Prepa !== 'undefined' && Prepa.squad ? Prepa.squad(m, lu) : null;
+    const prow = (p, post) => { const st = (m.stats || {})[p.id] || {}; return [String(Store.numOf(p, m) || ''), Store.fullName(p) + (m.captain === p.id ? ' (C)' : m.captain2 === p.id ? ' (VC)' : ''), post || People.postsLabel(p, true) || '', st.g ? String(st.g) : '', st.a ? String(st.a) : '']; };
+    if (sq && sq.starters.length) {
+      P.label(`Titulaires (${sq.starters.length})`);
+      P.table(['N°', 'Joueur', 'Poste', 'Buts', 'Passes'], sq.starters.map(p => prow(p, sq.post(p))), [.1, .44, .24, .11, .11]);
+      P.label(`Remplaçants (${sq.bench.length})`);
+      if (sq.bench.length) P.table(['N°', 'Joueur', 'Poste', 'Buts', 'Passes'], sq.bench.map(p => prow(p)), [.1, .44, .24, .11, .11]); else P.para('Aucun remplaçant.');
+    } else if (players.length) {
       P.label(`Convoqués (${players.length})`);
       P.table(['N°', 'Joueur', 'Poste', 'Buts', 'Passes'], players.sort((a, b) => (+Store.numOf(a, m) || 0) - (+Store.numOf(b, m) || 0)).map(p => {
         const st = (m.stats || {})[p.id] || {}; return [String(Store.numOf(p, m) || ''), Store.fullName(p) + (m.captain === p.id ? ' (C)' : m.captain2 === p.id ? ' (VC)' : ''), People.postsLabel(p, true) || '', st.g ? String(st.g) : '', st.a ? String(st.a) : ''];

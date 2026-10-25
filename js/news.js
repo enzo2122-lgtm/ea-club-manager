@@ -5,6 +5,9 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 216, date: '2026-10-25', title: 'Le banc a enfin son nom sur la feuille 🪑', items: [
+      ['🪑', "Feuille de match en PDF : avec une compo, les titulaires (avec leur poste sur la compo) puis les remplaçants, chacun dans son tableau. Sans compo, la liste des convoqués comme avant."],
+    ] },
     { n: 215, date: '2026-10-25', title: 'La compo ne joue plus à cache-cache 🫣', items: [
       ['👕', "Préparation → Plan de jeu : « Faire la compo » (ou un toucher sur le terrain) ouvre directement l'onglet « Compo » du match, là où tu places tes joueurs (Qui joue où ?)."],
     ] },

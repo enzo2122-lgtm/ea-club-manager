@@ -602,5 +602,5 @@ const Prepa = (() => {
     if (b.dataset.prepShow) show(m); else if (b.dataset.prepFmi) fmi(m); else printDialog(m);
   });
   const fmiIssues = m => { try { return fmiData(m).issues; } catch (e) { return []; } }; // (3.34) for « Ma semaine »
-  return { page: route, card, show, summary, done, score, pdf, fmi, fmiText, fmiIssues };
+  return { page: route, card, show, summary, done, score, pdf, fmi, fmiText, fmiIssues, squad };
 })();
