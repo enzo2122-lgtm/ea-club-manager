@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 218, date: '2026-10-25', title: 'La FFF confirme 🤝', items: [
+      ['🐛', "Espace propriétaire : « Préparer » affichait « redraw is not defined » (le code était pourtant créé). Le message à envoyer s'ouvre maintenant normalement."],
+      ['✅', "Préparer un club : dès que tu colles l'adresse FFF (ou le numéro), Clubbo vérifie auprès de la FFF et affiche le nom officiel du club et son nombre d'équipes. Plus d'erreur de club possible."],
+    ] },
     { n: 217, date: '2026-10-25', title: 'Un club clé en main 🔑', items: [
       ['🏟️', "Espace propriétaire : « Préparer un club ». Son nom, sa page FFF et la formule offerte : le lien de création arrive tout rempli, et le club naît avec les résultats FFF déjà branchés."],
       ['💬', "Le message à envoyer est prêt (WhatsApp ou copier) : découvrir l'appli, créer l'espace, l'installer sur le téléphone, et le favori Footclubs sur l'ordinateur."],

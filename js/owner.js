@@ -90,14 +90,30 @@ const Owner = (() => {
   /* ---------- (3.59) « Préparer un club »: the club ready before the code is given — its name, its FFF page (automatic results,
      calendar, standings from the first opening) and the plan offered; then the message to send, with the link already filled
      and the way to put the Footclubs bookmark on the computer ---------- */
-  function prepare() {
+  // (3.60) the club's FFF number checked at once with the FFF's public API (open to web apps): its real name and its teams
+  async function fffCheck(n) {
+    const get = async u => { const r = await fetch('https://api-dofa.fff.fr' + u, { headers: { accept: 'application/ld+json' } }); if (!r.ok) return null; const j = await r.json(); return Array.isArray(j) ? j : (j['hydra:member'] || j); };
+    let c = ((await get('/api/clubs?cl_cod=' + encodeURIComponent(n))) || []).find(y => String(y.affiliation_number) === String(n));
+    if (!c) { const x = await get('/api/clubs/' + encodeURIComponent(n)); if (x && x.cl_no) c = x; }
+    if (!c) return null;
+    const eq = (await get('/api/clubs/' + c.cl_no + '/equipes')) || [];
+    return { name: c.name, aff: String(c.affiliation_number || n), teams: Array.isArray(eq) ? eq.length : 0 };
+  }
+  function prepare(redraw) {
     modal({ title: '🏟️ Préparer un club', noFocus: true, body: `<p class="muted small">Le club reçoit un lien où tout est déjà rempli : il n'a plus qu'à écrire son nom et son mot de passe de responsable. Il arrive avec la FFF branchée.</p>
       <label class="fld"><span>Nom du club</span><input id="opName" placeholder="ex : JS Paris 10" maxlength="80"></label>
       <label class="fld"><span>Sa page sur epreuves.fff.fr (ou son numéro de club)</span><input id="opFff" placeholder="https://epreuves.fff.fr/competition/club/552176" inputmode="url"></label>
-      <p class="muted small">Pour la trouver : <a href="https://epreuves.fff.fr/" target="_blank" rel="noopener">epreuves.fff.fr</a> → cherche le club → copie l'adresse de sa page (elle finit par /club/ et un numéro). Facultatif : le club pourra la mettre lui-même.</p>
+      <p id="opFound" class="small" aria-live="polite"></p>
+      <p class="muted small"><a class="btn soft small" href="https://epreuves.fff.fr/" target="_blank" rel="noopener">🔍 Chercher le club sur le site de la FFF</a> Choisis la région, tape le nom, ouvre la fiche du club et copie son adresse. Clubbo vérifie aussitôt le numéro et affiche le nom officiel du club. Facultatif : le club pourra la mettre lui-même.</p>
       <label class="check"><input type="checkbox" id="opPlan" checked> <span>⭐ Formule Club offerte (toutes les équipes, sans limite)</span></label>`,
+      onOpen: r => { let tm = null, seq = 0; const out = $('#opFound', r);
+        $('#opFff', r).oninput = e => { clearTimeout(tm); const v = e.target.value.trim(), n = (/club\/(\d+)/.exec(v) || /^(\d{4,})$/.exec(v) || [])[1]; out.textContent = ''; if (!n) return;
+          tm = setTimeout(async () => { const my = ++seq; out.textContent = '… vérification à la FFF'; let x = null; try { x = await fffCheck(n); } catch (er) { x = undefined; } if (my !== seq) return;
+            out.innerHTML = x ? `✅ <b>${esc(x.name)}</b> · n° ${esc(x.aff)} · ${x.teams} équipe${x.teams > 1 ? 's' : ''}` : x === undefined ? '⚠️ La FFF ne répond pas : le numéro sera vérifié plus tard' : '❌ Aucun club à la FFF avec ce numéro : vérifie l\'adresse';
+            if (x && x.aff !== n) e.target.dataset.aff = x.aff; else delete e.target.dataset.aff;
+            if (x && !$('#opName', r).value.trim()) $('#opName', r).value = x.name.replace(/\b(\w)(\w*)/g, (m0, a, b2) => a + b2.toLowerCase()); }, 500); }; },
       actions: [{ label: 'Annuler' }, { label: 'Préparer', kind: 'primary', onClick: (c, r) => {
-        const name = $('#opName', r).value.trim(), raw = $('#opFff', r).value.trim(), fff = (/club\/(\d+)/.exec(raw) || /^(\d{4,})$/.exec(raw) || [])[1] || '';
+        const name = $('#opName', r).value.trim(), raw = $('#opFff', r).value.trim(), fff = $('#opFff', r).dataset.aff || (/club\/(\d+)/.exec(raw) || /^(\d{4,})$/.exec(raw) || [])[1] || '';
         if (name.length < 2) { toast('Écris le nom du club', 'err'); return false; }
         if (raw && !fff) { toast('Colle l\'adresse de la page du club sur epreuves.fff.fr (elle finit par /club/ et un numéro), ou laisse vide', 'err'); return false; }
         Cloud.ownerPrepare(key(), name, fff, $('#opPlan', r).checked ? 'club' : 'free').then(x => { redraw(); setTimeout(() => prepMessage(x.code, name, fff), 300); })
@@ -155,7 +171,7 @@ const Owner = (() => {
         return;
       }
       if (b.dataset.ow === 'out') { setKey(''); return redraw(); }
-      if (b.dataset.ow === 'prep') return prepare();
+      if (b.dataset.ow === 'prep') return prepare(redraw);
       if (b.dataset.ow === 'new') {
         return modal({ title: 'Nouveaux codes d\'activation', body: `<label class="fld"><span>Combien ?</span><input id="owN" type="number" min="1" max="50" value="1"></label><label class="fld"><span>Pour qui (note, facultatif)</span><input id="owNote" placeholder="ex : FC Exemple, contact M. Dupont"></label>`,
           actions: [{ label: 'Annuler' }, { label: 'Créer', kind: 'primary', onClick: (c, r) => { const n = +$('#owN', r).value || 1, note = $('#owNote', r).value.trim(); Cloud.ownerCodes(key(), n, note).then(() => { toast(`${n} code${n > 1 ? 's' : ''} créé${n > 1 ? 's' : ''}`); redraw(); }).catch(x => toast(x.message, 'err')); } }] });
