@@ -75,7 +75,7 @@ const Cloud = (() => {
   const NO_K = { club_login: 1, club_me: 1, club_teams_done: 1, club_change_pw: 1, club_logout: 1, ea_create_club: 1,
     ea_owner_init: 1, ea_owner_codes: 1, ea_owner_clubs: 1, ea_owner_club_set: 1, ea_owner_push: 1,
     // (1.34) the owner's space: no club login sent (the server refused these four calls)
-    ea_owner_sub: 1, ea_owner_votes: 1, ea_owner_club_plan: 1, ea_owner_requests: 1 };
+    ea_owner_sub: 1, ea_owner_votes: 1, ea_owner_club_plan: 1, ea_owner_requests: 1, ea_owner_prepare: 1, ea_activation_info: 1 };
   function genKey(n = 24) {
     const a = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', r = crypto.getRandomValues(new Uint8Array(n));
     return Array.from(r, x => a[x % a.length]).join('');
@@ -176,6 +176,9 @@ const Cloud = (() => {
     ownerSub: (key, endpoint, on) => rpc('ea_owner_sub', { p_key: key, p_endpoint: endpoint || null, p_on: on == null ? null : !!on }),
     ownerVotes: key => rpc('ea_owner_votes', { p_key: key }),
     ownerClubPlan: (key, club, plan) => rpc('ea_owner_club_plan', { p_key: key, p_club: club, p_plan: plan }),
+    // (3.59) a club prepared by the owner: its name, its FFF number and its plan carried by the code; what a code prepares
+    ownerPrepare: (key, name, fff, plan) => rpc('ea_owner_prepare', { p_key: key, p_name: name, p_fff: fff || null, p_plan: plan || 'club' }),
+    activationInfo: code => rpc('ea_activation_info', { p_code: code }),
     ownerRequests: (key, id, status, code) => rpc('ea_owner_requests', { p_key: key, p_id: id || null, p_status: status || null, p_code: code || null }),
     ownerClubSet: (key, club, status) => rpc('ea_owner_club_set', { p_key: key, p_club: club, p_status: status }),
     ownerPush: (key, url) => rpc('ea_owner_push', { p_key: key, p_url: url }),

@@ -387,6 +387,7 @@ const Auth = (() => {
   }
   // A new club: the activation code given by Clubbo, the name of the club, its code, and its first responsable
   const slugOf = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+  let preCode = ''; // (3.59) the code of the link « #creer=EA-… »
   function createClubScreen() {
     const n = lastNames();
     const el = frame(`<p class="lead"><b>Créer mon club</b> sur Clubbo</p>
@@ -402,6 +403,10 @@ const Auth = (() => {
     $('#cname', el).oninput = () => { if (!slugTouched) $('#cslug', el).value = slugOf($('#cname', el).value); };
     $('#cslug', el).oninput = () => { slugTouched = true; };
     $('#back', el).onclick = () => loginScreen();
+    // (3.59) a club prepared by Clubbo: « #creer=EA-XXXX-XXXX » fills the code, and the name of the club and its FFF number
+    let preset = null;
+    const pre = preCode || (location.hash.match(/^#creer=([\w-]+)$/) || [])[1];
+    if (pre) { $('#act', el).value = pre.toUpperCase(); Cloud.activationInfo(pre).then(x => { if (!x) return; preset = x; if (x.name && !$('#cname', el).value) { $('#cname', el).value = x.name; if (!slugTouched) $('#cslug', el).value = slugOf(x.name); } }).catch(() => {}); }
     $('#go', el).onclick = async () => {
       const code = $('#act', el).value.trim(), name = $('#cname', el).value.trim(), slug = slugOf($('#cslug', el).value || name);
       const ln = $('#ln', el).value.trim(), fn = $('#fn', el).value.trim();
@@ -415,6 +420,7 @@ const Auth = (() => {
         const r = await withBusy('Création du club…', async () => Cloud.createClub(code, name, slug, regPayload(s, await proof(lastKeyOf(s), pw), true)));
         // a brand-new app on this device: the club starts empty
         Store.reset(); Store.state.club.name = name;
+        if (preset && preset.fff) { Store.state.club.fffClub = preset.fff; Store.state.club.fffUrl = 'https://epreuves.fff.fr/competition/club/' + preset.fff; } // the FFF already linked
         Store.upsert('staff', s); Store.save();
         await withBusy('Ouverture du club…', () => afterServerLogin(r, pw, keep, s.lastName, s.firstName));
         setTimeout(() => { if (typeof Onboard !== 'undefined') Onboard.start(); }, 400);
@@ -471,7 +477,8 @@ const Auth = (() => {
         if (restore()) { res(); return; }
       }
       resolveGate = res;
-      const want = AppCfg.fixed ? '' : AppCfg.demo ? 'demo' : (location.hash.match(/^#(demo|creer)$/) || [])[1];
+      const want = AppCfg.fixed ? '' : AppCfg.demo ? 'demo' : (location.hash.match(/^#(demo|creer)(?:=[\w-]*)?$/) || [])[1];
+      preCode = (location.hash.match(/^#creer=([\w-]+)$/) || [])[1] || preCode; // (3.59) kept: the address is cleaned before the screen opens
       if (want) history.replaceState(null, '', location.pathname + location.search);
       if (s && s.token && Store.get('staff', s.staff_id) && needsTeams(s.staff_id)) teamsScreen(s.staff_id, !s.temp);
       else if (opts.joined) pickScreen(); else if (want === 'creer') createClubScreen(); else loginScreen();

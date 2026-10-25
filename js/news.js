@@ -5,6 +5,10 @@
 const News = (() => {
   const { esc, modal } = UI;
   const LIST = [
+    { n: 217, date: '2026-10-25', title: 'Un club clé en main 🔑', items: [
+      ['🏟️', "Espace propriétaire : « Préparer un club ». Son nom, sa page FFF et la formule offerte : le lien de création arrive tout rempli, et le club naît avec les résultats FFF déjà branchés."],
+      ['💬', "Le message à envoyer est prêt (WhatsApp ou copier) : découvrir l'appli, créer l'espace, l'installer sur le téléphone, et le favori Footclubs sur l'ordinateur."],
+    ] },
     { n: 216, date: '2026-10-25', title: 'Le banc a enfin son nom sur la feuille 🪑', items: [
       ['🪑', "Feuille de match en PDF : avec une compo, les titulaires (avec leur poste sur la compo) puis les remplaçants, chacun dans son tableau. Sans compo, la liste des convoqués comme avant."],
     ] },

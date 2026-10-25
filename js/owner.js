@@ -31,7 +31,7 @@ const Owner = (() => {
         <div class="tile"><b>${tot('players')}</b><span>Joueurs</span></div><div class="tile"><b>${tot('accounts')}</b><span>Comptes</span></div><div class="tile"><b>${free.length}</b><span>Codes libres</span></div>
         <div class="tile"><b>${clubs.filter(c => c.plan === 'club').length}</b><span>Formule Club</span></div><div class="tile"><b>${clubs.filter(c => +c.week > 0).length}</b><span>Actifs cette semaine</span></div><div class="tile"><b>${tot('families')}</b><span>Familles prévenues</span></div></div>
       ${requestsCard()}
-      <section class="card"><div class="row-head"><h2>🎟️ Codes d'activation</h2><button class="btn primary" data-ow="new">${I.plus}<span>Nouveaux codes</span></button></div>
+      <section class="card"><div class="row-head"><h2>🎟️ Codes d'activation</h2><span class="chips"><button class="btn primary" data-ow="prep">🏟️<span>Préparer un club</span></button><button class="btn" data-ow="new">${I.plus}<span>Nouveaux codes</span></button></span></div>
         <p class="muted small">Remets un code à chaque club que tu inscris : il crée son espace avec « Créer mon club ». Un code ne sert qu'une fois.</p>
         <div class="ow-codes">${codes.map(c => `<div class="ow-code ${c.used ? 'used' : ''}"><code>${esc(c.code)}</code><span class="muted small">${c.used ? `utilisé par <b>${esc(c.club || '?')}</b> le ${fmt(c.used)}` : `libre${c.note ? ' · ' + esc(c.note) : ''}`}</span>${c.used ? '' : `<button class="btn soft small" data-owcopy="${esc(c.code)}">${I.copy}<span>Copier</span></button>`}</div>`).join('') || '<p class="muted">Aucun code pour l\'instant.</p>'}</div></section>
       <section class="card"><h2>🏟️ Les clubs</h2>
@@ -87,6 +87,39 @@ const Owner = (() => {
       await Cloud.ownerSub(key(), sub.endpoint, true); toast('C\'est fait : ce téléphone sera prévenu 🔔'); mountAlert(root);
     } catch (e) { toast(e.message || 'Notifications impossibles sur ce téléphone', 'err'); }
   }
+  /* ---------- (3.59) « Préparer un club »: the club ready before the code is given — its name, its FFF page (automatic results,
+     calendar, standings from the first opening) and the plan offered; then the message to send, with the link already filled
+     and the way to put the Footclubs bookmark on the computer ---------- */
+  function prepare() {
+    modal({ title: '🏟️ Préparer un club', noFocus: true, body: `<p class="muted small">Le club reçoit un lien où tout est déjà rempli : il n'a plus qu'à écrire son nom et son mot de passe de responsable. Il arrive avec la FFF branchée.</p>
+      <label class="fld"><span>Nom du club</span><input id="opName" placeholder="ex : JS Paris 10" maxlength="80"></label>
+      <label class="fld"><span>Sa page sur epreuves.fff.fr (ou son numéro de club)</span><input id="opFff" placeholder="https://epreuves.fff.fr/competition/club/552176" inputmode="url"></label>
+      <p class="muted small">Pour la trouver : <a href="https://epreuves.fff.fr/" target="_blank" rel="noopener">epreuves.fff.fr</a> → cherche le club → copie l'adresse de sa page (elle finit par /club/ et un numéro). Facultatif : le club pourra la mettre lui-même.</p>
+      <label class="check"><input type="checkbox" id="opPlan" checked> <span>⭐ Formule Club offerte (toutes les équipes, sans limite)</span></label>`,
+      actions: [{ label: 'Annuler' }, { label: 'Préparer', kind: 'primary', onClick: (c, r) => {
+        const name = $('#opName', r).value.trim(), raw = $('#opFff', r).value.trim(), fff = (/club\/(\d+)/.exec(raw) || /^(\d{4,})$/.exec(raw) || [])[1] || '';
+        if (name.length < 2) { toast('Écris le nom du club', 'err'); return false; }
+        if (raw && !fff) { toast('Colle l\'adresse de la page du club sur epreuves.fff.fr (elle finit par /club/ et un numéro), ou laisse vide', 'err'); return false; }
+        Cloud.ownerPrepare(key(), name, fff, $('#opPlan', r).checked ? 'club' : 'free').then(x => { redraw(); setTimeout(() => prepMessage(x.code, name, fff), 300); })
+          .catch(x => toast(x.code === 'PROPRIETAIRE' ? 'Clé du propriétaire refusée' : /function|not find|does not exist/i.test(x.message || '') ? 'Le serveur n\'est pas encore à jour : colle supabase/clubs-prepares.sql dans Supabase' : x.message, 'err'));
+      } }] });
+  }
+  function prepMessage(code, name, fff) {
+    // always the address of Clubbo (the owner may be in the app of one club)
+    const base = AppCfg.fixed ? 'https://enzo2122-lgtm.github.io/ea-club-manager/' : Cloud.appUrl(), link = `${base}#creer=${code}`, disc = base + 'decouvrir.html';
+    const text = [`Salut 👋`, '', `Je t'ai préparé Clubbo pour ${name} : équipes, séances, matchs, convocations, compos, causeries, stats, et un espace pour les joueurs et les parents. C'est offert.`, '',
+      `1️⃣ Découvre l'appli (2 minutes) : ${disc}`, '',
+      `2️⃣ Crée ton espace (tout est déjà rempli, il reste ton nom et ton mot de passe) : ${link}`, '',
+      `3️⃣ Sur ton téléphone : ouvre le lien dans Safari (iPhone) ou Chrome (Android), puis Partager (ou ⋮) → « Sur l'écran d'accueil ».`, '',
+      ...(fff ? [`⚽ La FFF est déjà branchée : les scores, le calendrier et les classements de tes équipes arrivent tout seuls.`, ''] : []),
+      `💻 Sur ton ordinateur, une seule fois, pour les licenciés de Footclubs : ouvre ${base}#/reglages, connecte-toi, puis dans « Mise à jour depuis Footclubs » fais glisser le bouton « Footclubs → Clubbo » dans la barre des favoris. Ensuite : connecte-toi à Footclubs et touche ce favori, tes joueurs arrivent dans l'appli.`, '',
+      `Ensuite : crée tes équipes, invite tes éducateurs (Réglages → Comptes des dirigeants) et donne leurs codes aux joueurs et aux parents (page Codes).`, '',
+      `Si tu bloques, appelle-moi 😉`].join('\n');
+    modal({ title: `✅ ${name} est prêt`, noFocus: true, body: `<p class="small">Code : <code>${esc(code)}</code> · lien de création : <a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></p>
+      <p class="muted small">Le message à envoyer au responsable du club (modifie-le si tu veux) :</p><textarea id="opMsg" rows="14" style="width:100%">${esc(text)}</textarea>`,
+      actions: [{ label: 'Fermer' }, { label: 'WhatsApp', onClick: (c, x) => { window.open('https://wa.me/?text=' + encodeURIComponent($('#opMsg', x).value), '_blank', 'noopener'); return false; } },
+        { label: 'Copier', kind: 'primary', onClick: (c, x) => { navigator.clipboard.writeText($('#opMsg', x).value).then(() => toast('Message copié')).catch(() => toast('Copie impossible : sélectionne le texte', 'err')); return false; } }] });
+  }
   // the code and the way to use it, ready to send by e-mail or WhatsApp
   function sendCode(r, code) {
     const first = String(r.name || '').trim().split(/\s+/)[0] || '';
@@ -122,6 +155,7 @@ const Owner = (() => {
         return;
       }
       if (b.dataset.ow === 'out') { setKey(''); return redraw(); }
+      if (b.dataset.ow === 'prep') return prepare();
       if (b.dataset.ow === 'new') {
         return modal({ title: 'Nouveaux codes d\'activation', body: `<label class="fld"><span>Combien ?</span><input id="owN" type="number" min="1" max="50" value="1"></label><label class="fld"><span>Pour qui (note, facultatif)</span><input id="owNote" placeholder="ex : FC Exemple, contact M. Dupont"></label>`,
           actions: [{ label: 'Annuler' }, { label: 'Créer', kind: 'primary', onClick: (c, r) => { const n = +$('#owN', r).value || 1, note = $('#owNote', r).value.trim(); Cloud.ownerCodes(key(), n, note).then(() => { toast(`${n} code${n > 1 ? 's' : ''} créé${n > 1 ? 's' : ''}`); redraw(); }).catch(x => toast(x.message, 'err')); } }] });
